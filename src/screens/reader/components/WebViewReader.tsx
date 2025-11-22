@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef } from 'react';
-import { NativeEventEmitter, NativeModules, StatusBar, AppState, Alert } from 'react-native';
+import { NativeEventEmitter, NativeModules, StatusBar, AppState } from 'react-native';
 import WebView from 'react-native-webview';
 import color from 'color';
 
@@ -20,6 +20,8 @@ import { getBatteryLevelSync } from 'react-native-device-info';
 import TTSHighlight from '@services/TTSHighlight';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import { useChapterContext } from '../ChapterContext';
+import TTSResumeDialog from './TTSResumeDialog';
+import { useBoolean } from '@hooks';
 
 
 type WebViewPostEvent = {
@@ -105,47 +107,38 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     `);
   };
 
-  const handleTTSConfirmation = (savedIndex: number) => {
-    console.log('WebViewReader: Handling TTS confirmation. Setting:', chapterGeneralSettings.ttsAutoResume);
+  const {
+    value: resumeDialogVisible,
+    setTrue: showResumeDialog,
+    setFalse: hideResumeDialog,
+  } = useBoolean();
+  const pendingResumeIndexRef = useRef<number>(-1);
 
-    Alert.alert(
-      'Resume TTS',
-      'Do you want to resume reading from where you left off?',
-      [
-        {
-          text: 'No',
-          style: 'cancel',
-          onPress: () => {
-            // User said No, so we tell TTS to mark as "resumed" (skipped) and start normally
-            webViewRef.current?.injectJavaScript(`
-              window.tts.hasAutoResumed = true;
-              window.tts.start();
-            `);
-          },
-        },
-        {
-          text: 'Yes',
-          onPress: () => {
-            // User said Yes, so we tell TTS to resume from the saved index
-            // We prefer savedIndex (from chapter progress) over ttsState.paragraphIndex
-            // because chapter progress is saved more frequently and reliably.
-            // CRITICAL FIX: Read directly from MMKV to get the latest value, as the prop might be stale.
-            const latestSavedIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? savedIndex;
-            const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
-            console.log('WebViewReader: Resuming TTS. latestSavedIndex:', latestSavedIndex, 'ttsState:', ttsState);
+  const handleResumeConfirm = () => {
+    const savedIndex = pendingResumeIndexRef.current;
+    // User said Yes, so we tell TTS to resume from the saved index
+    // We prefer savedIndex (from chapter progress) over ttsState.paragraphIndex
+    // because chapter progress is saved more frequently and reliably.
+    // CRITICAL FIX: Read directly from MMKV to get the latest value, as the prop might be stale.
+    const latestSavedIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? savedIndex;
+    const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
+    console.log('WebViewReader: Resuming TTS. latestSavedIndex:', latestSavedIndex, 'ttsState:', ttsState);
 
-            resumeTTS({
-              ...ttsState,
-              paragraphIndex: latestSavedIndex,
-              autoStart: true,
-              shouldResume: true
-            });
-          },
-        },
-      ],
-    );
+    resumeTTS({
+      ...ttsState,
+      paragraphIndex: latestSavedIndex,
+      autoStart: true,
+      shouldResume: true
+    });
   };
 
+  const handleResumeCancel = () => {
+    // User said No, so we tell TTS to mark as "resumed" (skipped) and start normally
+    webViewRef.current?.injectJavaScript(`
+      window.tts.hasAutoResumed = true;
+      window.tts.start();
+    `);
+  };
 
 
 
@@ -234,20 +227,21 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     };
   }, [webViewRef]);
   return (
-    <WebView
-      ref={webViewRef}
-      style={{ backgroundColor: readerSettings.theme }}
-      allowFileAccess={true}
-      originWhitelist={['*']}
-      scalesPageToFit={true}
-      showsVerticalScrollIndicator={false}
-      javaScriptEnabled={true}
-      webviewDebuggingEnabled={__DEV__}
-      onLoadEnd={() => {
-        if (autoStartTTSRef.current) {
-          autoStartTTSRef.current = false;
-          setTimeout(() => {
-            webViewRef.current?.injectJavaScript(`
+    <>
+      <WebView
+        ref={webViewRef}
+        style={{ backgroundColor: readerSettings.theme }}
+        allowFileAccess={true}
+        originWhitelist={['*']}
+        scalesPageToFit={true}
+        showsVerticalScrollIndicator={false}
+        javaScriptEnabled={true}
+        webviewDebuggingEnabled={__DEV__}
+        onLoadEnd={() => {
+          if (autoStartTTSRef.current) {
+            autoStartTTSRef.current = false;
+            setTimeout(() => {
+              webViewRef.current?.injectJavaScript(`
               (function() {
                 if (window.tts && reader.generalSettings.val.TTSEnable) {
                   setTimeout(() => {
@@ -260,69 +254,71 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 }
               })();
             `);
-          }, 300);
-        }
-      }}
-      onMessage={(ev: { nativeEvent: { data: string } }) => {
-        __DEV__ && onLogMessage(ev);
-        const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
-        switch (event.type) {
-          case 'hide':
-            onPress();
-            break;
-          case 'next':
-            nextChapterScreenVisible.current = true;
-            if (event.autoStartTTS) {
-              autoStartTTSRef.current = true;
-            }
-            navigateChapter('NEXT');
-            break;
-          case 'prev':
-            navigateChapter('PREV');
-            break;
-          case 'save':
-            if (event.data && typeof event.data === 'number') {
-              console.log('WebViewReader: Received save event. Progress:', event.data, 'Paragraph:', event.paragraphIndex);
-              saveProgress(event.data, event.paragraphIndex as number | undefined);
-            }
-            break;
-          case 'speak':
-            if (event.data && typeof event.data === 'string') {
-              if (!isTTSReadingRef.current) {
-                isTTSReadingRef.current = true;
+            }, 300);
+          }
+        }}
+        onMessage={(ev: { nativeEvent: { data: string } }) => {
+          __DEV__ && onLogMessage(ev);
+          const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
+          switch (event.type) {
+            case 'hide':
+              onPress();
+              break;
+            case 'next':
+              nextChapterScreenVisible.current = true;
+              if (event.autoStartTTS) {
+                autoStartTTSRef.current = true;
               }
-              TTSHighlight.speak(event.data, {
-                voice: readerSettings.tts?.voice?.identifier,
-                pitch: readerSettings.tts?.pitch || 1,
-                rate: readerSettings.tts?.rate || 1,
-              });
-            } else {
-              webViewRef.current?.injectJavaScript('tts.next?.()');
-            }
-            break;
-          case 'stop-speak':
-            TTSHighlight.stop();
-            isTTSReadingRef.current = false;
-            isTTSReadingRef.current = false;
-            break;
-          case 'tts-state':
-            if (event.data && typeof event.data === 'object') {
-              ttsStateRef.current = event.data;
-            }
-            break;
-          case 'request-tts-confirmation':
-            if (event.data?.savedIndex !== undefined) {
-              handleTTSConfirmation(Number(event.data.savedIndex));
-            }
-            break;
-        }
-      }}
-      source={{
-        baseUrl: !chapter.isDownloaded ? plugin?.site : undefined,
-        headers: plugin?.imageRequestInit?.headers,
-        method: plugin?.imageRequestInit?.method,
-        body: plugin?.imageRequestInit?.body,
-        html: ` 
+              navigateChapter('NEXT');
+              break;
+            case 'prev':
+              navigateChapter('PREV');
+              break;
+            case 'save':
+              if (event.data && typeof event.data === 'number') {
+                console.log('WebViewReader: Received save event. Progress:', event.data, 'Paragraph:', event.paragraphIndex);
+                saveProgress(event.data, event.paragraphIndex as number | undefined);
+              }
+              break;
+            case 'speak':
+              if (event.data && typeof event.data === 'string') {
+                if (!isTTSReadingRef.current) {
+                  isTTSReadingRef.current = true;
+                }
+                TTSHighlight.speak(event.data, {
+                  voice: readerSettings.tts?.voice?.identifier,
+                  pitch: readerSettings.tts?.pitch || 1,
+                  rate: readerSettings.tts?.rate || 1,
+                });
+              } else {
+                webViewRef.current?.injectJavaScript('tts.next?.()');
+              }
+              break;
+            case 'stop-speak':
+              TTSHighlight.stop();
+              isTTSReadingRef.current = false;
+              isTTSReadingRef.current = false;
+              break;
+            case 'tts-state':
+              if (event.data && typeof event.data === 'object') {
+                ttsStateRef.current = event.data;
+              }
+              break;
+            case 'request-tts-confirmation':
+              if (event.data?.savedIndex !== undefined) {
+                // handleTTSConfirmation(Number(event.data.savedIndex));
+                pendingResumeIndexRef.current = Number(event.data.savedIndex);
+                showResumeDialog();
+              }
+              break;
+          }
+        }}
+        source={{
+          baseUrl: !chapter.isDownloaded ? plugin?.site : undefined,
+          headers: plugin?.imageRequestInit?.headers,
+          method: plugin?.imageRequestInit?.method,
+          body: plugin?.imageRequestInit?.body,
+          html: ` 
         <!DOCTYPE html>
           <html>
             <head>
@@ -349,8 +345,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 --theme-onSecondary: ${theme.onSecondary};
                 --theme-surface: ${theme.surface};
                 --theme-surface-0-9: ${color(theme.surface)
-            .alpha(0.9)
-            .toString()};
+              .alpha(0.9)
+              .toString()};
                 --theme-onSurface: ${theme.onSurface};
                 --theme-surfaceVariant: ${theme.surfaceVariant};
                 --theme-onSurfaceVariant: ${theme.onSurfaceVariant};
@@ -361,7 +357,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 @font-face {
                   font-family: ${readerSettings.fontFamily};
                   src: url("file:///android_asset/fonts/${readerSettings.fontFamily
-          }.ttf");
+            }.ttf");
                 }
                 </style>
 
@@ -371,11 +367,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               </style>
             </head>
             <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''
-          }">
+            }">
               <div class="transition-chapter" style="transform: ${nextChapterScreenVisible.current
-            ? 'translateX(-100%)'
-            : 'translateX(0%)'
-          };
+              ? 'translateX(-100%)'
+              : 'translateX(0%)'
+            };
               ${chapterGeneralSettings.pageReader ? '' : 'display: none'}"
               ">${chapter.name}</div>
               <div id="LNReader-chapter">
@@ -385,32 +381,32 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               </body>
               <script>
                 var initialPageReaderConfig = ${JSON.stringify({
-            nextChapterScreenVisible: nextChapterScreenVisible.current,
-          })};
+              nextChapterScreenVisible: nextChapterScreenVisible.current,
+            })};
 
 
                 var initialReaderConfig = ${JSON.stringify({
-            readerSettings,
-            chapterGeneralSettings,
-            novel,
-            chapter,
-            nextChapter,
-            prevChapter,
-            batteryLevel,
-            autoSaveInterval: 2222,
-            DEBUG: __DEV__,
-            strings: {
-              finished: `${getString(
-                'readerScreen.finished',
-              )}: ${chapter.name.trim()}`,
-              nextChapter: getString('readerScreen.nextChapter', {
-                name: nextChapter?.name,
-              }),
-              noNextChapter: getString('readerScreen.noNextChapter'),
-            },
-            savedParagraphIndex: savedParagraphIndex ?? -1,
-            ttsRestoreState: chapter.ttsState ? JSON.parse(chapter.ttsState) : null,
-          })}
+              readerSettings,
+              chapterGeneralSettings,
+              novel,
+              chapter,
+              nextChapter,
+              prevChapter,
+              batteryLevel,
+              autoSaveInterval: 2222,
+              DEBUG: __DEV__,
+              strings: {
+                finished: `${getString(
+                  'readerScreen.finished',
+                )}: ${chapter.name.trim()}`,
+                nextChapter: getString('readerScreen.nextChapter', {
+                  name: nextChapter?.name,
+                }),
+                noNextChapter: getString('readerScreen.noNextChapter'),
+              },
+              savedParagraphIndex: savedParagraphIndex ?? -1,
+              ttsRestoreState: chapter.ttsState ? JSON.parse(chapter.ttsState) : null,
+            })}
               </script>
               <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>
               <script src="${assetsUriPrefix}/js/icons.js"></script>
@@ -424,8 +420,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               </script>
           </html>
           `,
-      }}
-    />
+        }}
+      />
+      <TTSResumeDialog
+        visible={resumeDialogVisible}
+        theme={theme}
+        onResume={handleResumeConfirm}
+        onRestart={handleResumeCancel}
+        onDismiss={hideResumeDialog}
+      />
+    </>
   );
 };
 

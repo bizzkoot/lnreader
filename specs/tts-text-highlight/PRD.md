@@ -79,9 +79,10 @@ Implement real-time word-level text highlighting for the TTS (Text-to-Speech) fe
         - Prevented `calculatePages` from re-scrolling to initial position on resize/exit.
         - Removed auto-start on load to prevent unwanted playback.
         - Fixed stale `savedParagraphIndex` by reading directly from MMKV.
+        - **Fixed Resume Accuracy**: Suppressed save event on initial scroll to prevent overwriting progress with the top visible paragraph.
+- **UI Polish**:
+    - **Settings**: Replaced "Auto Resume" toggle with a `AutoResumeModal` for clear selection.
+    - **Confirmation**: Replaced native Alert with a rounded `TTSResumeDialog`.
 
 ## 9. Current Issues
-- **Resume Position Accuracy**:
-    - **Symptom**: TTS sometimes resumes from a paragraph slightly earlier than the exact last read paragraph (e.g., resuming from paragraph 6 when 11 was read).
-    - **Suspected Cause**: The `onscrollend` event in `core.js` might be saving the "top visible" paragraph index, which could be different from the "currently speaking" paragraph index if the user scrolls or if the auto-scroll positioning is slightly off.
-    - **Next Steps**: Investigate the correlation between `onscrollend` saving logic and TTS progress updates. Ensure TTS progress updates take precedence or are saved independently of scroll position.
+- **None**: All identified issues with TTS resume logic, position accuracy, and UI have been resolved.

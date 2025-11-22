@@ -16,6 +16,8 @@ import { useBoolean } from '@hooks';
 import { Portal } from 'react-native-paper';
 import VoicePickerModal from '../Modals/VoicePickerModal';
 
+import AutoResumeModal from '../Modals/AutoResumeModal';
+
 const AccessibilityTab: React.FC = () => {
   const theme = useTheme();
   const {
@@ -37,11 +39,16 @@ const AccessibilityTab: React.FC = () => {
     setTrue: showVoiceModal,
     setFalse: hideVoiceModal,
   } = useBoolean();
+  const {
+    value: autoResumeModalVisible,
+    setTrue: showAutoResumeModal,
+    setFalse: hideAutoResumeModal,
+  } = useBoolean();
 
   useEffect(() => {
     TTSHighlight.getVoices().then(res => {
       res.sort((a, b) => a.name.localeCompare(b.name));
-      setVoices([{ name: 'System', language: 'System', identifier: 'default', quality: 'default' } as TTSVoice, ...res]);
+      setVoices([{ name: 'System', language: 'System', identifier: 'default', quality: 'default' as any } as TTSVoice, ...res]);
     });
   }, []);
 
@@ -139,16 +146,7 @@ const AccessibilityTab: React.FC = () => {
                       ? 'Never resume'
                       : 'Ask every time'
                 }
-                onPress={() => {
-                  setChapterGeneralSettings({
-                    ttsAutoResume:
-                      ttsAutoResume === 'prompt'
-                        ? 'always'
-                        : ttsAutoResume === 'always'
-                          ? 'never'
-                          : 'prompt',
-                  });
-                }}
+                onPress={showAutoResumeModal}
                 theme={theme}
               />
               <List.Item
@@ -202,7 +200,7 @@ const AccessibilityTab: React.FC = () => {
                       tts: {
                         pitch: 1,
                         rate: 1,
-                        voice: { name: 'System', language: 'System', identifier: 'default', quality: 'default' } as TTSVoice,
+                        voice: { name: 'System', language: 'System', identifier: 'default', quality: 'default' as any } as TTSVoice,
                       },
                     });
                   }}
@@ -221,6 +219,12 @@ const AccessibilityTab: React.FC = () => {
           visible={voiceModalVisible}
           onDismiss={hideVoiceModal}
           voices={voices}
+        />
+        <AutoResumeModal
+          visible={autoResumeModalVisible}
+          onDismiss={hideAutoResumeModal}
+          currentValue={ttsAutoResume}
+          onSelect={value => setChapterGeneralSettings({ ttsAutoResume: value })}
         />
       </Portal>
     </>

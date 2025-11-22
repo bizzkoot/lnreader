@@ -45,6 +45,7 @@ window.reader = new (function () {
   this.layoutEvent = undefined;
   this.chapterEndingVisible = van.state(false);
   this.hasPerformedInitialScroll = false;
+  this.suppressSaveOnScroll = false;
 
   this.post = obj => window.ReactNativeWebView.postMessage(JSON.stringify(obj));
   this.refresh = () => {
@@ -118,6 +119,12 @@ window.reader = new (function () {
   };
 
   document.onscrollend = () => {
+    if (this.suppressSaveOnScroll) {
+      console.log('Skipping save on initial scroll');
+      this.suppressSaveOnScroll = false;
+      return;
+    }
+
     if (!this.generalSettings.val.pageReader) {
       const readableElements = this.getReadableElements();
       let paragraphIndex = -1;
@@ -754,6 +761,7 @@ function calculatePages() {
       if (readableElements[initialReaderConfig.savedParagraphIndex]) {
         console.log('calculatePages: Scrolling to paragraph', initialReaderConfig.savedParagraphIndex);
         reader.hasPerformedInitialScroll = true;
+        reader.suppressSaveOnScroll = true;
         setTimeout(() => {
           readableElements[initialReaderConfig.savedParagraphIndex].scrollIntoView({
             block: 'center',
