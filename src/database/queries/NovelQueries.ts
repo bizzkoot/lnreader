@@ -105,15 +105,15 @@ export const switchNovelToLibraryQuery = async (
       ],
       novel.inLibrary
         ? [
-            'DELETE FROM NovelCategory WHERE novelId = ?',
-            [novel.id],
-            () => showToast(getString('browseScreen.removeFromLibrary')),
-          ]
+          'DELETE FROM NovelCategory WHERE novelId = ?',
+          [novel.id],
+          () => showToast(getString('browseScreen.removeFromLibrary')),
+        ]
         : [
-            'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
-            [novel.id],
-            () => showToast(getString('browseScreen.addedToLibrary')),
-          ],
+          'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
+          [novel.id],
+          () => showToast(getString('browseScreen.addedToLibrary')),
+        ],
     ];
     if (novel.pluginId === 'local') {
       queries.push([
@@ -307,24 +307,24 @@ const restoreObjectQuery = (table: string, obj: any) => {
   INSERT INTO ${table}
   (${Object.keys(obj).join(',')})
   VALUES (${Object.keys(obj)
-    .map(() => '?')
-    .join(',')})
+      .map(() => '?')
+      .join(',')})
   `;
 };
 
 export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
   const { chapters, ...novel } = backupNovel;
-  await runAsync([
-    ['DELETE FROM Novel WHERE id = ?', [novel.id]],
-    [
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('DELETE FROM Novel WHERE id = ?', [novel.id]);
+    await db.runAsync(
       restoreObjectQuery('Novel', novel),
       Object.values(novel) as string[] | number[],
-    ],
-  ]);
-  runAsync(
-    chapters.map(chapter => [
-      restoreObjectQuery('Chapter', chapter),
-      Object.values(chapter) as string[] | number[],
-    ]),
-  );
+    );
+    for (const chapter of chapters) {
+      await db.runAsync(
+        restoreObjectQuery('Chapter', chapter),
+        Object.values(chapter) as string[] | number[],
+      );
+    }
+  });
 };

@@ -99,14 +99,41 @@ window.reader = new (function () {
     }
   });
 
+  this.getReadableElements = () => {
+    const elements = [];
+    const traverse = (node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (window.tts.readable(node) && !window.tts.isContainer(node)) {
+          elements.push(node);
+        } else {
+          for (let i = 0; i < node.children.length; i++) {
+            traverse(node.children[i]);
+          }
+        }
+      }
+    };
+    traverse(this.chapterElement);
+    return elements;
+  };
+
   document.onscrollend = () => {
     if (!this.generalSettings.val.pageReader) {
+      const readableElements = this.getReadableElements();
+      let paragraphIndex = -1;
+      for (let i = 0; i < readableElements.length; i++) {
+        if (window.tts.isElementInViewport(readableElements[i])) {
+          paragraphIndex = i;
+          break;
+        }
+      }
+
       this.post({
         type: 'save',
         data: parseInt(
           ((window.scrollY + this.layoutHeight) / this.chapterHeight) * 100,
           10,
         ),
+        paragraphIndex,
       });
     }
   };
@@ -135,28 +162,58 @@ window.tts = new (function () {
     'BR',
     'STRONG',
     'A',
+    'P',
+    'DIV',
+    'H1',
+    'H2',
+    'H3',
+    'H4',
+    'H5',
+    'H6',
+  ];
+  this.blockNodeNames = [
+    'P',
+    'DIV',
+    'H1',
+    'H2',
+    'H3',
+    'H4',
+    'H5',
+    'H6',
+    'SECTION',
+    'ARTICLE',
+    'MAIN',
+    'HEADER',
+    'FOOTER'
   ];
   this.prevElement = null;
   this.currentElement = reader.chapterElement;
   this.started = false;
   this.reading = false;
 
-  this.readable = element => {
-    const ele = element ?? this.currentElement;
-    if (
-      ele.nodeName !== 'SPAN' &&
-      this.readableNodeNames.includes(ele.nodeName)
-    ) {
-      return false;
-    }
-    if (!ele.hasChildNodes()) {
-      return false;
-    }
-    for (let i = 0; i < ele.childNodes.length; i++) {
-      if (!this.readableNodeNames.includes(ele.childNodes.item(i).nodeName)) {
-        return false;
+  this.isContainer = element => {
+    for (let i = 0; i < element.children.length; i++) {
+      if (this.blockNodeNames.includes(element.children[i].nodeName)) {
+        return true;
       }
     }
+    return false;
+  };
+
+  this.readable = element => {
+    const ele = element ?? this.currentElement;
+    if (!ele) return false;
+
+    // Check if element itself is readable tag
+    if (!this.readableNodeNames.includes(ele.nodeName)) {
+      return false;
+    }
+
+    // Must have some text content
+    if (!ele.textContent || ele.textContent.trim().length === 0) {
+      return false;
+    }
+
     return true;
   };
 
@@ -187,7 +244,7 @@ window.tts = new (function () {
       return this.findNextTextNode();
     } else {
       // can read? read it
-      if (this.readable()) {
+      if (this.readable() && !this.isContainer(this.currentElement)) {
         return true;
       }
       if (
@@ -231,13 +288,85 @@ window.tts = new (function () {
         }
       }
     } catch (e) {
-      alert(e);
+      console.error(e);
     }
   };
 
   this.start = element => {
     this.stop();
-    this.currentElement = element ?? reader.chapterElement;
+    if (element) {
+      console.log('TTS: Starting from specific element');
+      this.currentElement = element;
+    } else {
+      // Priority 1: Saved Paragraph Index (if visible)
+      const readableElements = reader.getReadableElements();
+      const savedIndex = initialReaderConfig.savedParagraphIndex;
+
+      if (savedIndex !== undefined && savedIndex >= 0 && readableElements[savedIndex]) {
+        if (this.isElementInViewport(readableElements[savedIndex])) {
+          console.log('TTS: Starting from saved paragraph index:', savedIndex);
+          this.currentElement = readableElements[savedIndex];
+          this.next();
+          return;
+        }
+
+        // Priority 1.5: Scroll Correction
+        // If we are at the very top (scrollY < 10) but have a saved index > 0,
+        // it likely means the initial scroll failed. Force start from saved index.
+        if (window.scrollY < 10 && savedIndex > 0) {
+          console.log('TTS: Scroll Correction - Forcing start from saved index:', savedIndex);
+          this.currentElement = readableElements[savedIndex];
+          this.next();
+          return;
+        }
+      }
+
+      // Priority 2: First "Significant" Visible Element
+      // We want the element that is closest to the top of the viewport, 
+      // but we need to be careful about elements that are only slightly visible at the top.
+      let bestElement = null;
+      let minTopDistance = Infinity;
+
+      for (let i = 0; i < readableElements.length; i++) {
+        const el = readableElements[i];
+        const rect = el.getBoundingClientRect();
+
+        // Check if element is in viewport
+        if (
+          rect.bottom > 0 &&
+          rect.top < (window.innerHeight || document.documentElement.clientHeight)
+        ) {
+          // We prefer elements that start near the top (positive rect.top)
+          // If rect.top is negative, it means the element started ABOVE the viewport.
+          // If rect.top is very small (e.g. < 50px), it might be the one we want if we just scrolled there.
+
+          // Let's try to find the first element whose TOP is within the viewport ( >= 0 )
+          if (rect.top >= 0 && rect.top < minTopDistance) {
+            minTopDistance = rect.top;
+            bestElement = el;
+          }
+        }
+      }
+
+      // Fallback: If no element starts IN the viewport (e.g. a long paragraph covers the whole screen),
+      // pick the first one that is visible at all.
+      if (!bestElement) {
+        for (let i = 0; i < readableElements.length; i++) {
+          if (this.isElementInViewport(readableElements[i])) {
+            bestElement = readableElements[i];
+            break;
+          }
+        }
+      }
+
+      if (bestElement) {
+        console.log('TTS: Found best visible element:', bestElement.textContent.substring(0, 20));
+        this.currentElement = bestElement;
+      } else {
+        console.log('TTS: No visible element found, starting from beginning');
+        this.currentElement = reader.chapterElement;
+      }
+    }
     this.next();
   };
 
@@ -279,11 +408,12 @@ window.tts = new (function () {
     const windowWidth =
       window.innerWidth || document.documentElement.clientWidth;
 
+    // Check for partial visibility
     return (
-      rect.top >= 0 &&
-      rect.left >= 0 &&
-      rect.bottom <= windowHeight &&
-      rect.right <= windowWidth
+      rect.top < windowHeight &&
+      rect.bottom > 0 &&
+      rect.left < windowWidth &&
+      rect.right > 0
     );
   };
 
@@ -313,14 +443,84 @@ window.tts = new (function () {
     if (!this.currentElement) return;
     this.prevElement = this.currentElement;
     this.scrollToElement(this.currentElement);
-    this.currentElement.classList.add('highlight');
-    const text = this.normalizeText(this.currentElement.innerText);
-    if (text) {
+    if (reader.generalSettings.val.showParagraphHighlight) {
+      this.currentElement.classList.add('highlight');
+    }
+
+    // Save progress based on current TTS element
+    const readableElements = reader.getReadableElements();
+    const paragraphIndex = readableElements.indexOf(this.currentElement);
+    if (paragraphIndex !== -1) {
+      reader.post({
+        type: 'save',
+        data: parseInt(
+          ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
+          10,
+        ),
+        paragraphIndex,
+      });
+    }
+
+    // Use textContent to ensure indices match for highlighting
+    const text = this.currentElement.textContent;
+    if (text && text.trim().length > 0) {
+      console.log('TTS: Speaking', text.substring(0, 20));
       reader.post({ type: 'speak', data: text });
       reader.post({ type: 'tts-state', data: { isReading: true } });
     } else {
       this.next();
     }
+  };
+
+  this.highlightRange = (start, end) => {
+    // Remove previous word highlights
+    const highlights = this.currentElement.querySelectorAll('.word-highlight');
+    highlights.forEach(h => {
+      const parent = h.parentNode;
+      while (h.firstChild) {
+        parent.insertBefore(h.firstChild, h);
+      }
+      parent.removeChild(h);
+      parent.normalize();
+    });
+
+    if (start < 0 || end <= start) return;
+
+    const nodes = [];
+    let charCount = 0;
+
+    const traverse = (node) => {
+      if (charCount >= end) return;
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        const nextCharCount = charCount + node.length;
+        if (nextCharCount > start && charCount < end) {
+          const nodeStart = Math.max(0, start - charCount);
+          const nodeEnd = Math.min(node.length, end - charCount);
+          nodes.push({ node, start: nodeStart, end: nodeEnd });
+        }
+        charCount = nextCharCount;
+      } else {
+        for (let i = 0; i < node.childNodes.length; i++) {
+          traverse(node.childNodes[i]);
+        }
+      }
+    };
+
+    traverse(this.currentElement);
+
+    nodes.forEach(({ node, start: nodeStart, end: nodeEnd }) => {
+      try {
+        const range = document.createRange();
+        range.setStart(node, nodeStart);
+        range.setEnd(node, nodeEnd);
+        const span = document.createElement('span');
+        span.className = 'word-highlight';
+        range.surroundContents(span);
+      } catch (e) {
+        // Ignore errors if range is invalid or overlaps
+      }
+    });
   };
 })();
 
@@ -424,7 +624,7 @@ window.pageReader = new (function () {
         reader.refresh();
         this.totalPages.val = parseInt(
           (reader.chapterWidth + reader.readerSettings.val.padding * 2) /
-            reader.layoutWidth,
+          reader.layoutWidth,
           10,
         );
         this.movePage(this.totalPages.val * ratio);
@@ -457,7 +657,7 @@ function calculatePages() {
   if (reader.generalSettings.val.pageReader) {
     pageReader.totalPages.val = parseInt(
       (reader.chapterWidth + reader.readerSettings.val.padding * 2) /
-        reader.layoutWidth,
+      reader.layoutWidth,
       10,
     );
 
@@ -472,12 +672,34 @@ function calculatePages() {
       ),
     );
   } else {
-    window.scrollTo({
-      top:
-        (reader.chapterHeight * reader.chapter.progress) / 100 -
-        reader.layoutHeight,
-      behavior: 'smooth',
-    });
+    console.log('calculatePages: savedParagraphIndex =', initialReaderConfig.savedParagraphIndex);
+    if (initialReaderConfig.savedParagraphIndex !== undefined && initialReaderConfig.savedParagraphIndex >= 0) {
+      const readableElements = reader.getReadableElements();
+      console.log('calculatePages: readableElements length =', readableElements.length);
+      if (readableElements[initialReaderConfig.savedParagraphIndex]) {
+        console.log('calculatePages: Scrolling to paragraph', initialReaderConfig.savedParagraphIndex);
+        setTimeout(() => {
+          readableElements[initialReaderConfig.savedParagraphIndex].scrollIntoView({
+            block: 'center',
+            inline: 'nearest',
+          });
+        }, 100);
+        return;
+      } else {
+        console.log('calculatePages: Paragraph not found at index', initialReaderConfig.savedParagraphIndex);
+      }
+    } else {
+      console.log('calculatePages: No valid savedParagraphIndex');
+    }
+
+    setTimeout(() => {
+      window.scrollTo({
+        top:
+          (reader.chapterHeight * reader.chapter.progress) / 100 -
+          reader.layoutHeight,
+        behavior: 'smooth',
+      });
+    }, 100);
   }
 }
 
@@ -627,13 +849,12 @@ window.addEventListener('load', () => {
         .replace(
           /<br>\s*<br>[^]+/,
           _ =>
-            `${
-              /\/p>/.test(_)
-                ? _.replace(
-                    /<br>\s*<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p\b[^>]*><br>\s*<br>))\s*/g,
-                    '',
-                  )
-                : _
+            `${/\/p>/.test(_)
+              ? _.replace(
+                /<br>\s*<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p\b[^>]*><br>\s*<br>))\s*/g,
+                '',
+              )
+              : _
             }`,
         ) //if p found, delete all double br near p
         .replace(/<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p>\s*<br>))\s*/g, '');

@@ -29,8 +29,8 @@ export const getCategoriesWithCount = (novelIds: number[]) => {
   (
     SELECT categoryId, COUNT(novelId) as novelsCount 
     FROM NovelCategory WHERE novelId in (${novelIds.join(
-      ',',
-    )}) GROUP BY categoryId 
+    ',',
+  )}) GROUP BY categoryId 
   ) as NC ON Category.id = NC.categoryId
   WHERE Category.id != 2
   ORDER BY sort
@@ -108,15 +108,22 @@ export const _restoreCategory = (category: BackupCategory) => {
     [category.id, novelId],
   ]) as Array<[string, SQLite.SQLiteBindParams]>;
 
-  runSync([
-    [
-      'DELETE FROM Category WHERE id = ? OR sort = ?',
-      [category.id, category.sort],
-    ],
-    [
-      'INSERT OR IGNORE INTO Category (id, name, sort) VALUES (?, ?, ?)',
-      [category.id, category.name, category.sort],
-    ],
-    ...d,
-  ]);
+  db.withTransactionSync(() => {
+    db.execSync('PRAGMA foreign_keys = OFF');
+    try {
+      runSync([
+        [
+          'DELETE FROM Category WHERE id = ? OR sort = ?',
+          [category.id, category.sort],
+        ],
+        [
+          'INSERT OR IGNORE INTO Category (id, name, sort) VALUES (?, ?, ?)',
+          [category.id, category.name, category.sort],
+        ],
+        ...d,
+      ]);
+    } finally {
+      db.execSync('PRAGMA foreign_keys = ON');
+    }
+  });
 };

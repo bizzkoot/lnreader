@@ -4,7 +4,7 @@ import { Portal, TextInput, ActivityIndicator } from 'react-native-paper';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
-import { Voice } from 'expo-speech';
+import TTSHighlight, { TTSVoice } from '@services/TTSHighlight';
 import { LegendList } from '@legendapp/list';
 import { Modal } from '@components';
 import { StyleSheet } from 'react-native';
@@ -12,7 +12,7 @@ import { StyleSheet } from 'react-native';
 interface VoicePickerModalProps {
   visible: boolean;
   onDismiss: () => void;
-  voices: Voice[];
+  voices: TTSVoice[];
 }
 
 const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
@@ -21,7 +21,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   voices,
 }) => {
   const theme = useTheme();
-  const [searchedVoices, setSearchedVoices] = useState<Voice[]>([]);
+  const [searchedVoices, setSearchedVoices] = useState<TTSVoice[]>([]);
   const [searchText, setSearchText] = useState('');
   const { setChapterReaderSettings, tts } = useChapterReaderSettings();
 

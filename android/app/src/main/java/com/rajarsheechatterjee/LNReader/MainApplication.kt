@@ -26,6 +26,7 @@ class MainApplication : Application(), ReactApplication {
                     add(NativePackage())
                     add(NativeVolumeButtonListenerPackage())
                     add(NativeZipArchivePackage())
+                    add(TTSPackage())
                 }
 
             override fun getJSMainModuleName(): String = "index"

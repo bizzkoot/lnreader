@@ -13,6 +13,7 @@ import {
 } from '@hooks/persisted';
 import { fetchChapter } from '@services/plugin/fetch';
 import { NOVEL_STORAGE } from '@utils/Storages';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 import {
   RefObject,
   useCallback,
@@ -66,16 +67,14 @@ export default function useChapter(
   const connectVolumeButton = useCallback(() => {
     emmiter.addListener('VolumeUp', () => {
       webViewRef.current?.injectJavaScript(`(()=>{
-          window.scrollBy({top: -${
-            Dimensions.get('window').height * 0.75
-          }, behavior: 'smooth'})
+          window.scrollBy({top: -${Dimensions.get('window').height * 0.75
+        }, behavior: 'smooth'})
         })()`);
     });
     emmiter.addListener('VolumeDown', () => {
       webViewRef.current?.injectJavaScript(`(()=>{
-          window.scrollBy({top: ${
-            Dimensions.get('window').height * 0.75
-          }, behavior: 'smooth'})
+          window.scrollBy({top: ${Dimensions.get('window').height * 0.75
+        }, behavior: 'smooth'})
         })()`);
     });
   }, [webViewRef]);
@@ -168,9 +167,9 @@ export default function useChapter(
       scrollInterval.current = setInterval(() => {
         webViewRef.current?.injectJavaScript(`(()=>{
           window.scrollBy({top:${defaultTo(
-            autoScrollOffset,
-            Dimensions.get('window').height,
-          )},behavior:'smooth'})
+          autoScrollOffset,
+          Dimensions.get('window').height,
+        )},behavior:'smooth'})
         })()`);
       }, autoScrollInterval * 1000);
     } else {
@@ -194,9 +193,13 @@ export default function useChapter(
   }, [chapter.name, novel.name, trackedNovel, tracker, updateAllTrackedNovels]);
 
   const saveProgress = useCallback(
-    (percentage: number) => {
+    (percentage: number, paragraphIndex?: number) => {
       if (!incognitoMode) {
         updateChapterProgress(chapter.id, percentage > 100 ? 100 : percentage);
+
+        if (paragraphIndex !== undefined) {
+          MMKVStorage.set(`chapter_progress_${chapter.id}`, paragraphIndex);
+        }
 
         if (percentage >= 97) {
           // a relative number
@@ -292,6 +295,7 @@ export default function useChapter(
       setChapter,
       setLoading,
       getChapter,
+      savedParagraphIndex: MMKVStorage.getNumber(`chapter_progress_${chapter.id}`),
     }),
     [
       hidden,

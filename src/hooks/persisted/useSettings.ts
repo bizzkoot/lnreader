@@ -88,6 +88,7 @@ export interface ChapterGeneralSettings {
   bionicReading: boolean;
   tapToScroll: boolean;
   TTSEnable: boolean;
+  showParagraphHighlight: boolean;
 }
 
 export interface ReaderTheme {
@@ -181,6 +182,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   bionicReading: false,
   tapToScroll: false,
   TTSEnable: false,
+  showParagraphHighlight: true,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

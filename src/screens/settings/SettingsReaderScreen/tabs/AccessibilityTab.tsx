@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
-import { getAvailableVoicesAsync, Voice } from 'expo-speech';
+import TTSHighlight, { TTSVoice } from '@services/TTSHighlight';
 import {
   useTheme,
   useChapterGeneralSettings,
@@ -25,11 +25,12 @@ const AccessibilityTab: React.FC = () => {
     keepScreenOn = true,
     bionicReading = false,
     TTSEnable = true,
+    showParagraphHighlight = true,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
   const { tts, setChapterReaderSettings } = useChapterReaderSettings();
-  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voices, setVoices] = useState<TTSVoice[]>([]);
   const {
     value: voiceModalVisible,
     setTrue: showVoiceModal,
@@ -37,9 +38,9 @@ const AccessibilityTab: React.FC = () => {
   } = useBoolean();
 
   useEffect(() => {
-    getAvailableVoicesAsync().then(res => {
+    TTSHighlight.getVoices().then(res => {
       res.sort((a, b) => a.name.localeCompare(b.name));
-      setVoices([{ name: 'System', language: 'System' } as Voice, ...res]);
+      setVoices([{ name: 'System', language: 'System', identifier: 'default', quality: 'default' } as TTSVoice, ...res]);
     });
   }, []);
 
@@ -118,6 +119,16 @@ const AccessibilityTab: React.FC = () => {
           </View>
           {TTSEnable && (
             <>
+              <SettingSwitch
+                label="Highlight paragraph"
+                value={showParagraphHighlight}
+                onPress={() =>
+                  setChapterGeneralSettings({
+                    showParagraphHighlight: !showParagraphHighlight,
+                  })
+                }
+                theme={theme}
+              />
               <List.Item
                 title="TTS voice"
                 description={tts?.voice?.name || 'System'}
@@ -169,7 +180,7 @@ const AccessibilityTab: React.FC = () => {
                       tts: {
                         pitch: 1,
                         rate: 1,
-                        voice: { name: 'System', language: 'System' } as Voice,
+                        voice: { name: 'System', language: 'System', identifier: 'default', quality: 'default' } as TTSVoice,
                       },
                     });
                   }}

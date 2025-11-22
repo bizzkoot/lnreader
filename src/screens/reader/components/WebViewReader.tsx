@@ -17,21 +17,16 @@ import {
   initialChapterReaderSettings,
 } from '@hooks/persisted/useSettings';
 import { getBatteryLevelSync } from 'react-native-device-info';
-import * as Speech from 'expo-speech';
+import TTSHighlight from '@services/TTSHighlight';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import { useChapterContext } from '../ChapterContext';
-import {
-  showTTSNotification,
-  updateTTSNotification,
-  dismissTTSNotification,
-  getTTSAction,
-  clearTTSAction,
-} from '@utils/ttsNotification';
+
 
 type WebViewPostEvent = {
   type: string;
   data?: { [key: string]: string | number };
   autoStartTTS?: boolean;
+  paragraphIndex?: number;
 };
 
 type WebViewReaderProps = {
@@ -65,6 +60,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     nextChapter,
     prevChapter,
     webViewRef,
+    savedParagraphIndex,
   } = useChapterContext();
   const theme = useTheme();
   const readerSettings = useMemo(
@@ -91,59 +87,21 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const autoStartTTSRef = useRef<boolean>(false);
   const isTTSReadingRef = useRef<boolean>(false);
 
+
+
+
+
   useEffect(() => {
-    const checkNotificationActions = setInterval(() => {
-      const action = getTTSAction();
-      if (action) {
-        clearTTSAction();
-        switch (action) {
-          case 'TTS_PLAY_PAUSE':
-            webViewRef.current?.injectJavaScript(`
-              if (window.tts) {
-                if (tts.reading) {
-                  tts.pause();
-                } else {
-                  tts.resume();
-                }
-              }
-            `);
-            break;
-          case 'TTS_STOP':
-            webViewRef.current?.injectJavaScript(`
-              if (window.tts) {
-                tts.stop();
-              }
-            `);
-            break;
-          case 'TTS_NEXT':
-            webViewRef.current?.injectJavaScript(`
-              if (window.tts && window.reader && window.reader.nextChapter) {
-                window.reader.post({ type: 'next', autoStartTTS: true });
-              }
-            `);
-            break;
-        }
-      }
-    }, 500);
+    const onSpeechDoneSubscription = TTSHighlight.addListener(
+      'onSpeechDone',
+      () => {
+        webViewRef.current?.injectJavaScript('tts.next?.()');
+      },
+    );
 
     return () => {
-      clearInterval(checkNotificationActions);
-    };
-  }, [webViewRef]);
-
-  useEffect(() => {
-    if (isTTSReadingRef.current) {
-      updateTTSNotification({
-        novelName: novel?.name || 'Unknown',
-        chapterName: chapter.name,
-        isPlaying: isTTSReadingRef.current,
-      });
-    }
-  }, [novel?.name, chapter.name]);
-
-  useEffect(() => {
-    return () => {
-      dismissTTSNotification();
+      onSpeechDoneSubscription.remove();
+      TTSHighlight.stop();
     };
   }, []);
 
@@ -229,29 +187,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           case 'save':
             if (event.data && typeof event.data === 'number') {
-              saveProgress(event.data);
+              saveProgress(event.data, event.paragraphIndex as number | undefined);
             }
             break;
           case 'speak':
             if (event.data && typeof event.data === 'string') {
               if (!isTTSReadingRef.current) {
                 isTTSReadingRef.current = true;
-                showTTSNotification({
-                  novelName: novel?.name || 'Unknown',
-                  chapterName: chapter.name,
-                  isPlaying: true,
-                });
-              } else {
-                updateTTSNotification({
-                  novelName: novel?.name || 'Unknown',
-                  chapterName: chapter.name,
-                  isPlaying: true,
-                });
               }
-              Speech.speak(event.data, {
-                onDone() {
-                  webViewRef.current?.injectJavaScript('tts.next?.()');
-                },
+              TTSHighlight.speak(event.data, {
                 voice: readerSettings.tts?.voice?.identifier,
                 pitch: readerSettings.tts?.pitch || 1,
                 rate: readerSettings.tts?.rate || 1,
@@ -261,20 +205,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
             break;
           case 'stop-speak':
-            Speech.stop();
+            TTSHighlight.stop();
             isTTSReadingRef.current = false;
-            dismissTTSNotification();
+            isTTSReadingRef.current = false;
             break;
           case 'tts-state':
             if (event.data && typeof event.data === 'object') {
               const data = event.data as { isReading?: boolean };
               const isReading = data.isReading === true;
               isTTSReadingRef.current = isReading;
-              updateTTSNotification({
-                novelName: novel?.name || 'Unknown',
-                chapterName: chapter.name,
-                isPlaying: isReading,
-              });
             }
             break;
         }
@@ -311,8 +250,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 --theme-onSecondary: ${theme.onSecondary};
                 --theme-surface: ${theme.surface};
                 --theme-surface-0-9: ${color(theme.surface)
-                  .alpha(0.9)
-                  .toString()};
+            .alpha(0.9)
+            .toString()};
                 --theme-onSurface: ${theme.onSurface};
                 --theme-surfaceVariant: ${theme.surfaceVariant};
                 --theme-onSurfaceVariant: ${theme.onSurfaceVariant};
@@ -322,23 +261,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 
                 @font-face {
                   font-family: ${readerSettings.fontFamily};
-                  src: url("file:///android_asset/fonts/${
-                    readerSettings.fontFamily
-                  }.ttf");
+                  src: url("file:///android_asset/fonts/${readerSettings.fontFamily
+          }.ttf");
                 }
                 </style>
 
               <link rel="stylesheet" href="${pluginCustomCSS}">
-              <style>${readerSettings.customCSS}</style>
+              <style>
+                ${readerSettings.customCSS}
+              </style>
             </head>
-            <body class="${
-              chapterGeneralSettings.pageReader ? 'page-reader' : ''
-            }">
-              <div class="transition-chapter" style="transform: ${
-                nextChapterScreenVisible.current
-                  ? 'translateX(-100%)'
-                  : 'translateX(0%)'
-              };
+            <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''
+          }">
+              <div class="transition-chapter" style="transform: ${nextChapterScreenVisible.current
+            ? 'translateX(-100%)'
+            : 'translateX(0%)'
+          };
               ${chapterGeneralSettings.pageReader ? '' : 'display: none'}"
               ">${chapter.name}</div>
               <div id="LNReader-chapter">
@@ -348,30 +286,31 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               </body>
               <script>
                 var initialPageReaderConfig = ${JSON.stringify({
-                  nextChapterScreenVisible: nextChapterScreenVisible.current,
-                })};
+            nextChapterScreenVisible: nextChapterScreenVisible.current,
+          })};
 
 
                 var initialReaderConfig = ${JSON.stringify({
-                  readerSettings,
-                  chapterGeneralSettings,
-                  novel,
-                  chapter,
-                  nextChapter,
-                  prevChapter,
-                  batteryLevel,
-                  autoSaveInterval: 2222,
-                  DEBUG: __DEV__,
-                  strings: {
-                    finished: `${getString(
-                      'readerScreen.finished',
-                    )}: ${chapter.name.trim()}`,
-                    nextChapter: getString('readerScreen.nextChapter', {
-                      name: nextChapter?.name,
-                    }),
-                    noNextChapter: getString('readerScreen.noNextChapter'),
-                  },
-                })}
+            readerSettings,
+            chapterGeneralSettings,
+            novel,
+            chapter,
+            nextChapter,
+            prevChapter,
+            batteryLevel,
+            autoSaveInterval: 2222,
+            DEBUG: __DEV__,
+            strings: {
+              finished: `${getString(
+                'readerScreen.finished',
+              )}: ${chapter.name.trim()}`,
+              nextChapter: getString('readerScreen.nextChapter', {
+                name: nextChapter?.name,
+              }),
+              noNextChapter: getString('readerScreen.noNextChapter'),
+            },
+            savedParagraphIndex: savedParagraphIndex ?? -1,
+          })}
               </script>
               <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>
               <script src="${assetsUriPrefix}/js/icons.js"></script>
