@@ -32,7 +32,6 @@ const AutoResumeModal: React.FC<AutoResumeModalProps> = ({
                 visible={visible}
                 onDismiss={onDismiss}
                 contentContainerStyle={styles.containerStyle}
-                title="Auto Resume"
             >
                 {options.map(option => (
                     <RadioButton

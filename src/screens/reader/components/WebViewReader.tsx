@@ -21,6 +21,9 @@ import TTSHighlight from '@services/TTSHighlight';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import { useChapterContext } from '../ChapterContext';
 import TTSResumeDialog from './TTSResumeDialog';
+import TTSScrollSyncDialog from './TTSScrollSyncDialog';
+import TTSManualModeDialog from './TTSManualModeDialog';
+import Toast from '@components/Toast';
 import { useBoolean } from '@hooks';
 
 
@@ -82,6 +85,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id],
   );
+
+  // FIX: Use a stable savedParagraphIndex that only updates when chapter changes.
+  // This prevents the WebView from reloading (and resetting TTS) when progress is saved.
+  const initialSavedParagraphIndex = useMemo(
+    () => savedParagraphIndex,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapter.id]
+  );
   const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
   const plugin = getPlugin(novel?.pluginId);
   const pluginCustomJS = `file://${PLUGIN_STORAGE}/${plugin?.id}/custom.js`;
@@ -112,7 +123,28 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     setTrue: showResumeDialog,
     setFalse: hideResumeDialog,
   } = useBoolean();
+
+  const {
+    value: scrollSyncDialogVisible,
+    setTrue: showScrollSyncDialog,
+    setFalse: hideScrollSyncDialog,
+  } = useBoolean();
+
+  const {
+    value: manualModeDialogVisible,
+    setTrue: showManualModeDialog,
+    setFalse: hideManualModeDialog,
+  } = useBoolean();
+
+  const {
+    value: toastVisible,
+    setTrue: showToast,
+    setFalse: hideToast,
+  } = useBoolean();
+
   const pendingResumeIndexRef = useRef<number>(-1);
+  const ttsScrollPromptDataRef = useRef<{ currentIndex: number, visibleIndex: number, isResume?: boolean } | null>(null);
+  const toastMessageRef = useRef<string>('');
 
   const handleResumeConfirm = () => {
     const savedIndex = pendingResumeIndexRef.current;
@@ -140,7 +172,65 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     `);
   };
 
+  const handleTTSScrollSyncConfirm = () => {
+    if (ttsScrollPromptDataRef.current) {
+      const { visibleIndex, isResume } = ttsScrollPromptDataRef.current;
+      // Change TTS position to the visible paragraph
+      webViewRef.current?.injectJavaScript(`
+        if (window.tts && window.tts.changeParagraphPosition) {
+          window.tts.changeParagraphPosition(${visibleIndex});
+          ${isResume ? 'window.tts.resume(true);' : ''}
+        }
+        true;
+      `);
+    }
+    ttsScrollPromptDataRef.current = null;
+  };
 
+  const handleTTSScrollSyncCancel = () => {
+    if (ttsScrollPromptDataRef.current) {
+      const { isResume } = ttsScrollPromptDataRef.current;
+      if (isResume) {
+        // User chose to resume from original position
+        webViewRef.current?.injectJavaScript(`
+          if (window.tts && window.tts.resume) {
+            window.tts.resume(true);
+          }
+          true;
+        `);
+      }
+    }
+    ttsScrollPromptDataRef.current = null;
+  };
+
+  const handleStopTTS = () => {
+    // Stop TTS and switch to manual reading mode - inform JavaScript first
+    webViewRef.current?.injectJavaScript(`
+      if (window.tts && window.tts.handleManualModeDialog) {
+        window.tts.handleManualModeDialog('stop');
+      }
+      true;
+    `);
+    TTSHighlight.stop();
+    showToastMessage('Switched to manual reading mode');
+    hideManualModeDialog();
+  };
+
+  const handleContinueFollowing = () => {
+    // Continue with TTS following mode - inform JavaScript to resume from locked position
+    webViewRef.current?.injectJavaScript(`
+      if (window.tts && window.tts.handleManualModeDialog) {
+        window.tts.handleManualModeDialog('continue');
+      }
+      true;
+    `);
+    hideManualModeDialog();
+  };
+
+  const showToastMessage = (message: string) => {
+    toastMessageRef.current = message;
+    showToast();
+  };
 
 
   useEffect(() => {
@@ -311,6 +401,33 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 showResumeDialog();
               }
               break;
+            case 'tts-scroll-prompt':
+              if (event.data?.currentIndex !== undefined && event.data?.visibleIndex !== undefined) {
+                ttsScrollPromptDataRef.current = {
+                  currentIndex: Number(event.data.currentIndex),
+                  visibleIndex: Number(event.data.visibleIndex),
+                };
+                showScrollSyncDialog();
+              }
+              break;
+            case 'tts-manual-mode-prompt':
+              showManualModeDialog();
+              break;
+            case 'tts-resume-location-prompt':
+              if (event.data?.currentIndex !== undefined && event.data?.visibleIndex !== undefined) {
+                ttsScrollPromptDataRef.current = {
+                  currentIndex: Number(event.data.currentIndex),
+                  visibleIndex: Number(event.data.visibleIndex),
+                  isResume: true, // Mark as resume prompt
+                };
+                showScrollSyncDialog();
+              }
+              break;
+            case 'show-toast':
+              if (event.data && typeof event.data === 'string') {
+                showToastMessage(event.data);
+              }
+              break;
           }
         }}
         source={{
@@ -404,7 +521,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 }),
                 noNextChapter: getString('readerScreen.noNextChapter'),
               },
-              savedParagraphIndex: savedParagraphIndex ?? -1,
+              savedParagraphIndex: initialSavedParagraphIndex ?? -1,
               ttsRestoreState: chapter.ttsState ? JSON.parse(chapter.ttsState) : null,
             })}
               </script>
@@ -428,6 +545,28 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         onResume={handleResumeConfirm}
         onRestart={handleResumeCancel}
         onDismiss={hideResumeDialog}
+      />
+      <TTSScrollSyncDialog
+        visible={scrollSyncDialogVisible}
+        theme={theme}
+        currentIndex={ttsScrollPromptDataRef.current?.currentIndex || 0}
+        visibleIndex={ttsScrollPromptDataRef.current?.visibleIndex || 0}
+        onSyncToVisible={handleTTSScrollSyncConfirm}
+        onKeepCurrent={handleTTSScrollSyncCancel}
+        onDismiss={hideScrollSyncDialog}
+      />
+      <TTSManualModeDialog
+        visible={manualModeDialogVisible}
+        theme={theme}
+        onStopTTS={handleStopTTS}
+        onContinueFollowing={handleContinueFollowing}
+        onDismiss={hideManualModeDialog}
+      />
+      <Toast
+        visible={toastVisible}
+        message={toastMessageRef.current}
+        theme={theme}
+        onHide={hideToast}
       />
     </>
   );

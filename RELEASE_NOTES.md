@@ -1,16 +1,16 @@
 ## What's New
-This release focuses on significantly improving the Text-to-Speech (TTS) experience, specifically adding text highlighting and robust resume functionality.
+This release focuses on polishing the TTS experience, improving the resume logic, and fixing UI inconsistencies.
 
 ### ✨ Features
-*   **TTS Text Highlighting**: Text is now highlighted as it is spoken, improving the reading experience.
-*   **Smart Resume**: TTS now intelligently resumes from your last read paragraph or your current scroll position.
-*   **Scroll Correction**: Added a fallback mechanism to ensure TTS starts from the correct visible paragraph even if auto-scroll misses.
-*   **UI Polish**: Improved TTS settings and confirmation dialogs for a smoother user experience.
+*   **Optimized TTS Scroll**: Initial TTS start/resume now skips scrolling if the target paragraph is already fully visible, providing a smoother experience.
+*   **Refined Resume Prompt**: The "Change TTS Reading Position?" prompt is now smarter and won't appear if the paused paragraph is still visible on screen.
+*   **UI Polish**: Improved the design of the TTS resume dialog and added proper settings modals for scroll behavior options.
+*   **Bug Fixes**: Fixed an issue where the TTS icon would remain in the "Pause" state after stopping playback.
 
 ### 📜 Commits
-*   `35095e79` - **feat: complete tts resume logic and ui polish** ([Link](https://github.com/bizzkoot/lnreader/commit/35095e79))
-    *   Finalized the resume logic and polished the UI for settings and dialogs.
-*   `d0ea54ad` - **fix: tts resume logic and stale progress** ([Link](https://github.com/bizzkoot/lnreader/commit/d0ea54ad))
-    *   Fixed issues where progress would become stale or incorrect, ensuring reliable playback resumption.
-*   `d3719923` - **feat(tts): attempt to fix TTS resume logic with scroll correction** ([Link](https://github.com/bizzkoot/lnreader/commit/d3719923))
-    *   Introduced scroll correction to handle edge cases where the player might start at the wrong position.
+*   **feat: optimize tts scroll and refine resume logic**
+    *   Implemented visibility checks to skip unnecessary scrolling and prompts.
+*   **fix: tts icon state on stop**
+    *   Ensured the TTS button icon correctly reverts to "Play" when stopped.
+*   **ui: polish tts settings and dialogs**
+    *   Enhanced the visual design of the resume dialog and added new selection modals for settings.

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { Voice } from 'expo-speech';
 
 import { Portal, TextInput, ActivityIndicator } from 'react-native-paper';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
-import TTSHighlight, { TTSVoice } from '@services/TTSHighlight';
+import { TTSVoice } from '@services/TTSHighlight';
 import { LegendList } from '@legendapp/list';
 import { Modal } from '@components';
 import { StyleSheet } from 'react-native';
@@ -61,7 +62,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
               key={item.identifier}
               status={item.identifier === tts?.voice?.identifier}
               onPress={() =>
-                setChapterReaderSettings({ tts: { ...tts, voice: item } })
+                setChapterReaderSettings({ tts: { ...tts, voice: item as Voice } })
               }
               label={item.name + ` (${item.language})`}
               labelStyle={{ fontFamily: item.name }}

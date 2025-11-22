@@ -90,6 +90,8 @@ export interface ChapterGeneralSettings {
   TTSEnable: boolean;
   showParagraphHighlight: boolean;
   ttsAutoResume: 'always' | 'prompt' | 'never';
+  ttsScrollPrompt: 'always-ask' | 'auto-change' | 'never-change';
+  ttsScrollBehavior: 'continue' | 'pause-on-scroll';
 }
 
 export interface ReaderTheme {
@@ -185,6 +187,8 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   TTSEnable: false,
   showParagraphHighlight: true,
   ttsAutoResume: 'prompt',
+  ttsScrollPrompt: 'always-ask',
+  ttsScrollBehavior: 'continue',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {
