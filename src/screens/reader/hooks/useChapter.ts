@@ -2,6 +2,7 @@ import {
   getChapter as getDbChapter,
   getNextChapter,
   getPrevChapter,
+  updateChapterTTSState,
 } from '@database/queries/ChapterQueries';
 import { insertHistory } from '@database/queries/HistoryQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
@@ -193,12 +194,16 @@ export default function useChapter(
   }, [chapter.name, novel.name, trackedNovel, tracker, updateAllTrackedNovels]);
 
   const saveProgress = useCallback(
-    (percentage: number, paragraphIndex?: number) => {
+    (percentage: number, paragraphIndex?: number, ttsState?: string) => {
       if (!incognitoMode) {
         updateChapterProgress(chapter.id, percentage > 100 ? 100 : percentage);
 
         if (paragraphIndex !== undefined) {
           MMKVStorage.set(`chapter_progress_${chapter.id}`, paragraphIndex);
+        }
+
+        if (ttsState) {
+          updateChapterTTSState(chapter.id, ttsState);
         }
 
         if (percentage >= 97) {

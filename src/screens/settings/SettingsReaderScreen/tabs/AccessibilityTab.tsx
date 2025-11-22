@@ -26,6 +26,7 @@ const AccessibilityTab: React.FC = () => {
     bionicReading = false,
     TTSEnable = true,
     showParagraphHighlight = true,
+    ttsAutoResume = 'prompt',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -127,6 +128,27 @@ const AccessibilityTab: React.FC = () => {
                     showParagraphHighlight: !showParagraphHighlight,
                   })
                 }
+                theme={theme}
+              />
+              <List.Item
+                title="Auto Resume"
+                description={
+                  ttsAutoResume === 'always'
+                    ? 'Always resume'
+                    : ttsAutoResume === 'never'
+                      ? 'Never resume'
+                      : 'Ask every time'
+                }
+                onPress={() => {
+                  setChapterGeneralSettings({
+                    ttsAutoResume:
+                      ttsAutoResume === 'prompt'
+                        ? 'always'
+                        : ttsAutoResume === 'always'
+                          ? 'never'
+                          : 'prompt',
+                  });
+                }}
                 theme={theme}
               />
               <List.Item

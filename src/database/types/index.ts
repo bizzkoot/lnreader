@@ -45,6 +45,7 @@ export interface ChapterInfo {
   page: string;
   progress: number | null;
   position?: number;
+  ttsState?: string;
 }
 
 export interface DownloadedChapter extends ChapterInfo {

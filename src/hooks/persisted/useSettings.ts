@@ -89,6 +89,7 @@ export interface ChapterGeneralSettings {
   tapToScroll: boolean;
   TTSEnable: boolean;
   showParagraphHighlight: boolean;
+  ttsAutoResume: 'always' | 'prompt' | 'never';
 }
 
 export interface ReaderTheme {
@@ -183,6 +184,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   tapToScroll: false,
   TTSEnable: false,
   showParagraphHighlight: true,
+  ttsAutoResume: 'prompt',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

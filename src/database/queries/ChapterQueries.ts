@@ -170,6 +170,13 @@ export const updateChapterProgress = (chapterId: number, progress: number) =>
     chapterId,
   );
 
+export const updateChapterTTSState = (chapterId: number, ttsState: string) =>
+  db.runAsync(
+    'UPDATE Chapter SET ttsState = ? WHERE id = ?',
+    ttsState,
+    chapterId,
+  );
+
 export const updateChapterProgressByIds = (
   chapterIds: number[],
   progress: number,
@@ -411,10 +418,9 @@ FROM
 JOIN
   Novel
   ON Chapter.novelId = Novel.id
-WHERE novelId = ?  ${
-      onlyDownloadableChapters
-        ? 'AND Chapter.isDownloaded = 1 '
-        : 'AND updatedTime IS NOT NULL'
+WHERE novelId = ?  ${onlyDownloadableChapters
+      ? 'AND Chapter.isDownloaded = 1 '
+      : 'AND updatedTime IS NOT NULL'
     }
 ORDER BY updatedTime DESC; 
 `,

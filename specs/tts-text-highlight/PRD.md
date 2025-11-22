@@ -70,18 +70,18 @@ Implement real-time word-level text highlighting for the TTS (Text-to-Speech) fe
 ## 8. Implemented Features (As of 2025-11-22)
 - **Native Module**: `TTSHighlightModule` implemented and integrated.
 - **Word Highlighting**: `core.js` updated to handle `highlightRange` and apply `word-highlight` class.
-- **Paragraph Index Persistence**: `savedParagraphIndex` is stored in MMKV and passed to `WebViewReader`.
-- **Auto-Scroll**: Logic updated to scroll to the active paragraph during TTS.
-- **Resume Logic**: `calculatePages` attempts to scroll to `savedParagraphIndex` on load.
+- **Database**: Added `ttsState` column to `Chapter` table via migration `003_add_tts_state.ts`.
+- **Settings**: Added `ttsAutoResume` ('always' | 'prompt' | 'never') to `ChapterGeneralSettings`.
+- **Resume Logic**:
+    - **Core JS**: `tts.start()` respects `ttsAutoResume` setting.
+    - **WebViewReader**: Handles confirmation prompt and prioritizes `savedIndex` from MMKV for reliable resuming.
+    - **Fixes**:
+        - Prevented `calculatePages` from re-scrolling to initial position on resize/exit.
+        - Removed auto-start on load to prevent unwanted playback.
+        - Fixed stale `savedParagraphIndex` by reading directly from MMKV.
 
 ## 9. Current Issues
-- **TTS Resume Failure**:
-    - **Symptom**: When reopening a chapter, the reader correctly identifies the `savedParagraphIndex` (confirmed via logs) and attempts to scroll to it. However, when TTS is started, it begins reading from the first paragraph (Chapter Title) instead of the visible paragraph.
-    - **Root Cause Analysis (Suspected)**:
-        - `scrollIntoView` in `calculatePages` might be happening too early or being overridden, causing the visual viewport to be at the top.
-        - `tts.start()` logic for finding the "first visible element" relies on `isElementInViewport`. If the scroll didn't "stick", it finds the top element.
-        - Potential race condition between WebView layout, scroll execution, and user interaction.
-    - **Next Steps**:
-        - Verify if the scroll actually happens visually.
-        - Debug `isElementInViewport` values during `tts.start()`.
-        - Investigate if `reader.refresh()` or other layout logic resets the scroll position.
+- **Resume Position Accuracy**:
+    - **Symptom**: TTS sometimes resumes from a paragraph slightly earlier than the exact last read paragraph (e.g., resuming from paragraph 6 when 11 was read).
+    - **Suspected Cause**: The `onscrollend` event in `core.js` might be saving the "top visible" paragraph index, which could be different from the "currently speaking" paragraph index if the user scrolls or if the auto-scroll positioning is slightly off.
+    - **Next Steps**: Investigate the correlation between `onscrollend` saving logic and TTS progress updates. Ensure TTS progress updates take precedence or are saved independently of scroll position.

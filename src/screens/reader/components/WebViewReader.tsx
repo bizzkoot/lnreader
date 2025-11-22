@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef } from 'react';
-import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
+import { NativeEventEmitter, NativeModules, StatusBar, AppState, Alert } from 'react-native';
 import WebView from 'react-native-webview';
 import color from 'color';
 
@@ -27,6 +27,7 @@ type WebViewPostEvent = {
   data?: { [key: string]: string | number };
   autoStartTTS?: boolean;
   paragraphIndex?: number;
+  ttsState?: any;
 };
 
 type WebViewReaderProps = {
@@ -86,6 +87,64 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const nextChapterScreenVisible = useRef<boolean>(false);
   const autoStartTTSRef = useRef<boolean>(false);
   const isTTSReadingRef = useRef<boolean>(false);
+  const ttsStateRef = useRef<any>(null);
+  const progressRef = useRef(chapter.progress);
+
+  useEffect(() => {
+    progressRef.current = chapter.progress;
+  }, [chapter.progress]);
+
+  const resumeTTS = (storedState: any) => {
+    webViewRef.current?.injectJavaScript(`
+      window.tts.restoreState({ 
+        shouldResume: true,
+        paragraphIndex: ${storedState.paragraphIndex},
+        autoStart: true
+      });
+      true;
+    `);
+  };
+
+  const handleTTSConfirmation = (savedIndex: number) => {
+    console.log('WebViewReader: Handling TTS confirmation. Setting:', chapterGeneralSettings.ttsAutoResume);
+
+    Alert.alert(
+      'Resume TTS',
+      'Do you want to resume reading from where you left off?',
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+          onPress: () => {
+            // User said No, so we tell TTS to mark as "resumed" (skipped) and start normally
+            webViewRef.current?.injectJavaScript(`
+              window.tts.hasAutoResumed = true;
+              window.tts.start();
+            `);
+          },
+        },
+        {
+          text: 'Yes',
+          onPress: () => {
+            // User said Yes, so we tell TTS to resume from the saved index
+            // We prefer savedIndex (from chapter progress) over ttsState.paragraphIndex
+            // because chapter progress is saved more frequently and reliably.
+            // CRITICAL FIX: Read directly from MMKV to get the latest value, as the prop might be stale.
+            const latestSavedIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? savedIndex;
+            const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
+            console.log('WebViewReader: Resuming TTS. latestSavedIndex:', latestSavedIndex, 'ttsState:', ttsState);
+
+            resumeTTS({
+              ...ttsState,
+              paragraphIndex: latestSavedIndex,
+              autoStart: true,
+              shouldResume: true
+            });
+          },
+        },
+      ],
+    );
+  };
 
 
 
@@ -99,9 +158,28 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       },
     );
 
+    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'background' && ttsStateRef.current?.wasPlaying) {
+        console.log('WebViewReader: Saving TTS state on background', ttsStateRef.current);
+        saveProgress(progressRef.current ?? 0, undefined, JSON.stringify({
+          ...ttsStateRef.current,
+          timestamp: Date.now(),
+        }));
+      }
+    });
+
     return () => {
       onSpeechDoneSubscription.remove();
+      appStateSubscription.remove();
       TTSHighlight.stop();
+      if (ttsStateRef.current?.wasPlaying) {
+        console.log('WebViewReader: Saving TTS state on unmount', ttsStateRef.current);
+        saveProgress(progressRef.current ?? 0, undefined, JSON.stringify({
+          ...ttsStateRef.current,
+          timestamp: Date.now(),
+          autoStartOnReturn: true,
+        }));
+      }
     };
   }, []);
 
@@ -116,14 +194,31 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           );
           break;
         case CHAPTER_GENERAL_SETTINGS:
+          const newSettings = MMKVStorage.getString(CHAPTER_GENERAL_SETTINGS);
+          console.log('WebViewReader: MMKV listener fired for CHAPTER_GENERAL_SETTINGS', newSettings);
           webViewRef.current?.injectJavaScript(
-            `reader.generalSettings.val = ${MMKVStorage.getString(
-              CHAPTER_GENERAL_SETTINGS,
-            )}`,
+            `if (window.reader && window.reader.generalSettings) {
+               window.reader.generalSettings.val = ${newSettings};
+               console.log('TTS: Updated general settings via listener');
+             }`
           );
           break;
       }
     });
+
+    // Safety: Inject current settings on mount to ensure WebView is in sync
+    // even if useMemo was stale or listener missed something.
+    const currentSettings = MMKVStorage.getString(CHAPTER_GENERAL_SETTINGS);
+    if (currentSettings) {
+      webViewRef.current?.injectJavaScript(
+        `setTimeout(() => {
+               if (window.reader && window.reader.generalSettings) {
+                 window.reader.generalSettings.val = ${currentSettings};
+                 console.log('TTS: Injected fresh settings on mount');
+               }
+             }, 1000);`
+      );
+    }
 
     const subscription = deviceInfoEmitter.addListener(
       'RNDeviceInfo_batteryLevelDidChange',
@@ -187,6 +282,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           case 'save':
             if (event.data && typeof event.data === 'number') {
+              console.log('WebViewReader: Received save event. Progress:', event.data, 'Paragraph:', event.paragraphIndex);
               saveProgress(event.data, event.paragraphIndex as number | undefined);
             }
             break;
@@ -211,9 +307,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             break;
           case 'tts-state':
             if (event.data && typeof event.data === 'object') {
-              const data = event.data as { isReading?: boolean };
-              const isReading = data.isReading === true;
-              isTTSReadingRef.current = isReading;
+              ttsStateRef.current = event.data;
+            }
+            break;
+          case 'request-tts-confirmation':
+            if (event.data?.savedIndex !== undefined) {
+              handleTTSConfirmation(Number(event.data.savedIndex));
             }
             break;
         }
@@ -310,6 +409,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               noNextChapter: getString('readerScreen.noNextChapter'),
             },
             savedParagraphIndex: savedParagraphIndex ?? -1,
+            ttsRestoreState: chapter.ttsState ? JSON.parse(chapter.ttsState) : null,
           })}
               </script>
               <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>

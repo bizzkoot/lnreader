@@ -44,6 +44,7 @@ window.reader = new (function () {
 
   this.layoutEvent = undefined;
   this.chapterEndingVisible = van.state(false);
+  this.hasPerformedInitialScroll = false;
 
   this.post = obj => window.ReactNativeWebView.postMessage(JSON.stringify(obj));
   this.refresh = () => {
@@ -292,36 +293,92 @@ window.tts = new (function () {
     }
   };
 
+  this.restoreState = (config) => {
+    console.log('TTS: Restore state called with config:', config);
+
+    if (!config || !config.shouldResume) {
+      console.log('TTS: No resume needed');
+      this.hasAutoResumed = true;
+
+      if (config?.startFromBeginning) {
+        console.log('TTS: User chose to restart from beginning');
+        this.start();
+      }
+      return;
+    }
+
+    const readableElements = reader.getReadableElements();
+    const paragraphIndex = config.paragraphIndex;
+
+    if (paragraphIndex >= 0 && readableElements[paragraphIndex]) {
+      console.log('TTS: Resuming from paragraph index:', paragraphIndex);
+
+      this.hasAutoResumed = true;
+      this.currentElement = readableElements[paragraphIndex];
+      this.scrollToElement(this.currentElement);
+
+      if (config.autoStart) {
+        console.log('TTS: Auto-starting playback');
+        setTimeout(() => {
+          this.next();
+        }, 500);
+      } else {
+        console.log('TTS: Positioned at paragraph but not auto-starting');
+        this.currentElement.classList.add('highlight');
+        reader.post({
+          type: 'tts-positioned',
+          data: { paragraphIndex }
+        });
+      }
+    } else {
+      console.log('TTS: Paragraph not found, starting from beginning');
+      this.start();
+    }
+  };
+
+  this.hasAutoResumed = false;
+
   this.start = element => {
     this.stop();
     if (element) {
       console.log('TTS: Starting from specific element');
       this.currentElement = element;
     } else {
-      // Priority 1: Saved Paragraph Index (if visible)
       const readableElements = reader.getReadableElements();
       const savedIndex = initialReaderConfig.savedParagraphIndex;
 
-      if (savedIndex !== undefined && savedIndex >= 0 && readableElements[savedIndex]) {
-        if (this.isElementInViewport(readableElements[savedIndex])) {
-          console.log('TTS: Starting from saved paragraph index:', savedIndex);
-          this.currentElement = readableElements[savedIndex];
-          this.next();
-          return;
-        }
+      console.log('TTS: Raw general settings:', JSON.stringify(reader.generalSettings.val));
+      const autoResumeSetting = reader.generalSettings.val.ttsAutoResume || 'prompt';
 
-        // Priority 1.5: Scroll Correction
-        // If we are at the very top (scrollY < 10) but have a saved index > 0,
-        // it likely means the initial scroll failed. Force start from saved index.
-        if (window.scrollY < 10 && savedIndex > 0) {
-          console.log('TTS: Scroll Correction - Forcing start from saved index:', savedIndex);
+      // Priority 1: Force Resume from Saved Index (First Run Only)
+      // Only if setting is NOT 'never'. If 'prompt', we assume the user already approved via native prompt
+      // or if they manually pressed play, we default to resuming.
+      // But if 'never', we should skip this and start from visible.
+      if (!this.hasAutoResumed && savedIndex !== undefined && savedIndex >= 0 && autoResumeSetting !== 'never') {
+        if (readableElements[savedIndex]) {
+          if (autoResumeSetting === 'prompt') {
+            console.log('TTS: Requesting confirmation for resume');
+            reader.post({
+              type: 'request-tts-confirmation',
+              data: { savedIndex: savedIndex }
+            });
+            return;
+          }
+
+          console.log('TTS: Force Resume - Starting from saved paragraph index:', savedIndex, 'Setting:', autoResumeSetting);
+          this.hasAutoResumed = true;
           this.currentElement = readableElements[savedIndex];
+          this.scrollToElement(this.currentElement);
           this.next();
           return;
+        } else {
+          console.log('TTS: Saved index', savedIndex, 'not found in readableElements of length', readableElements.length);
         }
+      } else {
+        console.log('TTS: Skipping resume. hasAutoResumed:', this.hasAutoResumed, 'savedIndex:', savedIndex, 'Setting:', autoResumeSetting);
       }
 
-      // Priority 2: First "Significant" Visible Element
+      // Priority 2: First "Significant" Visible Element (Manual Start)
       // We want the element that is closest to the top of the viewport, 
       // but we need to be careful about elements that are only slightly visible at the top.
       let bestElement = null;
@@ -373,13 +430,14 @@ window.tts = new (function () {
   this.resume = () => {
     if (!this.reading) {
       if (
+        this.started &&
         this.currentElement &&
         this.currentElement.id !== 'LNReader-chapter'
       ) {
         this.speak();
         this.reading = true;
       } else {
-        this.next();
+        this.start();
       }
     }
   };
@@ -387,7 +445,17 @@ window.tts = new (function () {
   this.pause = () => {
     this.reading = false;
     reader.post({ type: 'stop-speak' });
-    reader.post({ type: 'tts-state', data: { isReading: false } });
+
+    const readableElements = reader.getReadableElements();
+    const paragraphIndex = readableElements.indexOf(this.currentElement);
+
+    reader.post({
+      type: 'tts-state',
+      data: {
+        isReading: false,
+        paragraphIndex: paragraphIndex
+      }
+    });
   };
 
   this.stop = () => {
@@ -466,7 +534,13 @@ window.tts = new (function () {
     if (text && text.trim().length > 0) {
       console.log('TTS: Speaking', text.substring(0, 20));
       reader.post({ type: 'speak', data: text });
-      reader.post({ type: 'tts-state', data: { isReading: true } });
+      reader.post({
+        type: 'tts-state',
+        data: {
+          isReading: true,
+          paragraphIndex: paragraphIndex
+        }
+      });
     } else {
       this.next();
     }
@@ -522,6 +596,7 @@ window.tts = new (function () {
       }
     });
   };
+
 })();
 
 window.pageReader = new (function () {
@@ -673,11 +748,12 @@ function calculatePages() {
     );
   } else {
     console.log('calculatePages: savedParagraphIndex =', initialReaderConfig.savedParagraphIndex);
-    if (initialReaderConfig.savedParagraphIndex !== undefined && initialReaderConfig.savedParagraphIndex >= 0) {
+    if (!reader.hasPerformedInitialScroll && initialReaderConfig.savedParagraphIndex !== undefined && initialReaderConfig.savedParagraphIndex >= 0) {
       const readableElements = reader.getReadableElements();
       console.log('calculatePages: readableElements length =', readableElements.length);
       if (readableElements[initialReaderConfig.savedParagraphIndex]) {
         console.log('calculatePages: Scrolling to paragraph', initialReaderConfig.savedParagraphIndex);
+        reader.hasPerformedInitialScroll = true;
         setTimeout(() => {
           readableElements[initialReaderConfig.savedParagraphIndex].scrollIntoView({
             block: 'center',
@@ -688,8 +764,9 @@ function calculatePages() {
       } else {
         console.log('calculatePages: Paragraph not found at index', initialReaderConfig.savedParagraphIndex);
       }
-    } else {
-      console.log('calculatePages: No valid savedParagraphIndex');
+    } else if (!reader.hasPerformedInitialScroll) {
+      console.log('calculatePages: No valid savedParagraphIndex or already scrolled');
+      reader.hasPerformedInitialScroll = true;
     }
 
     setTimeout(() => {
