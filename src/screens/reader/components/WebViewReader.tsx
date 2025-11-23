@@ -172,6 +172,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     `);
   };
 
+  const handleRestartChapter = () => {
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+            (function() {
+                const elements = window.reader.getReadableElements();
+                if (elements && elements.length > 0) {
+                    window.tts.start(elements[0]);
+                } else {
+                    window.tts.start();
+                }
+            })();
+        `);
+    }
+    hideResumeDialog();
+  };
+
   const handleTTSScrollSyncConfirm = () => {
     if (ttsScrollPromptDataRef.current) {
       const { visibleIndex, isResume } = ttsScrollPromptDataRef.current;
@@ -544,6 +560,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         theme={theme}
         onResume={handleResumeConfirm}
         onRestart={handleResumeCancel}
+        onRestartChapter={handleRestartChapter}
         onDismiss={hideResumeDialog}
       />
       <TTSScrollSyncDialog

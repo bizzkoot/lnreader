@@ -60,6 +60,10 @@ window.reader = new (function () {
 
   van.derive(() => {
     const settings = this.readerSettings.val;
+
+    // Invalidate cache when settings change as it might affect readability/layout
+    this.invalidateCache();
+
     document.documentElement.style.setProperty(
       '--readerSettings-theme',
       settings.theme,
@@ -103,7 +107,31 @@ window.reader = new (function () {
     }
   });
 
+  this._cachedReadableElements = null;
+  this._cacheInvalidated = true;
+
+  this.invalidateCache = () => {
+    this._cacheInvalidated = true;
+  };
+
   this.getReadableElements = () => {
+    // NEW: Check if chapterElement is still valid. If not, re-query it.
+    if (!this.chapterElement || !this.chapterElement.isConnected) {
+      console.log('Reader: chapterElement is disconnected or missing, re-querying...');
+      this.chapterElement = document.querySelector('#LNReader-chapter');
+      this._cacheInvalidated = true;
+    }
+
+    // NEW: Check if cache is valid by verifying the first element is connected
+    if (this._cachedReadableElements && !this._cacheInvalidated) {
+      if (this._cachedReadableElements.length > 0 && !this._cachedReadableElements[0].isConnected) {
+        console.log('Reader: Cached elements are disconnected, invalidating cache...');
+        this._cacheInvalidated = true;
+      } else {
+        return this._cachedReadableElements;
+      }
+    }
+
     const elements = [];
     const traverse = (node) => {
       if (node.nodeType === Node.ELEMENT_NODE) {
@@ -116,26 +144,38 @@ window.reader = new (function () {
         }
       }
     };
-    traverse(this.chapterElement);
+
+    if (this.chapterElement) {
+      traverse(this.chapterElement);
+    } else {
+      console.error('Reader: chapterElement not found even after re-query');
+    }
+
+    this._cachedReadableElements = elements;
+    this._cacheInvalidated = false;
+
     return elements;
   };
 
   // Track user scrolling to prevent inappropriate calculatePages calls
-  document.addEventListener('touchstart', () => {
+  this.touchStartListener = () => {
     this.isUserScrolling = true;
     if (this.scrollTimeout) {
       clearTimeout(this.scrollTimeout);
     }
-  });
+  };
 
-  document.addEventListener('touchend', () => {
+  this.touchEndListener = () => {
     // Delay clearing the flag to ensure calculatePages doesn't run immediately after scroll
     this.scrollTimeout = setTimeout(() => {
       this.isUserScrolling = false;
     }, 500); // 500ms delay after touch end
-  });
+  };
 
-  document.onscrollend = () => {
+  document.addEventListener('touchstart', this.touchStartListener);
+  document.addEventListener('touchend', this.touchEndListener);
+
+  this.scrollListener = () => {
     if (this.suppressSaveOnScroll) {
       console.log('Skipping save on initial scroll');
       this.suppressSaveOnScroll = false;
@@ -144,7 +184,7 @@ window.reader = new (function () {
 
     // NEW: Ignore scroll events during TTS auto-scroll
     if (window.tts && window.tts.isAutoScrolling) {
-      console.log('TTS: Ignoring scroll event (auto-scroll in progress)');
+      window.tts.log('Ignoring scroll event (auto-scroll in progress)');
       return; // Don't save progress during TTS auto-scroll
     }
 
@@ -162,47 +202,55 @@ window.reader = new (function () {
 
       // Check if user scrolled significantly away (>1 screen height)
       if (scrollDifference > reader.layoutHeight) {
-        console.log('TTS: User scrolled significantly away from TTS position');
+        // Check scroll direction
+        const isScrollingDown = currentScrollY > window.tts.lastKnownScrollY;
 
-        // Find current visible paragraph
-        const readableElements = this.getReadableElements();
-        let visibleParagraphIndex = -1;
-        let visibleParagraphTop = Infinity;
+        if (isScrollingDown) {
+          window.tts.log('User scrolled forward, continuing TTS');
+          // Don't interrupt if scrolling forward (peeking ahead)
+        } else {
+          window.tts.log('User scrolled significantly away (backward) from TTS position');
 
-        for (let i = 0; i < readableElements.length; i++) {
-          const rect = readableElements[i].getBoundingClientRect();
-          if (rect.top >= 0 && rect.top < visibleParagraphTop) {
-            visibleParagraphTop = rect.top;
-            visibleParagraphIndex = i;
-          }
-        }
+          // Find current visible paragraph
+          const readableElements = this.getReadableElements();
+          let visibleParagraphIndex = -1;
+          let visibleParagraphTop = Infinity;
 
-        // Get current TTS paragraph
-        const currentTTSIndex = readableElements.indexOf(window.tts.currentElement);
-
-        // If user is at least 3 paragraphs away, show confirmation
-        if (visibleParagraphIndex !== -1 &&
-          Math.abs(visibleParagraphIndex - currentTTSIndex) >= 3) {
-
-          console.log(`TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex} - showing manual mode prompt`);
-
-          // LOCK TTS POSITION: Prevent any further scrolling/position changes during dialog
-          window.tts.dialogActive = true;
-          window.tts.lockedCurrentElement = window.tts.currentElement;
-          window.tts.lockedParagraphIndex = currentTTSIndex;
-
-          // Send prompt to React Native for confirmation
-          this.post({
-            type: 'tts-manual-mode-prompt',
-            data: {
-              message: 'You scrolled away from TTS. Continue reading manually?',
-              action: 'confirm-manual-mode',
-              currentTTSIndex: currentTTSIndex,
-              userVisibleIndex: visibleParagraphIndex
+          for (let i = 0; i < readableElements.length; i++) {
+            const rect = readableElements[i].getBoundingClientRect();
+            if (rect.top >= 0 && rect.top < visibleParagraphTop) {
+              visibleParagraphTop = rect.top;
+              visibleParagraphIndex = i;
             }
-          });
+          }
 
-          // Note: TTS continues running until user responds to prompt
+          // Get current TTS paragraph
+          const currentTTSIndex = readableElements.indexOf(window.tts.currentElement);
+
+          // If user is at least 3 paragraphs away, show confirmation
+          if (visibleParagraphIndex !== -1 &&
+            Math.abs(visibleParagraphIndex - currentTTSIndex) >= 3) {
+
+            window.tts.log(`User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex} - showing manual mode prompt`);
+
+            // LOCK TTS POSITION: Prevent any further scrolling/position changes during dialog
+            window.tts.dialogActive = true;
+            window.tts.lockedCurrentElement = window.tts.currentElement;
+            window.tts.lockedParagraphIndex = currentTTSIndex;
+
+            // Send prompt to React Native for confirmation
+            this.post({
+              type: 'tts-manual-mode-prompt',
+              data: {
+                message: 'You scrolled back. Continue reading manually?',
+                action: 'confirm-manual-mode',
+                currentTTSIndex: currentTTSIndex,
+                userVisibleIndex: visibleParagraphIndex
+              }
+            });
+
+            // Note: TTS continues running until user responds to prompt
+          }
         }
       }
 
@@ -229,6 +277,27 @@ window.reader = new (function () {
       });
     }
   };
+
+  document.addEventListener('scrollend', this.scrollListener);
+
+  this.cleanup = () => {
+    if (this.scrollListener) {
+      document.removeEventListener('scrollend', this.scrollListener);
+    }
+    if (this.touchStartListener) {
+      document.removeEventListener('touchstart', this.touchStartListener);
+    }
+    if (this.touchEndListener) {
+      document.removeEventListener('touchend', this.touchEndListener);
+    }
+  };
+
+  window.addEventListener('beforeunload', () => {
+    this.cleanup();
+    if (window.tts && window.tts.cleanup) {
+      window.tts.cleanup();
+    }
+  });
 
   if (DEBUG) {
     // eslint-disable-next-line no-global-assign, no-new-object
@@ -283,15 +352,106 @@ window.tts = new (function () {
   this.started = false;
   this.reading = false;
 
+  // CONSTANTS
+  this.CONSTANTS = {
+    SCROLL_COOLDOWN: 700,
+    HIGHLIGHT_THROTTLE: 50,
+    SCROLL_LOCK_DURATION: 600,
+    MANUAL_SCROLL_THRESHOLD: 0.5, // 50% of layout height
+    AUTO_SCROLL_THRESHOLD_TOP: 0,
+    AUTO_SCROLL_THRESHOLD_BOTTOM: 1.0,
+    SWIPE_THRESHOLD: 180,
+  };
+
+  // DEBUG
+  this.DEBUG_TTS = false;
+  this.log = (...args) => {
+    if (this.DEBUG_TTS || initialReaderConfig.DEBUG) {
+      console.log('[TTS]', ...args);
+    }
+  };
+
+  // ICONS
+  this.volumeIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.659 1.905h1.93l4.5 4.5c.945.945 2.561.276 2.561-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" /><path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" /></svg>';
+
   // NEW: Scroll control flags for TTS
   this.isAutoScrolling = false;  // Flag for programmatic scroll
   this.scrollLockTimeout = null; // Timeout to release lock
   this.lastAutoScrollTime = 0;   // Track when scroll started
-  this.SCROLL_COOLDOWN = 700; // 700ms cooldown
+  this.SCROLL_COOLDOWN = this.CONSTANTS.SCROLL_COOLDOWN;
 
   // NEW: User scroll detection
   this.userScrollDetected = false;
   this.lastKnownScrollY = 0;
+
+  // NEW: Handle user manual scroll when TTS is paused
+  this.manualScrollListener = () => {
+    if (!window.tts || window.tts.reading) return; // Only when TTS is paused
+    if (window.tts.isAutoScrolling) return; // Ignore during auto-scroll
+
+    const currentScrollY = window.scrollY;
+    const scrollDifference = window.tts.lastKnownScrollY - currentScrollY;
+
+    // User scrolled up significantly (more than half screen)
+    if (scrollDifference > reader.layoutHeight * this.CONSTANTS.MANUAL_SCROLL_THRESHOLD) {
+      this.lastManualScrollTime = Date.now(); // Update manual scroll time
+      this.log('User scrolled up while paused, checking for position change');
+
+      // Find which paragraph is now in view
+      const readableElements = reader.getReadableElements();
+      let visibleParagraphIndex = -1;
+
+      for (let i = 0; i < readableElements.length; i++) {
+        if (window.tts.isElementInViewport(readableElements[i])) {
+          visibleParagraphIndex = i;
+          break;
+        }
+      }
+
+      // Get current TTS paragraph
+      const currentTTSIndex = readableElements.indexOf(window.tts.currentElement);
+
+      // User scrolled to an earlier paragraph
+      if (visibleParagraphIndex !== -1 &&
+        visibleParagraphIndex < currentTTSIndex - 2) { // At least 2 paragraphs back
+
+        console.log(`TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}`);
+
+        // Check user preference
+        if (reader.generalSettings.val.ttsScrollPrompt === 'always-ask') {
+          // Send prompt to React Native
+          reader.post({
+            type: 'tts-scroll-prompt',
+            data: {
+              currentIndex: currentTTSIndex,
+              visibleIndex: visibleParagraphIndex,
+              action: 'ask',
+            },
+          });
+        } else if (reader.generalSettings.val.ttsScrollPrompt === 'auto-change') {
+          // Automatically change TTS position
+          window.tts.currentElement = readableElements[visibleParagraphIndex];
+          console.log(`TTS: Auto-changed position to paragraph ${visibleParagraphIndex}`);
+
+          reader.post({
+            type: 'show-toast',
+            data: `TTS position updated to paragraph ${visibleParagraphIndex + 1}`,
+          });
+        }
+        // If 'never-change', do nothing
+      }
+    }
+
+    window.tts.lastKnownScrollY = currentScrollY;
+  };
+
+  window.addEventListener('touchend', this.manualScrollListener);
+
+  this.cleanup = () => {
+    if (this.manualScrollListener) {
+      window.removeEventListener('touchend', this.manualScrollListener);
+    }
+  };
 
   this.isContainer = element => {
     for (let i = 0; i < element.children.length; i++) {
@@ -391,7 +551,13 @@ window.tts = new (function () {
   };
 
   this.restoreState = (config) => {
-    console.log('TTS: Restore state called with config:', config);
+    this.log('Restore state called with config:', config);
+
+    // NEW: Force layout refresh to ensure dimensions are correct
+    if (window.reader && window.reader.refresh) {
+      window.reader.refresh();
+      this.log('Forced reader refresh');
+    }
 
     if (!config || !config.shouldResume) {
       console.log('TTS: No resume needed');
@@ -408,19 +574,27 @@ window.tts = new (function () {
     const paragraphIndex = config.paragraphIndex;
 
     if (paragraphIndex >= 0 && readableElements[paragraphIndex]) {
-      console.log('TTS: Resuming from paragraph index:', paragraphIndex);
+      this.log('Resuming from paragraph index:', paragraphIndex);
 
       this.hasAutoResumed = true;
+      this.started = true; // NEW: Set started to true to prevent findNextTextNode failure
       this.currentElement = readableElements[paragraphIndex];
-      this.scrollToElement(this.currentElement, true);
+
+      // DEBUG: Log element status
+      const rect = this.currentElement.getBoundingClientRect();
+      this.log(`Resuming element status: isConnected=${this.currentElement.isConnected}, rect=${JSON.stringify(rect)}`);
+
+      // NEW: Force scroll (remove true arg) to ensure user sees the element even if system thinks it's visible
+      this.scrollToElement(this.currentElement);
 
       if (config.autoStart) {
-        console.log('TTS: Auto-starting playback');
+        this.log('Auto-starting playback');
         setTimeout(() => {
+          // Revert to next() but ensure started is true
           this.next();
         }, 500);
       } else {
-        console.log('TTS: Positioned at paragraph but not auto-starting');
+        this.log('Positioned at paragraph but not auto-starting');
         this.currentElement.classList.add('highlight');
         reader.post({
           type: 'tts-positioned',
@@ -428,7 +602,7 @@ window.tts = new (function () {
         });
       }
     } else {
-      console.log('TTS: Paragraph not found, starting from beginning');
+      this.log('Paragraph not found, starting from beginning');
       this.start();
     }
   };
@@ -438,13 +612,13 @@ window.tts = new (function () {
   this.start = element => {
     this.stop();
     if (element) {
-      console.log('TTS: Starting from specific element');
+      this.log('Starting from specific element');
       this.currentElement = element;
     } else {
       const readableElements = reader.getReadableElements();
       const savedIndex = initialReaderConfig.savedParagraphIndex;
 
-      console.log('TTS: Raw general settings:', JSON.stringify(reader.generalSettings.val));
+      this.log('Raw general settings:', JSON.stringify(reader.generalSettings.val));
       const autoResumeSetting = reader.generalSettings.val.ttsAutoResume || 'prompt';
 
       // Priority 1: Force Resume from Saved Index (First Run Only)
@@ -454,7 +628,8 @@ window.tts = new (function () {
       if (!this.hasAutoResumed && savedIndex !== undefined && savedIndex >= 0 && autoResumeSetting !== 'never') {
         if (readableElements[savedIndex]) {
           if (autoResumeSetting === 'prompt') {
-            console.log('TTS: Requesting confirmation for resume');
+            this.log('Requesting confirmation for resume');
+            this.hasAutoResumed = true; // NEW: Mark as handled to prevent loops if user declines
             reader.post({
               type: 'request-tts-confirmation',
               data: { savedIndex: savedIndex }
@@ -462,7 +637,7 @@ window.tts = new (function () {
             return;
           }
 
-          console.log('TTS: Force Resume - Starting from saved paragraph index:', savedIndex, 'Setting:', autoResumeSetting);
+          this.log('Force Resume - Starting from saved paragraph index:', savedIndex, 'Setting:', autoResumeSetting);
           this.hasAutoResumed = true;
           this.currentElement = readableElements[savedIndex];
           this.scrollToElement(this.currentElement, true);
@@ -514,7 +689,7 @@ window.tts = new (function () {
       }
 
       if (bestElement) {
-        console.log('TTS: Found best visible element:', bestElement.textContent.substring(0, 20));
+        this.log('Found best visible element:', bestElement.textContent.substring(0, 20));
         this.currentElement = bestElement;
       } else {
         console.log('TTS: No visible element found, starting from beginning');
@@ -530,6 +705,13 @@ window.tts = new (function () {
   };
 
   this.resume = (forceResume = false) => {
+    // NEW: Toggle behavior - if already reading, pause
+    if (this.reading) {
+      this.log('resume() called but already reading - toggling to pause');
+      this.pause();
+      return;
+    }
+
     if (!this.reading) {
       if (
         this.started &&
@@ -600,15 +782,22 @@ window.tts = new (function () {
     reader.post({ type: 'stop-speak' });
     this.currentElement?.classList?.remove('highlight');
     this.prevElement = null;
-    this.currentElement = reader.chapterElement;
+
+    // NEW: Don't reset currentElement to chapterElement here
+    // this.currentElement = reader.chapterElement;
+
     this.started = false;
     this.reading = false;
+
+    // NEW: Don't reset auto-resume flag here, it causes loops in start()
+    // this.hasAutoResumed = false;
+
     reader.post({ type: 'tts-state', data: { isReading: false } });
 
     // NEW: Reset TTS controller icon
     const controller = document.getElementById('TTS-Controller');
     if (controller?.firstElementChild) {
-      controller.firstElementChild.innerHTML = volumnIcon;
+      controller.firstElementChild.innerHTML = this.volumeIcon;
     }
   };
 
@@ -619,6 +808,11 @@ window.tts = new (function () {
       window.innerHeight || document.documentElement.clientHeight;
     const windowWidth =
       window.innerWidth || document.documentElement.clientWidth;
+
+    // DEBUG: Log dimensions if something seems wrong (e.g. negative or zero)
+    if (windowHeight === 0 || rect.width === 0 || rect.height === 0) {
+      this.log(`isElementInViewport suspicious: winH=${windowHeight}, rect=${JSON.stringify(rect)}`);
+    }
 
     // Check for partial visibility
     return (
@@ -653,19 +847,23 @@ window.tts = new (function () {
     }
 
     // Only scroll if element is not visible or barely visible
-    if (!isPartiallyVisible || rect.top < 0 || rect.bottom > windowHeight) {
+    if (!isPartiallyVisible || rect.top < this.CONSTANTS.AUTO_SCROLL_THRESHOLD_TOP || rect.bottom > windowHeight * this.CONSTANTS.AUTO_SCROLL_THRESHOLD_BOTTOM) {
       // NEW: Set flag BEFORE scrolling
       this.isAutoScrolling = true;
       this.lastAutoScrollTime = Date.now();
-      console.log('TTS: Starting auto-scroll (locked)');
+      this.log('Starting auto-scroll (locked)');
 
       // Clear previous timeout
       if (this.scrollLockTimeout) {
         clearTimeout(this.scrollLockTimeout);
       }
 
+      // Check user's motion preference
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const userScrolling = Date.now() - this.lastManualScrollTime < 2000;
+
       element.scrollIntoView({
-        behavior: 'smooth',
+        behavior: (prefersReducedMotion || userScrolling) ? 'auto' : 'smooth',
         block: 'center',
         inline: 'nearest'
       });
@@ -674,68 +872,88 @@ window.tts = new (function () {
       // Smooth scroll typically takes 300-500ms
       this.scrollLockTimeout = setTimeout(() => {
         this.isAutoScrolling = false;
-        console.log('TTS: Auto-scroll complete (unlocked)');
-      }, 600); // Buffer time for smooth scroll animation
+        this.log('Auto-scroll complete (unlocked)');
+      }, this.CONSTANTS.SCROLL_LOCK_DURATION); // Buffer time for smooth scroll animation
     }
   };
 
   this.speak = () => {
-    if (!this.currentElement) return;
+    try {
+      if (!this.currentElement) {
+        console.warn('TTS: No current element to speak');
+        return;
+      }
 
-    // CRITICAL: During manual mode dialog, prevent any position changes
-    if (this.dialogActive) {
-      console.log('TTS: Dialog active - speaking from locked position');
-      this.reading = true;
+      // CRITICAL: During manual mode dialog, prevent any position changes
+      if (this.dialogActive) {
+        console.log('TTS: Dialog active - speaking from locked position');
+        this.reading = true;
 
+        const text = this.currentElement.textContent;
+        if (text && text.trim().length > 0) {
+          this.log('Speaking (locked)', text.substring(0, 20));
+          reader.post({ type: 'speak', data: text });
+          reader.post({
+            type: 'tts-state',
+            data: {
+              isReading: true,
+              paragraphIndex: this.lockedParagraphIndex || 0
+            }
+          });
+        }
+        return; // Don't progress to next paragraph when dialog is active
+      }
+
+      this.prevElement = this.currentElement;
+      this.scrollToElement(this.currentElement);
+      if (reader.generalSettings.val.showParagraphHighlight) {
+        this.currentElement.classList.add('highlight');
+      }
+
+      // Save progress based on current TTS element
+      const readableElements = reader.getReadableElements();
+      const paragraphIndex = readableElements.indexOf(this.currentElement);
+      if (paragraphIndex !== -1) {
+        reader.post({
+          type: 'save',
+          data: parseInt(
+            ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
+            10,
+          ),
+          paragraphIndex,
+        });
+      }
+
+      // Use textContent to ensure indices match for highlighting
       const text = this.currentElement.textContent;
       if (text && text.trim().length > 0) {
-        console.log('TTS: Speaking (locked)', text.substring(0, 20));
+        this.log('Speaking', text.substring(0, 20));
         reader.post({ type: 'speak', data: text });
         reader.post({
           type: 'tts-state',
           data: {
             isReading: true,
-            paragraphIndex: this.lockedParagraphIndex || 0
+            paragraphIndex: paragraphIndex,
+            totalParagraphs: readableElements.length,
+            progress: Math.round((paragraphIndex / readableElements.length) * 100),
+            currentText: text.substring(0, 50) + (text.length > 50 ? '...' : ''),
+            timestamp: Date.now()
           }
         });
+      } else {
+        this.next();
       }
-      return; // Don't progress to next paragraph when dialog is active
-    }
-
-    this.prevElement = this.currentElement;
-    this.scrollToElement(this.currentElement);
-    if (reader.generalSettings.val.showParagraphHighlight) {
-      this.currentElement.classList.add('highlight');
-    }
-
-    // Save progress based on current TTS element
-    const readableElements = reader.getReadableElements();
-    const paragraphIndex = readableElements.indexOf(this.currentElement);
-    if (paragraphIndex !== -1) {
+    } catch (error) {
+      console.error('TTS: Error in speak():', error);
+      this.reading = false;
       reader.post({
-        type: 'save',
-        data: parseInt(
-          ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
-          10,
-        ),
-        paragraphIndex,
-      });
-    }
-
-    // Use textContent to ensure indices match for highlighting
-    const text = this.currentElement.textContent;
-    if (text && text.trim().length > 0) {
-      console.log('TTS: Speaking', text.substring(0, 20));
-      reader.post({ type: 'speak', data: text });
-      reader.post({
-        type: 'tts-state',
+        type: 'tts-error',
         data: {
-          isReading: true,
-          paragraphIndex: paragraphIndex
+          error: error.message,
+          element: this.currentElement?.tagName,
+          action: 'speak'
         }
       });
-    } else {
-      this.next();
     }
   };
 
@@ -790,17 +1008,28 @@ window.tts = new (function () {
     return false;
   };
 
+  this.lastHighlightTime = 0;
+  this.HIGHLIGHT_THROTTLE = this.CONSTANTS.HIGHLIGHT_THROTTLE;
+
   this.highlightRange = (start, end) => {
+    const now = Date.now();
+    if (now - this.lastHighlightTime < this.HIGHLIGHT_THROTTLE) {
+      return; // Skip if called too frequently
+    }
+    this.lastHighlightTime = now;
+
     // Remove previous word highlights
     const highlights = this.currentElement.querySelectorAll('.word-highlight');
+    const fragment = document.createDocumentFragment();
+
     highlights.forEach(h => {
-      const parent = h.parentNode;
       while (h.firstChild) {
-        parent.insertBefore(h.firstChild, h);
+        fragment.appendChild(h.firstChild);
       }
-      parent.removeChild(h);
-      parent.normalize();
+      h.parentNode.replaceChild(fragment, h);
     });
+
+    this.currentElement.normalize();
 
     if (start < 0 || end <= start) return;
 
@@ -1202,65 +1431,7 @@ window.addEventListener('load', () => {
   });
 })();
 
-// NEW: Handle user manual scroll when TTS is paused
-window.addEventListener('touchend', () => {
-  if (!window.tts || window.tts.reading) return; // Only when TTS is paused
-  if (window.tts.isAutoScrolling) return; // Ignore during auto-scroll
 
-  const currentScrollY = window.scrollY;
-  const scrollDifference = window.tts.lastKnownScrollY - currentScrollY;
-
-  // User scrolled up significantly (more than half screen)
-  if (scrollDifference > reader.layoutHeight * 0.5) {
-    console.log('TTS: User scrolled up while paused, checking for position change');
-
-    // Find which paragraph is now in view
-    const readableElements = reader.getReadableElements();
-    let visibleParagraphIndex = -1;
-
-    for (let i = 0; i < readableElements.length; i++) {
-      if (window.tts.isElementInViewport(readableElements[i])) {
-        visibleParagraphIndex = i;
-        break;
-      }
-    }
-
-    // Get current TTS paragraph
-    const currentTTSIndex = readableElements.indexOf(window.tts.currentElement);
-
-    // User scrolled to an earlier paragraph
-    if (visibleParagraphIndex !== -1 &&
-      visibleParagraphIndex < currentTTSIndex - 2) { // At least 2 paragraphs back
-
-      console.log(`TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}`);
-
-      // Check user preference
-      if (reader.generalSettings.val.ttsScrollPrompt === 'always-ask') {
-        // Send prompt to React Native
-        reader.post({
-          type: 'tts-scroll-prompt',
-          data: {
-            currentIndex: currentTTSIndex,
-            visibleIndex: visibleParagraphIndex,
-            action: 'ask',
-          },
-        });
-      } else if (reader.generalSettings.val.ttsScrollPrompt === 'auto-change') {
-        // Automatically change TTS position
-        window.tts.currentElement = readableElements[visibleParagraphIndex];
-        console.log(`TTS: Auto-changed position to paragraph ${visibleParagraphIndex}`);
-
-        reader.post({
-          type: 'show-toast',
-          data: `TTS position updated to paragraph ${visibleParagraphIndex + 1}`,
-        });
-      }
-      // If 'never-change', do nothing
-    }
-  }
-
-  window.tts.lastKnownScrollY = currentScrollY;
-});
 
 // text options
 (function () {

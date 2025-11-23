@@ -9,6 +9,7 @@ interface TTSResumeDialogProps {
     theme: ThemeColors;
     onResume: () => void;
     onRestart: () => void;
+    onRestartChapter: () => void;
     onDismiss: () => void;
 }
 
@@ -17,6 +18,7 @@ const TTSResumeDialog: React.FC<TTSResumeDialogProps> = ({
     theme,
     onResume,
     onRestart,
+    onRestartChapter,
     onDismiss,
 }) => {
     return (
@@ -31,7 +33,7 @@ const TTSResumeDialog: React.FC<TTSResumeDialogProps> = ({
                 </Dialog.Title>
                 <Dialog.Content>
                     <Text style={[styles.content, { color: theme.onSurface }]}>
-                        Do you want to resume reading from where you left off?
+                        Choose a starting point:
                     </Text>
                 </Dialog.Content>
                 <View style={styles.buttonCtn}>
@@ -41,13 +43,27 @@ const TTSResumeDialog: React.FC<TTSResumeDialogProps> = ({
                             onDismiss();
                         }}
                         title="Resume"
+                        icon="play"
+                        mode="contained"
                     />
                     <Button
                         onPress={() => {
                             onRestart();
                             onDismiss();
                         }}
-                        title="Restart"
+                        title="Start from Top"
+                        icon="format-vertical-align-top"
+                        mode="outlined"
+                    />
+                    <Button
+                        onPress={() => {
+                            onRestartChapter();
+                            onDismiss();
+                        }}
+                        title="Restart Chapter"
+                        icon="restart"
+                        mode="text"
+                        textColor={theme.error}
                     />
                 </View>
             </Dialog>
@@ -65,10 +81,11 @@ const styles = StyleSheet.create({
     content: {
         fontSize: 16,
         letterSpacing: 0,
+        marginBottom: 8,
     },
     buttonCtn: {
-        flexDirection: 'row-reverse',
+        flexDirection: 'column',
         padding: 16,
-        gap: 8,
+        gap: 12,
     },
 });
