@@ -21,6 +21,8 @@
 		</intent>
 	</queries>
 
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
 	<application
 		android:name=".MainApplication"
 		android:largeHeap="true"
@@ -65,6 +67,11 @@
 		<activity android:name="com.facebook.react.devsupport.DevSettingsActivity" />
 
 		<service android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask" android:foregroundServiceType="shortService" />
+		<service
+			android:name=".TTSForegroundService"
+			android:enabled="true"
+			android:exported="false"
+			android:foregroundServiceType="mediaPlayback" />
 
 	</application>
 </manifest>

@@ -1,0 +1,208 @@
+package com.rajarsheechatterjee.LNReader
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.Binder
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.IBinder
+import android.os.PowerManager
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
+import androidx.core.app.NotificationCompat
+import java.util.Locale
+
+class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
+    private var tts: TextToSpeech? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var isTtsInitialized = false
+    private val binder = TTSBinder()
+    private var ttsListener: TTSListener? = null
+
+    companion object {
+        const val CHANNEL_ID = "tts_service_channel"
+        const val NOTIFICATION_ID = 1001
+        const val ACTION_STOP_TTS = "com.rajarsheechatterjee.LNReader.STOP_TTS"
+    }
+
+    interface TTSListener {
+        fun onSpeechStart(utteranceId: String)
+        fun onSpeechDone(utteranceId: String)
+        fun onSpeechError(utteranceId: String)
+        fun onWordRange(utteranceId: String, start: Int, end: Int, frame: Int)
+    }
+
+    inner class TTSBinder : Binder() {
+        fun getService(): TTSForegroundService = this@TTSForegroundService
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        tts = TextToSpeech(this, this)
+
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "LNReader::TTSWakeLock"
+        ).apply {
+            setReferenceCounted(false)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_TTS) {
+            stopTTS()
+        }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent): IBinder {
+        return binder
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            isTtsInitialized = true
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String) {
+                    ttsListener?.onSpeechStart(utteranceId)
+                }
+
+                override fun onDone(utteranceId: String) {
+                    ttsListener?.onSpeechDone(utteranceId)
+                }
+
+                override fun onError(utteranceId: String) {
+                    ttsListener?.onSpeechError(utteranceId)
+                }
+
+                override fun onRangeStart(utteranceId: String, start: Int, end: Int, frame: Int) {
+                    ttsListener?.onWordRange(utteranceId, start, end, frame)
+                }
+            })
+        }
+    }
+
+    fun setTTSListener(listener: TTSListener) {
+        this.ttsListener = listener
+    }
+
+    fun speak(text: String, utteranceId: String, rate: Float, pitch: Float, voiceId: String?): Boolean {
+        if (!isTtsInitialized) return false
+
+        tts?.let { ttsInstance ->
+            ttsInstance.setSpeechRate(rate)
+            ttsInstance.setPitch(pitch)
+            
+            if (voiceId != null) {
+                try {
+                    for (voice in ttsInstance.voices) {
+                        if (voice.name == voiceId) {
+                            ttsInstance.voice = voice
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore voice setting error
+                }
+            }
+
+            val params = android.os.Bundle()
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+            
+            val result = ttsInstance.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+            
+            if (result == TextToSpeech.SUCCESS) {
+                startForegroundService()
+                return true
+            }
+        }
+        return false
+    }
+
+    fun stopTTS() {
+        tts?.stop()
+        stopForegroundService()
+    }
+
+    fun getVoices(): List<Voice> {
+        return tts?.voices?.toList() ?: emptyList()
+    }
+
+    private fun startForegroundService() {
+        if (wakeLock?.isHeld == false) {
+            wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes timeout
+        }
+        
+        val notification = createNotification("TTS is reading...")
+        
+        if (Build.VERSION.SDK_INT >= 34) {
+             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun stopForegroundService() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        stopForeground(true)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "TTS Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Keeps TTS running in background"
+                setSound(null, null)
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun createNotification(content: String): Notification {
+        val stopIntent = Intent(this, TTSForegroundService::class.java).apply {
+            action = ACTION_STOP_TTS
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Open app on click
+        val appIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val appPendingIntent = PendingIntent.getActivity(
+            this, 0, appIntent, PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("LNReader TTS")
+            .setContentText(content)
+            .setSmallIcon(R.mipmap.ic_launcher) // Assuming default icon exists
+            .setContentIntent(appPendingIntent)
+            .addAction(android.R.drawable.ic_media_pause, "Stop", stopPendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    override fun onDestroy() {
+        tts?.stop()
+        tts?.shutdown()
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        super.onDestroy()
+    }
+}

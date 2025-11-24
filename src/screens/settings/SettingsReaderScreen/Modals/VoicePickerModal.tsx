@@ -64,8 +64,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
               onPress={() =>
                 setChapterReaderSettings({ tts: { ...tts, voice: item as Voice } })
               }
-              label={item.name + ` (${item.language})`}
-              labelStyle={{ fontFamily: item.name }}
+              label={item.name}
               theme={theme}
             />
           )}

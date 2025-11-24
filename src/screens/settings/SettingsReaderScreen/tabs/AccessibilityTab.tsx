@@ -33,6 +33,7 @@ const AccessibilityTab: React.FC = () => {
     ttsAutoResume = 'prompt',
     ttsScrollPrompt = 'always-ask',
     ttsScrollBehavior = 'continue',
+    ttsBackgroundPlayback = true,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -61,8 +62,21 @@ const AccessibilityTab: React.FC = () => {
 
   useEffect(() => {
     TTSHighlight.getVoices().then(res => {
-      res.sort((a, b) => a.name.localeCompare(b.name));
-      setVoices([{ name: 'System', language: 'System', identifier: 'default', quality: 'default' as any } as TTSVoice, ...res]);
+      // 1. Format all voices first
+      const formattedVoices = res.map(voice => ({
+        ...voice,
+        name: TTSHighlight.formatVoiceName(voice),
+      }));
+
+      // 2. Sort formatted voices
+      formattedVoices.sort((a, b) => {
+        // Extract language from name for grouping (e.g., "English (US)")
+        // This assumes the format starts with the language.
+        // If names are identical (rare), stable sort.
+        return a.name.localeCompare(b.name);
+      });
+
+      setVoices([{ name: 'System', language: 'System', identifier: 'default', quality: 'default' as any } as TTSVoice, ...formattedVoices]);
     });
   }, []);
 
@@ -147,6 +161,16 @@ const AccessibilityTab: React.FC = () => {
                 onPress={() =>
                   setChapterGeneralSettings({
                     showParagraphHighlight: !showParagraphHighlight,
+                  })
+                }
+                theme={theme}
+              />
+              <SettingSwitch
+                label="Background Playback"
+                value={ttsBackgroundPlayback}
+                onPress={() =>
+                  setChapterGeneralSettings({
+                    ttsBackgroundPlayback: !ttsBackgroundPlayback,
                   })
                 }
                 theme={theme}
@@ -269,8 +293,8 @@ const AccessibilityTab: React.FC = () => {
           onDismiss={hideScrollPromptModal}
           theme={theme}
           title="Paused Scroll Behavior"
-          currentValue={ttsScrollPrompt}
-          onSelect={value => setChapterGeneralSettings({ ttsScrollPrompt: value })}
+          currentValue={ttsScrollPrompt as 'always-ask' | 'auto-change' | 'never-change'}
+          onSelect={value => setChapterGeneralSettings({ ttsScrollPrompt: value as 'always-ask' | 'auto-change' | 'never-change' })}
           options={[
             { label: 'Ask me every time', value: 'always-ask' },
             { label: 'Automatically update position', value: 'auto-change' },
@@ -282,8 +306,8 @@ const AccessibilityTab: React.FC = () => {
           onDismiss={hideScrollBehaviorModal}
           theme={theme}
           title="Playback Scroll Behavior"
-          currentValue={ttsScrollBehavior}
-          onSelect={value => setChapterGeneralSettings({ ttsScrollBehavior: value })}
+          currentValue={ttsScrollBehavior as 'continue' | 'pause-on-scroll'}
+          onSelect={value => setChapterGeneralSettings({ ttsScrollBehavior: value as 'continue' | 'pause-on-scroll' })}
           options={[
             { label: 'Continue reading (Ignore scroll)', value: 'continue' },
             { label: 'Pause TTS when I scroll', value: 'pause-on-scroll' },

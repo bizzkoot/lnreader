@@ -29,7 +29,8 @@ import { useBoolean } from '@hooks';
 
 type WebViewPostEvent = {
   type: string;
-  data?: { [key: string]: string | number };
+  data?: { [key: string]: string | number } | string[];
+  startIndex?: number;
   autoStartTTS?: boolean;
   paragraphIndex?: number;
   ttsState?: any;
@@ -107,6 +108,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     progressRef.current = chapter.progress;
   }, [chapter.progress]);
 
+  // NEW: Keep settings in refs to avoid stale closures in listeners
+  const readerSettingsRef = useRef(readerSettings);
+  const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
+
+  useEffect(() => {
+    readerSettingsRef.current = readerSettings;
+    chapterGeneralSettingsRef.current = chapterGeneralSettings;
+  }, [readerSettings, chapterGeneralSettings]);
+
   const resumeTTS = (storedState: any) => {
     webViewRef.current?.injectJavaScript(`
       window.tts.restoreState({ 
@@ -145,6 +155,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const pendingResumeIndexRef = useRef<number>(-1);
   const ttsScrollPromptDataRef = useRef<{ currentIndex: number, visibleIndex: number, isResume?: boolean } | null>(null);
   const toastMessageRef = useRef<string>('');
+
+  // NEW: TTS Queue for background playback
+  const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(null);
+  const currentParagraphIndexRef = useRef<number>(-1);
 
   const handleResumeConfirm = () => {
     const savedIndex = pendingResumeIndexRef.current;
@@ -253,17 +267,83 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     const onSpeechDoneSubscription = TTSHighlight.addListener(
       'onSpeechDone',
       () => {
+        // Try to play next from queue first (Background/Robust Mode)
+        if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
+          const nextIndex = currentParagraphIndexRef.current + 1;
+          const queueStartIndex = ttsQueueRef.current.startIndex;
+          const queueEndIndex = queueStartIndex + ttsQueueRef.current.texts.length;
+
+          if (nextIndex >= queueStartIndex && nextIndex < queueEndIndex) {
+            const text = ttsQueueRef.current.texts[nextIndex - queueStartIndex];
+            console.log('WebViewReader: Playing from queue. Index:', nextIndex);
+
+            // Update refs
+            currentParagraphIndexRef.current = nextIndex;
+
+            // Sync State (Critical for Resume/Pause)
+            if (ttsStateRef.current) {
+              ttsStateRef.current = {
+                ...ttsStateRef.current,
+                paragraphIndex: nextIndex,
+                timestamp: Date.now()
+              };
+            }
+
+            // Persist Progress (Critical for App Kill/Restart)
+            saveProgress(progressRef.current ?? 0, nextIndex);
+
+            // Speak next
+            TTSHighlight.speak(text, {
+              voice: readerSettingsRef.current.tts?.voice?.identifier,
+              pitch: readerSettingsRef.current.tts?.pitch || 1,
+              rate: readerSettingsRef.current.tts?.rate || 1,
+            });
+
+            // Sync WebView UI & Logic (fire and forget)
+            // Added 'true;' and console logs for debugging
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                    try {
+                        if (window.tts) {
+                            console.log('TTS: Syncing state to index ${nextIndex}');
+                            window.tts.highlightParagraph(${nextIndex});
+                            window.tts.updateState(${nextIndex});
+                        } else {
+                            console.warn('TTS: window.tts not found during sync');
+                        }
+                    } catch (e) {
+                        console.error('TTS: Error syncing state:', e);
+                    }
+                    true;
+                `);
+            } else {
+              console.warn('WebViewReader: webViewRef is null during queue playback');
+            }
+            return;
+          }
+        }
+
+        // Fallback to WebView driven (Foreground Mode)
         webViewRef.current?.injectJavaScript('tts.next?.()');
       },
     );
 
     const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'background' && ttsStateRef.current?.wasPlaying) {
-        console.log('WebViewReader: Saving TTS state on background', ttsStateRef.current);
-        saveProgress(progressRef.current ?? 0, undefined, JSON.stringify({
-          ...ttsStateRef.current,
-          timestamp: Date.now(),
-        }));
+      if (nextAppState === 'background') {
+        if (ttsStateRef.current?.wasPlaying) {
+          console.log('WebViewReader: Saving TTS state on background', ttsStateRef.current);
+          saveProgress(progressRef.current ?? 0, undefined, JSON.stringify({
+            ...ttsStateRef.current,
+            timestamp: Date.now(),
+          }));
+        }
+
+        // NEW: Stop TTS if background playback is disabled
+        if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
+          console.log('WebViewReader: Stopping TTS (Background Playback Disabled)');
+          TTSHighlight.stop();
+          isTTSReadingRef.current = false;
+        }
       }
     });
 
@@ -403,22 +483,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'stop-speak':
               TTSHighlight.stop();
               isTTSReadingRef.current = false;
-              isTTSReadingRef.current = false;
               break;
             case 'tts-state':
-              if (event.data && typeof event.data === 'object') {
+              if (event.data && !Array.isArray(event.data) && typeof event.data === 'object') {
                 ttsStateRef.current = event.data;
+                if (typeof event.data.paragraphIndex === 'number') {
+                  currentParagraphIndexRef.current = event.data.paragraphIndex;
+                }
               }
               break;
             case 'request-tts-confirmation':
-              if (event.data?.savedIndex !== undefined) {
+              if (event.data && !Array.isArray(event.data) && event.data.savedIndex !== undefined) {
                 // handleTTSConfirmation(Number(event.data.savedIndex));
                 pendingResumeIndexRef.current = Number(event.data.savedIndex);
                 showResumeDialog();
               }
               break;
             case 'tts-scroll-prompt':
-              if (event.data?.currentIndex !== undefined && event.data?.visibleIndex !== undefined) {
+              if (event.data && !Array.isArray(event.data) && event.data.currentIndex !== undefined && event.data.visibleIndex !== undefined) {
                 ttsScrollPromptDataRef.current = {
                   currentIndex: Number(event.data.currentIndex),
                   visibleIndex: Number(event.data.visibleIndex),
@@ -430,7 +512,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               showManualModeDialog();
               break;
             case 'tts-resume-location-prompt':
-              if (event.data?.currentIndex !== undefined && event.data?.visibleIndex !== undefined) {
+              if (event.data && !Array.isArray(event.data) && event.data.currentIndex !== undefined && event.data.visibleIndex !== undefined) {
                 ttsScrollPromptDataRef.current = {
                   currentIndex: Number(event.data.currentIndex),
                   visibleIndex: Number(event.data.visibleIndex),
@@ -442,6 +524,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'show-toast':
               if (event.data && typeof event.data === 'string') {
                 showToastMessage(event.data);
+              }
+              break;
+            case 'tts-queue':
+              if (event.data && Array.isArray(event.data) && typeof event.startIndex === 'number') {
+                ttsQueueRef.current = {
+                  startIndex: event.startIndex,
+                  texts: event.data as string[]
+                };
               }
               break;
           }

@@ -940,6 +940,23 @@ window.tts = new (function () {
             timestamp: Date.now()
           }
         });
+
+        // NEW: Send lookahead queue for background playback
+        const nextTexts = [];
+        for (let i = paragraphIndex + 1; i < readableElements.length && i < paragraphIndex + 50; i++) {
+          const el = readableElements[i];
+          if (this.readable(el) && !this.isContainer(el)) {
+            nextTexts.push(el.textContent);
+          }
+        }
+        if (nextTexts.length > 0) {
+          reader.post({
+            type: 'tts-queue',
+            data: nextTexts,
+            startIndex: paragraphIndex + 1
+          });
+        }
+
       } else {
         this.next();
       }
@@ -1006,6 +1023,39 @@ window.tts = new (function () {
     }
 
     return false;
+  };
+
+  // NEW: Silent highlight update for RN-driven background playback
+  this.highlightParagraph = (paragraphIndex) => {
+    const readableElements = reader.getReadableElements();
+    if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
+      this.currentElement = readableElements[paragraphIndex];
+      this.prevElement = readableElements[paragraphIndex - 1] || null;
+
+      this.scrollToElement(this.currentElement);
+
+      if (reader.generalSettings.val.showParagraphHighlight) {
+        const oldHighlight = document.querySelector('.highlight');
+        if (oldHighlight) oldHighlight.classList.remove('highlight');
+        this.currentElement.classList.add('highlight');
+      }
+      return true;
+    }
+    return false;
+  };
+
+  // NEW: Sync internal state from RN (for background playback resume)
+  this.updateState = (paragraphIndex) => {
+    console.log(`TTS: updateState called with index ${paragraphIndex} `);
+    const readableElements = reader.getReadableElements();
+    if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
+      this.currentElement = readableElements[paragraphIndex];
+      this.prevElement = readableElements[paragraphIndex - 1] || null;
+      this.started = true; // Ensure next() works from here
+      // We don't set reading=true here because RN controls playback
+    } else {
+      console.warn(`TTS: updateState index ${paragraphIndex} out of bounds`);
+    }
   };
 
   this.lastHighlightTime = 0;
@@ -1088,7 +1138,7 @@ window.pageReader = new (function () {
     }
     this.chapterEnding.style.transition = 'unset';
     if (bool) {
-      this.chapterEnding.style.transform = `translateX(${left ? -200 : 0}vw)`;
+      this.chapterEnding.style.transform = `translateX(${left ? - 200 : 0}vw)`;
       requestAnimationFrame(() => {
         if (!instant) this.chapterEnding.style.transition = '200ms';
         this.chapterEnding.style.transform = 'translateX(-100vw)';
@@ -1096,7 +1146,7 @@ window.pageReader = new (function () {
       this.chapterEndingVisible.val = true;
     } else {
       if (!instant) this.chapterEnding.style.transition = '200ms';
-      this.chapterEnding.style.transform = `translateX(${left ? -200 : 0}vw)`;
+      this.chapterEnding.style.transform = `translateX(${left ? - 200 : 0}vw)`;
       this.chapterEndingVisible.val = false;
     }
   };
@@ -1235,11 +1285,19 @@ function calculatePages() {
         reader.hasPerformedInitialScroll = true;
         reader.suppressSaveOnScroll = true;
         setTimeout(() => {
-          readableElements[initialReaderConfig.savedParagraphIndex].scrollIntoView({
-            block: 'center',
-            inline: 'nearest',
-          });
-        }, 100);
+          const target = readableElements[initialReaderConfig.savedParagraphIndex];
+          if (target) {
+            target.scrollIntoView({ block: 'center', inline: 'nearest' });
+            // Retry once if scroll didn't happen (e.g. layout shift)
+            setTimeout(() => {
+              if (window.scrollY === 0 && target.offsetTop > 0) {
+                console.log('calculatePages: Retry scroll');
+                target.scrollIntoView({ block: 'center', inline: 'nearest' });
+              }
+              reader.suppressSaveOnScroll = false;
+            }, 300);
+          }
+        }, 300);
         return;
       } else {
         console.log('calculatePages: Paragraph not found at index', initialReaderConfig.savedParagraphIndex);
@@ -1454,7 +1512,7 @@ window.addEventListener('load', () => {
                 '',
               )
               : _
-            }`,
+            } `,
         ) //if p found, delete all double br near p
         .replace(/<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p>\s*<br>))\s*/g, '');
     }

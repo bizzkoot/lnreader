@@ -92,6 +92,7 @@ export interface ChapterGeneralSettings {
   ttsAutoResume: 'always' | 'prompt' | 'never';
   ttsScrollPrompt: 'always-ask' | 'auto-change' | 'never-change';
   ttsScrollBehavior: 'continue' | 'pause-on-scroll';
+  ttsBackgroundPlayback: boolean;
 }
 
 export interface ReaderTheme {
@@ -189,6 +190,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsAutoResume: 'prompt',
   ttsScrollPrompt: 'always-ask',
   ttsScrollBehavior: 'continue',
+  ttsBackgroundPlayback: true,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {
