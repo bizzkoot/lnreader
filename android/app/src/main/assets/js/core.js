@@ -1342,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function calculatePages() {
   // COMPLETE TTS LOCKDOWN: Block ALL calls during TTS reading
   if (window.tts && window.tts.reading) {
-    console.log('calculatePages: BLOCKED during TTS reading');
+    console.log('[calculatePages] BLOCKED during TTS reading');
     return;
   }
 
@@ -1366,72 +1366,67 @@ function calculatePages() {
       ),
     );
   } else {
-    console.log('calculatePages: savedParagraphIndex =', initialReaderConfig.savedParagraphIndex);
-    if (!reader.hasPerformedInitialScroll && initialReaderConfig.savedParagraphIndex !== undefined && initialReaderConfig.savedParagraphIndex >= 0) {
+    // NEW SCROLL LOGIC
+    if (!reader.hasPerformedInitialScroll &&
+      initialReaderConfig.savedParagraphIndex !== undefined &&
+      initialReaderConfig.savedParagraphIndex >= 0) {
+
       const readableElements = reader.getReadableElements();
-      console.log('calculatePages: readableElements length =', readableElements.length);
+      console.log('[calculatePages] readableElements length:', readableElements.length);
+
       if (readableElements[initialReaderConfig.savedParagraphIndex]) {
-        console.log('calculatePages: Scrolling to paragraph', initialReaderConfig.savedParagraphIndex);
-        reader.hasPerformedInitialScroll = true;
+        console.log('[calculatePages] Scrolling to paragraph', initialReaderConfig.savedParagraphIndex);
+
         reader.suppressSaveOnScroll = true;
 
-        // Use a longer timeout to ensure layout is stable
+        // Wait for layout to be fully stable (fonts, images, etc.)
         setTimeout(() => {
           const target = readableElements[initialReaderConfig.savedParagraphIndex];
-          if (target) {
-            // Calculate exact position
-            const getTargetTop = () => target.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2) + (target.offsetHeight / 2);
-            let attempts = 0;
-            const maxAttempts = 20; // Try for 2 seconds (20 * 100ms)
-
-            const attemptScroll = () => {
-              const targetTop = getTargetTop();
-              const currentScroll = window.scrollY;
-              const diff = Math.abs(currentScroll - targetTop);
-
-              console.log(`calculatePages: Scroll attempt ${attempts + 1}. Current: ${currentScroll}, Target: ${targetTop}, Diff: ${diff}`);
-
-              if (diff <= 50) {
-                console.log('calculatePages: Scroll target reached!');
-                // We are there. Wait a bit to ensure it stays there, then release lock.
-                setTimeout(() => {
-                  reader.suppressSaveOnScroll = false;
-                  console.log('calculatePages: suppressSaveOnScroll reset to false (success)');
-                }, 200);
-                return;
-              }
-
-              if (attempts >= maxAttempts) {
-                console.warn('calculatePages: Scroll timeout. Releasing lock anyway.');
-                reader.suppressSaveOnScroll = false;
-                return;
-              }
-
-              // Not there yet. Scroll!
-              window.scrollTo({
-                top: targetTop,
-                behavior: 'auto'
-              });
-
-              attempts++;
-              setTimeout(attemptScroll, 100);
-            };
-
-            attemptScroll();
-          } else {
+          if (!target || !target.isConnected) {
+            console.warn('[calculatePages] Target element disconnected, aborting scroll');
             reader.suppressSaveOnScroll = false;
+            reader.hasPerformedInitialScroll = true;
+            return;
           }
-        }, 100); // Reduce initial delay, act faster
+
+          // Simple and reliable: Just use scrollIntoView
+          target.scrollIntoView({
+            behavior: 'auto',
+            block: 'center',
+            inline: 'nearest'
+          });
+
+          console.log('[calculatePages] Scrolled to paragraph',
+            initialReaderConfig.savedParagraphIndex);
+
+          // Verify by checking if element is in viewport (the RIGHT way)
+          setTimeout(() => {
+            const rect = target.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const isVisible = rect.top >= 0 && rect.bottom <= viewportHeight;
+            const isPartiallyVisible = rect.top < viewportHeight && rect.bottom > 0;
+
+            console.log('[calculatePages] Element position: top=', rect.top,
+              'bottom=', rect.bottom,
+              'visible=', isVisible || isPartiallyVisible);
+
+            reader.hasPerformedInitialScroll = true;
+            reader.suppressSaveOnScroll = false;
+            console.log('[calculatePages] Initial scroll complete');
+          }, 300);
+
+        }, 250); // Increased delay for layout stability
+
         return;
       } else {
-        console.log('calculatePages: Paragraph not found at index', initialReaderConfig.savedParagraphIndex);
+        console.log('[calculatePages] Paragraph not found at index',
+          initialReaderConfig.savedParagraphIndex);
       }
     } else if (!reader.hasPerformedInitialScroll) {
-      console.log('calculatePages: No valid savedParagraphIndex or already scrolled');
+      console.log('[calculatePages] No valid savedParagraphIndex or already scrolled');
       reader.hasPerformedInitialScroll = true;
     }
 
-    // This section is now redundant since we block at function level, but keeping for safety
     const shouldScrollToProgress = !window.tts || !window.tts.reading;
 
     if (shouldScrollToProgress) {
@@ -1444,7 +1439,7 @@ function calculatePages() {
         });
       }, 100);
     } else {
-      console.log('calculatePages: Skipping progress scroll - TTS currently reading');
+      console.log('[calculatePages] Skipping progress scroll - TTS currently reading');
     }
   }
 }
@@ -1453,23 +1448,25 @@ function calculatePages() {
 const ro = new ResizeObserver(() => {
   // COMPLETE TTS LOCKDOWN: During TTS reading, NEVER allow calculatePages
   if (window.tts && window.tts.reading) {
-    console.log('ResizeObserver: Blocked calculatePages during TTS reading');
+    console.log('[ResizeObserver] Blocked calculatePages during TTS reading');
     return;
   }
 
   if (pageReader.totalPages.val) {
     calculatePages();
   } else if (!reader.hasPerformedInitialScroll) {
-    // Non-page reader mode: only allow initial scroll, not during user interactions
-    // Defer to avoid triggering during scroll/layout changes
+    // Add delay to avoid interrupting ongoing initial scroll
     setTimeout(() => {
-      // Re-verify TTS state before calling
-      if (!reader.isUserScrolling && (!window.tts || !window.tts.reading)) {
+      // Re-check flag - initial scroll might have completed during delay
+      if (!reader.hasPerformedInitialScroll &&
+        !reader.isUserScrolling &&
+        (!window.tts || !window.tts.reading)) {
+        console.log('[ResizeObserver] Calling calculatePages for initial scroll');
         calculatePages();
       } else {
-        console.log('ResizeObserver: TTS started during delay, skipping');
+        console.log('[ResizeObserver] Initial scroll already handled or conditions changed');
       }
-    }, 100);
+    }, 150); // Delay to avoid race
   }
 });
 ro.observe(reader.chapterElement);
