@@ -175,51 +175,94 @@ window.reader = new (function () {
   document.addEventListener('touchstart', this.touchStartListener);
   document.addEventListener('touchend', this.touchEndListener);
 
-  this.scrollListener = () => {
+  // NEW: Debounced scroll handler to replace scrollend
+  this.scrollDebounceTimer = null;
+  this.accumulatedScrollDelta = 0;
+  this.DIRECTION_CHANGE_THRESHOLD = 50; // pixels
+
+  this.onScroll = () => {
     if (this.suppressSaveOnScroll) {
       console.log('Skipping save on initial scroll');
-      this.suppressSaveOnScroll = false;
+      // FIX: Do NOT reset this here. Let calculatePages reset it after the timeout.
       return;
     }
 
     // NEW: Ignore scroll events during TTS auto-scroll
     if (window.tts && window.tts.isAutoScrolling) {
-      window.tts.log('Ignoring scroll event (auto-scroll in progress)');
-      return; // Don't save progress during TTS auto-scroll
+      // window.tts.log('Ignoring scroll event (auto-scroll in progress)');
+      return;
     }
 
-    // ENHANCED: Detect user manual scroll during TTS - Follow mode with stronger protection
+    const currentScrollY = window.scrollY;
+
+    // Track accumulated scroll for "gentle scroll" detection
+    if (window.tts && window.tts.reading) {
+      const delta = currentScrollY - window.tts.lastKnownScrollY;
+      this.accumulatedScrollDelta += delta;
+    }
+
+    window.tts.lastKnownScrollY = currentScrollY;
+
+    // Debounce the actual processing
+    if (this.scrollDebounceTimer) {
+      clearTimeout(this.scrollDebounceTimer);
+    }
+
+    this.scrollDebounceTimer = setTimeout(() => {
+      this.processScroll(currentScrollY);
+    }, 150); // 150ms debounce
+  };
+
+  this.processScroll = (currentScrollY) => {
+    // ENHANCED: Detect user manual scroll during TTS
     if (window.tts && window.tts.reading) {
       // Check if TTS has completed its auto-scroll before processing user scroll
       const timeSinceAutoScroll = Date.now() - (window.tts.lastAutoScrollTime || 0);
       if (timeSinceAutoScroll < window.tts.SCROLL_COOLDOWN) {
-        // Skip scroll detection during auto-scroll cooldown
+        this.accumulatedScrollDelta = 0; // Reset accumulation on cooldown
         return;
       }
 
-      const currentScrollY = window.scrollY;
-      const scrollDifference = Math.abs(currentScrollY - window.tts.lastKnownScrollY);
+      // Use accumulated delta for direction and magnitude
+      const totalDelta = this.accumulatedScrollDelta;
+      const absDelta = Math.abs(totalDelta);
+
+      // Check scroll direction based on accumulated delta
+      const isScrollingDown = totalDelta > 0;
 
       // Check if user scrolled significantly away (>1 screen height)
-      if (scrollDifference > reader.layoutHeight) {
-        // Check scroll direction
-        const isScrollingDown = currentScrollY > window.tts.lastKnownScrollY;
+      // We use accumulated delta to catch "gentle" scrolling
+      if (absDelta > reader.layoutHeight) {
 
         if (isScrollingDown) {
-          window.tts.log('User scrolled forward, continuing TTS');
-          // Don't interrupt if scrolling forward (peeking ahead)
+          window.tts.log('User scrolled forward (accumulated), continuing TTS');
+          // Reset accumulation after processing "forward peek"
+          this.accumulatedScrollDelta = 0;
         } else {
-          window.tts.log('User scrolled significantly away (backward) from TTS position');
+          window.tts.log('User scrolled backward (accumulated) significantly');
 
-          // Find current visible paragraph
+          // Find current visible paragraph using Intersection Ratio
           const readableElements = this.getReadableElements();
           let visibleParagraphIndex = -1;
-          let visibleParagraphTop = Infinity;
+          let maxVisibleRatio = 0;
+          const viewportHeight = window.innerHeight;
 
           for (let i = 0; i < readableElements.length; i++) {
             const rect = readableElements[i].getBoundingClientRect();
-            if (rect.top >= 0 && rect.top < visibleParagraphTop) {
-              visibleParagraphTop = rect.top;
+
+            // Skip if completely out of view
+            if (rect.bottom < 0 || rect.top > viewportHeight) continue;
+
+            // Calculate intersection ratio
+            const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+            const elementHeight = rect.height;
+
+            // We care about how much of the viewport it takes OR how much of the element is visible
+            // For long paragraphs, they might take 100% of viewport but only 10% of element is visible
+            // So we prioritize "amount of screen covered"
+
+            if (visibleHeight > maxVisibleRatio) {
+              maxVisibleRatio = visibleHeight;
               visibleParagraphIndex = i;
             }
           }
@@ -233,12 +276,11 @@ window.reader = new (function () {
 
             window.tts.log(`User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex} - showing manual mode prompt`);
 
-            // LOCK TTS POSITION: Prevent any further scrolling/position changes during dialog
+            // LOCK TTS POSITION
             window.tts.dialogActive = true;
             window.tts.lockedCurrentElement = window.tts.currentElement;
             window.tts.lockedParagraphIndex = currentTTSIndex;
 
-            // Send prompt to React Native for confirmation
             this.post({
               type: 'tts-manual-mode-prompt',
               data: {
@@ -249,24 +291,45 @@ window.reader = new (function () {
               }
             });
 
-            // Note: TTS continues running until user responds to prompt
+            // Reset accumulation to prevent repeated triggers
+            this.accumulatedScrollDelta = 0;
           }
         }
       }
+    }
 
-      window.tts.lastKnownScrollY = currentScrollY;
+    // PROGRESS SAVING LOGIC
+    // CRITICAL: Do NOT save progress if TTS is reading. TTS handles its own progress.
+    if (window.tts && window.tts.reading) {
+      // window.tts.log('Skipping scroll-based save (TTS is reading)');
+      return;
     }
 
     if (!this.generalSettings.val.pageReader) {
-      const readableElements = this.getReadableElements();
-      let paragraphIndex = -1;
-      for (let i = 0; i < readableElements.length; i++) {
-        if (window.tts.isElementInViewport(readableElements[i])) {
-          paragraphIndex = i;
-          break;
-        }
-      }
+      this.saveProgress();
+    }
+  };
 
+  // New helper to save progress
+  this.saveProgress = () => {
+    const readableElements = this.getReadableElements();
+    let paragraphIndex = -1;
+
+    // Use the same intersection logic for consistency
+    let maxVisibleRatio = 0;
+    const viewportHeight = window.innerHeight;
+
+    for (let i = 0; i < readableElements.length; i++) {
+      const rect = readableElements[i].getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > viewportHeight) continue;
+      const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+      if (visibleHeight > maxVisibleRatio) {
+        maxVisibleRatio = visibleHeight;
+        paragraphIndex = i;
+      }
+    }
+
+    if (paragraphIndex !== -1) {
       this.post({
         type: 'save',
         data: parseInt(
@@ -278,11 +341,11 @@ window.reader = new (function () {
     }
   };
 
-  document.addEventListener('scrollend', this.scrollListener);
+  document.addEventListener('scroll', this.onScroll, { passive: true });
 
   this.cleanup = () => {
-    if (this.scrollListener) {
-      document.removeEventListener('scrollend', this.scrollListener);
+    if (this.onScroll) {
+      document.removeEventListener('scroll', this.onScroll);
     }
     if (this.touchStartListener) {
       document.removeEventListener('touchstart', this.touchStartListener);
@@ -769,11 +832,22 @@ window.tts = new (function () {
     const readableElements = reader.getReadableElements();
     const paragraphIndex = readableElements.indexOf(this.currentElement);
 
+    // Save with explicit paragraph index
+    reader.post({
+      type: 'save',
+      data: parseInt(
+        ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
+        10,
+      ),
+      paragraphIndex: paragraphIndex,
+    });
+
     reader.post({
       type: 'tts-state',
       data: {
         isReading: false,
-        paragraphIndex: paragraphIndex
+        paragraphIndex: paragraphIndex,
+        timestamp: Date.now()
       }
     });
   };
@@ -793,6 +867,11 @@ window.tts = new (function () {
     // this.hasAutoResumed = false;
 
     reader.post({ type: 'tts-state', data: { isReading: false } });
+
+    // NEW: Save progress when stopping
+    if (reader.saveProgress) {
+      reader.saveProgress();
+    }
 
     // NEW: Reset TTS controller icon
     const controller = document.getElementById('TTS-Controller');
@@ -1045,6 +1124,7 @@ window.tts = new (function () {
   };
 
   // NEW: Sync internal state from RN (for background playback resume)
+  // NEW: Sync internal state from RN (for background playback resume)
   this.updateState = (paragraphIndex) => {
     console.log(`TTS: updateState called with index ${paragraphIndex} `);
     const readableElements = reader.getReadableElements();
@@ -1053,6 +1133,16 @@ window.tts = new (function () {
       this.prevElement = readableElements[paragraphIndex - 1] || null;
       this.started = true; // Ensure next() works from here
       // We don't set reading=true here because RN controls playback
+
+      // NEW: Save progress when state is updated from Native (Background TTS)
+      reader.post({
+        type: 'save',
+        data: parseInt(
+          ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
+          10,
+        ),
+        paragraphIndex,
+      });
     } else {
       console.warn(`TTS: updateState index ${paragraphIndex} out of bounds`);
     }
@@ -1284,20 +1374,54 @@ function calculatePages() {
         console.log('calculatePages: Scrolling to paragraph', initialReaderConfig.savedParagraphIndex);
         reader.hasPerformedInitialScroll = true;
         reader.suppressSaveOnScroll = true;
+
+        // Use a longer timeout to ensure layout is stable
         setTimeout(() => {
           const target = readableElements[initialReaderConfig.savedParagraphIndex];
           if (target) {
-            target.scrollIntoView({ block: 'center', inline: 'nearest' });
-            // Retry once if scroll didn't happen (e.g. layout shift)
-            setTimeout(() => {
-              if (window.scrollY === 0 && target.offsetTop > 0) {
-                console.log('calculatePages: Retry scroll');
-                target.scrollIntoView({ block: 'center', inline: 'nearest' });
+            // Calculate exact position
+            const getTargetTop = () => target.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2) + (target.offsetHeight / 2);
+            let attempts = 0;
+            const maxAttempts = 20; // Try for 2 seconds (20 * 100ms)
+
+            const attemptScroll = () => {
+              const targetTop = getTargetTop();
+              const currentScroll = window.scrollY;
+              const diff = Math.abs(currentScroll - targetTop);
+
+              console.log(`calculatePages: Scroll attempt ${attempts + 1}. Current: ${currentScroll}, Target: ${targetTop}, Diff: ${diff}`);
+
+              if (diff <= 50) {
+                console.log('calculatePages: Scroll target reached!');
+                // We are there. Wait a bit to ensure it stays there, then release lock.
+                setTimeout(() => {
+                  reader.suppressSaveOnScroll = false;
+                  console.log('calculatePages: suppressSaveOnScroll reset to false (success)');
+                }, 200);
+                return;
               }
-              reader.suppressSaveOnScroll = false;
-            }, 300);
+
+              if (attempts >= maxAttempts) {
+                console.warn('calculatePages: Scroll timeout. Releasing lock anyway.');
+                reader.suppressSaveOnScroll = false;
+                return;
+              }
+
+              // Not there yet. Scroll!
+              window.scrollTo({
+                top: targetTop,
+                behavior: 'auto'
+              });
+
+              attempts++;
+              setTimeout(attemptScroll, 100);
+            };
+
+            attemptScroll();
+          } else {
+            reader.suppressSaveOnScroll = false;
           }
-        }, 300);
+        }, 100); // Reduce initial delay, act faster
         return;
       } else {
         console.log('calculatePages: Paragraph not found at index', initialReaderConfig.savedParagraphIndex);
@@ -1339,8 +1463,11 @@ const ro = new ResizeObserver(() => {
     // Non-page reader mode: only allow initial scroll, not during user interactions
     // Defer to avoid triggering during scroll/layout changes
     setTimeout(() => {
+      // Re-verify TTS state before calling
       if (!reader.isUserScrolling && (!window.tts || !window.tts.reading)) {
         calculatePages();
+      } else {
+        console.log('ResizeObserver: TTS started during delay, skipping');
       }
     }, 100);
   }
@@ -1493,13 +1620,38 @@ window.addEventListener('load', () => {
 
 // text options
 (function () {
+  // Track previous settings to detect real changes
+  let prevBionicReading = reader.generalSettings.val.bionicReading;
+  let prevRemoveSpacing = reader.generalSettings.val.removeExtraParagraphSpacing;
+
   van.derive(() => {
+    const currentBionic = reader.generalSettings.val.bionicReading;
+    const currentSpacing = reader.generalSettings.val.removeExtraParagraphSpacing;
+
+    // CRITICAL: Only rebuild DOM if text-affecting settings changed
+    const needsRebuild =
+      currentBionic !== prevBionicReading ||
+      currentSpacing !== prevRemoveSpacing;
+
+    console.log(`Text options: Check rebuild. Bionic: ${prevBionicReading}->${currentBionic}, Spacing: ${prevRemoveSpacing}->${currentSpacing}. Needs rebuild: ${needsRebuild}`);
+
+    if (!needsRebuild) {
+      console.log('Text options: Skipping DOM rebuild (no relevant changes)');
+      return; // Exit early - don't touch the DOM
+    }
+
+    console.log('Text options: Rebuilding DOM due to bionic/spacing change');
+
+    // Update tracking
+    prevBionicReading = currentBionic;
+    prevRemoveSpacing = currentSpacing;
+
     let html = reader.rawHTML;
-    if (reader.generalSettings.val.bionicReading) {
+    if (currentBionic) {
       html = textVide.textVide(reader.rawHTML);
     }
 
-    if (reader.generalSettings.val.removeExtraParagraphSpacing) {
+    if (currentSpacing) {
       html = html
         .replace(/(?:&nbsp;\s*|[\u200b]\s*)+(?=<\/?p[> ])/g, '')
         .replace(/<br>\s*<br>\s*(?:<br>\s*)+/g, '<br><br>') //force max 2 consecutive <br>, chaining regex
@@ -1516,6 +1668,55 @@ window.addEventListener('load', () => {
         ) //if p found, delete all double br near p
         .replace(/<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p>\s*<br>))\s*/g, '');
     }
+
+    // CRITICAL: Save TTS state before DOM rebuild
+    const wasTTSReading = window.tts && window.tts.reading;
+    let savedTTSState = null;
+
+    if (wasTTSReading) {
+      const readableElements = reader.getReadableElements();
+      const currentIndex = readableElements.indexOf(window.tts.currentElement);
+
+      savedTTSState = {
+        paragraphIndex: currentIndex,
+        wasReading: true,
+        scrollY: window.scrollY
+      };
+
+      console.log('Text options: Saved TTS state before rebuild:', savedTTSState);
+
+      // Pause TTS before DOM manipulation
+      window.tts.pause();
+    }
+
     reader.chapterElement.innerHTML = html;
+
+    // CRITICAL: Restore TTS state after DOM rebuild
+    if (savedTTSState && savedTTSState.paragraphIndex >= 0) {
+      // Invalidate cache to force re-scan
+      reader.invalidateCache();
+
+      setTimeout(() => {
+        const newElements = reader.getReadableElements();
+
+        if (newElements[savedTTSState.paragraphIndex]) {
+          window.tts.currentElement = newElements[savedTTSState.paragraphIndex];
+          window.tts.prevElement = newElements[savedTTSState.paragraphIndex - 1] || null;
+          window.tts.started = true;
+
+          // Restore scroll position
+          window.scrollTo({ top: savedTTSState.scrollY, behavior: 'auto' });
+
+          console.log('Text options: Restored TTS to paragraph', savedTTSState.paragraphIndex);
+
+          // Resume if it was playing
+          if (savedTTSState.wasReading) {
+            window.tts.resume(true); // forceResume=true to skip scroll check
+          }
+        } else {
+          console.error('Text options: Failed to restore TTS - paragraph not found');
+        }
+      }, 300); // Wait for layout
+    }
   });
 })();

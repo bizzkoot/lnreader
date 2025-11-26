@@ -89,8 +89,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   // FIX: Use a stable savedParagraphIndex that only updates when chapter changes.
   // This prevents the WebView from reloading (and resetting TTS) when progress is saved.
+  // NEW: Also check MMKV for the absolute latest progress (covers background TTS/manual scroll)
   const initialSavedParagraphIndex = useMemo(
-    () => savedParagraphIndex,
+    () => {
+      const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+      const dbIndex = savedParagraphIndex ?? -1;
+      console.log(`WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}`);
+      return Math.max(dbIndex, mmkvIndex);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id]
   );
@@ -103,6 +109,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const isTTSReadingRef = useRef<boolean>(false);
   const ttsStateRef = useRef<any>(null);
   const progressRef = useRef(chapter.progress);
+  // NEW: Track latest paragraph index to survive settings injections
+  const latestParagraphIndexRef = useRef(savedParagraphIndex);
 
   useEffect(() => {
     progressRef.current = chapter.progress;
@@ -165,10 +173,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // User said Yes, so we tell TTS to resume from the saved index
     // We prefer savedIndex (from chapter progress) over ttsState.paragraphIndex
     // because chapter progress is saved more frequently and reliably.
-    // CRITICAL FIX: Read directly from MMKV to get the latest value, as the prop might be stale.
-    const latestSavedIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? savedIndex;
+    // CRITICAL FIX: Use the latest tracked index, not stale MMKV
+    // We use Math.max because we want to avoid "phantom resets" where the WebView
+    // momentarily reports a lower paragraph (e.g. 5) during load, poisoning the Ref.
+    // If the confirmation payload (savedIndex) says 10, we trust it over the Ref's 5.
+    const refValue = latestParagraphIndexRef.current ?? -1;
+    const mmkvValue = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+
+    const latestSavedIndex = Math.max(refValue, mmkvValue, savedIndex);
+
     const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
-    console.log('WebViewReader: Resuming TTS. latestSavedIndex:', latestSavedIndex, 'ttsState:', ttsState);
+    console.log('WebViewReader: Resuming TTS. Resolved index:', latestSavedIndex, '(Ref:', refValue, 'MMKV:', mmkvValue, 'Prop:', savedIndex, ')');
 
     resumeTTS({
       ...ttsState,
@@ -391,11 +406,31 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     if (currentSettings) {
       webViewRef.current?.injectJavaScript(
         `setTimeout(() => {
-               if (window.reader && window.reader.generalSettings) {
-                 window.reader.generalSettings.val = ${currentSettings};
-                 console.log('TTS: Injected fresh settings on mount');
-               }
-             }, 1000);`
+           if (window.reader && window.reader.generalSettings) {
+             const current = window.reader.generalSettings.val;
+             const fresh = ${currentSettings};
+             
+             // Helper to sort keys for deep comparison
+             const sortKeys = (obj) => {
+               if (typeof obj !== 'object' || obj === null) return obj;
+               return Object.keys(obj).sort().reduce((acc, key) => {
+                 acc[key] = sortKeys(obj[key]);
+                 return acc;
+               }, {});
+             };
+
+             const currentStr = JSON.stringify(sortKeys(current));
+             const freshStr = JSON.stringify(sortKeys(fresh));
+             
+             // Only inject if different
+             if (currentStr !== freshStr) {
+               console.log('TTS: Settings changed, injecting. Current len: ' + currentStr.length + ', Fresh len: ' + freshStr.length);
+               window.reader.generalSettings.val = fresh;
+             } else {
+               console.log('TTS: Settings in sync');
+             }
+           }
+         }, 1000);`,
       );
     }
 
@@ -463,6 +498,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'save':
               if (event.data && typeof event.data === 'number') {
                 console.log('WebViewReader: Received save event. Progress:', event.data, 'Paragraph:', event.paragraphIndex);
+                // NEW: Track latest paragraph index
+                if (event.paragraphIndex !== undefined) {
+                  latestParagraphIndexRef.current = event.paragraphIndex;
+                  MMKVStorage.set(`chapter_progress_${chapter.id}`, event.paragraphIndex);
+                }
                 saveProgress(event.data, event.paragraphIndex as number | undefined);
               }
               break;
