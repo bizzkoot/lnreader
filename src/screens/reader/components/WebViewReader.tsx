@@ -574,6 +574,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 };
               }
               break;
+            case 'save-tts-position':
+              if (event.data && typeof event.data === 'object') {
+                MMKVStorage.set('tts_button_position', JSON.stringify(event.data));
+              }
+              break;
           }
         }}
         source={{
@@ -669,6 +674,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               },
               savedParagraphIndex: initialSavedParagraphIndex ?? -1,
               ttsRestoreState: chapter.ttsState ? JSON.parse(chapter.ttsState) : null,
+              ttsButtonPosition: MMKVStorage.getString('tts_button_position') ? JSON.parse(MMKVStorage.getString('tts_button_position')!) : null,
             })}
               </script>
               <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>

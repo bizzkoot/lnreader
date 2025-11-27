@@ -1,23 +1,24 @@
-const { div, p, img, button } = van.tags;
+const { div, img, button } = van.tags;
+
 
 const ChapterEnding = () => {
   return () =>
     reader.generalSettings.val.pageReader
       ? div()
       : div(div({ class: 'info-text' }, reader.strings.finished), () =>
-          reader.nextChapter
-            ? button(
-                {
-                  class: 'next-button',
-                  onclick: e => {
-                    e.stopPropagation();
-                    reader.post({ type: 'next' });
-                  },
-                },
-                reader.strings.nextChapter,
-              )
-            : div({ class: 'info-text' }, reader.strings.noNextChapter),
-        );
+        reader.nextChapter
+          ? button(
+            {
+              class: 'next-button',
+              onclick: e => {
+                e.stopPropagation();
+                reader.post({ type: 'next' });
+              },
+            },
+            reader.strings.nextChapter,
+          )
+          : div({ class: 'info-text' }, reader.strings.noNextChapter),
+      );
 };
 
 const Scrollbar = () => {
@@ -35,11 +36,11 @@ const Scrollbar = () => {
     }
     if (reader.generalSettings.val.pageReader) {
       pageReader.movePage(
-        parseInt(pageReader.totalPages.val * Math.min(0.99, ratio)),
+        parseInt(pageReader.totalPages.val * Math.min(0.99, ratio), 10),
       );
       return;
     }
-    percentage.val = parseInt(ratio * 100);
+    percentage.val = parseInt(ratio * 100, 10);
     if (lock) {
       window.scrollTo({
         top: reader.chapterHeight * ratio - reader.layoutHeight,
@@ -126,8 +127,7 @@ const ToolWrapper = () => {
     {
       id: 'ToolWrapper',
       class: () =>
-        `${reader.hidden.val ? 'hidden' : ''} ${
-          horizontal.val ? 'horizontal' : ''
+        `${reader.hidden.val ? 'hidden' : ''} ${horizontal.val ? 'horizontal' : ''
         }`,
     },
     Scrollbar(),
@@ -197,7 +197,7 @@ const Footer = () => {
     if (ratio > 1) {
       ratio = 1;
     }
-    percentage.val = parseInt(ratio * 100);
+    percentage.val = parseInt(ratio * 100, 10);
   });
   setInterval(() => {
     time.val = new Date().toLocaleTimeString(undefined, {
@@ -211,7 +211,7 @@ const Footer = () => {
       id: 'reader-footer-wrapper',
       class: () =>
         reader.generalSettings.val.showBatteryAndTime ||
-        reader.generalSettings.val.showScrollPercentage
+          reader.generalSettings.val.showScrollPercentage
           ? ''
           : 'd-none',
     },
@@ -222,8 +222,7 @@ const Footer = () => {
         {
           id: 'reader-battery',
           class: () =>
-            `reader-footer-item ${
-              reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
+            `reader-footer-item ${reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
             }`,
         },
         () => Math.ceil(reader.batteryLevel.val * 100) + '%',
@@ -232,8 +231,7 @@ const Footer = () => {
         {
           id: 'reader-percentage',
           class: () =>
-            `reader-footer-item ${
-              reader.generalSettings.val.showScrollPercentage ? '' : 'hidden'
+            `reader-footer-item ${reader.generalSettings.val.showScrollPercentage ? '' : 'hidden'
             }`,
         },
         () =>
@@ -245,8 +243,7 @@ const Footer = () => {
         {
           id: 'reader-time',
           class: () =>
-            `reader-footer-item ${
-              reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
+            `reader-footer-item ${reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
             }`,
         },
         time,
@@ -255,75 +252,181 @@ const Footer = () => {
   );
 };
 
+
+
+// Safe storage helper to handle SecurityError
+const SafeStorage = {
+  getItem: (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+
+      return null;
+    }
+  },
+  setItem: (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+
+    }
+  }
+};
+
 const TTSController = () => {
-  let controllerElement = null;
-  let hoverElement = null;
-  let clientX = null;
-  let clientY = null;
-  return div(
-    {
-      id: 'TTS-Controller',
-      class: () => `${reader.generalSettings.val.TTSEnable ? '' : 'hidden'}`,
-      ontouchstart: () => {
-        if (!controllerElement) {
-          controllerElement = document.getElementById('TTS-Controller');
-        }
-        controllerElement.classList.add('active');
-        controllerElement.style.transition = '';
-      },
-      ontouchmove: e => {
-        e.preventDefault();
-        e.stopPropagation();
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
-        controllerElement.style.left = `${clientX}px`;
-        controllerElement.style.top = `${clientY}px`;
-        const hoverElements = document.elementsFromPoint(clientX, clientY);
-        const newHoverElement = hoverElements.reverse().find(e => {
-          if (e.id.includes('scrollbar')) {
-            return false;
+
+  try {
+    let controllerElement = null;
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    // Restore saved position with validation
+    // Priority: 1. In-memory/Session (SafeStorage) 2. Native Persisted (initialReaderConfig)
+    let savedLeft = SafeStorage.getItem('tts-controller-left');
+    let savedTop = SafeStorage.getItem('tts-controller-top');
+
+    if (!savedLeft && initialReaderConfig.ttsButtonPosition) {
+      savedLeft = initialReaderConfig.ttsButtonPosition.left;
+      savedTop = initialReaderConfig.ttsButtonPosition.top;
+    }
+
+    if (savedLeft && savedTop) {
+      const leftVal = parseInt(savedLeft, 10);
+      const topVal = parseInt(savedTop, 10);
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+
+      // Basic validation: must be within screen bounds (allowing for some margin)
+      if (leftVal < 0 || leftVal > windowWidth - 20 || topVal < 0 || topVal > windowHeight - 20) {
+        savedLeft = null;
+        savedTop = null;
+      }
+    }
+
+    return div(
+      {
+        id: 'TTS-Controller',
+        class: () => reader.generalSettings.val.TTSEnable ? '' : 'hidden',
+        style: () => {
+          if (savedLeft && savedTop) {
+            return `left: ${savedLeft}; top: ${savedTop};`;
           }
-          return tts.readable(e);
-        });
-        hoverElement?.classList.remove('highlight');
-        if (newHoverElement) {
-          newHoverElement.classList.add('highlight');
-          hoverElement = newHoverElement;
-        } else {
-          hoverElement = null;
-        }
-      },
-      ontouchend: () => {
-        controllerElement.style.transition = '1s';
-        controllerElement.classList.remove('active');
-        controllerElement.style.left = '20px';
-        if (clientX && clientY) {
-          let top = clientY < 120 ? 120 : clientY;
-          if (top + 120 > reader.layoutHeight) {
-            top = reader.layoutHeight - 120;
+          // Default to left-center (9 o'clock position)
+          return 'left: 15px; top: calc(50% - 25px);';
+        },
+        ontouchstart: (e) => {
+          if (!controllerElement) {
+            controllerElement = document.getElementById('TTS-Controller');
           }
-          controllerElement.style.top = `${top}px`;
-          if (hoverElement) {
-            tts.start(hoverElement);
-            controllerElement.firstElementChild.innerHTML = pauseIcon;
+
+          // Only handle if touching the controller itself
+          if (e.target.closest('#TTS-Controller')) {
+            isDragging = false; // Will be set to true if movement detected
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+
+            const rect = controllerElement.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+
+            controllerElement.classList.add('active');
+            controllerElement.style.transition = 'none'; // Disable transition during drag
+
+            // Prevent default to stop scroll during potential drag
+            e.stopPropagation();
           }
-        }
-        clientX = null;
-        clientY = null;
+        },
+        ontouchmove: (e) => {
+          if (startX === undefined) return;
+
+          const deltaX = e.touches[0].clientX - startX;
+          const deltaY = e.touches[0].clientY - startY;
+
+          // Consider it a drag if moved more than 5px
+          if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+            isDragging = true;
+            controllerElement.dataset.dragging = 'true';
+
+            // Update position with boundary constraints
+            const buttonWidth = controllerElement.offsetWidth;
+            const buttonHeight = controllerElement.offsetHeight;
+
+            const newLeft = Math.max(0, Math.min(initialLeft + deltaX, window.innerWidth - buttonWidth));
+            const newTop = Math.max(0, Math.min(initialTop + deltaY, window.innerHeight - buttonHeight));
+
+            controllerElement.style.left = newLeft + 'px';
+            controllerElement.style.top = newTop + 'px';
+
+            // CRITICAL: Prevent scroll propagation
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            e.stopPropagation();
+          }
+        },
+        ontouchend: (e) => {
+          if (isDragging) {
+            // Prevent click event from firing after drag
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            e.stopPropagation();
+
+            // Save position to SafeStorage (Session)
+            SafeStorage.setItem('tts-controller-left', controllerElement.style.left);
+            SafeStorage.setItem('tts-controller-top', controllerElement.style.top);
+
+            // Save position to Native (Persistent)
+            reader.post({
+              type: 'save-tts-position',
+              data: {
+                left: controllerElement.style.left,
+                top: controllerElement.style.top
+              }
+            });
+
+            // UPDATE LOCAL VARIABLES so style binding uses new position
+            savedLeft = controllerElement.style.left;
+            savedTop = controllerElement.style.top;
+
+            // Clear dragging flag with a small delay to ensure other handlers (like scroll) see it
+            setTimeout(() => {
+              if (controllerElement) delete controllerElement.dataset.dragging;
+            }, 100);
+          }
+
+          if (controllerElement) {
+            controllerElement.style.transition = '0.5s'; // Restore transition
+            controllerElement.classList.remove('active');
+          }
+
+          // Reset
+          isDragging = false;
+          startX = undefined;
+          startY = undefined;
+        },
+        onclick: e => {
+          e.stopPropagation();
+          // If we were dragging, don't toggle playback
+          if (controllerElement && controllerElement.dataset.dragging === 'true') {
+            return;
+          }
+
+          if (tts.reading) {
+            tts.pause();
+            controllerElement.firstElementChild.innerHTML = tts.resumeIcon;
+          } else {
+            tts.resume();
+            controllerElement.firstElementChild.innerHTML = tts.pauseIcon;
+          }
+        },
       },
-      onclick: e => {
-        e.stopPropagation();
-        if (tts.reading) {
-          tts.pause();
-          controllerElement.firstElementChild.innerHTML = resumeIcon;
-        } else {
-          tts.resume();
-          controllerElement.firstElementChild.innerHTML = pauseIcon;
-        }
-      },
-    },
-    button({ innerHTML: volumnIcon }),
-  );
+      button({ innerHTML: tts.volumeIcon || 'TTS' }),
+    );
+  } catch (e) {
+
+    return div();
+  }
 };
 
 const ReaderUI = () => {

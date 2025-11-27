@@ -1,24 +1,29 @@
 #TTS-Controller {
   position: fixed;
-  top: 50%;
+  top: 20px;
   left: 20px;
   opacity: 0.5;
+  z-index: 9999;
+  /* Ensure it's above content */
+  touch-action: none;
+  /* Prevent default touch behaviors */
+  user-select: none;
+  /* Prevent text selection during drag */
+  -webkit-user-select: none;
+  cursor: move;
+  /* Visual feedback (for web testing) */
 }
 
 #TTS-Controller button {
-  background: color-mix(
-    in srgb,
-    var(--readerSettings-theme) 85%,
-    var(--readerSettings-textColor) 15%
-  );
+  background: color-mix(in srgb,
+      var(--readerSettings-theme) 85%,
+      var(--readerSettings-textColor) 15%);
   outline: none;
   border-width: 1px;
   border-style: solid;
-  border-color: color-mix(
-    in srgb,
-    var(--readerSettings-textColor) 30%,
-    var(--readerSettings-theme) 70%
-  );
+  border-color: color-mix(in srgb,
+      var(--readerSettings-textColor) 30%,
+      var(--readerSettings-theme) 70%);
   display: flex;
   justify-items: center;
   align-items: center;
