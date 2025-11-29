@@ -38,9 +38,13 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
         </Dialog.Title>
         <Dialog.Content>
           <Text style={[styles.content, { color: theme.onSurface }]}>
-            You have scrolled <Text style={{ fontWeight: 'bold', color: theme.onSurface }}>{directionText}</Text> to paragraph {visibleIndex + 1}.
-            {'\n\n'}
-            Do you want to continue reading from here, or go back to where you paused (paragraph {currentIndex + 1})?
+            You have scrolled{' '}
+            <Text style={{ fontWeight: 'bold', color: theme.onSurface }}>
+              {directionText}
+            </Text>{' '}
+            to paragraph {visibleIndex + 1}.{'\n\n'}
+            Do you want to continue reading from here, or go back to where you
+            paused (paragraph {currentIndex + 1})?
           </Text>
         </Dialog.Content>
         <View style={styles.buttonCtn}>

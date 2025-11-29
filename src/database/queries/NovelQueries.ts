@@ -105,15 +105,15 @@ export const switchNovelToLibraryQuery = async (
       ],
       novel.inLibrary
         ? [
-          'DELETE FROM NovelCategory WHERE novelId = ?',
-          [novel.id],
-          () => showToast(getString('browseScreen.removeFromLibrary')),
-        ]
+            'DELETE FROM NovelCategory WHERE novelId = ?',
+            [novel.id],
+            () => showToast(getString('browseScreen.removeFromLibrary')),
+          ]
         : [
-          'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
-          [novel.id],
-          () => showToast(getString('browseScreen.addedToLibrary')),
-        ],
+            'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
+            [novel.id],
+            () => showToast(getString('browseScreen.addedToLibrary')),
+          ],
     ];
     if (novel.pluginId === 'local') {
       queries.push([
@@ -307,8 +307,8 @@ const restoreObjectQuery = (table: string, obj: any) => {
   INSERT INTO ${table}
   (${Object.keys(obj).join(',')})
   VALUES (${Object.keys(obj)
-      .map(() => '?')
-      .join(',')})
+    .map(() => '?')
+    .join(',')})
   `;
 };
 

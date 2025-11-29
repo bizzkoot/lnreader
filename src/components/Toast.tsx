@@ -47,15 +47,13 @@ const Toast: React.FC<ToastProps> = ({
       <Animated.View
         style={[
           styles.toast,
-          { 
+          {
             backgroundColor: theme.surface,
             opacity: fadeAnim,
           },
         ]}
       >
-        <Text style={[styles.text, { color: theme.onSurface }]}>
-          {message}
-        </Text>
+        <Text style={[styles.text, { color: theme.onSurface }]}>{message}</Text>
       </Animated.View>
     </View>
   );

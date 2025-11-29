@@ -68,14 +68,16 @@ export default function useChapter(
   const connectVolumeButton = useCallback(() => {
     emmiter.addListener('VolumeUp', () => {
       webViewRef.current?.injectJavaScript(`(()=>{
-          window.scrollBy({top: -${Dimensions.get('window').height * 0.75
-        }, behavior: 'smooth'})
+          window.scrollBy({top: -${
+            Dimensions.get('window').height * 0.75
+          }, behavior: 'smooth'})
         })()`);
     });
     emmiter.addListener('VolumeDown', () => {
       webViewRef.current?.injectJavaScript(`(()=>{
-          window.scrollBy({top: ${Dimensions.get('window').height * 0.75
-        }, behavior: 'smooth'})
+          window.scrollBy({top: ${
+            Dimensions.get('window').height * 0.75
+          }, behavior: 'smooth'})
         })()`);
     });
   }, [webViewRef]);
@@ -168,9 +170,9 @@ export default function useChapter(
       scrollInterval.current = setInterval(() => {
         webViewRef.current?.injectJavaScript(`(()=>{
           window.scrollBy({top:${defaultTo(
-          autoScrollOffset,
-          Dimensions.get('window').height,
-        )},behavior:'smooth'})
+            autoScrollOffset,
+            Dimensions.get('window').height,
+          )},behavior:'smooth'})
         })()`);
       }, autoScrollInterval * 1000);
     } else {
@@ -300,7 +302,9 @@ export default function useChapter(
       setChapter,
       setLoading,
       getChapter,
-      savedParagraphIndex: MMKVStorage.getNumber(`chapter_progress_${chapter.id}`),
+      savedParagraphIndex: MMKVStorage.getNumber(
+        `chapter_progress_${chapter.id}`,
+      ),
     }),
     [
       hidden,

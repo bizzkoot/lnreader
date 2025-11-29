@@ -308,6 +308,10 @@ const TTSController = () => {
         id: 'TTS-Controller',
         class: () => reader.generalSettings.val.TTSEnable ? '' : 'hidden',
         style: () => {
+          // Skip ALL style updates during any drag operation to prevent ResizeObserver triggering
+          if (controllerElement && (controllerElement.dataset.dragging === 'true' || controllerElement.dataset.cleanupInProgress === 'true')) {
+            return 'transform: none;'; // Ensure clean state for transform positioning
+          }
           if (savedLeft && savedTop) {
             return `left: ${savedLeft}; top: ${savedTop};`;
           }
@@ -321,6 +325,10 @@ const TTSController = () => {
 
           // Only handle if touching the controller itself
           if (e.target.closest('#TTS-Controller')) {
+            // CRITICAL: Set global TTS operation flag IMMEDIATELY on touchstart
+            // This prevents ResizeObserver from firing before we detect drag
+            window.ttsOperationActive = true;
+
             isDragging = false; // Will be set to true if movement detected
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
@@ -354,8 +362,10 @@ const TTSController = () => {
             const newLeft = Math.max(0, Math.min(initialLeft + deltaX, window.innerWidth - buttonWidth));
             const newTop = Math.max(0, Math.min(initialTop + deltaY, window.innerHeight - buttonHeight));
 
-            controllerElement.style.left = newLeft + 'px';
-            controllerElement.style.top = newTop + 'px';
+            // Apply transform directly to DOM element to bypass reactivity system
+            controllerElement.style.transform = `translate(${newLeft}px, ${newTop}px)`;
+            controllerElement.style.left = '0px';
+            controllerElement.style.top = '0px';
 
             // CRITICAL: Prevent scroll propagation
             if (e.cancelable) {
@@ -372,32 +382,63 @@ const TTSController = () => {
             }
             e.stopPropagation();
 
+            // Set cleanup flag to prevent style function from interfering
+            controllerElement.dataset.cleanupInProgress = 'true';
+
+            // Get the final position from the current transform
+            const rect = controllerElement.getBoundingClientRect();
+            const finalLeft = rect.left;
+            const finalTop = rect.top;
+
+            // Save final position to local variables for the style binding
+            savedLeft = finalLeft + 'px';
+            savedTop = finalTop + 'px';
+
             // Save position to SafeStorage (Session)
-            SafeStorage.setItem('tts-controller-left', controllerElement.style.left);
-            SafeStorage.setItem('tts-controller-top', controllerElement.style.top);
+            SafeStorage.setItem('tts-controller-left', savedLeft);
+            SafeStorage.setItem('tts-controller-top', savedTop);
 
             // Save position to Native (Persistent)
             reader.post({
               type: 'save-tts-position',
               data: {
-                left: controllerElement.style.left,
-                top: controllerElement.style.top
+                left: savedLeft,
+                top: savedTop
               }
             });
 
-            // UPDATE LOCAL VARIABLES so style binding uses new position
-            savedLeft = controllerElement.style.left;
-            savedTop = controllerElement.style.top;
+            // CRITICAL: Remove active class immediately to fix visual issue
+            controllerElement.classList.remove('active');
 
-            // Clear dragging flag with a small delay to ensure other handlers (like scroll) see it
+            // Clear transform and switch to left/top positioning
+            controllerElement.style.transform = 'none';
+            controllerElement.style.left = savedLeft;
+            controllerElement.style.top = savedTop;
+            controllerElement.style.transition = '0.5s'; // Restore transition for future changes
+
+            // Clear all flags and global operation state after delay
             setTimeout(() => {
-              if (controllerElement) delete controllerElement.dataset.dragging;
-            }, 100);
+              if (controllerElement) {
+                delete controllerElement.dataset.cleanupInProgress;
+                delete controllerElement.dataset.dragging;
+              }
+              window.ttsOperationActive = false;
+              window.ttsOperationEndTime = Date.now(); // Set cooldown timestamp
+            }, 300);
+
+            return; // Exit early to prevent the general touchend logic
           }
 
+          // If not dragging, clear the operation flag immediately
+          // This happens for simple taps on TTS button
+          window.ttsOperationActive = false;
+
           if (controllerElement) {
+            // Only remove active class if we weren't dragging
+            if (controllerElement.dataset.dragging !== 'true') {
+              controllerElement.classList.remove('active');
+            }
             controllerElement.style.transition = '0.5s'; // Restore transition
-            controllerElement.classList.remove('active');
           }
 
           // Reset
@@ -407,8 +448,13 @@ const TTSController = () => {
         },
         onclick: e => {
           e.stopPropagation();
+          
+          // Set TTS operation flag to prevent ResizeObserver during click processing
+          window.ttsOperationActive = true;
+          
           // If we were dragging, don't toggle playback
           if (controllerElement && controllerElement.dataset.dragging === 'true') {
+            window.ttsOperationActive = false;
             return;
           }
 
@@ -419,6 +465,12 @@ const TTSController = () => {
             tts.resume();
             controllerElement.firstElementChild.innerHTML = tts.pauseIcon;
           }
+
+          // Clear operation flag after a brief delay for click processing
+          setTimeout(() => {
+            window.ttsOperationActive = false;
+            window.ttsOperationEndTime = Date.now();
+          }, 200);
         },
       },
       button({ innerHTML: tts.volumeIcon || 'TTS' }),

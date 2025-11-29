@@ -1,4 +1,8 @@
-import { NativeModules, NativeEventEmitter, EmitterSubscription } from 'react-native';
+import {
+  NativeModules,
+  NativeEventEmitter,
+  EmitterSubscription,
+} from 'react-native';
 import { getVoiceMapping } from './VoiceMapper';
 
 const { TTSHighlight } = NativeModules;
@@ -44,8 +48,12 @@ class TTSHighlightService {
   }
 
   addListener(
-    eventType: 'onWordRange' | 'onSpeechStart' | 'onSpeechDone' | 'onSpeechError',
-    listener: (event: any) => void
+    eventType:
+      | 'onWordRange'
+      | 'onSpeechStart'
+      | 'onSpeechDone'
+      | 'onSpeechError',
+    listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);
   }
@@ -54,7 +62,13 @@ class TTSHighlightService {
     // 1. Check explicit mapping
     const mapping = getVoiceMapping(voice.identifier);
     if (mapping) {
-      return `${mapping.label} (${mapping.gender === 'male' ? 'Male' : 'Female'}) - ${voice.quality === '400' || voice.identifier.includes('network') ? 'High Quality' : 'Normal'}`;
+      return `${mapping.label} (${
+        mapping.gender === 'male' ? 'Male' : 'Female'
+      }) - ${
+        voice.quality === '400' || voice.identifier.includes('network')
+          ? 'High Quality'
+          : 'Normal'
+      }`;
     }
 
     // 2. Fallback: Parse technical name

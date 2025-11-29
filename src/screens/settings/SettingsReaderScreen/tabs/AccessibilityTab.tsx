@@ -76,7 +76,15 @@ const AccessibilityTab: React.FC = () => {
         return a.name.localeCompare(b.name);
       });
 
-      setVoices([{ name: 'System', language: 'System', identifier: 'default', quality: 'default' as any } as TTSVoice, ...formattedVoices]);
+      setVoices([
+        {
+          name: 'System',
+          language: 'System',
+          identifier: 'default',
+          quality: 'default' as any,
+        } as TTSVoice,
+        ...formattedVoices,
+      ]);
     });
   }, []);
 
@@ -181,8 +189,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoResume === 'always'
                     ? 'Always resume'
                     : ttsAutoResume === 'never'
-                      ? 'Never resume'
-                      : 'Ask every time'
+                    ? 'Never resume'
+                    : 'Ask every time'
                 }
                 onPress={showAutoResumeModal}
                 theme={theme}
@@ -238,7 +246,12 @@ const AccessibilityTab: React.FC = () => {
                       tts: {
                         pitch: 1,
                         rate: 1,
-                        voice: { name: 'System', language: 'System', identifier: 'default', quality: 'Default' as VoiceQuality } as Voice,
+                        voice: {
+                          name: 'System',
+                          language: 'System',
+                          identifier: 'default',
+                          quality: 'Default' as VoiceQuality,
+                        } as Voice,
                       },
                     });
                   }}
@@ -253,8 +266,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsScrollPrompt === 'always-ask'
                     ? 'Ask me if I want to change TTS position'
                     : ttsScrollPrompt === 'auto-change'
-                      ? 'Automatically update TTS position'
-                      : 'Never change TTS position'
+                    ? 'Automatically update TTS position'
+                    : 'Never change TTS position'
                 }
                 onPress={showScrollPromptModal}
                 theme={theme}
@@ -286,15 +299,26 @@ const AccessibilityTab: React.FC = () => {
           visible={autoResumeModalVisible}
           onDismiss={hideAutoResumeModal}
           currentValue={ttsAutoResume}
-          onSelect={value => setChapterGeneralSettings({ ttsAutoResume: value })}
+          onSelect={value =>
+            setChapterGeneralSettings({ ttsAutoResume: value })
+          }
         />
         <TTSScrollBehaviorModal
           visible={scrollPromptModalVisible}
           onDismiss={hideScrollPromptModal}
           theme={theme}
           title="Paused Scroll Behavior"
-          currentValue={ttsScrollPrompt as 'always-ask' | 'auto-change' | 'never-change'}
-          onSelect={value => setChapterGeneralSettings({ ttsScrollPrompt: value as 'always-ask' | 'auto-change' | 'never-change' })}
+          currentValue={
+            ttsScrollPrompt as 'always-ask' | 'auto-change' | 'never-change'
+          }
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsScrollPrompt: value as
+                | 'always-ask'
+                | 'auto-change'
+                | 'never-change',
+            })
+          }
           options={[
             { label: 'Ask me every time', value: 'always-ask' },
             { label: 'Automatically update position', value: 'auto-change' },
@@ -307,7 +331,11 @@ const AccessibilityTab: React.FC = () => {
           theme={theme}
           title="Playback Scroll Behavior"
           currentValue={ttsScrollBehavior as 'continue' | 'pause-on-scroll'}
-          onSelect={value => setChapterGeneralSettings({ ttsScrollBehavior: value as 'continue' | 'pause-on-scroll' })}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsScrollBehavior: value as 'continue' | 'pause-on-scroll',
+            })
+          }
           options={[
             { label: 'Continue reading (Ignore scroll)', value: 'continue' },
             { label: 'Pause TTS when I scroll', value: 'pause-on-scroll' },

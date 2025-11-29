@@ -418,9 +418,10 @@ FROM
 JOIN
   Novel
   ON Chapter.novelId = Novel.id
-WHERE novelId = ?  ${onlyDownloadableChapters
-      ? 'AND Chapter.isDownloaded = 1 '
-      : 'AND updatedTime IS NOT NULL'
+WHERE novelId = ?  ${
+      onlyDownloadableChapters
+        ? 'AND Chapter.isDownloaded = 1 '
+        : 'AND updatedTime IS NOT NULL'
     }
 ORDER BY updatedTime DESC; 
 `,

@@ -31,7 +31,9 @@ const TTSManualModeDialog: React.FC<TTSManualModeDialogProps> = ({
         </Dialog.Title>
         <Dialog.Content>
           <Text style={[styles.content, { color: theme.onSurface }]}>
-            You scrolled away from the current TTS reading position. Would you like to stop TTS and continue reading manually, or let TTS continue following the text progression?
+            You scrolled away from the current TTS reading position. Would you
+            like to stop TTS and continue reading manually, or let TTS continue
+            following the text progression?
           </Text>
         </Dialog.Content>
         <View style={styles.buttonCtn}>

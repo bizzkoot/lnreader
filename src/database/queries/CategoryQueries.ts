@@ -29,8 +29,8 @@ export const getCategoriesWithCount = (novelIds: number[]) => {
   (
     SELECT categoryId, COUNT(novelId) as novelsCount 
     FROM NovelCategory WHERE novelId in (${novelIds.join(
-    ',',
-  )}) GROUP BY categoryId 
+      ',',
+    )}) GROUP BY categoryId 
   ) as NC ON Category.id = NC.categoryId
   WHERE Category.id != 2
   ORDER BY sort

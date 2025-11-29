@@ -1,5 +1,10 @@
 import React, { memo, useEffect, useMemo, useRef } from 'react';
-import { NativeEventEmitter, NativeModules, StatusBar, AppState } from 'react-native';
+import {
+  NativeEventEmitter,
+  NativeModules,
+  StatusBar,
+  AppState,
+} from 'react-native';
 import WebView from 'react-native-webview';
 import color from 'color';
 
@@ -25,7 +30,6 @@ import TTSScrollSyncDialog from './TTSScrollSyncDialog';
 import TTSManualModeDialog from './TTSManualModeDialog';
 import Toast from '@components/Toast';
 import { useBoolean } from '@hooks';
-
 
 type WebViewPostEvent = {
   type: string;
@@ -92,14 +96,31 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // NEW: Also check MMKV for the absolute latest progress (covers background TTS/manual scroll)
   const initialSavedParagraphIndex = useMemo(
     () => {
-      const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+      const mmkvIndex =
+        MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
       const dbIndex = savedParagraphIndex ?? -1;
-      console.log(`WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}`);
+      console.log(
+        `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}`,
+      );
       return Math.max(dbIndex, mmkvIndex);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chapter.id]
+    // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
+    // when progress is saved (which would update savedParagraphIndex)
+    [chapter.id],
   );
+
+  // NEW: Create a stable chapter object that doesn't update on progress changes
+  // This prevents the WebView from reloading when we save progress
+  const stableChapter = useMemo(
+    () => ({
+      ...chapter,
+      // Ensure we use the initial values for these if needed, or just spread
+      // The key is that this object reference (and its stringified version)
+      // won't change unless chapter.id changes
+    }),
+    [chapter.id],
+  );
+
   const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
   const plugin = getPlugin(novel?.pluginId);
   const pluginCustomJS = `file://${PLUGIN_STORAGE}/${plugin?.id}/custom.js`;
@@ -124,6 +145,121 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
   }, [readerSettings, chapterGeneralSettings]);
+
+  const memoizedHTML = useMemo(() => {
+    return `
+      <!DOCTYPE html>
+      <html lang="en" style="background-color: ${readerSettings.theme}">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <link rel="stylesheet" href="${assetsUriPrefix}/css/index.css">
+          <link rel="stylesheet" href="${assetsUriPrefix}/css/pageReader.css">
+          <link rel="stylesheet" href="${assetsUriPrefix}/css/toolWrapper.css">
+          <link rel="stylesheet" href="${assetsUriPrefix}/css/tts.css">
+          <style>
+            :root {
+              --StatusBar-currentHeight: ${StatusBar.currentHeight}px;
+              --readerSettings-theme: ${readerSettings.theme};
+              --readerSettings-padding: ${readerSettings.padding}px;
+              --readerSettings-textSize: ${readerSettings.textSize}px;
+              --readerSettings-textColor: ${readerSettings.textColor};
+              --readerSettings-textAlign: ${readerSettings.textAlign};
+              --readerSettings-lineHeight: ${readerSettings.lineHeight};
+              --readerSettings-fontFamily: ${readerSettings.fontFamily};
+              --theme-primary: ${theme.primary};
+              --theme-onPrimary: ${theme.onPrimary};
+              --theme-secondary: ${theme.secondary};
+              --theme-tertiary: ${theme.tertiary};
+              --theme-onTertiary: ${theme.onTertiary};
+              --theme-onSecondary: ${theme.onSecondary};
+              --theme-surface: ${theme.surface};
+              --theme-surface-0-9: ${color(theme.surface)
+        .alpha(0.9)
+        .toString()};
+              --theme-onSurface: ${theme.onSurface};
+              --theme-surfaceVariant: ${theme.surfaceVariant};
+              --theme-onSurfaceVariant: ${theme.onSurfaceVariant};
+              --theme-outline: ${theme.outline};
+              --theme-rippleColor: ${theme.rippleColor};
+            }
+            @font-face {
+              font-family: ${readerSettings.fontFamily};
+              src: url("file:///android_asset/fonts/${readerSettings.fontFamily}.ttf");
+            }
+          </style>
+          <link rel="stylesheet" href="${pluginCustomCSS}">
+          <style>
+            ${readerSettings.customCSS}
+          </style>
+        </head>
+        <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
+          <div class="transition-chapter" style="transform: translateX(0%);${chapterGeneralSettings.pageReader ? '' : 'display: none'}">
+            ${stableChapter.name}
+          </div>
+          <div id="LNReader-chapter">
+            ${html}
+          </div>
+          <div id="reader-ui"></div>
+        </body>
+        <script>
+          var initialPageReaderConfig = ${JSON.stringify({
+          nextChapterScreenVisible: false,
+        })};
+
+          var initialReaderConfig = ${JSON.stringify({
+          readerSettings,
+          chapterGeneralSettings,
+          novel,
+          chapter: stableChapter,
+          nextChapter,
+          prevChapter,
+          batteryLevel,
+          autoSaveInterval: 2222,
+          DEBUG: __DEV__,
+          strings: {
+            finished: `${getString('readerScreen.finished')}: ${stableChapter.name.trim()}`,
+            nextChapter: getString('readerScreen.nextChapter', {
+              name: nextChapter?.name,
+            }),
+            noNextChapter: getString('readerScreen.noNextChapter'),
+          },
+          savedParagraphIndex: initialSavedParagraphIndex ?? -1,
+          ttsRestoreState: stableChapter.ttsState
+            ? JSON.parse(stableChapter.ttsState)
+            : null,
+          ttsButtonPosition: MMKVStorage.getString('tts_button_position')
+            ? JSON.parse(MMKVStorage.getString('tts_button_position')!)
+            : null,
+        })}
+        </script>
+        <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>
+        <script src="${assetsUriPrefix}/js/icons.js"></script>
+        <script src="${assetsUriPrefix}/js/van.js"></script>
+        <script src="${assetsUriPrefix}/js/text-vibe.js"></script>
+        <script src="${assetsUriPrefix}/js/core.js"></script>
+        <script src="${assetsUriPrefix}/js/index.js"></script>
+        <script src="${pluginCustomJS}"></script>
+        <script>
+          ${readerSettings.customJS}
+        </script>
+      </html>
+    `;
+  }, [
+    readerSettings,
+    chapterGeneralSettings,
+    stableChapter,
+    html,
+    novel,
+    nextChapter,
+    prevChapter,
+    batteryLevel,
+    initialSavedParagraphIndex,
+    pluginCustomCSS,
+    pluginCustomJS,
+    assetsUriPrefix,
+    theme,
+  ]);
 
   const resumeTTS = (storedState: any) => {
     webViewRef.current?.injectJavaScript(`
@@ -161,11 +297,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   } = useBoolean();
 
   const pendingResumeIndexRef = useRef<number>(-1);
-  const ttsScrollPromptDataRef = useRef<{ currentIndex: number, visibleIndex: number, isResume?: boolean } | null>(null);
+  const ttsScrollPromptDataRef = useRef<{
+    currentIndex: number;
+    visibleIndex: number;
+    isResume?: boolean;
+  } | null>(null);
   const toastMessageRef = useRef<string>('');
 
   // NEW: TTS Queue for background playback
-  const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(null);
+  const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(
+    null,
+  );
   const currentParagraphIndexRef = useRef<number>(-1);
 
   const handleResumeConfirm = () => {
@@ -178,18 +320,29 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // momentarily reports a lower paragraph (e.g. 5) during load, poisoning the Ref.
     // If the confirmation payload (savedIndex) says 10, we trust it over the Ref's 5.
     const refValue = latestParagraphIndexRef.current ?? -1;
-    const mmkvValue = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+    const mmkvValue =
+      MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
 
     const latestSavedIndex = Math.max(refValue, mmkvValue, savedIndex);
 
     const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
-    console.log('WebViewReader: Resuming TTS. Resolved index:', latestSavedIndex, '(Ref:', refValue, 'MMKV:', mmkvValue, 'Prop:', savedIndex, ')');
+    console.log(
+      'WebViewReader: Resuming TTS. Resolved index:',
+      latestSavedIndex,
+      '(Ref:',
+      refValue,
+      'MMKV:',
+      mmkvValue,
+      'Prop:',
+      savedIndex,
+      ')',
+    );
 
     resumeTTS({
       ...ttsState,
       paragraphIndex: latestSavedIndex,
       autoStart: true,
-      shouldResume: true
+      shouldResume: true,
     });
   };
 
@@ -277,7 +430,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     showToast();
   };
 
-
   useEffect(() => {
     const onSpeechDoneSubscription = TTSHighlight.addListener(
       'onSpeechDone',
@@ -286,7 +438,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
           const nextIndex = currentParagraphIndexRef.current + 1;
           const queueStartIndex = ttsQueueRef.current.startIndex;
-          const queueEndIndex = queueStartIndex + ttsQueueRef.current.texts.length;
+          const queueEndIndex =
+            queueStartIndex + ttsQueueRef.current.texts.length;
 
           if (nextIndex >= queueStartIndex && nextIndex < queueEndIndex) {
             const text = ttsQueueRef.current.texts[nextIndex - queueStartIndex];
@@ -300,7 +453,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               ttsStateRef.current = {
                 ...ttsStateRef.current,
                 paragraphIndex: nextIndex,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               };
             }
 
@@ -332,7 +485,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     true;
                 `);
             } else {
-              console.warn('WebViewReader: webViewRef is null during queue playback');
+              console.warn(
+                'WebViewReader: webViewRef is null during queue playback',
+              );
             }
             return;
           }
@@ -343,36 +498,55 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       },
     );
 
-    const appStateSubscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'background') {
-        if (ttsStateRef.current?.wasPlaying) {
-          console.log('WebViewReader: Saving TTS state on background', ttsStateRef.current);
-          saveProgress(progressRef.current ?? 0, undefined, JSON.stringify({
-            ...ttsStateRef.current,
-            timestamp: Date.now(),
-          }));
-        }
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      nextAppState => {
+        if (nextAppState === 'background') {
+          if (ttsStateRef.current?.wasPlaying) {
+            console.log(
+              'WebViewReader: Saving TTS state on background',
+              ttsStateRef.current,
+            );
+            saveProgress(
+              progressRef.current ?? 0,
+              undefined,
+              JSON.stringify({
+                ...ttsStateRef.current,
+                timestamp: Date.now(),
+              }),
+            );
+          }
 
-        // NEW: Stop TTS if background playback is disabled
-        if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
-          console.log('WebViewReader: Stopping TTS (Background Playback Disabled)');
-          TTSHighlight.stop();
-          isTTSReadingRef.current = false;
+          // NEW: Stop TTS if background playback is disabled
+          if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
+            console.log(
+              'WebViewReader: Stopping TTS (Background Playback Disabled)',
+            );
+            TTSHighlight.stop();
+            isTTSReadingRef.current = false;
+          }
         }
-      }
-    });
+      },
+    );
 
     return () => {
       onSpeechDoneSubscription.remove();
       appStateSubscription.remove();
       TTSHighlight.stop();
       if (ttsStateRef.current?.wasPlaying) {
-        console.log('WebViewReader: Saving TTS state on unmount', ttsStateRef.current);
-        saveProgress(progressRef.current ?? 0, undefined, JSON.stringify({
-          ...ttsStateRef.current,
-          timestamp: Date.now(),
-          autoStartOnReturn: true,
-        }));
+        console.log(
+          'WebViewReader: Saving TTS state on unmount',
+          ttsStateRef.current,
+        );
+        saveProgress(
+          progressRef.current ?? 0,
+          undefined,
+          JSON.stringify({
+            ...ttsStateRef.current,
+            timestamp: Date.now(),
+            autoStartOnReturn: true,
+          }),
+        );
       }
     };
   }, []);
@@ -389,12 +563,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case CHAPTER_GENERAL_SETTINGS:
           const newSettings = MMKVStorage.getString(CHAPTER_GENERAL_SETTINGS);
-          console.log('WebViewReader: MMKV listener fired for CHAPTER_GENERAL_SETTINGS', newSettings);
+          console.log(
+            'WebViewReader: MMKV listener fired for CHAPTER_GENERAL_SETTINGS',
+            newSettings,
+          );
           webViewRef.current?.injectJavaScript(
             `if (window.reader && window.reader.generalSettings) {
                window.reader.generalSettings.val = ${newSettings};
                console.log('TTS: Updated general settings via listener');
-             }`
+             }`,
           );
           break;
       }
@@ -497,13 +674,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               break;
             case 'save':
               if (event.data && typeof event.data === 'number') {
-                console.log('WebViewReader: Received save event. Progress:', event.data, 'Paragraph:', event.paragraphIndex);
+                console.log(
+                  'WebViewReader: Received save event. Progress:',
+                  event.data,
+                  'Paragraph:',
+                  event.paragraphIndex,
+                );
                 // NEW: Track latest paragraph index
                 if (event.paragraphIndex !== undefined) {
                   latestParagraphIndexRef.current = event.paragraphIndex;
-                  MMKVStorage.set(`chapter_progress_${chapter.id}`, event.paragraphIndex);
+                  MMKVStorage.set(
+                    `chapter_progress_${chapter.id}`,
+                    event.paragraphIndex,
+                  );
                 }
-                saveProgress(event.data, event.paragraphIndex as number | undefined);
+                saveProgress(
+                  event.data,
+                  event.paragraphIndex as number | undefined,
+                );
               }
               break;
             case 'speak':
@@ -525,7 +713,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               isTTSReadingRef.current = false;
               break;
             case 'tts-state':
-              if (event.data && !Array.isArray(event.data) && typeof event.data === 'object') {
+              if (
+                event.data &&
+                !Array.isArray(event.data) &&
+                typeof event.data === 'object'
+              ) {
                 ttsStateRef.current = event.data;
                 if (typeof event.data.paragraphIndex === 'number') {
                   currentParagraphIndexRef.current = event.data.paragraphIndex;
@@ -533,14 +725,23 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               }
               break;
             case 'request-tts-confirmation':
-              if (event.data && !Array.isArray(event.data) && event.data.savedIndex !== undefined) {
+              if (
+                event.data &&
+                !Array.isArray(event.data) &&
+                event.data.savedIndex !== undefined
+              ) {
                 // handleTTSConfirmation(Number(event.data.savedIndex));
                 pendingResumeIndexRef.current = Number(event.data.savedIndex);
                 showResumeDialog();
               }
               break;
             case 'tts-scroll-prompt':
-              if (event.data && !Array.isArray(event.data) && event.data.currentIndex !== undefined && event.data.visibleIndex !== undefined) {
+              if (
+                event.data &&
+                !Array.isArray(event.data) &&
+                event.data.currentIndex !== undefined &&
+                event.data.visibleIndex !== undefined
+              ) {
                 ttsScrollPromptDataRef.current = {
                   currentIndex: Number(event.data.currentIndex),
                   visibleIndex: Number(event.data.visibleIndex),
@@ -552,7 +753,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               showManualModeDialog();
               break;
             case 'tts-resume-location-prompt':
-              if (event.data && !Array.isArray(event.data) && event.data.currentIndex !== undefined && event.data.visibleIndex !== undefined) {
+              if (
+                event.data &&
+                !Array.isArray(event.data) &&
+                event.data.currentIndex !== undefined &&
+                event.data.visibleIndex !== undefined
+              ) {
                 ttsScrollPromptDataRef.current = {
                   currentIndex: Number(event.data.currentIndex),
                   visibleIndex: Number(event.data.visibleIndex),
@@ -567,128 +773,30 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               }
               break;
             case 'tts-queue':
-              if (event.data && Array.isArray(event.data) && typeof event.startIndex === 'number') {
+              if (
+                event.data &&
+                Array.isArray(event.data) &&
+                typeof event.startIndex === 'number'
+              ) {
                 ttsQueueRef.current = {
                   startIndex: event.startIndex,
-                  texts: event.data as string[]
+                  texts: event.data as string[],
                 };
               }
               break;
             case 'save-tts-position':
               if (event.data && typeof event.data === 'object') {
-                MMKVStorage.set('tts_button_position', JSON.stringify(event.data));
+                MMKVStorage.set(
+                  'tts_button_position',
+                  JSON.stringify(event.data),
+                );
               }
               break;
           }
         }}
         source={{
           baseUrl: !chapter.isDownloaded ? plugin?.site : undefined,
-          headers: plugin?.imageRequestInit?.headers,
-          method: plugin?.imageRequestInit?.method,
-          body: plugin?.imageRequestInit?.body,
-          html: ` 
-        <!DOCTYPE html>
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-              <link rel="stylesheet" href="${assetsUriPrefix}/css/index.css">
-              <link rel="stylesheet" href="${assetsUriPrefix}/css/pageReader.css">
-              <link rel="stylesheet" href="${assetsUriPrefix}/css/toolWrapper.css">
-              <link rel="stylesheet" href="${assetsUriPrefix}/css/tts.css">
-              <style>
-              :root {
-                --StatusBar-currentHeight: ${StatusBar.currentHeight}px;
-                --readerSettings-theme: ${readerSettings.theme};
-                --readerSettings-padding: ${readerSettings.padding}px;
-                --readerSettings-textSize: ${readerSettings.textSize}px;
-                --readerSettings-textColor: ${readerSettings.textColor};
-                --readerSettings-textAlign: ${readerSettings.textAlign};
-                --readerSettings-lineHeight: ${readerSettings.lineHeight};
-                --readerSettings-fontFamily: ${readerSettings.fontFamily};
-                --theme-primary: ${theme.primary};
-                --theme-onPrimary: ${theme.onPrimary};
-                --theme-secondary: ${theme.secondary};
-                --theme-tertiary: ${theme.tertiary};
-                --theme-onTertiary: ${theme.onTertiary};
-                --theme-onSecondary: ${theme.onSecondary};
-                --theme-surface: ${theme.surface};
-                --theme-surface-0-9: ${color(theme.surface)
-              .alpha(0.9)
-              .toString()};
-                --theme-onSurface: ${theme.onSurface};
-                --theme-surfaceVariant: ${theme.surfaceVariant};
-                --theme-onSurfaceVariant: ${theme.onSurfaceVariant};
-                --theme-outline: ${theme.outline};
-                --theme-rippleColor: ${theme.rippleColor};
-                }
-                
-                @font-face {
-                  font-family: ${readerSettings.fontFamily};
-                  src: url("file:///android_asset/fonts/${readerSettings.fontFamily
-            }.ttf");
-                }
-                </style>
-
-              <link rel="stylesheet" href="${pluginCustomCSS}">
-              <style>
-                ${readerSettings.customCSS}
-              </style>
-            </head>
-            <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''
-            }">
-              <div class="transition-chapter" style="transform: ${nextChapterScreenVisible.current
-              ? 'translateX(-100%)'
-              : 'translateX(0%)'
-            };
-              ${chapterGeneralSettings.pageReader ? '' : 'display: none'}"
-              ">${chapter.name}</div>
-              <div id="LNReader-chapter">
-                ${html}  
-              </div>
-              <div id="reader-ui"></div>
-              </body>
-              <script>
-                var initialPageReaderConfig = ${JSON.stringify({
-              nextChapterScreenVisible: nextChapterScreenVisible.current,
-            })};
-
-
-                var initialReaderConfig = ${JSON.stringify({
-              readerSettings,
-              chapterGeneralSettings,
-              novel,
-              chapter,
-              nextChapter,
-              prevChapter,
-              batteryLevel,
-              autoSaveInterval: 2222,
-              DEBUG: __DEV__,
-              strings: {
-                finished: `${getString(
-                  'readerScreen.finished',
-                )}: ${chapter.name.trim()}`,
-                nextChapter: getString('readerScreen.nextChapter', {
-                  name: nextChapter?.name,
-                }),
-                noNextChapter: getString('readerScreen.noNextChapter'),
-              },
-              savedParagraphIndex: initialSavedParagraphIndex ?? -1,
-              ttsRestoreState: chapter.ttsState ? JSON.parse(chapter.ttsState) : null,
-              ttsButtonPosition: MMKVStorage.getString('tts_button_position') ? JSON.parse(MMKVStorage.getString('tts_button_position')!) : null,
-            })}
-              </script>
-              <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>
-              <script src="${assetsUriPrefix}/js/icons.js"></script>
-              <script src="${assetsUriPrefix}/js/van.js"></script>
-              <script src="${assetsUriPrefix}/js/text-vibe.js"></script>
-              <script src="${assetsUriPrefix}/js/core.js"></script>
-              <script src="${assetsUriPrefix}/js/index.js"></script>
-              <script src="${pluginCustomJS}"></script>
-              <script>
-                ${readerSettings.customJS}
-              </script>
-          </html>
-          `,
+          html: memoizedHTML,
         }}
       />
       <TTSResumeDialog
