@@ -83,9 +83,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     [chapter.id],
   );
   const chapterGeneralSettings = useMemo(
-    () =>
-      getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) ||
-      initialChapterGeneralSettings,
+    () => {
+      const defaults = initialChapterGeneralSettings;
+      const stored = getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) || {};
+
+      // Robust merge: Ensure defaults are preserved if stored value is undefined/missing
+      const merged = { ...defaults, ...stored };
+
+      // Explicitly ensure showParagraphHighlight is set (fallback to true)
+      if (merged.showParagraphHighlight === undefined) {
+        merged.showParagraphHighlight = defaults.showParagraphHighlight ?? true;
+      }
+
+      console.log('[WebViewReader] Initial Settings:', JSON.stringify(defaults));
+      console.log('[WebViewReader] Stored Settings:', JSON.stringify(stored));
+      console.log('[WebViewReader] Merged Settings:', JSON.stringify(merged));
+
+      return merged;
+    },
     // needed to preserve settings during chapter change
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id],
@@ -206,6 +221,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           var initialPageReaderConfig = ${JSON.stringify({
           nextChapterScreenVisible: false,
         })};
+
 
           var initialReaderConfig = ${JSON.stringify({
           readerSettings,
@@ -460,12 +476,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Persist Progress (Critical for App Kill/Restart)
             saveProgress(progressRef.current ?? 0, nextIndex);
 
-            // Speak next
-            TTSHighlight.speak(text, {
-              voice: readerSettingsRef.current.tts?.voice?.identifier,
-              pitch: readerSettingsRef.current.tts?.pitch || 1,
-              rate: readerSettingsRef.current.tts?.rate || 1,
-            });
+            // In batch mode, we DO NOT call speak() here because the native queue
+            // is already playing the next item. Calling speak() would flush the queue!
+            // We only need to update the UI and state.
+            if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
+              // Only manually speak next if NOT in background/batch mode
+              TTSHighlight.speak(text, {
+                voice: readerSettingsRef.current.tts?.voice?.identifier,
+                pitch: readerSettingsRef.current.tts?.pitch || 1,
+                rate: readerSettingsRef.current.tts?.rate || 1,
+              });
+            }
 
             // Sync WebView UI & Logic (fire and forget)
             // Added 'true;' and console logs for debugging
@@ -699,6 +720,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 if (!isTTSReadingRef.current) {
                   isTTSReadingRef.current = true;
                 }
+                // Simple single-text speak
                 TTSHighlight.speak(event.data, {
                   voice: readerSettings.tts?.voice?.identifier,
                   pitch: readerSettings.tts?.pitch || 1,
@@ -782,6 +804,30 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   startIndex: event.startIndex,
                   texts: event.data as string[],
                 };
+
+                // Use batch TTS for background playback
+                if (chapterGeneralSettings.ttsBackgroundPlayback && event.data.length > 0 && typeof event.startIndex === 'number') {
+                  const startIndex = event.startIndex;
+                  const utteranceIds = (event.data as string[]).map((_, i) =>
+                    `utterance_${startIndex + i}`
+                  );
+
+                  console.log(`WebViewReader: Starting batch TTS with ${event.data.length} paragraphs from index ${startIndex}`);
+
+                  TTSHighlight.speakBatch(
+                    event.data as string[],
+                    utteranceIds,
+                    {
+                      voice: readerSettings.tts?.voice?.identifier,
+                      pitch: readerSettings.tts?.pitch || 1,
+                      rate: readerSettings.tts?.rate || 1,
+                    }
+                  ).catch(err => {
+                    console.error('WebViewReader: Batch TTS failed:', err);
+                    // Fallback to WebView-driven TTS
+                    webViewRef.current?.injectJavaScript('tts.next?.()');
+                  });
+                }
               }
               break;
             case 'save-tts-position':

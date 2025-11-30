@@ -7,9 +7,9 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Binder
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
 import android.speech.tts.TextToSpeech
@@ -24,6 +24,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var isTtsInitialized = false
     private val binder = TTSBinder()
     private var ttsListener: TTSListener? = null
+    
+    // Queue management for batch feeding
+    private var currentBatchIndex = 0
+    private val queuedUtteranceIds = mutableListOf<String>()
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -77,10 +81,18 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
 
                 override fun onDone(utteranceId: String) {
                     ttsListener?.onSpeechDone(utteranceId)
+                    
+                    // Track completion
+                    synchronized(queuedUtteranceIds) {
+                        queuedUtteranceIds.remove(utteranceId)
+                    }
                 }
 
                 override fun onError(utteranceId: String) {
                     ttsListener?.onSpeechError(utteranceId)
+                    synchronized(queuedUtteranceIds) {
+                        queuedUtteranceIds.remove(utteranceId)
+                    }
                 }
 
                 override fun onRangeStart(utteranceId: String, start: Int, end: Int, frame: Int) {
@@ -121,14 +133,115 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             
             if (result == TextToSpeech.SUCCESS) {
                 startForegroundService()
+                synchronized(queuedUtteranceIds) {
+                    queuedUtteranceIds.clear()
+                    queuedUtteranceIds.add(utteranceId)
+                }
                 return true
             }
         }
         return false
     }
+    
+    fun speakBatch(
+        texts: List<String>, 
+        utteranceIds: List<String>,
+        rate: Float,
+        pitch: Float,
+        voiceId: String?
+    ): Boolean {
+        if (!isTtsInitialized) return false
+        if (texts.isEmpty()) return false
+
+        tts?.let { ttsInstance ->
+            ttsInstance.setSpeechRate(rate)
+            ttsInstance.setPitch(pitch)
+            
+            if (voiceId != null) {
+                try {
+                    for (voice in ttsInstance.voices) {
+                        if (voice.name == voiceId) {
+                            ttsInstance.voice = voice
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore voice setting error
+                }
+            }
+
+            // Clear queue and start fresh
+            synchronized(queuedUtteranceIds) {
+                queuedUtteranceIds.clear()
+            }
+            currentBatchIndex = 0
+            
+            // Queue all texts
+            for (i in texts.indices) {
+                val params = android.os.Bundle()
+                val utteranceId = utteranceIds.getOrNull(i) ?: "utterance_$i"
+                params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+                
+                val queueMode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                val result = ttsInstance.speak(texts[i], queueMode, params, utteranceId)
+                
+                if (result == TextToSpeech.SUCCESS) {
+                    synchronized(queuedUtteranceIds) {
+                        queuedUtteranceIds.add(utteranceId)
+                    }
+                } else {
+                    return false
+                }
+            }
+            
+            startForegroundService()
+            return true
+        }
+        return false
+    }
+    
+    fun addToBatch(
+        texts: List<String>,
+        utteranceIds: List<String>
+    ): Boolean {
+        if (!isTtsInitialized) return false
+        if (texts.isEmpty()) return false
+
+        tts?.let { ttsInstance ->
+            for (i in texts.indices) {
+                val params = android.os.Bundle()
+                val utteranceId = utteranceIds.getOrNull(i) ?: "utterance_${currentBatchIndex + i}"
+                params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+                
+                val result = ttsInstance.speak(texts[i], TextToSpeech.QUEUE_ADD, params, utteranceId)
+                
+                if (result == TextToSpeech.SUCCESS) {
+                    synchronized(queuedUtteranceIds) {
+                        queuedUtteranceIds.add(utteranceId)
+                    }
+                } else {
+                    return false
+                }
+            }
+            
+            currentBatchIndex += texts.size
+            return true
+        }
+        return false
+    }
+    
+    fun getQueueSize(): Int {
+        synchronized(queuedUtteranceIds) {
+            return queuedUtteranceIds.size
+        }
+    }
 
     fun stopTTS() {
         tts?.stop()
+        synchronized(queuedUtteranceIds) {
+            queuedUtteranceIds.clear()
+        }
+        currentBatchIndex = 0
         stopForegroundService()
     }
 
@@ -189,7 +302,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("LNReader TTS")
             .setContentText(content)
-            .setSmallIcon(R.mipmap.ic_launcher) // Assuming default icon exists
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(appPendingIntent)
             .addAction(android.R.drawable.ic_media_pause, "Stop", stopPendingIntent)
             .setOngoing(true)

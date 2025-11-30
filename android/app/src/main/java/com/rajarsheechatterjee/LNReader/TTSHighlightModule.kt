@@ -62,6 +62,73 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
             promise.reject("TTS_ERROR", "Failed to start TTS. Service might not be ready.")
         }
     }
+    
+    @ReactMethod
+    fun speakBatch(texts: ReadableArray, utteranceIds: ReadableArray, params: ReadableMap, promise: Promise) {
+        if (!isBound || ttsService == null) {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+            return
+        }
+        
+        val rate = if (params.hasKey("rate")) params.getDouble("rate").toFloat() else 1.0f
+        val pitch = if (params.hasKey("pitch")) params.getDouble("pitch").toFloat() else 1.0f
+        val voiceId = if (params.hasKey("voice")) params.getString("voice") else null
+        
+        val textList = mutableListOf<String>()
+        val utteranceIdList = mutableListOf<String>()
+        
+        for (i in 0 until texts.size()) {
+            texts.getString(i)?.let { text ->
+                val utteranceId = utteranceIds.getString(i) ?: "utterance_$i"
+                textList.add(text)
+                utteranceIdList.add(utteranceId)
+            }
+        }
+        
+        val success = ttsService?.speakBatch(textList, utteranceIdList, rate, pitch, voiceId) ?: false
+        
+        if (success) {
+            promise.resolve(textList.size)
+        } else {
+            promise.reject("TTS_ERROR", "Failed to start batch TTS")
+        }
+    }
+    
+    @ReactMethod
+    fun addToBatch(texts: ReadableArray, utteranceIds: ReadableArray, promise: Promise) {
+        if (!isBound || ttsService == null) {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+            return
+        }
+        
+        val textList = mutableListOf<String>()
+        val utteranceIdList = mutableListOf<String>()
+        
+        for (i in 0 until texts.size()) {
+            texts.getString(i)?.let { text ->
+                val utteranceId = utteranceIds.getString(i) ?: "utterance_$i"
+                textList.add(text)
+                utteranceIdList.add(utteranceId)
+            }
+        }
+        
+        val success = ttsService?.addToBatch(textList, utteranceIdList) ?: false
+        
+        if (success) {
+            promise.resolve(true)
+        } else {
+            promise.reject("TTS_ERROR", "Failed to add to batch")
+        }
+    }
+    
+    @ReactMethod
+    fun getQueueSize(promise: Promise) {
+        if (isBound && ttsService != null) {
+            promise.resolve(ttsService?.getQueueSize() ?: 0)
+        } else {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+        }
+    }
 
     @ReactMethod
     fun stop(promise: Promise) {

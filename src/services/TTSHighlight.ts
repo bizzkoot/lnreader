@@ -4,6 +4,7 @@ import {
   EmitterSubscription,
 } from 'react-native';
 import { getVoiceMapping } from './VoiceMapper';
+import TTSAudioManager from './TTSAudioManager';
 
 const { TTSHighlight } = NativeModules;
 
@@ -23,24 +24,26 @@ export type TTSParams = {
   utteranceId?: string;
 };
 
-export type WordRangeEvent = {
-  utteranceId: string;
-  start: number;
-  end: number;
-  frame: number;
-};
-
 class TTSHighlightService {
   speak(text: string, params: TTSParams = {}): Promise<string> {
+    // For single text, use direct speak
     return TTSHighlight.speak(text, params);
   }
 
+  async speakBatch(
+    texts: string[],
+    utteranceIds: string[],
+    params: TTSParams = {}
+  ): Promise<number> {
+    return TTSAudioManager.speakBatch(texts, utteranceIds, params);
+  }
+
   stop(): Promise<boolean> {
-    return TTSHighlight.stop();
+    return TTSAudioManager.stop();
   }
 
   pause(): Promise<boolean> {
-    return TTSHighlight.pause();
+    return TTSAudioManager.stop();
   }
 
   getVoices(): Promise<TTSVoice[]> {
@@ -62,19 +65,14 @@ class TTSHighlightService {
     // 1. Check explicit mapping
     const mapping = getVoiceMapping(voice.identifier);
     if (mapping) {
-      return `${mapping.label} (${
-        mapping.gender === 'male' ? 'Male' : 'Female'
-      }) - ${
-        voice.quality === '400' || voice.identifier.includes('network')
+      return `${mapping.label} (${mapping.gender === 'male' ? 'Male' : 'Female'
+        }) - ${voice.quality === '400' || voice.identifier.includes('network')
           ? 'High Quality'
           : 'Normal'
-      }`;
+        }`;
     }
 
     // 2. Fallback: Parse technical name
-    // Try to derive a readable name from the identifier and language
-
-    // Helper to get language name (basic implementation)
     const getLanguageName = (lang: string) => {
       const langMap: Record<string, string> = {
         'en-US': 'English (US)',
@@ -90,23 +88,19 @@ class TTSHighlightService {
         'ko-KR': 'Korean (South Korea)',
         'zh-CN': 'Chinese (China)',
         'zh-TW': 'Chinese (Taiwan)',
-        // Add more as needed or fallback to code
       };
       return langMap[lang] || lang;
     };
 
     const prefix = getLanguageName(voice.language);
 
-    // Clean up identifier
     let cleanId = voice.identifier;
     cleanId = cleanId.replace(/-x-/g, '-');
     cleanId = cleanId.replace(/-/g, ' ');
-    // Remove language code from start if present to avoid redundancy
     if (cleanId.toLowerCase().startsWith(voice.language.toLowerCase())) {
       cleanId = cleanId.substring(voice.language.length).trim();
     }
 
-    // Capitalize words
     cleanId = cleanId.replace(/\b\w/g, l => l.toUpperCase());
 
     return `${prefix} - ${cleanId}`;
