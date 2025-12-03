@@ -34,6 +34,7 @@ const AccessibilityTab: React.FC = () => {
     ttsScrollPrompt = 'always-ask',
     ttsScrollBehavior = 'continue',
     ttsBackgroundPlayback = true,
+    ttsContinueToNextChapter = 'none',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -58,6 +59,11 @@ const AccessibilityTab: React.FC = () => {
     value: scrollBehaviorModalVisible,
     setTrue: showScrollBehaviorModal,
     setFalse: hideScrollBehaviorModal,
+  } = useBoolean();
+  const {
+    value: continueNextChapterModalVisible,
+    setTrue: showContinueNextChapterModal,
+    setFalse: hideContinueNextChapterModal,
   } = useBoolean();
 
   useEffect(() => {
@@ -282,6 +288,22 @@ const AccessibilityTab: React.FC = () => {
                 onPress={showScrollBehaviorModal}
                 theme={theme}
               />
+
+              <List.SubHeader theme={theme}>TTS Chapter Navigation</List.SubHeader>
+              <List.Item
+                title="Continue to next chapter"
+                description={
+                  ttsContinueToNextChapter === 'none'
+                    ? 'No (stop at end of chapter)'
+                    : ttsContinueToNextChapter === '5'
+                    ? 'Up to 5 chapters'
+                    : ttsContinueToNextChapter === '10'
+                    ? 'Up to 10 chapters'
+                    : 'Continuously (until stopped)'
+                }
+                onPress={showContinueNextChapterModal}
+                theme={theme}
+              />
             </>
           )}
         </View>
@@ -339,6 +361,24 @@ const AccessibilityTab: React.FC = () => {
           options={[
             { label: 'Continue reading (Ignore scroll)', value: 'continue' },
             { label: 'Pause TTS when I scroll', value: 'pause-on-scroll' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={continueNextChapterModalVisible}
+          onDismiss={hideContinueNextChapterModal}
+          theme={theme}
+          title="Continue to next chapter"
+          currentValue={ttsContinueToNextChapter}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsContinueToNextChapter: value as 'none' | '5' | '10' | 'continuous',
+            })
+          }
+          options={[
+            { label: 'No (stop at end of chapter)', value: 'none' },
+            { label: 'Up to 5 chapters', value: '5' },
+            { label: 'Up to 10 chapters', value: '10' },
+            { label: 'Continuously (until stopped)', value: 'continuous' },
           ]}
         />
       </Portal>

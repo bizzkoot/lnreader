@@ -14,6 +14,11 @@ export type TTSAudioParams = {
 const BATCH_SIZE = 15; // Number of paragraphs to queue at once
 const REFILL_THRESHOLD = 5; // Refill queue when this many items left
 
+// eslint-disable-next-line no-console
+const logDebug = __DEV__ ? console.log : () => {};
+// eslint-disable-next-line no-console
+const logError = __DEV__ ? console.error : () => {};
+
 class TTSAudioManager {
     private isPlaying = false;
     private currentQueue: string[] = [];
@@ -21,7 +26,8 @@ class TTSAudioManager {
     private currentIndex = 0;
     private eventListeners: EmitterSubscription[] = [];
     private onDoneCallback?: (utteranceId: string) => void;
-    private onQueueLowCallback?: () => void;
+    // @ts-expect-error Reserved for future use
+    private _onQueueLowCallback?: () => void;
 
     async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
         try {
@@ -40,7 +46,7 @@ class TTSAudioManager {
             this.isPlaying = true;
             return utteranceId;
         } catch (error) {
-            console.error('TTSAudioManager: Failed to speak text:', error);
+            logError('TTSAudioManager: Failed to speak text:', error);
             throw error;
         }
     }
@@ -75,14 +81,14 @@ class TTSAudioManager {
             this.currentIndex = BATCH_SIZE;
             this.isPlaying = true;
 
-            console.log(
+            logDebug(
                 `TTSAudioManager: Started batch playback with ${batchTexts.length} items, ${texts.length - BATCH_SIZE} remaining`
             );
 
             // CRITICAL: Set up auto-refill subscription if not already set up
             if (this.eventListeners.length === 0) {
-                console.log('TTSAudioManager: Setting up auto-refill subscription');
-                const subscription = ttsEmitter.addListener('onSpeechDone', async (event) => {
+                logDebug('TTSAudioManager: Setting up auto-refill subscription');
+                const subscription = ttsEmitter.addListener('onSpeechDone', async (_event) => {
                     // Auto-refill queue
                     await this.refillQueue();
                 });
@@ -91,14 +97,14 @@ class TTSAudioManager {
 
             return batchTexts.length;
         } catch (error) {
-            console.error('TTSAudioManager: Failed to speak batch:', error);
+            logError('TTSAudioManager: Failed to speak batch:', error);
             throw error;
         }
     }
 
     async refillQueue(): Promise<boolean> {
         if (this.currentIndex >= this.currentQueue.length) {
-            console.log('TTSAudioManager: No more items to refill');
+            logDebug('TTSAudioManager: No more items to refill');
             return false;
         }
 
@@ -127,13 +133,13 @@ class TTSAudioManager {
 
             this.currentIndex += nextBatchSize;
 
-            console.log(
+            logDebug(
                 `TTSAudioManager: Refilled queue with ${nextBatchSize} items, ${this.currentQueue.length - this.currentIndex} remaining`
             );
 
             return true;
         } catch (error) {
-            console.error('TTSAudioManager: Failed to refill queue:', error);
+            logError('TTSAudioManager: Failed to refill queue:', error);
             return false;
         }
     }
@@ -147,10 +153,10 @@ class TTSAudioManager {
             this.currentUtteranceIds = [];
             this.currentIndex = 0;
 
-            console.log('TTSAudioManager: Playback stopped');
+            logDebug('TTSAudioManager: Playback stopped');
             return true;
         } catch (error) {
-            console.error('TTSAudioManager: Failed to stop playback:', error);
+            logError('TTSAudioManager: Failed to stop playback:', error);
             return false;
         }
     }
@@ -159,7 +165,7 @@ class TTSAudioManager {
         try {
             return await TTSHighlight.getQueueSize();
         } catch (error) {
-            console.error('TTSAudioManager: Failed to get queue size:', error);
+            logError('TTSAudioManager: Failed to get queue size:', error);
             return 0;
         }
     }
@@ -189,7 +195,7 @@ class TTSAudioManager {
     }
 
     onQueueLow(callback: () => void) {
-        this.onQueueLowCallback = callback;
+        this._onQueueLowCallback = callback;
     }
 
     addListener(eventType: string, listener: (event: any) => void): EmitterSubscription {
@@ -202,7 +208,7 @@ class TTSAudioManager {
         this.eventListeners.forEach(subscription => subscription.remove());
         this.eventListeners = [];
         this.onDoneCallback = undefined;
-        this.onQueueLowCallback = undefined;
+        this._onQueueLowCallback = undefined;
     }
 
     isCurrentlyPlaying(): boolean {

@@ -326,6 +326,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   );
   const currentParagraphIndexRef = useRef<number>(-1);
 
+  /**
+   * Track how many additional chapters have been auto-played in this TTS session.
+   * This is used to enforce the ttsContinueToNextChapter limit (5, 10, or continuous).
+   * Reset when user manually starts TTS or navigates to a different chapter.
+   */
+  const chaptersAutoPlayedRef = useRef<number>(0);
+
   const handleResumeConfirm = () => {
     const savedIndex = pendingResumeIndexRef.current;
     // User said Yes, so we tell TTS to resume from the saved index
@@ -686,11 +693,35 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'next':
               nextChapterScreenVisible.current = true;
               if (event.autoStartTTS) {
-                autoStartTTSRef.current = true;
+                // Check if we should continue to next chapter based on setting
+                const continueMode = chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
+                
+                if (continueMode === 'none') {
+                  // User chose to stop at end of chapter - don't auto-start TTS
+                  autoStartTTSRef.current = false;
+                  chaptersAutoPlayedRef.current = 0; // Reset counter
+                } else if (continueMode === 'continuous') {
+                  // Unlimited continuation
+                  autoStartTTSRef.current = true;
+                  chaptersAutoPlayedRef.current += 1;
+                } else {
+                  // Limited continuation (5 or 10 chapters)
+                  const limit = parseInt(continueMode, 10);
+                  if (chaptersAutoPlayedRef.current < limit) {
+                    autoStartTTSRef.current = true;
+                    chaptersAutoPlayedRef.current += 1;
+                  } else {
+                    // Limit reached - stop auto-continue
+                    autoStartTTSRef.current = false;
+                    chaptersAutoPlayedRef.current = 0; // Reset counter
+                  }
+                }
               }
               navigateChapter('NEXT');
               break;
             case 'prev':
+              // Reset auto-play counter when user manually navigates
+              chaptersAutoPlayedRef.current = 0;
               navigateChapter('PREV');
               break;
             case 'save':

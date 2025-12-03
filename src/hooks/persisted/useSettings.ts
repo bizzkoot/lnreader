@@ -93,6 +93,14 @@ export interface ChapterGeneralSettings {
   ttsScrollPrompt: 'always-ask' | 'auto-change' | 'never-change';
   ttsScrollBehavior: 'continue' | 'pause-on-scroll';
   ttsBackgroundPlayback: boolean;
+  /**
+   * Continue to next chapter when TTS finishes current chapter.
+   * - 'none': Stop at end of chapter (default)
+   * - '5': Auto-continue up to 5 additional chapters
+   * - '10': Auto-continue up to 10 additional chapters
+   * - 'continuous': Keep auto-advancing until stopped or content ends
+   */
+  ttsContinueToNextChapter: 'none' | '5' | '10' | 'continuous';
 }
 
 export interface ReaderTheme {
@@ -191,6 +199,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsScrollPrompt: 'always-ask',
   ttsScrollBehavior: 'continue',
   ttsBackgroundPlayback: true,
+  ttsContinueToNextChapter: 'none',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

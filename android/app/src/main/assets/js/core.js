@@ -647,6 +647,8 @@ window.tts = new (function () {
         this.reading = false;
         this.stop();
         if (reader.nextChapter) {
+          // Post 'next' with autoStartTTS flag - React Native will decide
+          // whether to actually start TTS based on ttsContinueToNextChapter setting
           reader.post({ type: 'next', autoStartTTS: true });
         }
       }
