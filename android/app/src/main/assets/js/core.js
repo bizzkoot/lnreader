@@ -687,6 +687,11 @@ window.tts = new (function () {
       this.hasAutoResumed = true;
       this.started = true; // NEW: Set started to true to prevent findNextTextNode failure
       this.currentElement = readableElements[paragraphIndex];
+      // CRITICAL FIX: Set prevElement to element BEFORE current to prevent skip
+      // When next() is called, it checks if currentElement equals prevElement
+      // If they're the same, it advances. By setting prevElement to previous paragraph,
+      // next() will see currentElement as "unread" and speak it.
+      this.prevElement = paragraphIndex > 0 ? readableElements[paragraphIndex - 1] : null;
 
       // DEBUG: Log element status
       const rect = this.currentElement.getBoundingClientRect();
@@ -699,10 +704,12 @@ window.tts = new (function () {
       this.scrollToElement(this.currentElement);
 
       if (config.autoStart) {
-        this.log('Auto-starting playback');
+        this.log('Auto-starting playback from current paragraph');
         setTimeout(() => {
-          // Revert to next() but ensure started is true
-          this.next();
+          // FIX: Call speak() directly on the current element instead of next()
+          // This ensures the saved paragraph is spoken, not skipped
+          this.reading = true;
+          this.speak();
         }, 500);
       } else {
         this.log('Positioned at paragraph but not auto-starting');
@@ -1246,7 +1253,14 @@ window.tts = new (function () {
   };
 
   // NEW: Silent highlight update for RN-driven background playback
-  this.highlightParagraph = paragraphIndex => {
+  // Now accepts optional chapterId to validate against stale events from old chapters
+  this.highlightParagraph = (paragraphIndex, chapterId) => {
+    // CRITICAL: Validate chapter ID to prevent stale events from old chapter causing wrong scrolls
+    if (chapterId !== undefined && chapterId !== reader.chapter.id) {
+      console.log(`TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      return false;
+    }
+    
     const readableElements = reader.getReadableElements();
     
     // Guard against out-of-bounds indices (e.g., from stale events during chapter transition)
@@ -1274,9 +1288,15 @@ window.tts = new (function () {
   };
 
   // NEW: Sync internal state from RN (for background playback resume)
-  // NEW: Sync internal state from RN (for background playback resume)
-  this.updateState = paragraphIndex => {
-    console.log(`TTS: updateState called with index ${paragraphIndex} `);
+  // Now accepts optional chapterId to validate against stale events from old chapters
+  this.updateState = (paragraphIndex, chapterId) => {
+    // CRITICAL: Validate chapter ID to prevent stale events from old chapter corrupting state
+    if (chapterId !== undefined && chapterId !== reader.chapter.id) {
+      console.log(`TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      return;
+    }
+    
+    console.log(`TTS: updateState called with index ${paragraphIndex}`);
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
       // Mark background playback as active
@@ -1287,7 +1307,6 @@ window.tts = new (function () {
       this.currentElement = readableElements[paragraphIndex];
       this.prevElement = readableElements[paragraphIndex - 1] || null;
       this.started = true; // Ensure next() works from here
-      // We don't set reading=true here because RN controls playback
 
       // NEW: Save progress when state is updated from Native (Background TTS)
       reader.post({

@@ -49,3 +49,30 @@ applyTo: '**'
 - **Problem**: `ForegroundServiceStartNotAllowedException` during chapter transitions
 - **Cause**: Android 12+ restricts starting foreground services from background
 - **Solution**: Track `isServiceForeground` state, only call `startForeground()` when not already foreground
+
+## Screen Wake TTS Scroll Issue (2025-12-03)
+- **Problem**: When screen wakes during background TTS after chapter transition, WebView scrolls to wrong paragraphs (from previous chapter) then jumps back
+- **Cause**: 
+  1. When screen wakes, WebView resumes and processes stale JS injections from RN's event listeners
+  2. `onSpeechStart`/`onSpeechDone` still have queued calls for old chapter paragraphs
+  3. These inject `highlightParagraph()` and `updateState()` with old indices, causing wrong scrolls
+- **Solution**:
+  1. Add chapter ID parameter to `highlightParagraph(paragraphIndex, chapterId)` and `updateState(paragraphIndex, chapterId)` in core.js
+  2. Validate chapter ID before processing - reject stale events from old chapters
+  3. Pass `prevChapterIdRef.current` in all RN inject calls
+  4. Add screen wake handler in AppState listener to force sync WebView to current paragraph
+
+## TTS Resume Skips First Paragraph (2025-12-03)
+- **Problem**: When user confirms resume from prompt, TTS starts from next paragraph instead of saved paragraph
+- **Cause**: `restoreState()` sets `currentElement` but then calls `next()` which advances to next element due to `findNextTextNode()` logic
+- **Solution**: Call `speak()` directly instead of `next()` in `restoreState()` when `autoStart` is true. Also set `prevElement` to previous paragraph to prevent skip logic.
+
+## TTS Slider UX (2025-12-03)
+- **Problem**: Rate/pitch sliders only respond to tap, not drag. Hard to adjust values precisely.
+- **Solution**:
+  1. Add local state for slider values (`localRate`, `localPitch`) with drag tracking
+  2. Use `onValueChange` for real-time display updates during drag
+  3. Use `onSlidingComplete` to persist to settings
+  4. Add +/- buttons for fine control
+  5. Add visual markers (Slow/Normal/Fast, Low/Normal/High)
+  6. Reduce max values to more usable ranges (3x speed, 2x pitch)

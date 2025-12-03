@@ -573,13 +573,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
             // Sync WebView UI & Logic (fire and forget)
             // Added 'true;' and console logs for debugging
+            // CRITICAL: Pass chapter ID to prevent stale events from wrong chapter
             if (webViewRef.current) {
+              const currentChapterId = prevChapterIdRef.current;
               webViewRef.current.injectJavaScript(`
                     try {
                         if (window.tts) {
                             console.log('TTS: Syncing state to index ${nextIndex}');
-                            window.tts.highlightParagraph(${nextIndex});
-                            window.tts.updateState(${nextIndex});
+                            window.tts.highlightParagraph(${nextIndex}, ${currentChapterId});
+                            window.tts.updateState(${nextIndex}, ${currentChapterId});
                         } else {
                             console.warn('TTS: window.tts not found during sync');
                         }
@@ -674,11 +676,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         if (paragraphIndex >= 0) currentParagraphIndexRef.current = paragraphIndex;
 
         if (webViewRef.current && paragraphIndex >= 0) {
+          // CRITICAL: Pass chapter ID to prevent stale events from wrong chapter
+          const currentChapterId = prevChapterIdRef.current;
           webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts) {
-                  window.tts.highlightParagraph(${paragraphIndex});
-                  window.tts.updateState(${paragraphIndex});
+                  window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
+                  window.tts.updateState(${paragraphIndex}, ${currentChapterId});
                 }
               } catch (e) { console.error('TTS: start inject failed', e); }
               true;
@@ -764,6 +768,42 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             );
             TTSHighlight.stop();
             isTTSReadingRef.current = false;
+          }
+        } else if (nextAppState === 'active') {
+          // SCREEN WAKE HANDLING: When screen wakes during background TTS,
+          // sync the WebView to the current paragraph position to prevent stale scrolling
+          if (isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+            console.log(
+              'WebViewReader: Screen woke during TTS, syncing to paragraph',
+              currentParagraphIndexRef.current,
+            );
+            
+            // Give WebView a moment to stabilize after screen wake
+            setTimeout(() => {
+              if (webViewRef.current) {
+                const syncIndex = currentParagraphIndexRef.current;
+                const chapterId = prevChapterIdRef.current;
+                
+                // Force sync WebView to current TTS position with chapter validation
+                // This overrides any stale operations that might be pending
+                webViewRef.current.injectJavaScript(`
+                  try {
+                    if (window.tts) {
+                      console.log('TTS: Screen wake sync to index ${syncIndex}');
+                      // Mark as background playback to prevent resume prompts
+                      window.tts.isBackgroundPlaybackActive = true;
+                      window.tts.reading = true;
+                      window.tts.hasAutoResumed = true;
+                      // Highlight current paragraph with chapter validation
+                      window.tts.highlightParagraph(${syncIndex}, ${chapterId});
+                    }
+                  } catch (e) {
+                    console.error('TTS: Screen wake sync failed', e);
+                  }
+                  true;
+                `);
+              }
+            }, 300);
           }
         }
       },
