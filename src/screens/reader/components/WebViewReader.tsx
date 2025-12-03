@@ -30,6 +30,7 @@ import TTSScrollSyncDialog from './TTSScrollSyncDialog';
 import TTSManualModeDialog from './TTSManualModeDialog';
 import Toast from '@components/Toast';
 import { useBoolean } from '@hooks';
+import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 
 type WebViewPostEvent = {
   type: string;
@@ -147,6 +148,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const progressRef = useRef(chapter.progress);
   // NEW: Track latest paragraph index to survive settings injections
   const latestParagraphIndexRef = useRef(savedParagraphIndex);
+  // NEW: Track if we need to start TTS directly from RN (background mode)
+  const backgroundTTSPendingRef = useRef<boolean>(false);
+  // NEW: Track previous chapter ID to detect chapter changes
+  const prevChapterIdRef = useRef<number>(chapter.id);
 
   useEffect(() => {
     progressRef.current = chapter.progress;
@@ -160,6 +165,70 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
   }, [readerSettings, chapterGeneralSettings]);
+
+  // NEW: Effect to handle background TTS next chapter navigation
+  // When chapter changes AND we have a pending background TTS request,
+  // extract paragraphs from HTML and start TTS directly from RN
+  useEffect(() => {
+    // Check if chapter actually changed
+    if (chapter.id === prevChapterIdRef.current) {
+      return;
+    }
+    
+    console.log(`WebViewReader: Chapter changed from ${prevChapterIdRef.current} to ${chapter.id}`);
+    prevChapterIdRef.current = chapter.id;
+    
+    // Reset paragraph index for new chapter
+    currentParagraphIndexRef.current = 0;
+    latestParagraphIndexRef.current = 0;
+    
+    // Clear the old TTS queue since we're on a new chapter
+    ttsQueueRef.current = null;
+    
+    // Check if we need to start TTS directly (background mode)
+    if (backgroundTTSPendingRef.current && html) {
+      console.log('WebViewReader: Background TTS pending, starting directly from RN');
+      backgroundTTSPendingRef.current = false;
+      
+      // Stop any existing TTS first to flush old queued items
+      TTSHighlight.stop().then(() => {
+        // Extract paragraphs from HTML
+        const paragraphs = extractParagraphs(html);
+        console.log(`WebViewReader: Extracted ${paragraphs.length} paragraphs for background TTS`);
+        
+        if (paragraphs.length > 0) {
+          // Create utterance IDs
+          const utteranceIds = paragraphs.map((_, i) => `utterance_${i}`);
+          
+          // Update TTS queue ref
+          ttsQueueRef.current = {
+            startIndex: 0,
+            texts: paragraphs,
+          };
+          
+          // Start from paragraph 0
+          currentParagraphIndexRef.current = 0;
+          
+          // Start batch TTS
+          TTSHighlight.speakBatch(paragraphs, utteranceIds, {
+            voice: readerSettingsRef.current.tts?.voice?.identifier,
+            pitch: readerSettingsRef.current.tts?.pitch || 1,
+            rate: readerSettingsRef.current.tts?.rate || 1,
+          })
+            .then(() => {
+              console.log('WebViewReader: Background TTS batch started successfully');
+            })
+            .catch(err => {
+              console.error('WebViewReader: Background TTS batch failed:', err);
+              isTTSReadingRef.current = false;
+            });
+        } else {
+          console.warn('WebViewReader: No paragraphs extracted from HTML');
+          isTTSReadingRef.current = false;
+        }
+      });
+    }
+  }, [chapter.id, html]);
 
   const memoizedHTML = useMemo(() => {
     return `
@@ -620,6 +689,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       if (nextChapter) {
         console.log('WebViewReader: Navigating to next chapter via onQueueEmpty');
         autoStartTTSRef.current = true;
+        // NEW: Set background TTS pending flag so we can start TTS directly from RN
+        // when the new chapter HTML is loaded (in case WebView is suspended)
+        backgroundTTSPendingRef.current = true;
         chaptersAutoPlayedRef.current += 1;
         nextChapterScreenVisible.current = true;
         navigateChapter('NEXT');
@@ -770,6 +842,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         javaScriptEnabled={true}
         webviewDebuggingEnabled={__DEV__}
         onLoadEnd={() => {
+          // Skip WebView-driven TTS start if background mode is handling it
+          if (backgroundTTSPendingRef.current) {
+            console.log('WebViewReader: onLoadEnd skipped - background TTS pending');
+            return;
+          }
+          
           if (autoStartTTSRef.current) {
             autoStartTTSRef.current = false;
             setTimeout(() => {

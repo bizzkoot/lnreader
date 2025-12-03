@@ -1231,20 +1231,24 @@ window.tts = new (function () {
   // NEW: Silent highlight update for RN-driven background playback
   this.highlightParagraph = paragraphIndex => {
     const readableElements = reader.getReadableElements();
-    if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
-      this.currentElement = readableElements[paragraphIndex];
-      this.prevElement = readableElements[paragraphIndex - 1] || null;
-
-      this.scrollToElement(this.currentElement);
-
-      if (reader.generalSettings.val.showParagraphHighlight) {
-        const oldHighlight = document.querySelector('.highlight');
-        if (oldHighlight) oldHighlight.classList.remove('highlight');
-        this.currentElement.classList.add('highlight');
-      }
-      return true;
+    
+    // Guard against out-of-bounds indices (e.g., from stale events during chapter transition)
+    if (paragraphIndex < 0 || paragraphIndex >= readableElements.length) {
+      console.warn(`TTS: highlightParagraph index ${paragraphIndex} out of bounds (${readableElements.length} elements)`);
+      return false;
     }
-    return false;
+    
+    this.currentElement = readableElements[paragraphIndex];
+    this.prevElement = readableElements[paragraphIndex - 1] || null;
+
+    this.scrollToElement(this.currentElement);
+
+    if (reader.generalSettings.val.showParagraphHighlight) {
+      const oldHighlight = document.querySelector('.highlight');
+      if (oldHighlight) oldHighlight.classList.remove('highlight');
+      this.currentElement.classList.add('highlight');
+    }
+    return true;
   };
 
   // NEW: Sync internal state from RN (for background playback resume)

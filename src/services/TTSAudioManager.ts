@@ -29,6 +29,8 @@ class TTSAudioManager {
     private onQueueEmptyCallback?: () => void;
     // @ts-expect-error Reserved for future use
     private _onQueueLowCallback?: () => void;
+    // Track if we've already logged "no more items" to reduce spam
+    private hasLoggedNoMoreItems = false;
 
     async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
         try {
@@ -81,6 +83,8 @@ class TTSAudioManager {
             this.currentUtteranceIds = utteranceIds;
             this.currentIndex = BATCH_SIZE;
             this.isPlaying = true;
+            // Reset the "no more items" log flag for new batch
+            this.hasLoggedNoMoreItems = false;
 
             logDebug(
                 `TTSAudioManager: Started batch playback with ${batchTexts.length} items, ${texts.length - BATCH_SIZE} remaining`
@@ -105,9 +109,16 @@ class TTSAudioManager {
 
     async refillQueue(): Promise<boolean> {
         if (this.currentIndex >= this.currentQueue.length) {
-            logDebug('TTSAudioManager: No more items to refill');
+            // Only log once to reduce spam
+            if (!this.hasLoggedNoMoreItems) {
+                logDebug('TTSAudioManager: No more items to refill');
+                this.hasLoggedNoMoreItems = true;
+            }
             return false;
         }
+
+        // Reset the "no more items" flag since we have items to refill
+        this.hasLoggedNoMoreItems = false;
 
         try {
             const queueSize = await TTSHighlight.getQueueSize();
