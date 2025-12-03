@@ -190,43 +190,44 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       console.log('WebViewReader: Background TTS pending, starting directly from RN');
       backgroundTTSPendingRef.current = false;
       
-      // Stop any existing TTS first to flush old queued items
-      TTSHighlight.stop().then(() => {
-        // Extract paragraphs from HTML
-        const paragraphs = extractParagraphs(html);
-        console.log(`WebViewReader: Extracted ${paragraphs.length} paragraphs for background TTS`);
+      // Extract paragraphs from HTML
+      const paragraphs = extractParagraphs(html);
+      console.log(`WebViewReader: Extracted ${paragraphs.length} paragraphs for background TTS`);
+      
+      if (paragraphs.length > 0) {
+        // Create utterance IDs with chapter ID to prevent stale event processing
+        const utteranceIds = paragraphs.map((_, i) => `chapter_${chapter.id}_utterance_${i}`);
         
-        if (paragraphs.length > 0) {
-          // Create utterance IDs
-          const utteranceIds = paragraphs.map((_, i) => `utterance_${i}`);
-          
-          // Update TTS queue ref
-          ttsQueueRef.current = {
-            startIndex: 0,
-            texts: paragraphs,
-          };
-          
-          // Start from paragraph 0
-          currentParagraphIndexRef.current = 0;
-          
-          // Start batch TTS
-          TTSHighlight.speakBatch(paragraphs, utteranceIds, {
-            voice: readerSettingsRef.current.tts?.voice?.identifier,
-            pitch: readerSettingsRef.current.tts?.pitch || 1,
-            rate: readerSettingsRef.current.tts?.rate || 1,
+        // Update TTS queue ref
+        ttsQueueRef.current = {
+          startIndex: 0,
+          texts: paragraphs,
+        };
+        
+        // Start from paragraph 0
+        currentParagraphIndexRef.current = 0;
+        
+        // DON'T call stop() here - it would release the foreground service
+        // which we can't restart from background in Android 12+
+        // Just call speakBatch which will QUEUE_FLUSH the old items
+        
+        // Start batch TTS (this will flush old queue and start new one)
+        TTSHighlight.speakBatch(paragraphs, utteranceIds, {
+          voice: readerSettingsRef.current.tts?.voice?.identifier,
+          pitch: readerSettingsRef.current.tts?.pitch || 1,
+          rate: readerSettingsRef.current.tts?.rate || 1,
+        })
+          .then(() => {
+            console.log('WebViewReader: Background TTS batch started successfully');
           })
-            .then(() => {
-              console.log('WebViewReader: Background TTS batch started successfully');
-            })
-            .catch(err => {
-              console.error('WebViewReader: Background TTS batch failed:', err);
-              isTTSReadingRef.current = false;
-            });
-        } else {
-          console.warn('WebViewReader: No paragraphs extracted from HTML');
-          isTTSReadingRef.current = false;
-        }
-      });
+          .catch(err => {
+            console.error('WebViewReader: Background TTS batch failed:', err);
+            isTTSReadingRef.current = false;
+          });
+      } else {
+        console.warn('WebViewReader: No paragraphs extracted from HTML');
+        isTTSReadingRef.current = false;
+      }
     }
   }, [chapter.id, html]);
 
@@ -600,9 +601,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       try {
         const utteranceId = event?.utteranceId || '';
         let paragraphIndex = currentParagraphIndexRef.current ?? -1;
+        
+        // Parse utterance ID - may be "chapter_123_utterance_5" or legacy "utterance_5"
         if (typeof utteranceId === 'string') {
-          const m = utteranceId.match(/utterance_(\d+)/);
-          if (m) paragraphIndex = Number(m[1]);
+          // Check for chapter-aware format first
+          const chapterMatch = utteranceId.match(/chapter_(\d+)_utterance_(\d+)/);
+          if (chapterMatch) {
+            const eventChapterId = Number(chapterMatch[1]);
+            // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
+            if (eventChapterId !== prevChapterIdRef.current) {
+              console.log(`WebViewReader: Ignoring stale onWordRange from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+              return;
+            }
+            paragraphIndex = Number(chapterMatch[2]);
+          } else {
+            // Legacy format
+            const m = utteranceId.match(/utterance_(\d+)/);
+            if (m) paragraphIndex = Number(m[1]);
+          }
         }
 
         const start = Number(event?.start) || 0;
@@ -628,9 +644,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       try {
         const utteranceId = event?.utteranceId || '';
         let paragraphIndex = currentParagraphIndexRef.current ?? -1;
+        
+        // Parse utterance ID - may be "chapter_123_utterance_5" or legacy "utterance_5"
         if (typeof utteranceId === 'string') {
-          const m = utteranceId.match(/utterance_(\d+)/);
-          if (m) paragraphIndex = Number(m[1]);
+          // Check for chapter-aware format first
+          const chapterMatch = utteranceId.match(/chapter_(\d+)_utterance_(\d+)/);
+          if (chapterMatch) {
+            const eventChapterId = Number(chapterMatch[1]);
+            // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
+            if (eventChapterId !== prevChapterIdRef.current) {
+              console.log(`WebViewReader: Ignoring stale onSpeechStart from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+              return;
+            }
+            paragraphIndex = Number(chapterMatch[2]);
+          } else {
+            // Legacy format
+            const m = utteranceId.match(/utterance_(\d+)/);
+            if (m) paragraphIndex = Number(m[1]);
+          }
         }
 
         // Update current index
@@ -935,12 +966,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 if (!isTTSReadingRef.current) {
                   isTTSReadingRef.current = true;
                 }
-                // Use utterance_N format so onSpeechStart can identify paragraph
+                // Use chapter_N_utterance_N format so event handlers can validate chapter
                 const paragraphIdx = typeof event.paragraphIndex === 'number' 
                   ? event.paragraphIndex 
                   : currentParagraphIndexRef.current;
                 const utteranceId = paragraphIdx >= 0 
-                  ? `utterance_${paragraphIdx}` 
+                  ? `chapter_${chapter.id}_utterance_${paragraphIdx}` 
                   : undefined;
                 
                 // Update current index
@@ -1036,8 +1067,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // Use batch TTS for background playback
                 if (chapterGeneralSettings.ttsBackgroundPlayback && event.data.length > 0 && typeof event.startIndex === 'number') {
                   const startIndex = event.startIndex;
+                  // Include chapter ID in utterance IDs to prevent stale event processing
                   const utteranceIds = (event.data as string[]).map((_, i) =>
-                    `utterance_${startIndex + i}`
+                    `chapter_${chapter.id}_utterance_${startIndex + i}`
                   );
 
                   console.log(`WebViewReader: Starting batch TTS with ${event.data.length} paragraphs from index ${startIndex}`);

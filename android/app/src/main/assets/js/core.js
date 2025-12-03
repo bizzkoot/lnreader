@@ -718,8 +718,19 @@ window.tts = new (function () {
   };
 
   this.hasAutoResumed = false;
+  
+  // NEW: Track if background TTS playback is active (RN is driving playback)
+  // This prevents resume prompts from showing when user returns from background
+  this.isBackgroundPlaybackActive = false;
 
   this.start = element => {
+    // CRITICAL: If background playback is active, don't interfere
+    // This can happen when user wakes screen during background TTS
+    if (this.isBackgroundPlaybackActive) {
+      this.log('Skipping start() - background playback is active');
+      return;
+    }
+    
     this.stop();
     if (element) {
       this.log('Starting from specific element');
@@ -961,6 +972,9 @@ window.tts = new (function () {
 
     this.started = false;
     this.reading = false;
+    
+    // Reset background playback flag when stopping
+    this.isBackgroundPlaybackActive = false;
 
     // NEW: Don't reset auto-resume flag here, it causes loops in start()
     // this.hasAutoResumed = false;
@@ -1238,6 +1252,11 @@ window.tts = new (function () {
       return false;
     }
     
+    // Mark background playback as active - this prevents resume prompts from interfering
+    this.isBackgroundPlaybackActive = true;
+    this.reading = true; // Mark as reading since background TTS is active
+    this.hasAutoResumed = true; // Prevent resume prompts
+    
     this.currentElement = readableElements[paragraphIndex];
     this.prevElement = readableElements[paragraphIndex - 1] || null;
 
@@ -1257,6 +1276,11 @@ window.tts = new (function () {
     console.log(`TTS: updateState called with index ${paragraphIndex} `);
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
+      // Mark background playback as active
+      this.isBackgroundPlaybackActive = true;
+      this.reading = true;
+      this.hasAutoResumed = true;
+      
       this.currentElement = readableElements[paragraphIndex];
       this.prevElement = readableElements[paragraphIndex - 1] || null;
       this.started = true; // Ensure next() works from here

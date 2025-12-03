@@ -28,6 +28,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     // Queue management for batch feeding
     private var currentBatchIndex = 0
     private val queuedUtteranceIds = mutableListOf<String>()
+    
+    // Track if service is already in foreground state to avoid Android 12+ background start restriction
+    private var isServiceForeground = false
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -255,6 +258,21 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startForegroundService() {
+        // CRITICAL: Only call startForeground() if not already in foreground state
+        // This prevents Android 12+ ForegroundServiceStartNotAllowedException when
+        // transitioning between chapters while the app is in background
+        if (isServiceForeground) {
+            // Already foreground, just ensure wake lock is held
+            try {
+                if (wakeLock?.isHeld == false) {
+                    wakeLock?.acquire()
+                }
+            } catch (e: Exception) {
+                // Best-effort wake lock acquisition
+            }
+            return
+        }
+        
         // Acquire a persistent wake lock while the foreground TTS service
         // is active to prevent the device from sleeping mid-playback.
         // Previously this used a 10-minute timeout which could cause long
@@ -272,10 +290,17 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         
         val notification = createNotification("TTS is reading...")
         
-        if (Build.VERSION.SDK_INT >= 34) {
-             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            isServiceForeground = true
+        } catch (e: Exception) {
+            // If we still fail (edge case), log but don't crash
+            // The TTS will still work, just without foreground state
+            android.util.Log.e("TTSForegroundService", "Failed to start foreground: ${e.message}")
         }
     }
 
@@ -288,6 +313,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             // ignore release errors
         }
         stopForeground(true)
+        isServiceForeground = false
     }
 
     private fun createNotificationChannel() {
