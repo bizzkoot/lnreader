@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 
 import DisplayModeModal from './modals/DisplayModeModal';
 import GridSizeModal from './modals/GridSizeModal';
+import AutoDownloadModal from './modals/AutoDownloadModal';
 
 import {
   useAppSettings,
@@ -58,6 +59,8 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
     refreshNovelMetadata,
     disableHapticFeedback,
     useLibraryFAB,
+    autoDownloadOnRemaining = 'disabled',
+    autoDownloadAmount = '10',
     setAppSettings,
   } = useAppSettings();
 
@@ -100,6 +103,30 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
    * Chapter Sort Modal
    */
   const defaultChapterSortModal = useBoolean();
+
+  /**
+   * Auto Download Modals
+   */
+  const autoDownloadRemainingModal = useBoolean();
+  const autoDownloadAmountModal = useBoolean();
+
+  const getAutoDownloadRemainingDescription = () => {
+    switch (autoDownloadOnRemaining) {
+      case '5':
+        return 'When 5 chapters remain';
+      case '10':
+        return 'When 10 chapters remain';
+      case '15':
+        return 'When 15 chapters remain';
+      default:
+        return 'Disabled';
+    }
+  };
+
+  const getAutoDownloadAmountDescription = () => {
+    return `${autoDownloadAmount} chapters`;
+  };
+
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -221,6 +248,20 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
             }
             theme={theme}
           />
+          <List.Item
+            title={getString('generalSettingsScreen.autoDownloadOnRemaining')}
+            description={getAutoDownloadRemainingDescription()}
+            onPress={autoDownloadRemainingModal.setTrue}
+            theme={theme}
+          />
+          {autoDownloadOnRemaining !== 'disabled' && (
+            <List.Item
+              title={getString('generalSettingsScreen.autoDownloadAmount')}
+              description={getAutoDownloadAmountDescription()}
+              onPress={autoDownloadAmountModal.setTrue}
+              theme={theme}
+            />
+          )}
           <List.Divider theme={theme} />
           <List.SubHeader theme={theme}>
             {getString('generalSettings')}
@@ -279,6 +320,18 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
         novelSortModalVisible={novelSortModalRef.value}
         hideNovelSortModal={novelSortModalRef.setFalse}
         theme={theme}
+      />
+      <AutoDownloadModal
+        visible={autoDownloadRemainingModal.value}
+        onDismiss={autoDownloadRemainingModal.setFalse}
+        theme={theme}
+        type="remaining"
+      />
+      <AutoDownloadModal
+        visible={autoDownloadAmountModal.value}
+        onDismiss={autoDownloadAmountModal.setFalse}
+        theme={theme}
+        type="amount"
       />
     </SafeAreaView>
   );

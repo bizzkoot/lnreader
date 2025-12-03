@@ -26,7 +26,7 @@ import {
 import { sanitizeChapterText } from '../utils/sanitizeChapterText';
 import { parseChapterNumber } from '@utils/parseChapterNumber';
 import WebView from 'react-native-webview';
-import { useFullscreenMode } from '@hooks';
+import { useFullscreenMode, useAutoDownload } from '@hooks';
 import { Dimensions, NativeEventEmitter } from 'react-native';
 import * as Speech from 'expo-speech';
 import { defaultTo } from 'lodash-es';
@@ -64,6 +64,9 @@ export default function useChapter(
   const { tracker } = useTracker();
   const { trackedNovel, updateAllTrackedNovels } = useTrackedNovel(novel.id);
   const { setImmersiveMode, showStatusAndNavBar } = useFullscreenMode();
+
+  // Auto-download hook - TODO: isTTSPlaying should be passed from TTS context
+  const { checkAutoDownload } = useAutoDownload({ novel, isTTSPlaying: false });
 
   const connectVolumeButton = useCallback(() => {
     emmiter.addListener('VolumeUp', () => {
@@ -266,12 +269,15 @@ export default function useChapter(
       getDbChapter(chapter.id).then(result => result && setLastRead(result));
     }
 
+    // Check for auto-download when chapter changes
+    checkAutoDownload(chapter);
+
     return () => {
       if (!incognitoMode) {
         getDbChapter(chapter.id).then(result => result && setLastRead(result));
       }
     };
-  }, [incognitoMode, setLastRead, setLoading, chapter.id]);
+  }, [incognitoMode, setLastRead, setLoading, chapter.id, chapter, checkAutoDownload]);
 
   useEffect(() => {
     if (!chapter || !chapterText) {

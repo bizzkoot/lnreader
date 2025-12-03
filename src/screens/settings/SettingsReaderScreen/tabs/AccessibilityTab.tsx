@@ -35,6 +35,8 @@ const AccessibilityTab: React.FC = () => {
     ttsScrollBehavior = 'continue',
     ttsBackgroundPlayback = true,
     ttsContinueToNextChapter = 'none',
+    ttsAutoDownload = 'disabled',
+    ttsAutoDownloadAmount = '10',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -84,6 +86,16 @@ const AccessibilityTab: React.FC = () => {
     value: continueNextChapterModalVisible,
     setTrue: showContinueNextChapterModal,
     setFalse: hideContinueNextChapterModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoDownloadModalVisible,
+    setTrue: showTtsAutoDownloadModal,
+    setFalse: hideTtsAutoDownloadModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoDownloadAmountModalVisible,
+    setTrue: showTtsAutoDownloadAmountModal,
+    setFalse: hideTtsAutoDownloadAmountModal,
   } = useBoolean();
 
   useEffect(() => {
@@ -401,6 +413,28 @@ const AccessibilityTab: React.FC = () => {
                 onPress={showContinueNextChapterModal}
                 theme={theme}
               />
+
+              <List.SubHeader theme={theme}>TTS Auto-Download</List.SubHeader>
+              <List.Item
+                title="Auto-download during TTS"
+                description={
+                  ttsAutoDownload === 'disabled'
+                    ? 'Disabled (use app setting)'
+                    : ttsAutoDownload === '5'
+                    ? 'When 5 chapters remain'
+                    : 'When 10 chapters remain'
+                }
+                onPress={showTtsAutoDownloadModal}
+                theme={theme}
+              />
+              {ttsAutoDownload !== 'disabled' && (
+                <List.Item
+                  title="Chapters to download"
+                  description={`${ttsAutoDownloadAmount} chapters`}
+                  onPress={showTtsAutoDownloadAmountModal}
+                  theme={theme}
+                />
+              )}
             </>
           )}
         </View>
@@ -476,6 +510,40 @@ const AccessibilityTab: React.FC = () => {
             { label: 'Up to 5 chapters', value: '5' },
             { label: 'Up to 10 chapters', value: '10' },
             { label: 'Continuously (until stopped)', value: 'continuous' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsAutoDownloadModalVisible}
+          onDismiss={hideTtsAutoDownloadModal}
+          theme={theme}
+          title="TTS Auto-Download"
+          currentValue={ttsAutoDownload}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsAutoDownload: value as 'disabled' | '5' | '10',
+            })
+          }
+          options={[
+            { label: 'Disabled (use app setting)', value: 'disabled' },
+            { label: 'When 5 chapters remain', value: '5' },
+            { label: 'When 10 chapters remain', value: '10' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsAutoDownloadAmountModalVisible}
+          onDismiss={hideTtsAutoDownloadAmountModal}
+          theme={theme}
+          title="Chapters to Download"
+          currentValue={ttsAutoDownloadAmount}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsAutoDownloadAmount: value as '5' | '10' | '15',
+            })
+          }
+          options={[
+            { label: '5 chapters', value: '5' },
+            { label: '10 chapters', value: '10' },
+            { label: '15 chapters', value: '15' },
           ]}
         />
       </Portal>

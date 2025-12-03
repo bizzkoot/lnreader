@@ -258,6 +258,10 @@
   "generalSettingsScreen": {
     "asc": "(Ascending)",
     "autoDownload": "Auto-download",
+    "autoDownloadOnRemaining": "Auto-download on remaining chapters",
+    "autoDownloadOnRemainingDesc": "Download more chapters when downloaded chapters run low",
+    "autoDownloadAmount": "Chapters to download",
+    "autoDownloadAmountDesc": "Number of chapters to download when triggered",
     "bySource": "By source",
     "chapterSort": "Default chapter sort",
     "desc": "(Descending)",
@@ -466,7 +470,22 @@
       "useChapterDrawerSwipeNavigation": "Swipe to open drawer",
       "verticalSeekbar": "Vertical seekbar",
       "keepScreenOn": "Keep screen on",
-      "volumeButtonsScroll": "Volume button scrolling"
+      "volumeButtonsScroll": "Volume button scrolling",
+      "tts": {
+        "title": "Text to Speech",
+        "voice": "Voice",
+        "speed": "Speed",
+        "pitch": "Pitch",
+        "highlightParagraph": "Highlight paragraph",
+        "backgroundPlayback": "Background playback",
+        "autoResume": "Auto resume",
+        "autoDownload": "TTS auto-download",
+        "autoDownloadDesc": "Download chapters during TTS playback",
+        "autoDownloadAmount": "Chapters to download",
+        "disabled": "Disabled (use app setting)",
+        "chapters5": "When 5 chapters remain",
+        "chapters10": "When 10 chapters remain"
+      }
     },
     "drawer": {
       "scrollToBottom": "Scroll to bottom",
