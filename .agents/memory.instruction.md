@@ -33,3 +33,19 @@ applyTo: '**'
 ## Log Spam Reduction (2025-12-03)
 - **Problem**: "No more items to refill" logged on every `onSpeechDone` after queue exhausted
 - **Solution**: Added `hasLoggedNoMoreItems` flag to only log once per batch
+
+## Cross-Chapter Event Pollution (2025-12-03)
+- **Problem**: Save events from old chapter corrupt new chapter's progress during transitions
+- **Cause**: WebView's `updateState()` sends save events without chapter ID; old WebView still processes while new chapter loads
+- **Key Insight**: WebView-side state updates continue independently of RN chapter state
+- **Solution**:
+  1. Add `chapterId` to ALL save events in `core.js` (5 locations)
+  2. Validate `chapterId` in RN's `onMessage` handler for save events
+  3. Add 1-second grace period (`chapterTransitionTimeRef`) after chapter change
+  4. Clear TTSAudioManager queue state before starting new batch
+  5. Reject events with mismatched or missing chapterId during grace period
+
+## ForegroundService Error on Android 12+ (2025-12-03)
+- **Problem**: `ForegroundServiceStartNotAllowedException` during chapter transitions
+- **Cause**: Android 12+ restricts starting foreground services from background
+- **Solution**: Track `isServiceForeground` state, only call `startForeground()` when not already foreground

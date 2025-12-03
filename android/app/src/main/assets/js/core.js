@@ -359,6 +359,7 @@ window.reader = new (function () {
           10,
         ),
         paragraphIndex,
+        chapterId: this.chapter.id,
       });
     }
   };
@@ -941,6 +942,7 @@ window.tts = new (function () {
         10,
       ),
       paragraphIndex: paragraphIndex,
+      chapterId: reader.chapter.id,
     });
 
     reader.post({
@@ -1132,6 +1134,7 @@ window.tts = new (function () {
             10,
           ),
           paragraphIndex,
+          chapterId: reader.chapter.id,
         });
       }
 
@@ -1294,6 +1297,7 @@ window.tts = new (function () {
           10,
         ),
         paragraphIndex,
+        chapterId: reader.chapter.id,
       });
     } else {
       console.warn(`TTS: updateState index ${paragraphIndex} out of bounds`);
@@ -1441,6 +1445,7 @@ window.pageReader = new (function () {
           ((pageReader.page.val + 1) / pageReader.totalPages.val) * 100,
           10,
         ),
+        chapterId: reader.chapter.id,
       });
     }
   };

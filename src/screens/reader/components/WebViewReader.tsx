@@ -39,6 +39,7 @@ type WebViewPostEvent = {
   autoStartTTS?: boolean;
   paragraphIndex?: number;
   ttsState?: any;
+  chapterId?: number;
 };
 
 type WebViewReaderProps = {
@@ -152,6 +153,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const backgroundTTSPendingRef = useRef<boolean>(false);
   // NEW: Track previous chapter ID to detect chapter changes
   const prevChapterIdRef = useRef<number>(chapter.id);
+  // NEW: Grace period timestamp to ignore stale save events after chapter change
+  const chapterTransitionTimeRef = useRef<number>(0);
 
   useEffect(() => {
     progressRef.current = chapter.progress;
@@ -177,6 +180,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     
     console.log(`WebViewReader: Chapter changed from ${prevChapterIdRef.current} to ${chapter.id}`);
     prevChapterIdRef.current = chapter.id;
+    
+    // Set grace period timestamp to ignore stale save events from old chapter
+    chapterTransitionTimeRef.current = Date.now();
     
     // Reset paragraph index for new chapter
     currentParagraphIndexRef.current = 0;
@@ -941,6 +947,26 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               break;
             case 'save':
               if (event.data && typeof event.data === 'number') {
+                // CRITICAL: Validate chapterId to prevent stale save events from old chapter
+                // corrupting new chapter's progress during transitions
+                const GRACE_PERIOD_MS = 1000; // 1 second grace period after chapter change
+                const timeSinceTransition = Date.now() - chapterTransitionTimeRef.current;
+                
+                if (event.chapterId !== undefined && event.chapterId !== chapter.id) {
+                  console.log(
+                    `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
+                  );
+                  break;
+                }
+                
+                // During grace period, also reject events without chapterId (legacy WebView)
+                if (timeSinceTransition < GRACE_PERIOD_MS && event.chapterId === undefined) {
+                  console.log(
+                    `WebViewReader: Ignoring save event without chapterId during grace period (${timeSinceTransition}ms)`,
+                  );
+                  break;
+                }
+                
                 console.log(
                   'WebViewReader: Received save event. Progress:',
                   event.data,

@@ -68,6 +68,12 @@ class TTSAudioManager {
             const pitch = params.pitch || 1;
             const voice = params.voice;
 
+            // Clear any existing queue state before starting new batch
+            // This prevents old chapter's queue from interfering with new chapter
+            this.currentQueue = [];
+            this.currentUtteranceIds = [];
+            this.currentIndex = 0;
+
             // Queue initial batch
             const batchTexts = texts.slice(0, BATCH_SIZE);
             const batchIds = utteranceIds.slice(0, BATCH_SIZE);
