@@ -80,6 +80,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             isTtsInitialized = true
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) {
+                    // CRITICAL: Ensure wake lock is still held during playback
+                    // This prevents Android from releasing it during extended background sessions
+                    ensureWakeLockHeld()
                     ttsListener?.onSpeechStart(utteranceId)
                 }
 
@@ -314,6 +317,22 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         stopForeground(true)
         isServiceForeground = false
+    }
+    
+    /**
+     * Ensures the wake lock is held during TTS playback.
+     * Called on every utterance start to prevent Android from releasing it
+     * during extended background sessions (Bug 1 fix).
+     */
+    private fun ensureWakeLockHeld() {
+        try {
+            if (wakeLock?.isHeld == false) {
+                android.util.Log.d("TTSForegroundService", "Re-acquiring wake lock during playback")
+                wakeLock?.acquire()
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("TTSForegroundService", "Failed to re-acquire wake lock: ${e.message}")
+        }
     }
 
     private fun createNotificationChannel() {

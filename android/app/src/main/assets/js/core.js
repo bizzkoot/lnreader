@@ -1517,6 +1517,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function calculatePages() {
   const now = Date.now();
 
+  // BUG 3 FIX: Block calculatePages during screen wake sync to prevent scroll jumble
+  // This flag is set by RN when screen wakes during background TTS playback
+  if (window.ttsScreenWakeSyncPending) {
+    console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    return;
+  }
+
   // CRITICAL: Allow initial scroll to complete, then debounce subsequent calls
   const needsInitialScroll =
     !reader.hasPerformedInitialScroll &&
@@ -1742,6 +1749,8 @@ function calculatePages() {
 // Global TTS operation tracking
 window.ttsOperationActive = false;
 window.ttsOperationEndTime = 0;
+// BUG 3 FIX: Screen wake sync flag - set by RN when screen wakes during background TTS
+window.ttsScreenWakeSyncPending = false;
 
 // Global ResizeObserver debounce tracking
 window.lastCalculatePagesCall = 0;
@@ -1749,6 +1758,12 @@ const CALCULATE_PAGES_DEBOUNCE = 500; // 500ms minimum between calls
 
 // Prevent ResizeObserver from calling calculatePages inappropriately
 const ro = new ResizeObserver(() => {
+  // BUG 3 FIX: Block during screen wake sync
+  if (window.ttsScreenWakeSyncPending) {
+    console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    return;
+  }
+
   // DEBOUNCE CHECK: Allow first ResizeObserver call, then block excessive calls
   const now = Date.now();
   const isFirstCall = window.lastCalculatePagesCall === 0;

@@ -410,24 +410,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const chaptersAutoPlayedRef = useRef<number>(0);
 
   const handleResumeConfirm = () => {
-    const savedIndex = pendingResumeIndexRef.current;
-    // User said Yes, so we tell TTS to resume from the saved index
-    // We prefer savedIndex (from chapter progress) over ttsState.paragraphIndex
-    // because chapter progress is saved more frequently and reliably.
-    // CRITICAL FIX: Use the latest tracked index, not stale MMKV
-    // We use Math.max because we want to avoid "phantom resets" where the WebView
-    // momentarily reports a lower paragraph (e.g. 5) during load, poisoning the Ref.
-    // If the confirmation payload (savedIndex) says 10, we trust it over the Ref's 5.
+    // Always set both refs to the last read paragraph before resuming
+    const mmkvValue = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
     const refValue = latestParagraphIndexRef.current ?? -1;
-    const mmkvValue =
-      MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
-
-    const latestSavedIndex = Math.max(refValue, mmkvValue, savedIndex);
-
+    const savedIndex = pendingResumeIndexRef.current;
+    // Pick the highest index as the last read paragraph
+    const lastReadParagraph = Math.max(refValue, mmkvValue, savedIndex);
+    // Ensure both refs are updated
+    pendingResumeIndexRef.current = lastReadParagraph;
+    latestParagraphIndexRef.current = lastReadParagraph;
+    // Confirm resume dialog always appears (showResumeDialog is called on request-tts-confirmation)
     const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
     console.log(
       'WebViewReader: Resuming TTS. Resolved index:',
-      latestSavedIndex,
+      lastReadParagraph,
       '(Ref:',
       refValue,
       'MMKV:',
@@ -436,10 +432,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       savedIndex,
       ')',
     );
-
     resumeTTS({
       ...ttsState,
-      paragraphIndex: latestSavedIndex,
+      paragraphIndex: lastReadParagraph,
       autoStart: true,
       shouldResume: true,
     });
@@ -778,6 +773,23 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               currentParagraphIndexRef.current,
             );
             
+            // BUG 3 FIX: IMMEDIATELY set blocking flag to prevent calculatePages from scrolling
+            // This must happen BEFORE the 300ms timeout to win the race condition
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                try {
+                  // Block calculatePages and any stale scroll operations
+                  window.ttsScreenWakeSyncPending = true;
+                  window.ttsOperationActive = true;
+                  reader.suppressSaveOnScroll = true;
+                  console.log('TTS: Screen wake - blocking scroll operations');
+                } catch (e) {
+                  console.error('TTS: Screen wake block failed', e);
+                }
+                true;
+              `);
+            }
+            
             // Give WebView a moment to stabilize after screen wake
             setTimeout(() => {
               if (webViewRef.current) {
@@ -794,11 +806,39 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                       window.tts.isBackgroundPlaybackActive = true;
                       window.tts.reading = true;
                       window.tts.hasAutoResumed = true;
-                      // Highlight current paragraph with chapter validation
-                      window.tts.highlightParagraph(${syncIndex}, ${chapterId});
+                      window.tts.started = true;
+                      
+                      // Update TTS internal state for proper continuation
+                      const readableElements = reader.getReadableElements();
+                      if (readableElements && readableElements[${syncIndex}]) {
+                        window.tts.currentElement = readableElements[${syncIndex}];
+                        window.tts.prevElement = ${syncIndex} > 0 ? readableElements[${syncIndex} - 1] : null;
+                        
+                        // Force scroll to current TTS position
+                        window.tts.scrollToElement(window.tts.currentElement);
+                        
+                        // Highlight current paragraph with chapter validation
+                        window.tts.highlightParagraph(${syncIndex}, ${chapterId});
+                        
+                        console.log('TTS: Screen wake sync complete - scrolled to paragraph ${syncIndex}');
+                      } else {
+                        console.warn('TTS: Screen wake - paragraph ${syncIndex} not found');
+                      }
                     }
+                    
+                    // Release blocking flags after sync is complete
+                    setTimeout(() => {
+                      window.ttsScreenWakeSyncPending = false;
+                      window.ttsOperationActive = false;
+                      reader.suppressSaveOnScroll = false;
+                      console.log('TTS: Screen wake sync - released blocking flags');
+                    }, 500);
                   } catch (e) {
                     console.error('TTS: Screen wake sync failed', e);
+                    // Release flags even on error
+                    window.ttsScreenWakeSyncPending = false;
+                    window.ttsOperationActive = false;
+                    reader.suppressSaveOnScroll = false;
                   }
                   true;
                 `);
@@ -1131,6 +1171,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 };
 
                 // Use batch TTS for background playback
+                // BUG 2 FIX: Use addToBatch instead of speakBatch when queue is received
+                // The first paragraph was already queued via the 'speak' event which uses QUEUE_FLUSH.
+                // If we call speakBatch here, it would QUEUE_FLUSH again, clearing the first paragraph.
+                // Instead, we use addToBatch to ADD remaining paragraphs to the queue.
                 if (chapterGeneralSettings.ttsBackgroundPlayback && event.data.length > 0 && typeof event.startIndex === 'number') {
                   const startIndex = event.startIndex;
                   // Include chapter ID in utterance IDs to prevent stale event processing
@@ -1138,18 +1182,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     `chapter_${chapter.id}_utterance_${startIndex + i}`
                   );
 
-                  console.log(`WebViewReader: Starting batch TTS with ${event.data.length} paragraphs from index ${startIndex}`);
+                  console.log(`WebViewReader: Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`);
 
-                  TTSHighlight.speakBatch(
+                  // Use addToBatch to preserve the currently playing utterance
+                  TTSHighlight.addToBatch(
                     event.data as string[],
                     utteranceIds,
-                    {
-                      voice: readerSettings.tts?.voice?.identifier,
-                      pitch: readerSettings.tts?.pitch || 1,
-                      rate: readerSettings.tts?.rate || 1,
-                    }
                   ).catch(err => {
-                    console.error('WebViewReader: Batch TTS failed:', err);
+                    console.error('WebViewReader: Add to batch failed:', err);
                     // Fallback to WebView-driven TTS
                     webViewRef.current?.injectJavaScript('tts.next?.()');
                   });

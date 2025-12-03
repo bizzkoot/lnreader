@@ -38,6 +38,18 @@ class TTSHighlightService {
     return TTSAudioManager.speakBatch(texts, utteranceIds, params);
   }
 
+  /**
+   * Add items to the existing TTS queue using QUEUE_ADD mode.
+   * This preserves any currently playing or queued utterances.
+   * Use this when the first paragraph was already queued via speak().
+   */
+  async addToBatch(
+    texts: string[],
+    utteranceIds: string[],
+  ): Promise<boolean> {
+    return TTSHighlight.addToBatch(texts, utteranceIds);
+  }
+
   stop(): Promise<boolean> {
     return TTSAudioManager.stop();
   }
