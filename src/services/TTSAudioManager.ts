@@ -26,6 +26,7 @@ class TTSAudioManager {
     private currentIndex = 0;
     private eventListeners: EmitterSubscription[] = [];
     private onDoneCallback?: (utteranceId: string) => void;
+    private onQueueEmptyCallback?: () => void;
     // @ts-expect-error Reserved for future use
     private _onQueueLowCallback?: () => void;
 
@@ -194,6 +195,24 @@ class TTSAudioManager {
         this.eventListeners.push(subscription);
     }
 
+    /**
+     * Called when the native TTS queue is completely empty.
+     * This means all queued utterances have been spoken and the chapter has ended.
+     * Use this to trigger next chapter loading when screen is off.
+     */
+    onQueueEmpty(callback: () => void) {
+        this.onQueueEmptyCallback = callback;
+
+        const subscription = ttsEmitter.addListener('onQueueEmpty', () => {
+            logDebug('TTSAudioManager: Queue empty event received');
+            if (this.onQueueEmptyCallback) {
+                this.onQueueEmptyCallback();
+            }
+        });
+
+        this.eventListeners.push(subscription);
+    }
+
     onQueueLow(callback: () => void) {
         this._onQueueLowCallback = callback;
     }
@@ -208,6 +227,7 @@ class TTSAudioManager {
         this.eventListeners.forEach(subscription => subscription.remove());
         this.eventListeners = [];
         this.onDoneCallback = undefined;
+        this.onQueueEmptyCallback = undefined;
         this._onQueueLowCallback = undefined;
     }
 

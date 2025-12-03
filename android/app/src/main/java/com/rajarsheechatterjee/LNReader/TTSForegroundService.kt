@@ -40,6 +40,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun onSpeechDone(utteranceId: String)
         fun onSpeechError(utteranceId: String)
         fun onWordRange(utteranceId: String, start: Int, end: Int, frame: Int)
+        fun onQueueEmpty()  // Called when TTS queue is completely empty (chapter finished)
     }
 
     inner class TTSBinder : Binder() {
@@ -85,6 +86,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                     // Track completion
                     synchronized(queuedUtteranceIds) {
                         queuedUtteranceIds.remove(utteranceId)
+                        // Notify when queue becomes empty (chapter finished)
+                        if (queuedUtteranceIds.isEmpty()) {
+                            ttsListener?.onQueueEmpty()
+                        }
                     }
                 }
 
@@ -250,8 +255,19 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startForegroundService() {
-        if (wakeLock?.isHeld == false) {
-            wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes timeout
+        // Acquire a persistent wake lock while the foreground TTS service
+        // is active to prevent the device from sleeping mid-playback.
+        // Previously this used a 10-minute timeout which could cause long
+        // reading sessions to stop after ~10 minutes (observed ~50 paragraphs).
+        // Acquire without timeout and release when the service stops.
+        try {
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire()
+            }
+        } catch (e: Exception) {
+            // Best-effort: if acquiring fails (security/behavioral differences),
+            // continue — service will remain foreground and most devices allow
+            // media playback to continue without an explicit wake lock.
         }
         
         val notification = createNotification("TTS is reading...")
@@ -264,8 +280,12 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun stopForegroundService() {
-        if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            // ignore release errors
         }
         stopForeground(true)
     }

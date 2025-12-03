@@ -207,6 +207,11 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         sendEvent("onWordRange", params)
     }
 
+    override fun onQueueEmpty() {
+        val params = Arguments.createMap()
+        sendEvent("onQueueEmpty", params)
+    }
+
     private fun sendEvent(eventName: String, params: WritableMap) {
         if (reactContext.hasActiveCatalystInstance()) {
             reactContext

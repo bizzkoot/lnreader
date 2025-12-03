@@ -526,6 +526,109 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       },
     );
 
+    // Listen for native word-range updates to drive in-page highlighting
+    const rangeSubscription = TTSHighlight.addListener('onWordRange', (event) => {
+      try {
+        const utteranceId = event?.utteranceId || '';
+        let paragraphIndex = currentParagraphIndexRef.current ?? -1;
+        if (typeof utteranceId === 'string') {
+          const m = utteranceId.match(/utterance_(\d+)/);
+          if (m) paragraphIndex = Number(m[1]);
+        }
+
+        const start = Number(event?.start) || 0;
+        const end = Number(event?.end) || 0;
+
+        if (webViewRef.current && paragraphIndex >= 0) {
+          webViewRef.current.injectJavaScript(`
+              try {
+                if (window.tts && window.tts.highlightRange) {
+                  window.tts.highlightRange(${paragraphIndex}, ${start}, ${end});
+                }
+              } catch (e) { console.error('TTS: highlightRange inject failed', e); }
+              true;
+            `);
+        }
+      } catch (e) {
+        console.warn('WebViewReader: onWordRange handler error', e);
+      }
+    });
+
+    // Listen for utterance start to ensure paragraph highlight and state are synced
+    const startSubscription = TTSHighlight.addListener('onSpeechStart', (event) => {
+      try {
+        const utteranceId = event?.utteranceId || '';
+        let paragraphIndex = currentParagraphIndexRef.current ?? -1;
+        if (typeof utteranceId === 'string') {
+          const m = utteranceId.match(/utterance_(\d+)/);
+          if (m) paragraphIndex = Number(m[1]);
+        }
+
+        // Update current index
+        if (paragraphIndex >= 0) currentParagraphIndexRef.current = paragraphIndex;
+
+        if (webViewRef.current && paragraphIndex >= 0) {
+          webViewRef.current.injectJavaScript(`
+              try {
+                if (window.tts) {
+                  window.tts.highlightParagraph(${paragraphIndex});
+                  window.tts.updateState(${paragraphIndex});
+                }
+              } catch (e) { console.error('TTS: start inject failed', e); }
+              true;
+            `);
+        }
+      } catch (e) {
+        console.warn('WebViewReader: onSpeechStart handler error', e);
+      }
+    });
+
+    // Listen for native TTS queue becoming empty (all utterances spoken).
+    // This fires when the screen is off and WebView JS can't drive the next chapter.
+    // We use this to trigger chapter navigation from React Native side.
+    const queueEmptySubscription = TTSHighlight.addListener('onQueueEmpty', () => {
+      console.log('WebViewReader: onQueueEmpty event received');
+
+      // Only proceed if TTS was actually reading (and thus chapter end is meaningful)
+      if (!isTTSReadingRef.current) {
+        console.log('WebViewReader: Queue empty but TTS was not reading, ignoring');
+        return;
+      }
+
+      // Check the ttsContinueToNextChapter setting
+      const continueMode = chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
+      console.log('WebViewReader: Queue empty - continueMode:', continueMode);
+
+      if (continueMode === 'none') {
+        console.log('WebViewReader: ttsContinueToNextChapter is "none", stopping');
+        isTTSReadingRef.current = false;
+        return;
+      }
+
+      // Check chapter limit
+      if (continueMode !== 'continuous') {
+        const limit = parseInt(continueMode, 10);
+        if (chaptersAutoPlayedRef.current >= limit) {
+          console.log(`WebViewReader: Chapter limit (${limit}) reached, stopping`);
+          chaptersAutoPlayedRef.current = 0;
+          isTTSReadingRef.current = false;
+          return;
+        }
+      }
+
+      // If we have a next chapter, navigate to it
+      if (nextChapter) {
+        console.log('WebViewReader: Navigating to next chapter via onQueueEmpty');
+        autoStartTTSRef.current = true;
+        chaptersAutoPlayedRef.current += 1;
+        nextChapterScreenVisible.current = true;
+        navigateChapter('NEXT');
+      } else {
+        console.log('WebViewReader: No next chapter available');
+        isTTSReadingRef.current = false;
+      }
+    });
+
     const appStateSubscription = AppState.addEventListener(
       'change',
       nextAppState => {
@@ -559,6 +662,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
     return () => {
       onSpeechDoneSubscription.remove();
+      rangeSubscription.remove();
+      startSubscription.remove();
+      queueEmptySubscription.remove();
       appStateSubscription.remove();
       TTSHighlight.stop();
       if (ttsStateRef.current?.wasPlaying) {
@@ -751,11 +857,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 if (!isTTSReadingRef.current) {
                   isTTSReadingRef.current = true;
                 }
-                // Simple single-text speak
+                // Use utterance_N format so onSpeechStart can identify paragraph
+                const paragraphIdx = typeof event.paragraphIndex === 'number' 
+                  ? event.paragraphIndex 
+                  : currentParagraphIndexRef.current;
+                const utteranceId = paragraphIdx >= 0 
+                  ? `utterance_${paragraphIdx}` 
+                  : undefined;
+                
+                // Update current index
+                if (paragraphIdx >= 0) {
+                  currentParagraphIndexRef.current = paragraphIdx;
+                }
+                
                 TTSHighlight.speak(event.data, {
                   voice: readerSettings.tts?.voice?.identifier,
                   pitch: readerSettings.tts?.pitch || 1,
                   rate: readerSettings.tts?.rate || 1,
+                  utteranceId,
                 });
               } else {
                 webViewRef.current?.injectJavaScript('tts.next?.()');

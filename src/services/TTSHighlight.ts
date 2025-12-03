@@ -55,7 +55,8 @@ class TTSHighlightService {
       | 'onWordRange'
       | 'onSpeechStart'
       | 'onSpeechDone'
-      | 'onSpeechError',
+      | 'onSpeechError'
+      | 'onQueueEmpty',
     listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);

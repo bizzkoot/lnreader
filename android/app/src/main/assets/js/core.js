@@ -1125,7 +1125,8 @@ window.tts = new (function () {
       const text = this.currentElement.textContent;
       if (text && text.trim().length > 0) {
         this.log('Speaking', text.substring(0, 20));
-        reader.post({ type: 'speak', data: text });
+        // Include paragraphIndex so RN can create utteranceId matching the batch format
+        reader.post({ type: 'speak', data: text, paragraphIndex: paragraphIndex });
         reader.post({
           type: 'tts-state',
           data: {
