@@ -265,6 +265,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                         queuedUtteranceIds.add(utteranceId)
                     }
                 } else {
+                    android.util.Log.e("TTSForegroundService", "speak returned non-SUCCESS for utteranceId=${utteranceId} index=${i} result=${result}")
                     return false
                 }
             }
@@ -295,6 +296,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                         queuedUtteranceIds.add(utteranceId)
                     }
                 } else {
+                    android.util.Log.e("TTSForegroundService", "addToBatch speak returned non-SUCCESS for utteranceId=${utteranceId} batchIndex=${currentBatchIndex + i} result=${result}")
                     return false
                 }
             }

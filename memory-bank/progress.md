@@ -2,16 +2,14 @@
 
 ## Done
 
-- Bug 1 Fix: Added ensureWakeLockHeld() in TTSForegroundService.kt to re-acquire wake lock on each utterance start
-- Bug 2 Fix: Changed tts-queue handler to use addToBatch() instead of speakBatch() to preserve first paragraph during resume
-- Bug 3 Fix: Added ttsScreenWakeSyncPending flag to block calculatePages during screen wake, enhanced screen wake sync handler
-- Bug 4 Fix: Added isWebViewSyncedRef to track WebView chapter state, skip JS injections when WebView has old chapter HTML during background TTS
+- Added retries + fallback to TTSAudioManager.refillQueue
+- Added retry + fallback to WebViewReader.t ts-queue handler
+- Added pendingScreenWakeSyncRef flow to WebViewReader
 
 ## Doing
 
-- Testing background TTS multi-chapter transitions
+- Manual/adjacent regression checks via lint and type-check
 
 ## Next
 
-- Test on real device with extended background TTS playback across multiple chapters
-- Monitor for edge cases with chapter transitions when screen wakes
+- Run real-device test to confirm background multi-chapter continuation and watch for addToBatch failures

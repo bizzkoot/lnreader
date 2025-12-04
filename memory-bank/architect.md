@@ -5,6 +5,12 @@ This file contains the architectural decisions and design patterns for the Memor
 
 ## Architectural Decisions
 
+- Retry + fallback in TTSAudioManager.refillQueue to handle intermittent addToBatch rejections; try addToBatch up to 3 attempts with backoff, then if native queue is empty fallback to speakBatch to restart playback.
+- Add robust retry and fallback in WebViewReader tts-queue handler to try addToBatch before falling back to injecting WebView tts.next.
+- Add pendingScreenWakeSyncRef to WebViewReader to run a screen-wake sync on onLoadEnd when WebView was out-of-sync during background TTS.
+
+
+
 1. **Decision 1**: Description of the decision and its rationale.
 2. **Decision 2**: Description of the decision and its rationale.
 3. **Decision 3**: Description of the decision and its rationale.
@@ -119,5 +125,31 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 - **Impact**: Improves reliability of background TTS, prevents unexpected stops at chapter boundaries, and keeps paragraph highlighting accurate while minimizing JS dependence during background playback.
 
 - **Commit**: e7aa3b86 (pushed to `dev`)
+
+
+
+
+## Design Considerations
+
+- Native TTS can intermittently return non-SUCCESS; this leads to failing queue refills which stops background TTS.
+- Avoid using speakBatch (QUEUE_FLUSH) unless native queue is empty to prevent interrupting currently-playing utterance.
+- Keep debug logs minimal and rely on existing logDebug/logError helpers; avoid leaving experimental [DEBUG] markers.
+
+
+
+## Components
+
+### TTSAudioManager.refillQueue
+
+Retry + fallback logic for addToBatch failures, with backoff and speakBatch fallback if native queue appears empty.
+
+### WebViewReader tts-queue handler
+
+Retry addToBatch up to 3 times before falling back to WebView-driven tts.next.
+
+### WebViewReader screen-wake sync
+
+pendingScreenWakeSyncRef ensures the screen-wake sync runs after WebView reloads when it was suspended during background playback.
+
 
 

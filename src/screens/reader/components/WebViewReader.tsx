@@ -158,6 +158,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // NEW: Track if WebView is synchronized with current chapter
   // During background TTS, WebView may still have old chapter loaded
   const isWebViewSyncedRef = useRef<boolean>(true);
+  // When screen wakes while WebView was suspended during background TTS,
+  // mark that we need to run the screen-wake sync after the new HTML loads.
+  const pendingScreenWakeSyncRef = useRef<boolean>(false);
 
   // FIX: Refs to prevent stale closures in onQueueEmpty handler
   // The handler is created once (empty deps) but needs current values
@@ -812,14 +815,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // when we return to foreground and React re-renders with new HTML source
               // The onLoadEnd handler will set isWebViewSyncedRef.current = true
               console.log('WebViewReader: WebView out of sync - waiting for reload');
-              
-              // Stop the current TTS and let it resume after WebView reloads
-              // This ensures clean state when switching from background chapter to foreground
-              // Note: We DON'T stop TTS here - it should continue playing
-              // The WebView will catch up when it reloads
-              
+
               // Mark that we need to sync position after WebView reloads
               // The position is tracked in currentParagraphIndexRef
+              pendingScreenWakeSyncRef.current = true;
               return;
             }
             
@@ -1013,10 +1012,50 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           isWebViewSyncedRef.current = true;
           console.log(`WebViewReader: onLoadEnd - WebView synced with chapter ${chapter.id}`);
           
-          // Skip WebView-driven TTS start if background mode is handling it
+          // If the chapter was loaded as part of background TTS navigation
+          // we may need to resume a screen-wake sync or skip WebView-driven start
           if (backgroundTTSPendingRef.current) {
             console.log('WebViewReader: onLoadEnd skipped TTS start - background TTS pending');
             return;
+          }
+
+          // If we have a pending screen-wake sync (screen was woken while
+          // WebView was suspended) run the same sync routine to position
+          // the WebView to the current TTS paragraph
+          if (pendingScreenWakeSyncRef.current && isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+            pendingScreenWakeSyncRef.current = false;
+            console.log('WebViewReader: Running pending screen-wake sync to paragraph', currentParagraphIndexRef.current);
+
+            // Reuse the same sync injection used on AppState active
+            const syncIndex = currentParagraphIndexRef.current;
+            const chapterId = prevChapterIdRef.current;
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                try {
+                  if (window.tts) {
+                    console.log('TTS: Pending screen wake sync to index ${syncIndex}');
+                    window.tts.isBackgroundPlaybackActive = true;
+                    window.tts.reading = true;
+                    window.tts.hasAutoResumed = true;
+                    window.tts.started = true;
+
+                    const readableElements = reader.getReadableElements();
+                    if (readableElements && readableElements[${syncIndex}]) {
+                      window.tts.currentElement = readableElements[${syncIndex}];
+                      window.tts.prevElement = ${syncIndex} > 0 ? readableElements[${syncIndex} - 1] : null;
+                      window.tts.scrollToElement(window.tts.currentElement);
+                      window.tts.highlightParagraph(${syncIndex}, ${chapterId});
+                      console.log('TTS: Pending screen wake sync complete - scrolled to paragraph ${syncIndex}');
+                    } else {
+                      console.warn('TTS: Pending screen wake - paragraph ${syncIndex} not found');
+                    }
+                  }
+                } catch (e) {
+                  console.error('TTS: Pending screen wake sync failed', e);
+                }
+                true;
+              `);
+            }
           }
           
           if (autoStartTTSRef.current) {
@@ -1239,13 +1278,30 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   console.log(`WebViewReader: Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`);
 
                   // Use addToBatch to preserve the currently playing utterance
-                  TTSHighlight.addToBatch(
-                    event.data as string[],
-                    utteranceIds,
-                  ).catch(err => {
-                    console.error('WebViewReader: Add to batch failed:', err);
-                    // Fallback to WebView-driven TTS
-                    webViewRef.current?.injectJavaScript('tts.next?.()');
+                  const addToBatchWithRetry = async (texts: string[], ids: string[]) => {
+                    const maxAttempts = 3;
+                    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                      try {
+                        console.log(`WebViewReader: addToBatch attempt ${attempt} startIndex=${startIndex} count=${texts.length}`);
+                        await TTSHighlight.addToBatch(texts, ids);
+                        console.log('WebViewReader: addToBatch succeeded');
+                        return true;
+                      } catch (err) {
+                        console.error(`WebViewReader: addToBatch failed (attempt ${attempt}):`, err);
+                        if (attempt < maxAttempts) {
+                          await new Promise(r => setTimeout(r, 150 * attempt));
+                        }
+                      }
+                    }
+                    return false;
+                  };
+
+                  addToBatchWithRetry(event.data as string[], utteranceIds).then(success => {
+                    if (!success) {
+                      console.error('WebViewReader: Add to batch failed after retries. Falling back to WebView-driven TTS');
+                      // Fallback to WebView-driven TTS
+                      webViewRef.current?.injectJavaScript('tts.next?.()');
+                    }
                   });
                 }
               }

@@ -169,7 +169,44 @@ class TTSAudioManager {
                 this.currentIndex + nextBatchSize
             );
 
-            await TTSHighlight.addToBatch(nextTexts, nextIds);
+            // Try addToBatch with retries — native service can intermittently reject
+            const maxAddAttempts = 3;
+            let addSucceeded = false;
+            let addError: any = null;
+            for (let attempt = 1; attempt <= maxAddAttempts; attempt++) {
+                try {
+                    logDebug(`TTSAudioManager: addToBatch attempt ${attempt} (${nextBatchSize} items)`);
+                    await TTSHighlight.addToBatch(nextTexts, nextIds);
+                    addSucceeded = true;
+                    break;
+                } catch (err) {
+                    addError = err;
+                    logError(`TTSAudioManager: addToBatch failed (attempt ${attempt}):`, err);
+                    // small backoff
+                    await new Promise(res => setTimeout(res, 150 * attempt));
+                }
+            }
+
+            if (!addSucceeded) {
+                // If addToBatch failed repeatedly, check queue size — if it's empty we can try speakBatch
+                try {
+                    const queueSizeAfter = await TTSHighlight.getQueueSize();
+                    logDebug('TTSAudioManager: Queue size after failed addToBatch:', queueSizeAfter);
+                    if (queueSizeAfter === 0) {
+                        logError('TTSAudioManager: Queue empty after failed addToBatch — attempting speakBatch as fallback');
+                        await TTSHighlight.speakBatch(nextTexts, nextIds);
+                        this.currentIndex += nextBatchSize;
+                        logDebug(`TTSAudioManager: speakBatch fallback started ${nextBatchSize} items`);
+                        return true;
+                    }
+                } catch (err2) {
+                    logError('TTSAudioManager: Fallback speakBatch also failed:', err2);
+                }
+
+                // Ultimately fail the refill
+                logError('TTSAudioManager: Failed to add next batch to native queue after retries.', addError);
+                return false;
+            }
 
             this.currentIndex += nextBatchSize;
 
