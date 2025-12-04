@@ -3,6 +3,34 @@ applyTo: '**'
 ---
 
 # Coding Preferences
+- Style: 2 spaces, single quotes, trailing commas, no tabs (project Prettier / TS settings).
+- TypeScript: strict mode; avoid unused locals, prefer explicit types for public APIs.
+- Testing: use existing Jest tests; include small focused unit tests for new features.
+- UX: keep labels concise and avoid duplicate markers (e.g., LOCAL duplicated twice).
+
+# Project Architecture
+- Core TTS services live under `src/services` (TTSHighlight.ts, VoiceMapper.ts, AUTHORITATIVE_VOICE_MAP).
+- UI voice selection lives in `src/screens/settings/SettingsReaderScreen/Modals/VoicePickerModal.tsx`.
+- Data extraction / generation tooling under `scripts/` (extract-voice-data-final.js, generate-english-high-voices.js).
+
+# Solutions Repository
+- Voice mapping: `getVoiceMapping(identifier)` returns VoiceMapping and sets `matchedNativeType` when matched via nativeIds (values: 'local'|'network'|'unknown').
+- Display names: `formatVoiceName()` in `TTSHighlight` now produces simplified labels: "English (UK) — Male 1 — Clear — LOCAL" and prefers matchedNativeType tag over quality inference.
+- Authoritative data: `src/services/authoritative-voice-map.ts` contains curated voice metadata sourced from web-speech-recommended-voices and used as the canonical mapping.
+
+# Recent Changes
+- Added `matchedNativeType` to VoiceMapping to distinguish local vs network native IDs.
+- Removed duplicate native badge rendering in `VoicePickerModal` (single source of truth is formatVoiceName()).
+- Added scripts to regenerate authoritative voice data and report (scripts/).
+
+# Notes / Next Actions
+- Keep `authoritative-voice-map.ts` up-to-date from web-speech-recommended-voices when possible.
+- Add cross-language voice mappings in future iterations (currently English-focused dataset added).
+---
+applyTo: '**'
+---
+
+# Coding Preferences
 - Use project's existing style (2 spaces, single quotes, trailing commas)
 - Path aliases: `@components`, `@utils`, `@hooks`, `@services`, etc.
 - No console.log (use conditional logging with __DEV__)
