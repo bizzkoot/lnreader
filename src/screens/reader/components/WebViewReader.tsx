@@ -225,6 +225,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         })
           .then(() => {
             console.log('WebViewReader: Background TTS batch started successfully');
+            // CRITICAL FIX: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
+            isTTSReadingRef.current = true;
           })
           .catch(err => {
             console.error('WebViewReader: Background TTS batch failed:', err);

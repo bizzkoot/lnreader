@@ -76,3 +76,25 @@ applyTo: '**'
   4. Add +/- buttons for fine control
   5. Add visual markers (Slow/Normal/Fast, Low/Normal/High)
   6. Reduce max values to more usable ranges (3x speed, 2x pitch)
+
+## TTS Multi-Chapter Continuation Bug (2025-12-04)
+- **Problem**: TTS playback stops after transitioning to one chapter, won't continue to subsequent chapters
+- **Root Cause**: After successful background TTS batch start in `WebViewReader.tsx`, `isTTSReadingRef.current` was not set to `true`. The `onQueueEmpty` handler checks this flag and ignores events if false.
+- **Key Insight**: The TTS flow requires `isTTSReadingRef.current = true` for `onQueueEmpty` to trigger next chapter navigation
+- **Solution**: Added `isTTSReadingRef.current = true;` in the `.then()` callback after successful `TTSHighlight.speakBatch()` call
+- **Files Modified**: `src/screens/reader/components/WebViewReader.tsx`
+
+## TTS Robotic/Low-Quality Voice Bug (2025-12-04)
+- **Problem**: TTS sometimes uses robotic/low-quality voice instead of user's preferred voice
+- **Root Cause**: In `TTSForegroundService.kt`, when preferred voice is not found in `ttsInstance.voices`, the loop completes silently without setting any voice, falling back to system default
+- **Key Insight**: Android TTS doesn't throw errors on voice unavailability - it silently falls back. TypeScript-side retry logic is ineffective.
+- **Solution**: 
+  1. Added voice availability check with retry logic in native `speak()` and `speakBatch()` functions
+  2. If preferred voice not found, refresh voices list and retry
+  3. If still not found, select best quality voice for the same language as fallback
+  4. Added logging for voice selection issues
+- **Files Modified**: `android/app/src/main/java/com/rajarsheechatterjee/LNReader/TTSForegroundService.kt`
+
+# Failed Approaches (Avoid These)
+- Adding retry logic only in TypeScript layer for voice issues - doesn't help because Android TTS doesn't throw errors on voice unavailability
+- Using `global.showToast()` for notifications in service files - causes TypeScript errors due to missing type definitions

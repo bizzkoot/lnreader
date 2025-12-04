@@ -125,15 +125,47 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             ttsInstance.setPitch(pitch)
             
             if (voiceId != null) {
+                var voiceFound = false
                 try {
                     for (voice in ttsInstance.voices) {
                         if (voice.name == voiceId) {
                             ttsInstance.voice = voice
+                            voiceFound = true
                             break
                         }
                     }
+                    // If preferred voice not found, try to find a high-quality alternative
+                    if (!voiceFound) {
+                        android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found, attempting fallback")
+                        // Retry: refresh voices and try again
+                        val refreshedVoices = ttsInstance.voices
+                        for (voice in refreshedVoices) {
+                            if (voice.name == voiceId) {
+                                ttsInstance.voice = voice
+                                voiceFound = true
+                                android.util.Log.i("TTSForegroundService", "Voice found on retry")
+                                break
+                            }
+                        }
+                        // If still not found, select best quality voice for same language
+                        if (!voiceFound) {
+                            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
+                            var bestVoice: Voice? = null
+                            var bestQuality = -1
+                            for (voice in refreshedVoices) {
+                                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
+                                    bestVoice = voice
+                                    bestQuality = voice.quality
+                                }
+                            }
+                            if (bestVoice != null) {
+                                ttsInstance.voice = bestVoice
+                                android.util.Log.w("TTSForegroundService", "Using fallback voice: ${bestVoice.name} (quality: $bestQuality)")
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
-                    // Ignore voice setting error
+                    android.util.Log.e("TTSForegroundService", "Voice setting error: ${e.message}")
                 }
             }
 
@@ -169,15 +201,47 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             ttsInstance.setPitch(pitch)
             
             if (voiceId != null) {
+                var voiceFound = false
                 try {
                     for (voice in ttsInstance.voices) {
                         if (voice.name == voiceId) {
                             ttsInstance.voice = voice
+                            voiceFound = true
                             break
                         }
                     }
+                    // If preferred voice not found, try to find a high-quality alternative
+                    if (!voiceFound) {
+                        android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found for batch, attempting fallback")
+                        // Retry: refresh voices and try again
+                        val refreshedVoices = ttsInstance.voices
+                        for (voice in refreshedVoices) {
+                            if (voice.name == voiceId) {
+                                ttsInstance.voice = voice
+                                voiceFound = true
+                                android.util.Log.i("TTSForegroundService", "Voice found on retry")
+                                break
+                            }
+                        }
+                        // If still not found, select best quality voice for same language
+                        if (!voiceFound) {
+                            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
+                            var bestVoice: Voice? = null
+                            var bestQuality = -1
+                            for (voice in refreshedVoices) {
+                                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
+                                    bestVoice = voice
+                                    bestQuality = voice.quality
+                                }
+                            }
+                            if (bestVoice != null) {
+                                ttsInstance.voice = bestVoice
+                                android.util.Log.w("TTSForegroundService", "Using fallback voice for batch: ${bestVoice.name} (quality: $bestQuality)")
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
-                    // Ignore voice setting error
+                    android.util.Log.e("TTSForegroundService", "Voice setting error in batch: ${e.message}")
                 }
             }
 

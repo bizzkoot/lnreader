@@ -25,9 +25,33 @@ export type TTSParams = {
 };
 
 class TTSHighlightService {
-  speak(text: string, params: TTSParams = {}): Promise<string> {
-    // For single text, use direct speak
-    return TTSHighlight.speak(text, params);
+  async speak(text: string, params: TTSParams = {}): Promise<string> {
+    // Try preferred voice first, retry once if it fails, then fallback to system default
+    let attempts = 0;
+    let lastError: any = null;
+    const maxAttempts = 2;
+    const { voice, rate = 1, pitch = 1, utteranceId } = params;
+    while (attempts < maxAttempts) {
+      try {
+        await TTSHighlight.speak(text, { voice, rate, pitch, utteranceId });
+        return utteranceId || Date.now().toString();
+      } catch (error) {
+        lastError = error;
+        attempts++;
+      }
+    }
+    // Fallback: try with system default voice
+    try {
+      await TTSHighlight.speak(text, { rate, pitch, utteranceId });
+      // Fallback notification: log warning
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.error('Preferred TTS voice unavailable, using system default.');
+      }
+      return utteranceId || Date.now().toString();
+    } catch (error) {
+      throw lastError || error;
+    }
   }
 
   async speakBatch(

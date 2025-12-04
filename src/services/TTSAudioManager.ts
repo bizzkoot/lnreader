@@ -62,54 +62,76 @@ class TTSAudioManager {
         if (texts.length === 0) {
             return 0;
         }
-
+        let attempts = 0;
+        let lastError: any = null;
+        const maxAttempts = 2;
+        const rate = params.rate || 1;
+        const pitch = params.pitch || 1;
+        const voice = params.voice;
+        while (attempts < maxAttempts) {
+            try {
+                // Clear any existing queue state before starting new batch
+                this.currentQueue = [];
+                this.currentUtteranceIds = [];
+                this.currentIndex = 0;
+                const batchTexts = texts.slice(0, BATCH_SIZE);
+                const batchIds = utteranceIds.slice(0, BATCH_SIZE);
+                await TTSHighlight.speakBatch(batchTexts, batchIds, {
+                    rate,
+                    pitch,
+                    voice,
+                });
+                this.currentQueue = texts;
+                this.currentUtteranceIds = utteranceIds;
+                this.currentIndex = BATCH_SIZE;
+                this.isPlaying = true;
+                this.hasLoggedNoMoreItems = false;
+                logDebug(
+                    `TTSAudioManager: Started batch playback with ${batchTexts.length} items, ${texts.length - BATCH_SIZE} remaining`
+                );
+                if (this.eventListeners.length === 0) {
+                    logDebug('TTSAudioManager: Setting up auto-refill subscription');
+                    const subscription = ttsEmitter.addListener('onSpeechDone', async (_event) => {
+                        await this.refillQueue();
+                    });
+                    this.eventListeners.push(subscription);
+                }
+                return batchTexts.length;
+            } catch (error) {
+                lastError = error;
+                attempts++;
+            }
+        }
+        // Fallback: try batch with system default voice
         try {
-            const rate = params.rate || 1;
-            const pitch = params.pitch || 1;
-            const voice = params.voice;
-
-            // Clear any existing queue state before starting new batch
-            // This prevents old chapter's queue from interfering with new chapter
-            this.currentQueue = [];
-            this.currentUtteranceIds = [];
-            this.currentIndex = 0;
-
-            // Queue initial batch
             const batchTexts = texts.slice(0, BATCH_SIZE);
             const batchIds = utteranceIds.slice(0, BATCH_SIZE);
-
             await TTSHighlight.speakBatch(batchTexts, batchIds, {
                 rate,
                 pitch,
-                voice,
+                voice: undefined,
             });
-
-            // Store remaining for later feeding
+            // Fallback notification: log warning
+            logError('Preferred TTS voice unavailable for batch, using system default.');
             this.currentQueue = texts;
             this.currentUtteranceIds = utteranceIds;
             this.currentIndex = BATCH_SIZE;
             this.isPlaying = true;
-            // Reset the "no more items" log flag for new batch
             this.hasLoggedNoMoreItems = false;
-
             logDebug(
-                `TTSAudioManager: Started batch playback with ${batchTexts.length} items, ${texts.length - BATCH_SIZE} remaining`
+                `TTSAudioManager: Started batch playback with fallback voice, ${batchTexts.length} items, ${texts.length - BATCH_SIZE} remaining`
             );
-
-            // CRITICAL: Set up auto-refill subscription if not already set up
             if (this.eventListeners.length === 0) {
                 logDebug('TTSAudioManager: Setting up auto-refill subscription');
                 const subscription = ttsEmitter.addListener('onSpeechDone', async (_event) => {
-                    // Auto-refill queue
                     await this.refillQueue();
                 });
                 this.eventListeners.push(subscription);
             }
-
             return batchTexts.length;
         } catch (error) {
-            logError('TTSAudioManager: Failed to speak batch:', error);
-            throw error;
+            logError('TTSAudioManager: Failed to speak batch after fallback:', error);
+            throw lastError || error;
         }
     }
 
