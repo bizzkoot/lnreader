@@ -159,6 +159,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // During background TTS, WebView may still have old chapter loaded
   const isWebViewSyncedRef = useRef<boolean>(true);
 
+  // FIX: Refs to prevent stale closures in onQueueEmpty handler
+  // The handler is created once (empty deps) but needs current values
+  const nextChapterRef = useRef(nextChapter);
+  const navigateChapterRef = useRef(navigateChapter);
+
   useEffect(() => {
     progressRef.current = chapter.progress;
   }, [chapter.progress]);
@@ -171,6 +176,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
   }, [readerSettings, chapterGeneralSettings]);
+
+  // FIX: Keep navigation refs synced to prevent stale closures in onQueueEmpty
+  useEffect(() => {
+    nextChapterRef.current = nextChapter;
+    navigateChapterRef.current = navigateChapter;
+  }, [nextChapter, navigateChapter]);
 
   // NEW: Effect to handle background TTS next chapter navigation
   // When chapter changes AND we have a pending background TTS request,
@@ -742,7 +753,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       }
 
       // If we have a next chapter, navigate to it
-      if (nextChapter) {
+      // FIX: Use refs to get current values (avoid stale closure from empty deps)
+      if (nextChapterRef.current) {
         console.log('WebViewReader: Navigating to next chapter via onQueueEmpty');
         autoStartTTSRef.current = true;
         // NEW: Set background TTS pending flag so we can start TTS directly from RN
@@ -750,7 +762,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         backgroundTTSPendingRef.current = true;
         chaptersAutoPlayedRef.current += 1;
         nextChapterScreenVisible.current = true;
-        navigateChapter('NEXT');
+        navigateChapterRef.current('NEXT');
       } else {
         console.log('WebViewReader: No next chapter available');
         isTTSReadingRef.current = false;
