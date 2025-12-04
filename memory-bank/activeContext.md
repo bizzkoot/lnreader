@@ -2,24 +2,35 @@
 
 ## Current Goals
 
-- **TTS Background Multi-Chapter Playback Fix (2025-12-04)**
-- Fixed a critical bug where TTS could not transition to 2nd+ chapters during background playback (screen off).
-- **Root Cause**: When TTS navigates to a new chapter during background playback, the WebView does NOT reload with the new chapter's HTML - it keeps the old chapter loaded. React Native side correctly updates to the new chapter, but WebView's `reader.chapter.id` stays at the old chapter. When TTS event handlers try to inject JavaScript for highlighting/state updates, core.js rejects them as "stale chapter" because the IDs don't match.
-- **Solution**: Added `isWebViewSyncedRef` to track if WebView has current chapter loaded:
-- - Set to `false` when background TTS navigation starts
-- - Set to `true` when WebView's onLoadEnd fires
-- - TTS event handlers check this flag before injecting JS
-- - When not synced, skip WebView injections but continue TTS playback
-- - Progress is saved via RN's saveProgress() regardless of WebView state
-- **Files Changed**: WebViewReader.tsx
+- **TTS Wake/Resume Flow Fix (2025-12-04)**
+- Fixed bug where waking screen during background TTS (3rd+ chapter) would restart TTS from paragraph 0 instead of current position.
+- **Root Cause**: Chapter-change effect was unconditionally resetting `currentParagraphIndexRef` and `latestParagraphIndexRef` to 0. When screen wakes, the indices were already reset before native TTS events could update them.
+- **Solution**: Three-part fix implemented:
+  1. **Smart Index Initialization**: `initialIndex = Math.max(dbIndex, mmkvIndex, ttsStateIndex)` instead of reset to 0
+  2. **Grace Period Filtering**: Block stale/early save events during chapter transitions (chapter mismatch, backward progress, initial 0)
+  3. **Pause-Sync-Resume Flow**: On screen wake → pause native TTS → sync UI to correct paragraph → resume TTS
+- **New Refs Added**: `autoResumeAfterWakeRef`, `wasReadingBeforeWakeRef`
+- **Files Changed**: WebViewReader.tsx, ttsWakeUtils.js (new), ttsWakeUtils.test.js (new)
 
 ## Key Files Modified
 
-- `src/screens/reader/components/WebViewReader.tsx`: Background TTS chapter navigation
-- `src/utils/htmlParagraphExtractor.ts`: New utility for HTML paragraph extraction
-- `src/services/TTSAudioManager.ts`: Log spam reduction
-- `android/app/src/main/assets/js/core.js`: Bounds checking in highlightParagraph
+- `src/screens/reader/components/WebViewReader.tsx`: TTS wake/resume flow with smart index init
+- `src/screens/reader/components/ttsWakeUtils.js`: Testable helper functions
+- `src/screens/reader/components/__tests__/ttsWakeUtils.test.js`: Jest test suite (17 tests)
+- `src/utils/htmlParagraphExtractor.ts`: HTML paragraph extraction utility
+- `src/services/TTSAudioManager.ts`: TTS queue management
+- `android/app/src/main/assets/js/core.js`: WebView-side highlighting logic
+
+## Test Commands
+
+```bash
+# Run all tests
+pnpm test
+
+# Run specific TTS tests
+pnpm test -- --testPathPattern=ttsWakeUtils
+```
 
 ## Current Blockers
 
-- None
+- None (Ready for real-device verification)

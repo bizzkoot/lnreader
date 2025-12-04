@@ -161,6 +161,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // When screen wakes while WebView was suspended during background TTS,
   // mark that we need to run the screen-wake sync after the new HTML loads.
   const pendingScreenWakeSyncRef = useRef<boolean>(false);
+  // If true we should resume native playback after we've synced UI
+  const autoResumeAfterWakeRef = useRef<boolean>(false);
+  // Remember if TTS was playing when screen woke
+  const wasReadingBeforeWakeRef = useRef<boolean>(false);
 
   // FIX: Refs to prevent stale closures in onQueueEmpty handler
   // The handler is created once (empty deps) but needs current values
@@ -200,12 +204,27 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     
     // Set grace period timestamp to ignore stale save events from old chapter
     chapterTransitionTimeRef.current = Date.now();
-    
-    // Reset paragraph index for new chapter
-    currentParagraphIndexRef.current = 0;
-    latestParagraphIndexRef.current = 0;
-    
-    // Clear the old TTS queue since we're on a new chapter
+
+    // Instead of unconditionally resetting paragraph indexes to 0 (which can
+    // race with native TTS events and cause the UI to jump to paragraph 0
+    // after a background advance), initialise them from the most recent
+    // persisted or TTS state we have available.
+    const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+    const dbIndex = savedParagraphIndex ?? -1;
+    let ttsStateIndex = -1;
+    try {
+      ttsStateIndex = stableChapter.ttsState ? (JSON.parse(stableChapter.ttsState).paragraphIndex ?? -1) : -1;
+    } catch (e) {
+      ttsStateIndex = -1;
+    }
+
+    const initialIndex = Math.max(dbIndex, mmkvIndex, ttsStateIndex, -1);
+
+    // Use -1 to mark "unknown" — caller checks >= 0 before acting.
+    currentParagraphIndexRef.current = initialIndex >= 0 ? initialIndex : -1;
+    latestParagraphIndexRef.current = initialIndex >= 0 ? initialIndex : -1;
+
+    // Clear the old TTS queue since we're on a new chapter.
     ttsQueueRef.current = null;
     
     // Check if we need to start TTS directly (background mode)
@@ -222,40 +241,52 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       console.log(`WebViewReader: Extracted ${paragraphs.length} paragraphs for background TTS`);
       
       if (paragraphs.length > 0) {
+        // Start from any previously known index if available (for example
+        // when background advance already progressed the native TTS inside
+        // the new chapter). Otherwise start at 0.
+        const startIndex = Math.max(0, currentParagraphIndexRef.current ?? 0);
+
+        // Only queue the paragraphs that remain to be spoken starting at
+        // startIndex — prevents restarting from 0 when we already progressed.
+        const textsToSpeak = paragraphs.slice(startIndex);
         // Create utterance IDs with chapter ID to prevent stale event processing
-        const utteranceIds = paragraphs.map((_, i) => `chapter_${chapter.id}_utterance_${i}`);
+        const utteranceIds = textsToSpeak.map((_, i) => `chapter_${chapter.id}_utterance_${startIndex + i}`);
         
-        // Update TTS queue ref
+        // Update TTS queue ref so event handlers know where the batch starts
         ttsQueueRef.current = {
-          startIndex: 0,
-          texts: paragraphs,
+          startIndex: startIndex,
+          texts: textsToSpeak,
         };
-        
-        // Start from paragraph 0
-        currentParagraphIndexRef.current = 0;
+
+        // Start from the resolved startIndex (may be > 0)
+        currentParagraphIndexRef.current = startIndex;
         
         // DON'T call stop() here - it would release the foreground service
         // which we can't restart from background in Android 12+
         // Just call speakBatch which will QUEUE_FLUSH the old items
         
         // Start batch TTS (this will flush old queue and start new one)
-        TTSHighlight.speakBatch(paragraphs, utteranceIds, {
-          voice: readerSettingsRef.current.tts?.voice?.identifier,
-          pitch: readerSettingsRef.current.tts?.pitch || 1,
-          rate: readerSettingsRef.current.tts?.rate || 1,
-        })
-          .then(() => {
-            console.log('WebViewReader: Background TTS batch started successfully');
-            // CRITICAL FIX: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
-            isTTSReadingRef.current = true;
+        // If there are no remaining paragraphs (e.g. we already reached the
+        // end), don't call speakBatch. Otherwise dispatch the slice.
+        if (textsToSpeak.length > 0) {
+          TTSHighlight.speakBatch(textsToSpeak, utteranceIds, {
+            voice: readerSettingsRef.current.tts?.voice?.identifier,
+            pitch: readerSettingsRef.current.tts?.pitch || 1,
+            rate: readerSettingsRef.current.tts?.rate || 1,
           })
-          .catch(err => {
-            console.error('WebViewReader: Background TTS batch failed:', err);
-            isTTSReadingRef.current = false;
-          });
-      } else {
-        console.warn('WebViewReader: No paragraphs extracted from HTML');
-        isTTSReadingRef.current = false;
+            .then(() => {
+              console.log('WebViewReader: Background TTS batch started successfully');
+              // CRITICAL FIX: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
+              isTTSReadingRef.current = true;
+            })
+            .catch(err => {
+              console.error('WebViewReader: Background TTS batch failed:', err);
+              isTTSReadingRef.current = false;
+            });
+        } else {
+          console.warn('WebViewReader: No paragraphs extracted from HTML');
+          isTTSReadingRef.current = false;
+        }
       }
     }
   }, [chapter.id, html]);
@@ -801,8 +832,30 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           }
         } else if (nextAppState === 'active') {
           // SCREEN WAKE HANDLING: When screen wakes during background TTS,
-          // sync the WebView to the current paragraph position to prevent stale scrolling
+          // pause native playback, sync the WebView to the current paragraph
+          // position to prevent stale scrolling, then resume playback once
+          // the UI has been positioned.
           if (isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+            // Pause native playback immediately so we don't keep playing
+            // while the UI syncs. Mark we should resume after the sync.
+            try {
+              wasReadingBeforeWakeRef.current = true;
+              autoResumeAfterWakeRef.current = true;
+              // Pause may internally call stop — that's acceptable: we'll
+              // requeue & resume from the correct index after the UI sync.
+              TTSHighlight.pause()
+                .then(() => {
+                  console.log('WebViewReader: Paused native TTS on wake for UI sync');
+                })
+                .catch(e => {
+                  console.warn('WebViewReader: Failed to pause TTS on wake', e);
+                });
+
+              // mark as not currently playing while UI sync runs
+              isTTSReadingRef.current = false;
+            } catch (e) {
+              console.warn('WebViewReader: Error while attempting to pause TTS', e);
+            }
             console.log(
               'WebViewReader: Screen woke during TTS, syncing to paragraph',
               currentParagraphIndexRef.current,
@@ -875,13 +928,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                       }
                     }
                     
-                    // Release blocking flags after sync is complete
-                    setTimeout(() => {
-                      window.ttsScreenWakeSyncPending = false;
-                      window.ttsOperationActive = false;
-                      reader.suppressSaveOnScroll = false;
-                      console.log('TTS: Screen wake sync - released blocking flags');
-                    }, 500);
+                        // Release blocking flags after sync is complete
+                        setTimeout(() => {
+                          window.ttsScreenWakeSyncPending = false;
+                          window.ttsOperationActive = false;
+                          reader.suppressSaveOnScroll = false;
+                          console.log('TTS: Screen wake sync - released blocking flags');
+                        }, 500);
                   } catch (e) {
                     console.error('TTS: Screen wake sync failed', e);
                     // Release flags even on error
@@ -891,6 +944,41 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   }
                   true;
                 `);
+
+              // Schedule a resume on RN side if we paused native playback earlier
+              setTimeout(() => {
+                if (autoResumeAfterWakeRef.current && isTTSReadingRef.current === false) {
+                  // Resume native TTS from the currentParagraphIndexRef
+                  const idx = currentParagraphIndexRef.current ?? -1;
+                  if (idx >= 0) {
+                    // Attempt to resume using native batch playback
+                    try {
+                      const paragraphs = extractParagraphs(html);
+                      if (paragraphs && paragraphs.length > idx) {
+                        const remaining = paragraphs.slice(idx);
+                        const ids = remaining.map((_, i) => `chapter_${chapter.id}_utterance_${idx + i}`);
+                        // Start batch playback from the resolved index
+                        TTSHighlight.speakBatch(remaining, ids, {
+                          voice: readerSettingsRef.current.tts?.voice?.identifier,
+                          pitch: readerSettingsRef.current.tts?.pitch || 1,
+                          rate: readerSettingsRef.current.tts?.rate || 1,
+                        })
+                          .then(() => {
+                            console.log('WebViewReader: Resumed TTS after wake (RN-side)');
+                            isTTSReadingRef.current = true;
+                          })
+                          .catch(err => {
+                            console.error('WebViewReader: Failed to resume TTS after wake', err);
+                          });
+                      }
+                    } catch (e) {
+                      console.warn('WebViewReader: Cannot resume TTS after wake (failed extract)', e);
+                    }
+                  }
+
+                  autoResumeAfterWakeRef.current = false;
+                }
+              }, 900);
               }
             }, 300);
           }
@@ -1132,12 +1220,41 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   break;
                 }
                 
-                // During grace period, also reject events without chapterId (legacy WebView)
-                if (timeSinceTransition < GRACE_PERIOD_MS && event.chapterId === undefined) {
+                // During the grace period, we should ignore legacy saves without
+                // chapterId (old WebView) — and also avoid accepting early
+                // save events that would overwrite recently-known TTS progress
+                // (e.g. the WebView may send a default 0 index on load).
+                if (timeSinceTransition < GRACE_PERIOD_MS) {
+                  if (event.chapterId === undefined) {
                   console.log(
                     `WebViewReader: Ignoring save event without chapterId during grace period (${timeSinceTransition}ms)`,
                   );
                   break;
+                  }
+
+                  // If the event explicitly includes a paragraphIndex but that
+                  // index is older/behind our current TTS progress (or is the
+                  // initial 0) then ignore it to avoid clobbering the correct
+                  // position written by the native TTS playback.
+                  const incomingIdx = typeof event.paragraphIndex === 'number' ? event.paragraphIndex : -1;
+                  const currentIdx = currentParagraphIndexRef.current ?? -1;
+                  const latestIdx = latestParagraphIndexRef.current ?? -1;
+
+                  if (incomingIdx >= 0) {
+                    // If incoming progress is strictly less than our last known
+                    // progress, treat it as stale and ignore it.
+                    if (latestIdx >= 0 && incomingIdx < latestIdx) {
+                      console.log(`WebViewReader: Ignoring early/stale save event (incoming=${incomingIdx} vs latest=${latestIdx})`);
+                      break;
+                    }
+
+                    // Some WebView instances emit 0 as an initial save; if we
+                    // already have a positive index for this chapter ignore the 0.
+                    if (incomingIdx === 0 && Math.max(currentIdx, latestIdx) > 0) {
+                      console.log('WebViewReader: Ignoring initial 0 save during grace period');
+                      break;
+                    }
+                  }
                 }
                 
                 console.log(

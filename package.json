@@ -17,6 +17,7 @@
     "format": "prettier --write \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
     "format:check": "prettier --check \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
     "type-check": "tsc --noEmit",
+    "test": "jest --passWithNoTests",
     "test:tts-refill": "node ./scripts/tts_refill_simulator.js",
     "clean:full": "rm -rf node_modules/ ./android/build/ ./android/app/build/ ./android/app/.cxx && pnpm i && cd android/ && ./gradlew clean && cd .. && pnpm run dev:start -- --reset-cache",
     "prepare": "husky install",
@@ -106,6 +107,7 @@
     "urlencode": "^2.0.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "@babel/core": "^7.28.5",
     "@babel/plugin-transform-export-namespace-from": "^7.27.1",
     "@babel/preset-env": "^7.28.5",
