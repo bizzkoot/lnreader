@@ -15,9 +15,11 @@ import { Portal } from 'react-native-paper';
 import VoicePickerModal from '@screens/settings/SettingsReaderScreen/Modals/VoicePickerModal';
 import TTSScrollBehaviorModal from '@screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal';
 import Switch from '@components/Switch/Switch';
+import { useChapterContext } from '../../ChapterContext';
 
 const ReaderTTSTab: React.FC = React.memo(() => {
   const theme = useTheme();
+  const { webViewRef } = useChapterContext();
   const {
     TTSEnable = false,
     showParagraphHighlight = true,
@@ -35,6 +37,20 @@ const ReaderTTSTab: React.FC = React.memo(() => {
   const [localPitch, setLocalPitch] = useState(tts?.pitch || 1);
   const [isDraggingRate, setIsDraggingRate] = useState(false);
   const [isDraggingPitch, setIsDraggingPitch] = useState(false);
+
+  // Helper to post TTS settings to WebView for immediate effect
+  const postTTSSettingsToWebView = useCallback(
+    (settings: { rate?: number; pitch?: number; voice?: string; enabled?: boolean; showParagraphHighlight?: boolean }) => {
+      if (webViewRef?.current) {
+        const message = JSON.stringify({
+          type: 'tts-update-settings',
+          data: settings,
+        });
+        webViewRef.current.postMessage(message);
+      }
+    },
+    [webViewRef],
+  );
 
   // Sync local state when tts settings change externally
   useEffect(() => {
@@ -101,7 +117,8 @@ const ReaderTTSTab: React.FC = React.memo(() => {
         } as Voice,
       },
     });
-  }, [setChapterReaderSettings]);
+    postTTSSettingsToWebView({ rate: 1, pitch: 1, voice: 'default' });
+  }, [setChapterReaderSettings, postTTSSettingsToWebView]);
 
   return (
     <>
@@ -117,9 +134,11 @@ const ReaderTTSTab: React.FC = React.memo(() => {
             <Switch
               value={TTSEnable}
               onValueChange={() => {
+                const newValue = !TTSEnable;
                 setChapterGeneralSettings({
-                  TTSEnable: !TTSEnable,
+                  TTSEnable: newValue,
                 });
+                postTTSSettingsToWebView({ enabled: newValue });
               }}
             />
           </View>
@@ -157,6 +176,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       setChapterReaderSettings({
                         tts: { ...tts, rate: newValue },
                       });
+                      postTTSSettingsToWebView({ rate: newValue });
                     }}
                   >
                     <Text
@@ -181,6 +201,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       setChapterReaderSettings({
                         tts: { ...tts, rate: value },
                       });
+                      postTTSSettingsToWebView({ rate: value });
                     }}
                   />
                   <Pressable
@@ -191,6 +212,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       setChapterReaderSettings({
                         tts: { ...tts, rate: newValue },
                       });
+                      postTTSSettingsToWebView({ rate: newValue });
                     }}
                   >
                     <Text
@@ -223,6 +245,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       setChapterReaderSettings({
                         tts: { ...tts, pitch: newValue },
                       });
+                      postTTSSettingsToWebView({ pitch: newValue });
                     }}
                   >
                     <Text
@@ -247,6 +270,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       setChapterReaderSettings({
                         tts: { ...tts, pitch: value },
                       });
+                      postTTSSettingsToWebView({ pitch: value });
                     }}
                   />
                   <Pressable
@@ -257,6 +281,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       setChapterReaderSettings({
                         tts: { ...tts, pitch: newValue },
                       });
+                      postTTSSettingsToWebView({ pitch: newValue });
                     }}
                   >
                     <Text
@@ -287,11 +312,13 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                 </Text>
                 <Switch
                   value={showParagraphHighlight}
-                  onValueChange={() =>
+                  onValueChange={() => {
+                    const newValue = !showParagraphHighlight;
                     setChapterGeneralSettings({
-                      showParagraphHighlight: !showParagraphHighlight,
-                    })
-                  }
+                      showParagraphHighlight: newValue,
+                    });
+                    postTTSSettingsToWebView({ showParagraphHighlight: newValue });
+                  }}
                 />
               </View>
               <View style={styles.switchItem}>
@@ -344,6 +371,9 @@ const ReaderTTSTab: React.FC = React.memo(() => {
           visible={voiceModalVisible}
           onDismiss={hideVoiceModal}
           voices={voices}
+          onVoiceSelect={(voice: TTSVoice) => {
+            postTTSSettingsToWebView({ voice: voice.identifier });
+          }}
         />
         <TTSScrollBehaviorModal
           visible={ttsAutoDownloadModalVisible}

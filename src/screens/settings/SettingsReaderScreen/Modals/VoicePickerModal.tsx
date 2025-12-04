@@ -14,12 +14,14 @@ interface VoicePickerModalProps {
   visible: boolean;
   onDismiss: () => void;
   voices: TTSVoice[];
+  onVoiceSelect?: (voice: TTSVoice) => void;
 }
 
 const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   onDismiss,
   visible,
   voices,
+  onVoiceSelect,
 }) => {
   const theme = useTheme();
   const [searchedVoices, setSearchedVoices] = useState<TTSVoice[]>([]);
@@ -61,11 +63,12 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
             <RadioButton
               key={item.identifier}
               status={item.identifier === tts?.voice?.identifier}
-              onPress={() =>
+              onPress={() => {
                 setChapterReaderSettings({
                   tts: { ...tts, voice: item as Voice },
-                })
-              }
+                });
+                onVoiceSelect?.(item);
+              }}
               label={item.name}
               theme={theme}
             />

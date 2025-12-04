@@ -108,6 +108,49 @@ window.reader = new (function () {
     }
   });
 
+  // Reactive bridge: apply TTS-related setting changes immediately
+  van.derive(() => {
+    const g = this.generalSettings.val || {};
+
+    const ttsSettings = {
+      enabled: !!g.TTSEnable,
+      autoResume: g.ttsAutoResume,
+      scrollPrompt: g.ttsScrollPrompt,
+      showParagraphHighlight: !!g.showParagraphHighlight,
+      // optional numeric/text fields if present
+      rate: g.ttsRate,
+      pitch: g.ttsPitch,
+      voice: g.ttsVoice,
+    };
+
+    // Simple shallow equality guard to avoid noisy posts
+    try {
+      const prev = window.__prevTTSSettings || {};
+      const changed = JSON.stringify(prev) !== JSON.stringify(ttsSettings);
+      if (!changed) return;
+      window.__prevTTSSettings = ttsSettings;
+    } catch (e) {
+      window.__prevTTSSettings = ttsSettings;
+    }
+
+    // Inform native side so native TTS can update immediately
+    try {
+      this.post({ type: 'tts-update-settings', data: ttsSettings });
+    } catch (e) {
+      // best-effort
+      console.warn('tts-update-settings post failed', e);
+    }
+
+    // Also let the in-webview TTS instance apply non-native settings
+    if (window.tts && typeof window.tts.applySettings === 'function') {
+      try {
+        window.tts.applySettings(ttsSettings);
+      } catch (e) {
+        console.warn('window.tts.applySettings failed', e);
+      }
+    }
+  });
+
   this._cachedReadableElements = null;
   this._cacheInvalidated = true;
 
@@ -454,6 +497,31 @@ window.tts = new (function () {
   this.log = (...args) => {
     if (this.DEBUG_TTS || initialReaderConfig.DEBUG) {
       console.log('[TTS]', ...args);
+    }
+  };
+
+  // Apply settings from reader.generalSettings immediately in the webview
+  this.applySettings = settings => {
+    try {
+      this.log('Applying settings', settings);
+      if (settings.enabled !== undefined) this.enabled = !!settings.enabled;
+      if (settings.rate !== undefined) this.rate = settings.rate;
+      if (settings.pitch !== undefined) this.pitch = settings.pitch;
+      if (settings.voice !== undefined) this.voice = settings.voice;
+      if (settings.showParagraphHighlight !== undefined)
+        this.showParagraphHighlight = !!settings.showParagraphHighlight;
+
+      // If currently reading, we prefer to update parameters in-place without stopping.
+      // Notify native side as well so native TTS engine can adjust immediately.
+      try {
+        if (reader && typeof reader.post === 'function') {
+          reader.post({ type: 'tts-apply-settings', data: settings });
+        }
+      } catch (e) {
+        this.log('Failed to post tts-apply-settings', e);
+      }
+    } catch (e) {
+      console.warn('applySettings error', e);
     }
   };
 
@@ -1889,6 +1957,35 @@ window.addEventListener('load', () => {
     requestAnimationFrame(() => setTimeout(calculatePages, 0));
   });
 });
+
+// Receive messages from React Native to update settings live
+const __handleNativeMessage = ev => {
+  let payload = ev && ev.data ? ev.data : ev;
+  try {
+    if (typeof payload === 'string') payload = JSON.parse(payload);
+  } catch (e) {
+    // ignore non-json messages
+  }
+
+  if (!payload || !payload.type) return;
+
+  try {
+    if (payload.type === 'set-general-settings' && payload.data) {
+      // Merge shallowly into existing generalSettings value
+      reader.generalSettings.val = Object.assign({}, reader.generalSettings.val, payload.data);
+    } else if (payload.type === 'tts-update-settings' && payload.data) {
+      if (window.tts && typeof window.tts.applySettings === 'function') {
+        window.tts.applySettings(payload.data);
+      }
+    }
+  } catch (e) {
+    console.warn('__handleNativeMessage error', e);
+  }
+};
+
+window.addEventListener('message', __handleNativeMessage);
+// Some WebView implementations also emit 'message' on document
+document.addEventListener('message', __handleNativeMessage);
 
 // click handler
 (function () {

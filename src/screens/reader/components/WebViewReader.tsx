@@ -1206,6 +1206,46 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 );
               }
               break;
+            case 'tts-update-settings':
+            case 'tts-apply-settings':
+              // Handle live TTS settings updates from WebView
+              if (event.data && typeof event.data === 'object' && !Array.isArray(event.data)) {
+                const ttsData = event.data as { rate?: number; pitch?: number; voice?: string; enabled?: boolean; showParagraphHighlight?: boolean };
+                console.log('WebViewReader: Received TTS settings update:', ttsData);
+                
+                // Update the refs so future speak() calls use new params
+                if (ttsData.rate !== undefined || ttsData.pitch !== undefined || ttsData.voice !== undefined) {
+                  const currentTTS = readerSettingsRef.current.tts || {};
+                  const currentVoice = currentTTS.voice;
+                  
+                  readerSettingsRef.current = {
+                    ...readerSettingsRef.current,
+                    tts: {
+                      ...currentTTS,
+                      rate: ttsData.rate ?? currentTTS.rate,
+                      pitch: ttsData.pitch ?? currentTTS.pitch,
+                      // Only update voice if we have a valid current voice to spread from
+                      voice: ttsData.voice !== undefined && currentVoice 
+                        ? { ...currentVoice, identifier: ttsData.voice } 
+                        : currentVoice,
+                    },
+                  };
+                }
+                
+                // Update general settings ref
+                if (ttsData.enabled !== undefined || ttsData.showParagraphHighlight !== undefined) {
+                  chapterGeneralSettingsRef.current = {
+                    ...chapterGeneralSettingsRef.current,
+                    TTSEnable: ttsData.enabled ?? chapterGeneralSettingsRef.current.TTSEnable,
+                    showParagraphHighlight: ttsData.showParagraphHighlight ?? chapterGeneralSettingsRef.current.showParagraphHighlight,
+                  };
+                }
+                
+                // Note: For background/batch TTS, rate/pitch/voice changes will apply
+                // on next paragraph or when TTS restarts. The native TTS engine doesn't
+                // support changing parameters mid-utterance.
+              }
+              break;
           }
         }}
         source={{
