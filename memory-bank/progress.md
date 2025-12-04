@@ -2,14 +2,14 @@
 
 ## Done
 
-- Added retries + fallback to TTSAudioManager.refillQueue
-- Added retry + fallback to WebViewReader.t ts-queue handler
-- Added pendingScreenWakeSyncRef flow to WebViewReader
+- Added local simulator script for addToBatch failures
+- Added npm script test:tts-refill and ran simulator
 
 ## Doing
 
-- Manual/adjacent regression checks via lint and type-check
+- Documenting harness and results in memory-bank
+ - Added lightweight local simulator to reproduce addToBatch failures (scripts/tts_refill_simulator.js)
 
 ## Next
 
-- Run real-device test to confirm background multi-chapter continuation and watch for addToBatch failures
+- Run real-device reproduction and capture native logs if desired

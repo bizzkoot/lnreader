@@ -17,6 +17,7 @@
     "format": "prettier --write \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
     "format:check": "prettier --check \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
     "type-check": "tsc --noEmit",
+    "test:tts-refill": "node ./scripts/tts_refill_simulator.js",
     "clean:full": "rm -rf node_modules/ ./android/build/ ./android/app/build/ ./android/app/.cxx && pnpm i && cd android/ && ./gradlew clean && cd .. && pnpm run dev:start -- --reset-cache",
     "prepare": "husky install",
     "nix:shell": "nix develop --extra-experimental-features nix-command --extra-experimental-features flakes",
