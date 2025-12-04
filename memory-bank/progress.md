@@ -1,20 +1,17 @@
-# Progress (Updated: 2025-12-03)
+# Progress (Updated: 2025-12-04)
 
 ## Done
 
-- Fixed TTS background playback chapter navigation
-- Fixed cross-chapter event pollution during transitions
-- Fixed ForegroundService Android 12+ restriction
-- Fixed screen wake TTS scroll issue with chapter ID validation
-- Fixed TTS resume skipping first paragraph
-- Enhanced TTS settings slider UX with real-time feedback and +/- buttons
+- Bug 1 Fix: Added ensureWakeLockHeld() in TTSForegroundService.kt to re-acquire wake lock on each utterance start
+- Bug 2 Fix: Changed tts-queue handler to use addToBatch() instead of speakBatch() to preserve first paragraph during resume
+- Bug 3 Fix: Added ttsScreenWakeSyncPending flag to block calculatePages during screen wake, enhanced screen wake sync handler
+- Bug 4 Fix: Added isWebViewSyncedRef to track WebView chapter state, skip JS injections when WebView has old chapter HTML during background TTS
 
 ## Doing
 
-
+- Testing background TTS multi-chapter transitions
 
 ## Next
 
-- Test TTS background playback with multi-chapter continuation on release build
-- Verify screen wake sync works correctly
-- Consider adding loading indicator during screen wake sync for better UX
+- Test on real device with extended background TTS playback across multiple chapters
+- Monitor for edge cases with chapter transitions when screen wakes

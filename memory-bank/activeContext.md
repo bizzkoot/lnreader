@@ -2,13 +2,16 @@
 
 ## Current Goals
 
-- **TTS Background Playback & Screen Wake Fixes (2025-12-03)**
-- Implemented comprehensive fixes for TTS issues during background playback and screen wake:
-- 1. **Chapter ID Validation**: Added chapter ID parameter to `highlightParagraph()` and `updateState()` in core.js to prevent stale events from old chapters causing wrong scrolls when screen wakes
-- 2. **Screen Wake Sync**: Added AppState 'active' handler in WebViewReader.tsx to force WebView sync to current TTS paragraph position when user wakes screen during background playback
-- 3. **Resume Fix**: Fixed `restoreState()` to call `speak()` directly instead of `next()`, preventing the saved paragraph from being skipped on resume
-- 4. **Slider UX**: Enhanced TTS settings sliders with real-time value display, +/- buttons, better touch areas, and visual markers
-- All changes committed and pushed to dev branch.
+- **TTS Background Multi-Chapter Playback Fix (2025-12-04)**
+- Fixed a critical bug where TTS could not transition to 2nd+ chapters during background playback (screen off).
+- **Root Cause**: When TTS navigates to a new chapter during background playback, the WebView does NOT reload with the new chapter's HTML - it keeps the old chapter loaded. React Native side correctly updates to the new chapter, but WebView's `reader.chapter.id` stays at the old chapter. When TTS event handlers try to inject JavaScript for highlighting/state updates, core.js rejects them as "stale chapter" because the IDs don't match.
+- **Solution**: Added `isWebViewSyncedRef` to track if WebView has current chapter loaded:
+- - Set to `false` when background TTS navigation starts
+- - Set to `true` when WebView's onLoadEnd fires
+- - TTS event handlers check this flag before injecting JS
+- - When not synced, skip WebView injections but continue TTS playback
+- - Progress is saved via RN's saveProgress() regardless of WebView state
+- **Files Changed**: WebViewReader.tsx
 
 ## Key Files Modified
 

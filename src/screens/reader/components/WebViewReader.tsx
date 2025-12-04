@@ -155,6 +155,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const prevChapterIdRef = useRef<number>(chapter.id);
   // NEW: Grace period timestamp to ignore stale save events after chapter change
   const chapterTransitionTimeRef = useRef<number>(0);
+  // NEW: Track if WebView is synchronized with current chapter
+  // During background TTS, WebView may still have old chapter loaded
+  const isWebViewSyncedRef = useRef<boolean>(true);
 
   useEffect(() => {
     progressRef.current = chapter.progress;
@@ -195,6 +198,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     if (backgroundTTSPendingRef.current && html) {
       console.log('WebViewReader: Background TTS pending, starting directly from RN');
       backgroundTTSPendingRef.current = false;
+      
+      // CRITICAL: Mark WebView as NOT synced - it still has old chapter's HTML
+      // This prevents us from trying to inject JS into the wrong chapter context
+      isWebViewSyncedRef.current = false;
       
       // Extract paragraphs from HTML
       const paragraphs = extractParagraphs(html);
@@ -571,7 +578,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Sync WebView UI & Logic (fire and forget)
             // Added 'true;' and console logs for debugging
             // CRITICAL: Pass chapter ID to prevent stale events from wrong chapter
-            if (webViewRef.current) {
+            // CRITICAL: Only inject JS if WebView is synced with current chapter
+            if (webViewRef.current && isWebViewSyncedRef.current) {
               const currentChapterId = prevChapterIdRef.current;
               webViewRef.current.injectJavaScript(`
                     try {
@@ -587,6 +595,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     }
                     true;
                 `);
+            } else if (!isWebViewSyncedRef.current) {
+              // WebView is not synced (background mode) - skip injection but log
+              console.log(`WebViewReader: Skipping WebView sync (background mode) - index ${nextIndex}`);
             } else {
               console.warn(
                 'WebViewReader: webViewRef is null during queue playback',
@@ -629,7 +640,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         const start = Number(event?.start) || 0;
         const end = Number(event?.end) || 0;
 
-        if (webViewRef.current && paragraphIndex >= 0) {
+        // CRITICAL: Only inject JS if WebView is synced with current chapter
+        if (webViewRef.current && paragraphIndex >= 0 && isWebViewSyncedRef.current) {
           webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts && window.tts.highlightRange) {
@@ -639,6 +651,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               true;
             `);
         }
+        // Skip logging for word range to reduce spam
       } catch (e) {
         console.warn('WebViewReader: onWordRange handler error', e);
       }
@@ -672,7 +685,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         // Update current index
         if (paragraphIndex >= 0) currentParagraphIndexRef.current = paragraphIndex;
 
-        if (webViewRef.current && paragraphIndex >= 0) {
+        // CRITICAL: Only inject JS if WebView is synced with current chapter
+        if (webViewRef.current && paragraphIndex >= 0 && isWebViewSyncedRef.current) {
           // CRITICAL: Pass chapter ID to prevent stale events from wrong chapter
           const currentChapterId = prevChapterIdRef.current;
           webViewRef.current.injectJavaScript(`
@@ -684,6 +698,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               } catch (e) { console.error('TTS: start inject failed', e); }
               true;
             `);
+        }
+        // Log periodically for background mode (every 10 paragraphs)
+        if (!isWebViewSyncedRef.current && paragraphIndex % 10 === 0) {
+          console.log(`WebViewReader: Background TTS progress - paragraph ${paragraphIndex}`);
         }
       } catch (e) {
         console.warn('WebViewReader: onSpeechStart handler error', e);
@@ -773,7 +791,25 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             console.log(
               'WebViewReader: Screen woke during TTS, syncing to paragraph',
               currentParagraphIndexRef.current,
+              'WebView synced:', isWebViewSyncedRef.current,
             );
+            
+            // Check if WebView is synced with current chapter
+            if (!isWebViewSyncedRef.current) {
+              // WebView has old chapter's HTML - it will reload automatically
+              // when we return to foreground and React re-renders with new HTML source
+              // The onLoadEnd handler will set isWebViewSyncedRef.current = true
+              console.log('WebViewReader: WebView out of sync - waiting for reload');
+              
+              // Stop the current TTS and let it resume after WebView reloads
+              // This ensures clean state when switching from background chapter to foreground
+              // Note: We DON'T stop TTS here - it should continue playing
+              // The WebView will catch up when it reloads
+              
+              // Mark that we need to sync position after WebView reloads
+              // The position is tracked in currentParagraphIndexRef
+              return;
+            }
             
             // BUG 3 FIX: IMMEDIATELY set blocking flag to prevent calculatePages from scrolling
             // This must happen BEFORE the 300ms timeout to win the race condition
@@ -961,9 +997,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         javaScriptEnabled={true}
         webviewDebuggingEnabled={__DEV__}
         onLoadEnd={() => {
+          // Mark WebView as synced with current chapter
+          isWebViewSyncedRef.current = true;
+          console.log(`WebViewReader: onLoadEnd - WebView synced with chapter ${chapter.id}`);
+          
           // Skip WebView-driven TTS start if background mode is handling it
           if (backgroundTTSPendingRef.current) {
-            console.log('WebViewReader: onLoadEnd skipped - background TTS pending');
+            console.log('WebViewReader: onLoadEnd skipped TTS start - background TTS pending');
             return;
           }
           
