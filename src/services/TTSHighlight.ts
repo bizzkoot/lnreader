@@ -99,48 +99,98 @@ class TTSHighlightService {
   }
 
   formatVoiceName(voice: TTSVoice): string {
-    // 1. Check explicit mapping
-    const mapping = getVoiceMapping(voice.identifier);
-    if (mapping) {
-      return `${mapping.label} (${mapping.gender === 'male' ? 'Male' : 'Female'
-        }) - ${voice.quality === '400' || voice.identifier.includes('network')
-          ? 'High Quality'
-          : 'Normal'
-        }`;
-    }
-
-    // 2. Fallback: Parse technical name
-    const getLanguageName = (lang: string) => {
+    // Language display map (compact)
+    const getLanguageShort = (lang: string): string => {
       const langMap: Record<string, string> = {
         'en-US': 'English (US)',
         'en-GB': 'English (UK)',
-        'en-AU': 'English (Australia)',
-        'en-IN': 'English (India)',
-        'es-ES': 'Spanish (Spain)',
+        'en-AU': 'English (AU)',
+        'en-IN': 'English (IN)',
+        'es-ES': 'Spanish (ES)',
         'es-US': 'Spanish (US)',
-        'fr-FR': 'French (France)',
-        'de-DE': 'German (Germany)',
-        'it-IT': 'Italian (Italy)',
-        'ja-JP': 'Japanese (Japan)',
-        'ko-KR': 'Korean (South Korea)',
-        'zh-CN': 'Chinese (China)',
-        'zh-TW': 'Chinese (Taiwan)',
+        'es-MX': 'Spanish (MX)',
+        'fr-FR': 'French (FR)',
+        'fr-CA': 'French (CA)',
+        'de-DE': 'German',
+        'it-IT': 'Italian',
+        'ja-JP': 'Japanese',
+        'ko-KR': 'Korean',
+        'zh-CN': 'Chinese (CN)',
+        'zh-TW': 'Chinese (TW)',
+        'pt-BR': 'Portuguese (BR)',
+        'pt-PT': 'Portuguese (PT)',
+        'ru-RU': 'Russian',
+        'hi-IN': 'Hindi',
+        'ar-XA': 'Arabic',
       };
-      return langMap[lang] || lang;
+      return langMap[lang] || lang || 'Unknown';
     };
 
-    const prefix = getLanguageName(voice.language);
+    // Determine if high quality
+    const isHQ =
+      (voice.quality && Number(voice.quality) >= 400) ||
+      /network|wavenet|neural|enhanced/i.test(voice.identifier);
+    const hqMarker = isHQ ? ' • HQ' : '';
 
-    let cleanId = voice.identifier;
-    cleanId = cleanId.replace(/-x-/g, '-');
-    cleanId = cleanId.replace(/-/g, ' ');
-    if (cleanId.toLowerCase().startsWith(voice.language.toLowerCase())) {
-      cleanId = cleanId.substring(voice.language.length).trim();
+    // 1. Check explicit mapping (curated voices with real names)
+    const mapping = getVoiceMapping(voice.identifier);
+    if (mapping) {
+      const lang = getLanguageShort(voice.language);
+      const genderShort = mapping.gender === 'male' ? 'M' : mapping.gender === 'female' ? 'F' : '—';
+      const styleInfo = mapping.style ? `, ${mapping.style}` : '';
+      // Format: "English (US) — Josephine — F, Warm • HQ"
+      return `${lang} — ${mapping.name} — ${genderShort}${styleInfo}${hqMarker}`;
     }
 
-    cleanId = cleanId.replace(/\b\w/g, l => l.toUpperCase());
+    // 2. Fallback: Parse technical identifier into readable format
+    const lang = getLanguageShort(voice.language);
 
-    return `${prefix} - ${cleanId}`;
+    let id = voice.identifier || '';
+    // Clean up common noise
+    id = id.replace(/-x-/g, '-');
+    id = id.replace(/com\.apple\.(ttsbundle|voice)\.(compact|enhanced)\./gi, '');
+    id = id.replace(/com\.apple\.ttsbundle\./gi, '');
+    id = id.replace(/-network|-local|\.compact|_compact/gi, '');
+    id = id.replace(/[._]+/g, ' ');
+
+    // Extract meaningful tokens
+    const tokens = id.split(/[-\s]+/).filter(Boolean);
+
+    // Try to find a name-like token (skip language codes)
+    let friendly = '';
+    const langCodePattern = /^(en|es|fr|de|it|ja|ko|zh|pt|ru|hi|ar)[-_]?[a-z]{0,2}$/i;
+
+    if (/wavenet/i.test(id)) {
+      const idx = tokens.findIndex(t => /wavenet/i.test(t));
+      friendly = tokens.slice(idx, idx + 2).join(' ');
+    } else if (/standard/i.test(id)) {
+      const idx = tokens.findIndex(t => /standard/i.test(t));
+      friendly = tokens.slice(idx, idx + 2).join(' ');
+    } else if (/neural/i.test(id)) {
+      // Azure neural: extract name before Neural
+      const idx = tokens.findIndex(t => /neural/i.test(t));
+      if (idx > 0) {
+        friendly = tokens[idx - 1];
+      } else {
+        friendly = tokens.slice(idx, idx + 2).join(' ');
+      }
+    } else {
+      // Take last meaningful token(s), skip language codes
+      const meaningfulTokens = tokens.filter(t => !langCodePattern.test(t) && t.length > 1);
+      friendly = meaningfulTokens.slice(-2).join(' ') || tokens[tokens.length - 1] || 'Voice';
+    }
+
+    // Title case
+    friendly = friendly
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ')
+      .trim();
+
+    if (!friendly) friendly = 'Voice';
+
+    // Format: "English (US) — Sfg — HQ" (fallback, no gender/style info)
+    return `${lang} — ${friendly}${hqMarker}`;
   }
 }
 
