@@ -126,7 +126,7 @@ class TTSHighlightService {
       return langMap[lang] || lang || 'Unknown';
     };
 
-    // Determine if high quality
+    // Determine if high quality (fallback) — but prefer explicit native match type
     const isHQ =
       (voice.quality && Number(voice.quality) >= 400) ||
       /network|wavenet|neural|enhanced/i.test(voice.identifier);
@@ -136,10 +136,22 @@ class TTSHighlightService {
     const mapping = getVoiceMapping(voice.identifier);
     if (mapping) {
       const lang = getLanguageShort(voice.language);
-      const genderShort = mapping.gender === 'male' ? 'M' : mapping.gender === 'female' ? 'F' : '—';
-      const styleInfo = mapping.style ? `, ${mapping.style}` : '';
-      // Format: "English (US) — Josephine — F, Warm • HQ"
-      return `${lang} — ${mapping.name} — ${genderShort}${styleInfo}${hqMarker}`;
+      // Simplify name: remove duplicate region info like "(US)" if already in lang
+      let simpleName = mapping.name || 'Voice';
+      simpleName = simpleName.replace(/\s*\([A-Z]{2,}\)$/i, '').trim();
+      // Abbreviate "voice" in generic names: "Female voice 2" -> "Female 2"
+      simpleName = simpleName.replace(/\bvoice\s*/i, '').trim();
+
+      const styleInfo = mapping.style ? ` — ${mapping.style}` : '';
+      // Prefer explicit native type tag over generic HQ marker
+      const nativeTag = mapping.matchedNativeType === 'local'
+        ? ' — LOCAL'
+        : mapping.matchedNativeType === 'network'
+        ? ' — NETWORK'
+        : '';
+
+      // Format: "English (UK) — Male 1 — Clear — LOCAL"
+      return `${lang} — ${simpleName}${styleInfo}${nativeTag || hqMarker}`;
     }
 
     // 2. Fallback: Parse technical identifier into readable format
