@@ -272,6 +272,13 @@ window.reader = new (function () {
   };
 
   this.processScroll = currentScrollY => {
+    // CRITICAL: Block scroll processing entirely during screen wake sync
+    if (window.ttsScreenWakeSyncPending) {
+      console.log('processScroll: BLOCKED - Screen wake sync pending');
+      this.accumulatedScrollDelta = 0;
+      return;
+    }
+    
     // ENHANCED: Detect user manual scroll during TTS
     if (window.tts && window.tts.reading) {
       // Check if TTS has completed its auto-scroll before processing user scroll
@@ -364,8 +371,23 @@ window.reader = new (function () {
 
     // PROGRESS SAVING LOGIC
     // CRITICAL: Do NOT save progress if TTS is reading. TTS handles its own progress.
+    // ALSO block saves during screen wake sync and shortly after TTS stops
     if (window.tts && window.tts.reading) {
       // window.tts.log('Skipping scroll-based save (TTS is reading)');
+      return;
+    }
+    
+    // BUG FIX: Block saves during screen wake sync
+    if (window.ttsScreenWakeSyncPending) {
+      console.log('processScroll: Skipping save - screen wake sync pending');
+      return;
+    }
+    
+    // BUG FIX: Block saves shortly after TTS stops (grace period)
+    // This prevents small scrolls from corrupting the TTS position
+    const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
+    if (timeSinceTTSStop < 2000) { // 2 second grace period
+      console.log('processScroll: Skipping save - TTS grace period (' + timeSinceTTSStop + 'ms)');
       return;
     }
 
@@ -1039,6 +1061,8 @@ window.tts = new (function () {
   this.stop = () => {
     // Set global TTS operation flag during stop
     window.ttsOperationActive = true;
+    // BUG FIX: Track when TTS stops to implement grace period for scroll saves
+    window.ttsLastStopTime = Date.now();
 
     reader.post({ type: 'stop-speak' });
     this.currentElement?.classList?.remove('highlight');
@@ -1817,6 +1841,8 @@ function calculatePages() {
 // Global TTS operation tracking
 window.ttsOperationActive = false;
 window.ttsOperationEndTime = 0;
+// BUG FIX: Track when TTS stops to implement grace period for scroll saves
+window.ttsLastStopTime = 0;
 // BUG 3 FIX: Screen wake sync flag - set by RN when screen wakes during background TTS
 window.ttsScreenWakeSyncPending = false;
 

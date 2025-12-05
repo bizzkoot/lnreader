@@ -78,6 +78,29 @@ class TTSHighlightService {
     return TTSAudioManager.stop();
   }
 
+  /**
+   * Stop playback AND clear the restart flag.
+   * Use this for user-initiated stops (not for restart operations).
+   */
+  fullStop(): Promise<boolean> {
+    return TTSAudioManager.fullStop();
+  }
+
+  /**
+   * Mark that a restart operation is beginning.
+   * This prevents onQueueEmpty from firing during intentional stop/restart cycles.
+   */
+  setRestartInProgress(value: boolean) {
+    TTSAudioManager.setRestartInProgress(value);
+  }
+
+  /**
+   * Check if a restart operation is in progress.
+   */
+  isRestartInProgress(): boolean {
+    return TTSAudioManager.isRestartInProgress();
+  }
+
   pause(): Promise<boolean> {
     return TTSAudioManager.stop();
   }

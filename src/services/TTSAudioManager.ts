@@ -31,6 +31,25 @@ class TTSAudioManager {
     private _onQueueLowCallback?: () => void;
     // Track if we've already logged "no more items" to reduce spam
     private hasLoggedNoMoreItems = false;
+    // BUG FIX: Track if a restart operation is in progress to prevent
+    // onQueueEmpty from firing during intentional stop/restart cycles
+    private restartInProgress = false;
+
+    /**
+     * Mark that a restart operation is beginning.
+     * This prevents onQueueEmpty from firing during intentional stop/restart cycles.
+     */
+    setRestartInProgress(value: boolean) {
+        this.restartInProgress = value;
+        logDebug(`TTSAudioManager: restartInProgress set to ${value}`);
+    }
+
+    /**
+     * Check if a restart operation is in progress.
+     */
+    isRestartInProgress(): boolean {
+        return this.restartInProgress;
+    }
 
     async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
         try {
@@ -86,6 +105,8 @@ class TTSAudioManager {
                 this.currentIndex = BATCH_SIZE;
                 this.isPlaying = true;
                 this.hasLoggedNoMoreItems = false;
+                // BUG FIX: Clear restart flag now that new queue is populated
+                this.restartInProgress = false;
                 logDebug(
                     `TTSAudioManager: Started batch playback with ${batchTexts.length} items, ${texts.length - BATCH_SIZE} remaining`
                 );
@@ -229,6 +250,8 @@ class TTSAudioManager {
             this.currentQueue = [];
             this.currentUtteranceIds = [];
             this.currentIndex = 0;
+            // NOTE: Do NOT clear restartInProgress here - it's managed by the caller
+            // to prevent onQueueEmpty from firing during intentional restart cycles
 
             logDebug('TTSAudioManager: Playback stopped');
             return true;
@@ -236,6 +259,15 @@ class TTSAudioManager {
             logError('TTSAudioManager: Failed to stop playback:', error);
             return false;
         }
+    }
+
+    /**
+     * Stop playback AND clear the restart flag.
+     * Use this for user-initiated stops (not for restart operations).
+     */
+    async fullStop(): Promise<boolean> {
+        this.restartInProgress = false;
+        return this.stop();
     }
 
     async getQueueSize(): Promise<number> {
@@ -280,6 +312,13 @@ class TTSAudioManager {
         this.onQueueEmptyCallback = callback;
 
         const subscription = ttsEmitter.addListener('onQueueEmpty', () => {
+            // BUG FIX: Don't fire callback if a restart operation is in progress
+            // This prevents false "queue empty" signals during intentional stop/restart cycles
+            if (this.restartInProgress) {
+                logDebug('TTSAudioManager: onQueueEmpty ignored - restart in progress');
+                return;
+            }
+            
             logDebug('TTSAudioManager: Queue empty event received');
             if (this.onQueueEmptyCallback) {
                 this.onQueueEmptyCallback();

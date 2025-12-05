@@ -207,6 +207,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       if (settingsChanged && isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
         console.log('WebViewReader: TTS settings changed while playing, restarting with new settings');
         
+        // CRITICAL: Set restart flag BEFORE stopping to prevent onQueueEmpty from firing
+        TTSHighlight.setRestartInProgress(true);
+        
         // Stop current playback
         TTSHighlight.stop();
         
@@ -225,6 +228,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           };
           
           // Start batch playback with new settings
+          // NOTE: speakBatch will clear restartInProgress on success
           TTSHighlight.speakBatch(remaining, ids, {
             voice: liveReaderTts.voice?.identifier,
             pitch: liveReaderTts.pitch || 1,
@@ -237,7 +241,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             .catch(err => {
               console.error('WebViewReader: Failed to restart TTS with new settings', err);
               isTTSReadingRef.current = false;
+              // Clear restart flag on failure too
+              TTSHighlight.setRestartInProgress(false);
             });
+        } else {
+          // No paragraphs available, clear the restart flag
+          TTSHighlight.setRestartInProgress(false);
         }
       }
     }
@@ -818,6 +827,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     const queueEmptySubscription = TTSHighlight.addListener('onQueueEmpty', () => {
       console.log('WebViewReader: onQueueEmpty event received');
 
+      // BUG FIX: Don't proceed if a restart operation is in progress
+      // This prevents false chapter navigation during settings change restarts
+      if (TTSHighlight.isRestartInProgress()) {
+        console.log('WebViewReader: Queue empty ignored - restart in progress');
+        return;
+      }
+
       // Only proceed if TTS was actually reading (and thus chapter end is meaningful)
       if (!isTTSReadingRef.current) {
         console.log('WebViewReader: Queue empty but TTS was not reading, ignoring');
@@ -895,6 +911,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           // position to prevent stale scrolling, then resume playback once
           // the UI has been positioned.
           if (isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+            // BUG FIX: Immediately set screen wake sync flag to block all scroll saves
+            // This must happen FIRST before any other processing
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                try {
+                  window.ttsScreenWakeSyncPending = true;
+                  window.ttsOperationActive = true;
+                  reader.suppressSaveOnScroll = true;
+                  console.log('TTS: Screen wake - IMMEDIATELY blocking scroll operations');
+                } catch (e) {}
+                true;
+              `);
+            }
+            
             // Pause native playback immediately so we don't keep playing
             // while the UI syncs. Mark we should resume after the sync.
             try {
@@ -1308,6 +1338,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   break;
                 }
                 
+                // BUG FIX: When TTS is actively reading, only accept saves from TTS itself
+                // (identified by having a valid paragraphIndex). Scroll-based saves should be blocked.
+                // This ensures TTS is the single source of truth for progress during playback.
+                if (isTTSReadingRef.current) {
+                  // TTS is reading - only allow saves that came from TTS (via tts-state or direct paragraph save)
+                  // Scroll-based saves from core.js don't have ttsSource flag, so they'll be blocked
+                  if (event.paragraphIndex === undefined) {
+                    console.log('WebViewReader: Ignoring non-TTS save while TTS is reading');
+                    break;
+                  }
+                  // If paragraph is going BACKWARDS, it's likely a scroll-based save trying to override TTS
+                  const currentIdx = currentParagraphIndexRef.current ?? -1;
+                  if (typeof event.paragraphIndex === 'number' && currentIdx >= 0 && event.paragraphIndex < currentIdx - 1) {
+                    console.log(`WebViewReader: Ignoring backwards save (${event.paragraphIndex}) while TTS at ${currentIdx}`);
+                    break;
+                  }
+                }
+                
                 // During the grace period, we should ignore legacy saves without
                 // chapterId (old WebView) — and also avoid accepting early
                 // save events that would overwrite recently-known TTS progress
@@ -1396,7 +1444,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               }
               break;
             case 'stop-speak':
-              TTSHighlight.stop();
+              TTSHighlight.fullStop();
               isTTSReadingRef.current = false;
               break;
             case 'tts-state':
