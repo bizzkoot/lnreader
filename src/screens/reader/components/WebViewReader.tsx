@@ -8,7 +8,7 @@ import {
 import WebView from 'react-native-webview';
 import color from 'color';
 
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 
 import { getPlugin } from '@plugins/pluginManager';
@@ -31,6 +31,7 @@ import TTSManualModeDialog from './TTSManualModeDialog';
 import Toast from '@components/Toast';
 import { useBoolean } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
+import { applyTtsUpdateToWebView } from './ttsHelpers';
 
 type WebViewPostEvent = {
   type: string;
@@ -183,6 +184,18 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
   }, [readerSettings, chapterGeneralSettings]);
+
+  // Listen to live settings changes using the persisted hook; this will react
+  // to changes coming from the settings screen and notify the WebView.
+  const { tts: liveReaderTts } = useChapterReaderSettings();
+
+  useEffect(() => {
+    if (liveReaderTts) {
+      // Update our ref so other listeners will use the latest settings
+      readerSettingsRef.current = { ...readerSettingsRef.current, tts: liveReaderTts } as any;
+      applyTtsUpdateToWebView(liveReaderTts, webViewRef);
+    }
+  }, [liveReaderTts, webViewRef]);
 
   // FIX: Keep navigation refs synced to prevent stale closures in onQueueEmpty
   useEffect(() => {
@@ -1169,6 +1182,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           __DEV__ && onLogMessage(ev);
           const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
           switch (event.type) {
+            case 'tts-update-settings': {
+              if (event.data) {
+                applyTtsUpdateToWebView(event.data, webViewRef);
+              }
+              break;
+            }
             case 'hide':
               onPress();
               break;

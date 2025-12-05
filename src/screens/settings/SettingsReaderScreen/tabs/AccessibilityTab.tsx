@@ -21,6 +21,9 @@ import TTSScrollBehaviorModal from '../Modals/TTSScrollBehaviorModal';
 import AutoResumeModal from '../Modals/AutoResumeModal';
 
 const AccessibilityTab: React.FC = () => {
+    // No-op: Reader listens for settings changes via persisted storage and will
+    // apply updates live. We keep a helper if needed for web-based debug.
+    const sendTTSSettingsToReader = (_settings: any) => false;
   const theme = useTheme();
   const {
     fullScreenMode = true,
@@ -55,12 +58,32 @@ const AccessibilityTab: React.FC = () => {
       setLocalRate(tts?.rate || 1);
     }
   }, [tts?.rate, isDraggingRate]);
+
+  // Send TTS settings to Reader/webview when rate changes
+  useEffect(() => {
+    if (!isDraggingRate && tts?.rate) {
+      sendTTSSettingsToReader({ ...tts, rate: tts.rate });
+    }
+  }, [tts?.rate, isDraggingRate]);
   
   useEffect(() => {
     if (!isDraggingPitch) {
       setLocalPitch(tts?.pitch || 1);
     }
   }, [tts?.pitch, isDraggingPitch]);
+
+  // Send TTS settings to Reader/webview when pitch changes
+  useEffect(() => {
+    if (!isDraggingPitch && tts?.pitch) {
+      sendTTSSettingsToReader({ ...tts, pitch: tts.pitch });
+    }
+  }, [tts?.pitch, isDraggingPitch]);
+    // Send TTS settings to Reader/webview when voice changes
+    useEffect(() => {
+      if (tts?.voice) {
+        sendTTSSettingsToReader({ ...tts, voice: tts.voice });
+      }
+    }, [tts?.voice]);
   
   const {
     value: voiceModalVisible,

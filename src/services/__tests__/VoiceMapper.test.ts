@@ -1,3 +1,6 @@
+
+// Ensure Jest globals are available for type-checking
+import '@jest/globals';
 import { getVoiceMapping } from '../VoiceMapper';
 
 describe('VoiceMapper', () => {
