@@ -52,7 +52,7 @@ interface TTS {
   resume: () => void;
   stop: () => void;
   pause: () => void;
-  readable: (element?: HTMLElement) => void;
+  readable: (element?: HTMLElement) => boolean;
 }
 
 declare global {

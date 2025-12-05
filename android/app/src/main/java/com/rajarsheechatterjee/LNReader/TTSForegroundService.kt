@@ -28,6 +28,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     // Queue management for batch feeding
     private var currentBatchIndex = 0
     private val queuedUtteranceIds = mutableListOf<String>()
+    
+    // Track if service is already in foreground state to avoid Android 12+ background start restriction
+    private var isServiceForeground = false
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -40,6 +43,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun onSpeechDone(utteranceId: String)
         fun onSpeechError(utteranceId: String)
         fun onWordRange(utteranceId: String, start: Int, end: Int, frame: Int)
+        fun onQueueEmpty()  // Called when TTS queue is completely empty (chapter finished)
     }
 
     inner class TTSBinder : Binder() {
@@ -76,6 +80,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             isTtsInitialized = true
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) {
+                    // CRITICAL: Ensure wake lock is still held during playback
+                    // This prevents Android from releasing it during extended background sessions
+                    ensureWakeLockHeld()
                     ttsListener?.onSpeechStart(utteranceId)
                 }
 
@@ -85,6 +92,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                     // Track completion
                     synchronized(queuedUtteranceIds) {
                         queuedUtteranceIds.remove(utteranceId)
+                        // Notify when queue becomes empty (chapter finished)
+                        if (queuedUtteranceIds.isEmpty()) {
+                            ttsListener?.onQueueEmpty()
+                        }
                     }
                 }
 
@@ -114,15 +125,47 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             ttsInstance.setPitch(pitch)
             
             if (voiceId != null) {
+                var voiceFound = false
                 try {
                     for (voice in ttsInstance.voices) {
                         if (voice.name == voiceId) {
                             ttsInstance.voice = voice
+                            voiceFound = true
                             break
                         }
                     }
+                    // If preferred voice not found, try to find a high-quality alternative
+                    if (!voiceFound) {
+                        android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found, attempting fallback")
+                        // Retry: refresh voices and try again
+                        val refreshedVoices = ttsInstance.voices
+                        for (voice in refreshedVoices) {
+                            if (voice.name == voiceId) {
+                                ttsInstance.voice = voice
+                                voiceFound = true
+                                android.util.Log.i("TTSForegroundService", "Voice found on retry")
+                                break
+                            }
+                        }
+                        // If still not found, select best quality voice for same language
+                        if (!voiceFound) {
+                            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
+                            var bestVoice: Voice? = null
+                            var bestQuality = -1
+                            for (voice in refreshedVoices) {
+                                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
+                                    bestVoice = voice
+                                    bestQuality = voice.quality
+                                }
+                            }
+                            if (bestVoice != null) {
+                                ttsInstance.voice = bestVoice
+                                android.util.Log.w("TTSForegroundService", "Using fallback voice: ${bestVoice.name} (quality: $bestQuality)")
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
-                    // Ignore voice setting error
+                    android.util.Log.e("TTSForegroundService", "Voice setting error: ${e.message}")
                 }
             }
 
@@ -158,15 +201,47 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             ttsInstance.setPitch(pitch)
             
             if (voiceId != null) {
+                var voiceFound = false
                 try {
                     for (voice in ttsInstance.voices) {
                         if (voice.name == voiceId) {
                             ttsInstance.voice = voice
+                            voiceFound = true
                             break
                         }
                     }
+                    // If preferred voice not found, try to find a high-quality alternative
+                    if (!voiceFound) {
+                        android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found for batch, attempting fallback")
+                        // Retry: refresh voices and try again
+                        val refreshedVoices = ttsInstance.voices
+                        for (voice in refreshedVoices) {
+                            if (voice.name == voiceId) {
+                                ttsInstance.voice = voice
+                                voiceFound = true
+                                android.util.Log.i("TTSForegroundService", "Voice found on retry")
+                                break
+                            }
+                        }
+                        // If still not found, select best quality voice for same language
+                        if (!voiceFound) {
+                            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
+                            var bestVoice: Voice? = null
+                            var bestQuality = -1
+                            for (voice in refreshedVoices) {
+                                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
+                                    bestVoice = voice
+                                    bestQuality = voice.quality
+                                }
+                            }
+                            if (bestVoice != null) {
+                                ttsInstance.voice = bestVoice
+                                android.util.Log.w("TTSForegroundService", "Using fallback voice for batch: ${bestVoice.name} (quality: $bestQuality)")
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
-                    // Ignore voice setting error
+                    android.util.Log.e("TTSForegroundService", "Voice setting error in batch: ${e.message}")
                 }
             }
 
@@ -190,6 +265,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                         queuedUtteranceIds.add(utteranceId)
                     }
                 } else {
+                    android.util.Log.e("TTSForegroundService", "speak returned non-SUCCESS for utteranceId=${utteranceId} index=${i} result=${result}")
                     return false
                 }
             }
@@ -220,6 +296,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                         queuedUtteranceIds.add(utteranceId)
                     }
                 } else {
+                    android.util.Log.e("TTSForegroundService", "addToBatch speak returned non-SUCCESS for utteranceId=${utteranceId} batchIndex=${currentBatchIndex + i} result=${result}")
                     return false
                 }
             }
@@ -250,24 +327,78 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startForegroundService() {
-        if (wakeLock?.isHeld == false) {
-            wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes timeout
+        // CRITICAL: Only call startForeground() if not already in foreground state
+        // This prevents Android 12+ ForegroundServiceStartNotAllowedException when
+        // transitioning between chapters while the app is in background
+        if (isServiceForeground) {
+            // Already foreground, just ensure wake lock is held
+            try {
+                if (wakeLock?.isHeld == false) {
+                    wakeLock?.acquire()
+                }
+            } catch (e: Exception) {
+                // Best-effort wake lock acquisition
+            }
+            return
+        }
+        
+        // Acquire a persistent wake lock while the foreground TTS service
+        // is active to prevent the device from sleeping mid-playback.
+        // Previously this used a 10-minute timeout which could cause long
+        // reading sessions to stop after ~10 minutes (observed ~50 paragraphs).
+        // Acquire without timeout and release when the service stops.
+        try {
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire()
+            }
+        } catch (e: Exception) {
+            // Best-effort: if acquiring fails (security/behavioral differences),
+            // continue — service will remain foreground and most devices allow
+            // media playback to continue without an explicit wake lock.
         }
         
         val notification = createNotification("TTS is reading...")
         
-        if (Build.VERSION.SDK_INT >= 34) {
-             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            isServiceForeground = true
+        } catch (e: Exception) {
+            // If we still fail (edge case), log but don't crash
+            // The TTS will still work, just without foreground state
+            android.util.Log.e("TTSForegroundService", "Failed to start foreground: ${e.message}")
         }
     }
 
     private fun stopForegroundService() {
-        if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            // ignore release errors
         }
         stopForeground(true)
+        isServiceForeground = false
+    }
+    
+    /**
+     * Ensures the wake lock is held during TTS playback.
+     * Called on every utterance start to prevent Android from releasing it
+     * during extended background sessions (Bug 1 fix).
+     */
+    private fun ensureWakeLockHeld() {
+        try {
+            if (wakeLock?.isHeld == false) {
+                android.util.Log.d("TTSForegroundService", "Re-acquiring wake lock during playback")
+                wakeLock?.acquire()
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("TTSForegroundService", "Failed to re-acquire wake lock: ${e.message}")
+        }
     }
 
     private fun createNotificationChannel() {

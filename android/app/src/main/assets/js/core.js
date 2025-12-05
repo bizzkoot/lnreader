@@ -108,6 +108,49 @@ window.reader = new (function () {
     }
   });
 
+  // Reactive bridge: apply TTS-related setting changes immediately
+  van.derive(() => {
+    const g = this.generalSettings.val || {};
+
+    const ttsSettings = {
+      enabled: !!g.TTSEnable,
+      autoResume: g.ttsAutoResume,
+      scrollPrompt: g.ttsScrollPrompt,
+      showParagraphHighlight: !!g.showParagraphHighlight,
+      // optional numeric/text fields if present
+      rate: g.ttsRate,
+      pitch: g.ttsPitch,
+      voice: g.ttsVoice,
+    };
+
+    // Simple shallow equality guard to avoid noisy posts
+    try {
+      const prev = window.__prevTTSSettings || {};
+      const changed = JSON.stringify(prev) !== JSON.stringify(ttsSettings);
+      if (!changed) return;
+      window.__prevTTSSettings = ttsSettings;
+    } catch (e) {
+      window.__prevTTSSettings = ttsSettings;
+    }
+
+    // Inform native side so native TTS can update immediately
+    try {
+      this.post({ type: 'tts-update-settings', data: ttsSettings });
+    } catch (e) {
+      // best-effort
+      console.warn('tts-update-settings post failed', e);
+    }
+
+    // Also let the in-webview TTS instance apply non-native settings
+    if (window.tts && typeof window.tts.applySettings === 'function') {
+      try {
+        window.tts.applySettings(ttsSettings);
+      } catch (e) {
+        console.warn('window.tts.applySettings failed', e);
+      }
+    }
+  });
+
   this._cachedReadableElements = null;
   this._cacheInvalidated = true;
 
@@ -229,6 +272,13 @@ window.reader = new (function () {
   };
 
   this.processScroll = currentScrollY => {
+    // CRITICAL: Block scroll processing entirely during screen wake sync
+    if (window.ttsScreenWakeSyncPending) {
+      console.log('processScroll: BLOCKED - Screen wake sync pending');
+      this.accumulatedScrollDelta = 0;
+      return;
+    }
+    
     // ENHANCED: Detect user manual scroll during TTS
     if (window.tts && window.tts.reading) {
       // Check if TTS has completed its auto-scroll before processing user scroll
@@ -321,8 +371,23 @@ window.reader = new (function () {
 
     // PROGRESS SAVING LOGIC
     // CRITICAL: Do NOT save progress if TTS is reading. TTS handles its own progress.
+    // ALSO block saves during screen wake sync and shortly after TTS stops
     if (window.tts && window.tts.reading) {
       // window.tts.log('Skipping scroll-based save (TTS is reading)');
+      return;
+    }
+    
+    // BUG FIX: Block saves during screen wake sync
+    if (window.ttsScreenWakeSyncPending) {
+      console.log('processScroll: Skipping save - screen wake sync pending');
+      return;
+    }
+    
+    // BUG FIX: Block saves shortly after TTS stops (grace period)
+    // This prevents small scrolls from corrupting the TTS position
+    const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
+    if (timeSinceTTSStop < 2000) { // 2 second grace period
+      console.log('processScroll: Skipping save - TTS grace period (' + timeSinceTTSStop + 'ms)');
       return;
     }
 
@@ -359,6 +424,7 @@ window.reader = new (function () {
           10,
         ),
         paragraphIndex,
+        chapterId: this.chapter.id,
       });
     }
   };
@@ -453,6 +519,31 @@ window.tts = new (function () {
   this.log = (...args) => {
     if (this.DEBUG_TTS || initialReaderConfig.DEBUG) {
       console.log('[TTS]', ...args);
+    }
+  };
+
+  // Apply settings from reader.generalSettings immediately in the webview
+  this.applySettings = settings => {
+    try {
+      this.log('Applying settings', settings);
+      if (settings.enabled !== undefined) this.enabled = !!settings.enabled;
+      if (settings.rate !== undefined) this.rate = settings.rate;
+      if (settings.pitch !== undefined) this.pitch = settings.pitch;
+      if (settings.voice !== undefined) this.voice = settings.voice;
+      if (settings.showParagraphHighlight !== undefined)
+        this.showParagraphHighlight = !!settings.showParagraphHighlight;
+
+      // If currently reading, we prefer to update parameters in-place without stopping.
+      // Notify native side as well so native TTS engine can adjust immediately.
+      try {
+        if (reader && typeof reader.post === 'function') {
+          reader.post({ type: 'tts-apply-settings', data: settings });
+        }
+      } catch (e) {
+        this.log('Failed to post tts-apply-settings', e);
+      }
+    } catch (e) {
+      console.warn('applySettings error', e);
     }
   };
 
@@ -647,6 +738,8 @@ window.tts = new (function () {
         this.reading = false;
         this.stop();
         if (reader.nextChapter) {
+          // Post 'next' with autoStartTTS flag - React Native will decide
+          // whether to actually start TTS based on ttsContinueToNextChapter setting
           reader.post({ type: 'next', autoStartTTS: true });
         }
       }
@@ -684,6 +777,11 @@ window.tts = new (function () {
       this.hasAutoResumed = true;
       this.started = true; // NEW: Set started to true to prevent findNextTextNode failure
       this.currentElement = readableElements[paragraphIndex];
+      // CRITICAL FIX: Set prevElement to element BEFORE current to prevent skip
+      // When next() is called, it checks if currentElement equals prevElement
+      // If they're the same, it advances. By setting prevElement to previous paragraph,
+      // next() will see currentElement as "unread" and speak it.
+      this.prevElement = paragraphIndex > 0 ? readableElements[paragraphIndex - 1] : null;
 
       // DEBUG: Log element status
       const rect = this.currentElement.getBoundingClientRect();
@@ -696,10 +794,12 @@ window.tts = new (function () {
       this.scrollToElement(this.currentElement);
 
       if (config.autoStart) {
-        this.log('Auto-starting playback');
+        this.log('Auto-starting playback from current paragraph');
         setTimeout(() => {
-          // Revert to next() but ensure started is true
-          this.next();
+          // FIX: Call speak() directly on the current element instead of next()
+          // This ensures the saved paragraph is spoken, not skipped
+          this.reading = true;
+          this.speak();
         }, 500);
       } else {
         this.log('Positioned at paragraph but not auto-starting');
@@ -716,8 +816,19 @@ window.tts = new (function () {
   };
 
   this.hasAutoResumed = false;
+  
+  // NEW: Track if background TTS playback is active (RN is driving playback)
+  // This prevents resume prompts from showing when user returns from background
+  this.isBackgroundPlaybackActive = false;
 
   this.start = element => {
+    // CRITICAL: If background playback is active, don't interfere
+    // This can happen when user wakes screen during background TTS
+    if (this.isBackgroundPlaybackActive) {
+      this.log('Skipping start() - background playback is active');
+      return;
+    }
+    
     this.stop();
     if (element) {
       this.log('Starting from specific element');
@@ -928,6 +1039,7 @@ window.tts = new (function () {
         10,
       ),
       paragraphIndex: paragraphIndex,
+      chapterId: reader.chapter.id,
     });
 
     reader.post({
@@ -949,6 +1061,8 @@ window.tts = new (function () {
   this.stop = () => {
     // Set global TTS operation flag during stop
     window.ttsOperationActive = true;
+    // BUG FIX: Track when TTS stops to implement grace period for scroll saves
+    window.ttsLastStopTime = Date.now();
 
     reader.post({ type: 'stop-speak' });
     this.currentElement?.classList?.remove('highlight');
@@ -959,6 +1073,9 @@ window.tts = new (function () {
 
     this.started = false;
     this.reading = false;
+    
+    // Reset background playback flag when stopping
+    this.isBackgroundPlaybackActive = false;
 
     // NEW: Don't reset auto-resume flag here, it causes loops in start()
     // this.hasAutoResumed = false;
@@ -1116,6 +1233,7 @@ window.tts = new (function () {
             10,
           ),
           paragraphIndex,
+          chapterId: reader.chapter.id,
         });
       }
 
@@ -1123,7 +1241,8 @@ window.tts = new (function () {
       const text = this.currentElement.textContent;
       if (text && text.trim().length > 0) {
         this.log('Speaking', text.substring(0, 20));
-        reader.post({ type: 'speak', data: text });
+        // Include paragraphIndex so RN can create utteranceId matching the batch format
+        reader.post({ type: 'speak', data: text, paragraphIndex: paragraphIndex });
         reader.post({
           type: 'tts-state',
           data: {
@@ -1226,34 +1345,60 @@ window.tts = new (function () {
   };
 
   // NEW: Silent highlight update for RN-driven background playback
-  this.highlightParagraph = paragraphIndex => {
-    const readableElements = reader.getReadableElements();
-    if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
-      this.currentElement = readableElements[paragraphIndex];
-      this.prevElement = readableElements[paragraphIndex - 1] || null;
-
-      this.scrollToElement(this.currentElement);
-
-      if (reader.generalSettings.val.showParagraphHighlight) {
-        const oldHighlight = document.querySelector('.highlight');
-        if (oldHighlight) oldHighlight.classList.remove('highlight');
-        this.currentElement.classList.add('highlight');
-      }
-      return true;
+  // Now accepts optional chapterId to validate against stale events from old chapters
+  this.highlightParagraph = (paragraphIndex, chapterId) => {
+    // CRITICAL: Validate chapter ID to prevent stale events from old chapter causing wrong scrolls
+    if (chapterId !== undefined && chapterId !== reader.chapter.id) {
+      console.log(`TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      return false;
     }
-    return false;
+    
+    const readableElements = reader.getReadableElements();
+    
+    // Guard against out-of-bounds indices (e.g., from stale events during chapter transition)
+    if (paragraphIndex < 0 || paragraphIndex >= readableElements.length) {
+      console.warn(`TTS: highlightParagraph index ${paragraphIndex} out of bounds (${readableElements.length} elements)`);
+      return false;
+    }
+    
+    // Mark background playback as active - this prevents resume prompts from interfering
+    this.isBackgroundPlaybackActive = true;
+    this.reading = true; // Mark as reading since background TTS is active
+    this.hasAutoResumed = true; // Prevent resume prompts
+    
+    this.currentElement = readableElements[paragraphIndex];
+    this.prevElement = readableElements[paragraphIndex - 1] || null;
+
+    this.scrollToElement(this.currentElement);
+
+    if (reader.generalSettings.val.showParagraphHighlight) {
+      const oldHighlight = document.querySelector('.highlight');
+      if (oldHighlight) oldHighlight.classList.remove('highlight');
+      this.currentElement.classList.add('highlight');
+    }
+    return true;
   };
 
   // NEW: Sync internal state from RN (for background playback resume)
-  // NEW: Sync internal state from RN (for background playback resume)
-  this.updateState = paragraphIndex => {
-    console.log(`TTS: updateState called with index ${paragraphIndex} `);
+  // Now accepts optional chapterId to validate against stale events from old chapters
+  this.updateState = (paragraphIndex, chapterId) => {
+    // CRITICAL: Validate chapter ID to prevent stale events from old chapter corrupting state
+    if (chapterId !== undefined && chapterId !== reader.chapter.id) {
+      console.log(`TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      return;
+    }
+    
+    console.log(`TTS: updateState called with index ${paragraphIndex}`);
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
+      // Mark background playback as active
+      this.isBackgroundPlaybackActive = true;
+      this.reading = true;
+      this.hasAutoResumed = true;
+      
       this.currentElement = readableElements[paragraphIndex];
       this.prevElement = readableElements[paragraphIndex - 1] || null;
       this.started = true; // Ensure next() works from here
-      // We don't set reading=true here because RN controls playback
 
       // NEW: Save progress when state is updated from Native (Background TTS)
       reader.post({
@@ -1263,6 +1408,7 @@ window.tts = new (function () {
           10,
         ),
         paragraphIndex,
+        chapterId: reader.chapter.id,
       });
     } else {
       console.warn(`TTS: updateState index ${paragraphIndex} out of bounds`);
@@ -1410,6 +1556,7 @@ window.pageReader = new (function () {
           ((pageReader.page.val + 1) / pageReader.totalPages.val) * 100,
           10,
         ),
+        chapterId: reader.chapter.id,
       });
     }
   };
@@ -1461,6 +1608,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function calculatePages() {
   const now = Date.now();
+
+  // BUG 3 FIX: Block calculatePages during screen wake sync to prevent scroll jumble
+  // This flag is set by RN when screen wakes during background TTS playback
+  if (window.ttsScreenWakeSyncPending) {
+    console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    return;
+  }
 
   // CRITICAL: Allow initial scroll to complete, then debounce subsequent calls
   const needsInitialScroll =
@@ -1687,6 +1841,10 @@ function calculatePages() {
 // Global TTS operation tracking
 window.ttsOperationActive = false;
 window.ttsOperationEndTime = 0;
+// BUG FIX: Track when TTS stops to implement grace period for scroll saves
+window.ttsLastStopTime = 0;
+// BUG 3 FIX: Screen wake sync flag - set by RN when screen wakes during background TTS
+window.ttsScreenWakeSyncPending = false;
 
 // Global ResizeObserver debounce tracking
 window.lastCalculatePagesCall = 0;
@@ -1694,6 +1852,12 @@ const CALCULATE_PAGES_DEBOUNCE = 500; // 500ms minimum between calls
 
 // Prevent ResizeObserver from calling calculatePages inappropriately
 const ro = new ResizeObserver(() => {
+  // BUG 3 FIX: Block during screen wake sync
+  if (window.ttsScreenWakeSyncPending) {
+    console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    return;
+  }
+
   // DEBOUNCE CHECK: Allow first ResizeObserver call, then block excessive calls
   const now = Date.now();
   const isFirstCall = window.lastCalculatePagesCall === 0;
@@ -1819,6 +1983,35 @@ window.addEventListener('load', () => {
     requestAnimationFrame(() => setTimeout(calculatePages, 0));
   });
 });
+
+// Receive messages from React Native to update settings live
+const __handleNativeMessage = ev => {
+  let payload = ev && ev.data ? ev.data : ev;
+  try {
+    if (typeof payload === 'string') payload = JSON.parse(payload);
+  } catch (e) {
+    // ignore non-json messages
+  }
+
+  if (!payload || !payload.type) return;
+
+  try {
+    if (payload.type === 'set-general-settings' && payload.data) {
+      // Merge shallowly into existing generalSettings value
+      reader.generalSettings.val = Object.assign({}, reader.generalSettings.val, payload.data);
+    } else if (payload.type === 'tts-update-settings' && payload.data) {
+      if (window.tts && typeof window.tts.applySettings === 'function') {
+        window.tts.applySettings(payload.data);
+      }
+    }
+  } catch (e) {
+    console.warn('__handleNativeMessage error', e);
+  }
+};
+
+window.addEventListener('message', __handleNativeMessage);
+// Some WebView implementations also emit 'message' on document
+document.addEventListener('message', __handleNativeMessage);
 
 // click handler
 (function () {

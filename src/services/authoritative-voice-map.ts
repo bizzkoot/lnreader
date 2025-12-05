@@ -1,0 +1,1823 @@
+export interface VoiceMapping {
+  /** Original voice identifier from web-speech-recommended-voices */
+  id: string;
+  /** Display name for UI - Format: "LANGUAGE (REGION) Name - Quality" */
+  displayName: string;
+  /** Platform: microsoft, apple, google, windows */
+  platform: 'microsoft' | 'apple' | 'google' | 'windows' | 'unknown';
+  /** Language code (en-US, en-GB, etc.) */
+  language: string;
+  /** Language name for display - Always ENGLISH for all variants */
+  languageName: string;
+  /** Region name for display (US, UK, AU, etc.) */
+  region: string;
+  /** Base voice name (Ava, Emma, David, etc.) */
+  name: string;
+  /** Gender: male, female, neutral */
+  gender: 'male' | 'female' | 'neutral';
+  /** Quality level: veryHigh, high, normal, low */
+  quality: 'veryHigh' | 'high' | 'normal' | 'low';
+  /** Style descriptor: Natural, Warm, Professional, etc. */
+  style?: string;
+  /** Alternative voice identifiers */
+  altIds?: string[];
+  /** Native platform identifiers (Android/ChromeOS) */
+  nativeIds?: string[];
+
+  /** Generated display name following format: "LANGUAGE (REGION) Name - Quality" */
+  getDisplayDisplayName?: () => string;
+  /** When a native id was used to match this mapping, this helper field can be
+   * populated by the mapper to indicate which native variant matched. UI should
+   * use this to show a local/network badge instead of inferring quality. */
+  matchedNativeType?: 'network' | 'local' | 'unknown';
+}
+
+export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
+  "Microsoft EmmaMultilingual Online (Natural) - English (United States)": {
+    "id": "microsoft-emmamultilingual-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Emma HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Emma",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [
+      "Microsoft Emma Online (Natural) - English (United States)"
+    ],
+    "nativeIds": []
+  },
+  "Microsoft AvaMultilingual Online (Natural) - English (United States)": {
+    "id": "microsoft-avamultilingual-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Ava HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Ava",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [
+      "Microsoft Ava Online (Natural) - English (United States)"
+    ],
+    "nativeIds": []
+  },
+  "Microsoft Jenny Online (Natural) - English (United States)": {
+    "id": "microsoft-jenny-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Jenny HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Jenny",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Aria Online (Natural) - English (United States)": {
+    "id": "microsoft-aria-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Aria HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Aria",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Michelle Online (Natural) - English (United States)": {
+    "id": "microsoft-michelle-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Michelle HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Michelle",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Ana Online (Natural) - English (United States)": {
+    "id": "microsoft-ana-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Ana HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Ana",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft AndrewMultilingual Online (Natural) - English (United States)": {
+    "id": "microsoft-andrewmultilingual-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Andrew HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Andrew",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [
+      "Microsoft Andrew Online (Natural) - English (United States)"
+    ],
+    "nativeIds": []
+  },
+  "Microsoft BrianMultilingual Online (Natural) - English (United States)": {
+    "id": "microsoft-brianmultilingual-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Brian HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Brian",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [
+      "Microsoft Brian Online (Natural) - English (United States)"
+    ],
+    "nativeIds": []
+  },
+  "Microsoft Guy Online (Natural) - English (United States)": {
+    "id": "microsoft-guy-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Guy HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Guy",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Eric Online (Natural) - English (United States)": {
+    "id": "microsoft-eric-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Eric HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Eric",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Steffan Online (Natural) - English (United States)": {
+    "id": "microsoft-steffan-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Steffan HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Steffan",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Christopher Online (Natural) - English (United States)": {
+    "id": "microsoft-christopher-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Christopher HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Christopher",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Roger Online (Natural) - English (United States)": {
+    "id": "microsoft-roger-online-(natural)---english-(united-states)",
+    "displayName": "ENGLISH (US) Roger HQ",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Roger",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Sonia Online (Natural) - English (United Kingdom)": {
+    "id": "microsoft-sonia-online-(natural)---english-(united-kingdom)",
+    "displayName": "ENGLISH (UK) Sonia HQ",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Sonia",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Libby Online (Natural) - English (United Kingdom)": {
+    "id": "microsoft-libby-online-(natural)---english-(united-kingdom)",
+    "displayName": "ENGLISH (UK) Libby HQ",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Libby",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Maisie Online (Natural) - English (United Kingdom)": {
+    "id": "microsoft-maisie-online-(natural)---english-(united-kingdom)",
+    "displayName": "ENGLISH (UK) Maisie HQ",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Maisie",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Ryan Online (Natural) - English (United Kingdom)": {
+    "id": "microsoft-ryan-online-(natural)---english-(united-kingdom)",
+    "displayName": "ENGLISH (UK) Ryan HQ",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Ryan",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Thomas Online (Natural) - English (United Kingdom)": {
+    "id": "microsoft-thomas-online-(natural)---english-(united-kingdom)",
+    "displayName": "ENGLISH (UK) Thomas HQ",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Thomas",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Natasha Online (Natural) - English (Australia)": {
+    "id": "microsoft-natasha-online-(natural)---english-(australia)",
+    "displayName": "ENGLISH (AU) Natasha HQ",
+    "platform": "microsoft",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Natasha",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Hayley Online - English (Australia)": {
+    "id": "microsoft-hayley-online---english-(australia)",
+    "displayName": "ENGLISH (AU) Hayley HQ",
+    "platform": "microsoft",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Hayley",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft William Online (Natural) - English (Australia)": {
+    "id": "microsoft-william-online-(natural)---english-(australia)",
+    "displayName": "ENGLISH (AU) William HQ",
+    "platform": "microsoft",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "William",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [
+      "Microsoft WilliamMultilingual Online (Natural) - English (Australia)"
+    ],
+    "nativeIds": []
+  },
+  "Microsoft Clara Online (Natural) - English (Canada)": {
+    "id": "microsoft-clara-online-(natural)---english-(canada)",
+    "displayName": "ENGLISH (CA) Clara HQ",
+    "platform": "microsoft",
+    "language": "en-CA",
+    "languageName": "ENGLISH",
+    "region": "CA",
+    "name": "Clara",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Heather Online - English (Canada)": {
+    "id": "microsoft-heather-online---english-(canada)",
+    "displayName": "ENGLISH (CA) Heather HQ",
+    "platform": "microsoft",
+    "language": "en-CA",
+    "languageName": "ENGLISH",
+    "region": "CA",
+    "name": "Heather",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Liam Online (Natural) - English (Canada)": {
+    "id": "microsoft-liam-online-(natural)---english-(canada)",
+    "displayName": "ENGLISH (CA) Liam HQ",
+    "platform": "microsoft",
+    "language": "en-CA",
+    "languageName": "ENGLISH",
+    "region": "CA",
+    "name": "Liam",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Neerja Online (Natural) - English (India)": {
+    "id": "microsoft-neerja-online-(natural)---english-(india)",
+    "displayName": "ENGLISH (IN) Neerja HQ",
+    "platform": "microsoft",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Neerja",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [
+      "Microsoft Neerja Online (Natural) - English (India) (Preview)"
+    ],
+    "nativeIds": []
+  },
+  "Microsoft Prabhat Online (Natural) - English (India)": {
+    "id": "microsoft-prabhat-online-(natural)---english-(india)",
+    "displayName": "ENGLISH (IN) Prabhat HQ",
+    "platform": "microsoft",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Prabhat",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Emily Online (Natural) - English (Ireland)": {
+    "id": "microsoft-emily-online-(natural)---english-(ireland)",
+    "displayName": "ENGLISH (IE) Emily HQ",
+    "platform": "microsoft",
+    "language": "en-IE",
+    "languageName": "ENGLISH",
+    "region": "IE",
+    "name": "Emily",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Connor Online (Natural) - English (Ireland)": {
+    "id": "microsoft-connor-online-(natural)---english-(ireland)",
+    "displayName": "ENGLISH (IE) Connor HQ",
+    "platform": "microsoft",
+    "language": "en-IE",
+    "languageName": "ENGLISH",
+    "region": "IE",
+    "name": "Connor",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Leah Online (Natural) - English (South Africa)": {
+    "id": "microsoft-leah-online-(natural)---english-(south-africa)",
+    "displayName": "ENGLISH (ZA) Leah HQ",
+    "platform": "microsoft",
+    "language": "en-ZA",
+    "languageName": "ENGLISH",
+    "region": "ZA",
+    "name": "Leah",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Luke Online (Natural) - English (South Africa)": {
+    "id": "microsoft-luke-online-(natural)---english-(south-africa)",
+    "displayName": "ENGLISH (ZA) Luke HQ",
+    "platform": "microsoft",
+    "language": "en-ZA",
+    "languageName": "ENGLISH",
+    "region": "ZA",
+    "name": "Luke",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Yan Online (Natural) - English (Hong Kong SAR)": {
+    "id": "microsoft-yan-online-(natural)---english-(hong-kong-sar)",
+    "displayName": "ENGLISH (HK) Yan HQ",
+    "platform": "microsoft",
+    "language": "en-HK",
+    "languageName": "ENGLISH",
+    "region": "HK",
+    "name": "Yan",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Sam Online (Natural) - English (Hongkong)": {
+    "id": "microsoft-sam-online-(natural)---english-(hongkong)",
+    "displayName": "ENGLISH (HK) Sam HQ",
+    "platform": "microsoft",
+    "language": "en-HK",
+    "languageName": "ENGLISH",
+    "region": "HK",
+    "name": "Sam",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Asilia Online (Natural) - English (Kenya)": {
+    "id": "microsoft-asilia-online-(natural)---english-(kenya)",
+    "displayName": "ENGLISH (KE) Asilia HQ",
+    "platform": "microsoft",
+    "language": "en-KE",
+    "languageName": "ENGLISH",
+    "region": "KE",
+    "name": "Asilia",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Chilemba Online (Natural) - English (Kenya)": {
+    "id": "microsoft-chilemba-online-(natural)---english-(kenya)",
+    "displayName": "ENGLISH (KE) Chilemba HQ",
+    "platform": "microsoft",
+    "language": "en-KE",
+    "languageName": "ENGLISH",
+    "region": "KE",
+    "name": "Chilemba",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Molly Online (Natural) - English (New Zealand)": {
+    "id": "microsoft-molly-online-(natural)---english-(new-zealand)",
+    "displayName": "ENGLISH (NZ) Molly HQ",
+    "platform": "microsoft",
+    "language": "en-NZ",
+    "languageName": "ENGLISH",
+    "region": "NZ",
+    "name": "Molly",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Mitchell Online (Natural) - English (New Zealand)": {
+    "id": "microsoft-mitchell-online-(natural)---english-(new-zealand)",
+    "displayName": "ENGLISH (NZ) Mitchell HQ",
+    "platform": "microsoft",
+    "language": "en-NZ",
+    "languageName": "ENGLISH",
+    "region": "NZ",
+    "name": "Mitchell",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Ezinne Online (Natural) - English (Nigeria)": {
+    "id": "microsoft-ezinne-online-(natural)---english-(nigeria)",
+    "displayName": "ENGLISH (NG) Ezinne HQ",
+    "platform": "microsoft",
+    "language": "en-NG",
+    "languageName": "ENGLISH",
+    "region": "NG",
+    "name": "Ezinne",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Abeo Online (Natural) - English (Nigeria)": {
+    "id": "microsoft-abeo-online-(natural)---english-(nigeria)",
+    "displayName": "ENGLISH (NG) Abeo HQ",
+    "platform": "microsoft",
+    "language": "en-NG",
+    "languageName": "ENGLISH",
+    "region": "NG",
+    "name": "Abeo",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Rosa Online (Natural) - English (Philippines)": {
+    "id": "microsoft-rosa-online-(natural)---english-(philippines)",
+    "displayName": "ENGLISH (PH) Rosa HQ",
+    "platform": "microsoft",
+    "language": "en-PH",
+    "languageName": "ENGLISH",
+    "region": "PH",
+    "name": "Rosa",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft James Online (Natural) - English (Philippines)": {
+    "id": "microsoft-james-online-(natural)---english-(philippines)",
+    "displayName": "ENGLISH (PH) James HQ",
+    "platform": "microsoft",
+    "language": "en-PH",
+    "languageName": "ENGLISH",
+    "region": "PH",
+    "name": "James",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Luna Online (Natural) - English (Singapore)": {
+    "id": "microsoft-luna-online-(natural)---english-(singapore)",
+    "displayName": "ENGLISH (SG) Luna HQ",
+    "platform": "microsoft",
+    "language": "en-SG",
+    "languageName": "ENGLISH",
+    "region": "SG",
+    "name": "Luna",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Wayne Online (Natural) - English (Singapore)": {
+    "id": "microsoft-wayne-online-(natural)---english-(singapore)",
+    "displayName": "ENGLISH (SG) Wayne HQ",
+    "platform": "microsoft",
+    "language": "en-SG",
+    "languageName": "ENGLISH",
+    "region": "SG",
+    "name": "Wayne",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Imani Online (Natural) - English (Tanzania)": {
+    "id": "microsoft-imani-online-(natural)---english-(tanzania)",
+    "displayName": "ENGLISH (TZ) Imani HQ",
+    "platform": "microsoft",
+    "language": "en-TZ",
+    "languageName": "ENGLISH",
+    "region": "TZ",
+    "name": "Imani",
+    "gender": "female",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Elimu Online (Natural) - English (Tanzania)": {
+    "id": "microsoft-elimu-online-(natural)---english-(tanzania)",
+    "displayName": "ENGLISH (TZ) Elimu HQ",
+    "platform": "microsoft",
+    "language": "en-TZ",
+    "languageName": "ENGLISH",
+    "region": "TZ",
+    "name": "Elimu",
+    "gender": "male",
+    "quality": "veryHigh",
+    "style": "Natural",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Ava": {
+    "id": "ava",
+    "displayName": "ENGLISH (US) Apple Ava LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Apple Ava",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Zoe": {
+    "id": "zoe",
+    "displayName": "ENGLISH (US) Zoe LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Zoe",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Allison": {
+    "id": "allison",
+    "displayName": "ENGLISH (US) Allison LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Allison",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Nicky": {
+    "id": "nicky",
+    "displayName": "ENGLISH (US) Nicky LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Nicky",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Samantha": {
+    "id": "samantha",
+    "displayName": "ENGLISH (US) Samantha LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Samantha",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Joelle": {
+    "id": "joelle",
+    "displayName": "ENGLISH (US) Joelle NORMAL",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Joelle",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Evan": {
+    "id": "evan",
+    "displayName": "ENGLISH (US) Evan LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Evan",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Nathan": {
+    "id": "nathan",
+    "displayName": "ENGLISH (US) Nathan LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Nathan",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Tom": {
+    "id": "tom",
+    "displayName": "ENGLISH (US) Tom LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Tom",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Alex": {
+    "id": "alex",
+    "displayName": "ENGLISH (US) Alex HIGH",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Alex",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Aaron": {
+    "id": "aaron",
+    "displayName": "ENGLISH (US) Aaron LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Aaron",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Kate": {
+    "id": "kate",
+    "displayName": "ENGLISH (UK) Kate LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Kate",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Stephanie": {
+    "id": "stephanie",
+    "displayName": "ENGLISH (UK) Stephanie LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Stephanie",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Serena": {
+    "id": "serena",
+    "displayName": "ENGLISH (UK) Serena LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Serena",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Martha": {
+    "id": "martha",
+    "displayName": "ENGLISH (UK) Martha LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Martha",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Jamie": {
+    "id": "jamie",
+    "displayName": "ENGLISH (UK) Jamie LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Jamie",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Oliver": {
+    "id": "oliver",
+    "displayName": "ENGLISH (UK) Oliver LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Oliver",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Daniel": {
+    "id": "daniel",
+    "displayName": "ENGLISH (UK) Daniel LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Daniel",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Arthur": {
+    "id": "arthur",
+    "displayName": "ENGLISH (UK) Arthur LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Arthur",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Matilda": {
+    "id": "matilda",
+    "displayName": "ENGLISH (AU) Matilda LOW",
+    "platform": "unknown",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Matilda",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Karen": {
+    "id": "karen",
+    "displayName": "ENGLISH (AU) Karen LOW",
+    "platform": "unknown",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Karen",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Catherine": {
+    "id": "catherine",
+    "displayName": "ENGLISH (AU) Catherine LOW",
+    "platform": "unknown",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Catherine",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Lee": {
+    "id": "lee",
+    "displayName": "ENGLISH (AU) Lee LOW",
+    "platform": "unknown",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Lee",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Gordon": {
+    "id": "gordon",
+    "displayName": "ENGLISH (AU) Gordon LOW",
+    "platform": "unknown",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Gordon",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Isha": {
+    "id": "isha",
+    "displayName": "ENGLISH (IN) Isha LOW",
+    "platform": "unknown",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Isha",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Sangeeta": {
+    "id": "sangeeta",
+    "displayName": "ENGLISH (IN) Sangeeta LOW",
+    "platform": "unknown",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Sangeeta",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Rishi": {
+    "id": "rishi",
+    "displayName": "ENGLISH (IN) Rishi LOW",
+    "platform": "unknown",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Rishi",
+    "gender": "male",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Moira": {
+    "id": "moira",
+    "displayName": "ENGLISH (IE) Moira LOW",
+    "platform": "unknown",
+    "language": "en-IE",
+    "languageName": "ENGLISH",
+    "region": "IE",
+    "name": "Moira",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Tessa": {
+    "id": "tessa",
+    "displayName": "ENGLISH (ZA) Tessa LOW",
+    "platform": "unknown",
+    "language": "en-ZA",
+    "languageName": "ENGLISH",
+    "region": "ZA",
+    "name": "Tessa",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Fiona": {
+    "id": "fiona",
+    "displayName": "ENGLISH (UK-SCT) Fiona LOW",
+    "platform": "unknown",
+    "language": "en-GB-u-sd-gbsct",
+    "languageName": "ENGLISH",
+    "region": "UK-SCT",
+    "name": "Fiona",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Google US English": {
+    "id": "google-us-english",
+    "displayName": "ENGLISH (US) Female Google voice (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female Google voice (US)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Google UK English Female": {
+    "id": "google-uk-english-female",
+    "displayName": "ENGLISH (UK) Female Google voice (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Female Google voice (UK)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Google UK English Male": {
+    "id": "google-uk-english-male",
+    "displayName": "ENGLISH (UK) Male Google voice (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Male Google voice (UK)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Zira - English (United States)": {
+    "id": "microsoft-zira---english-(united-states)",
+    "displayName": "ENGLISH (US) Zira NORMAL",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Zira",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft David - English (United States)": {
+    "id": "microsoft-david---english-(united-states)",
+    "displayName": "ENGLISH (US) David NORMAL",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "David",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Mark - English (United States)": {
+    "id": "microsoft-mark---english-(united-states)",
+    "displayName": "ENGLISH (US) Mark NORMAL",
+    "platform": "microsoft",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Mark",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Hazel - English (Great Britain)": {
+    "id": "microsoft-hazel---english-(great-britain)",
+    "displayName": "ENGLISH (UK) Hazel NORMAL",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Hazel",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Susan - English (Great Britain)": {
+    "id": "microsoft-susan---english-(great-britain)",
+    "displayName": "ENGLISH (UK) Susan NORMAL",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Susan",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft George - English (Great Britain)": {
+    "id": "microsoft-george---english-(great-britain)",
+    "displayName": "ENGLISH (UK) George NORMAL",
+    "platform": "microsoft",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "George",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Catherine - English (Austalia)": {
+    "id": "microsoft-catherine---english-(austalia)",
+    "displayName": "ENGLISH (AU) Catherine NORMAL",
+    "platform": "microsoft",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Catherine",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Richard - English (Australia)": {
+    "id": "microsoft-richard---english-(australia)",
+    "displayName": "ENGLISH (AU) James NORMAL",
+    "platform": "microsoft",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "James",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Linda - English (Canada)": {
+    "id": "microsoft-linda---english-(canada)",
+    "displayName": "ENGLISH (CA) Linda NORMAL",
+    "platform": "microsoft",
+    "language": "en-CA",
+    "languageName": "ENGLISH",
+    "region": "CA",
+    "name": "Linda",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Richard - English (Canada)": {
+    "id": "microsoft-richard---english-(canada)",
+    "displayName": "ENGLISH (CA) Richard NORMAL",
+    "platform": "microsoft",
+    "language": "en-CA",
+    "languageName": "ENGLISH",
+    "region": "CA",
+    "name": "Richard",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Heera - English (India)": {
+    "id": "microsoft-heera---english-(india)",
+    "displayName": "ENGLISH (IN) Heera NORMAL",
+    "platform": "microsoft",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Heera",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Ravi - English (India)": {
+    "id": "microsoft-ravi---english-(india)",
+    "displayName": "ENGLISH (IN) Ravi NORMAL",
+    "platform": "microsoft",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Ravi",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Microsoft Sean - English (Ireland)": {
+    "id": "microsoft-sean---english-(ireland)",
+    "displayName": "ENGLISH (IE) Sean NORMAL",
+    "platform": "microsoft",
+    "language": "en-IE",
+    "languageName": "ENGLISH",
+    "region": "IE",
+    "name": "Sean",
+    "gender": "male",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Google US English 5 (Natural)": {
+    "id": "google-us-english-5-(natural)",
+    "displayName": "ENGLISH (US) Female voice 1 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female voice 1 (US)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-tpc-network",
+      "Chrome OS US English 5",
+      "Android Speech Recognition and Synthesis from Google en-us-x-tpc-local",
+      "Android Speech Recognition and Synthesis from Google en-US-language"
+    ],
+    "nativeIds": [
+      "en-us-x-tpc-network",
+      "en-us-x-tpc-local"
+    ]
+  },
+  "Google US English 1 (Natural)": {
+    "id": "google-us-english-1-(natural)",
+    "displayName": "ENGLISH (US) Female voice 2 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female voice 2 (US)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-iob-network",
+      "Chrome OS US English 1",
+      "Android Speech Recognition and Synthesis from Google en-us-x-iob-local"
+    ],
+    "nativeIds": [
+      "en-us-x-iob-network",
+      "en-us-x-iob-local"
+    ]
+  },
+  "Google US English 2 (Natural)": {
+    "id": "google-us-english-2-(natural)",
+    "displayName": "ENGLISH (US) Female voice 3 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female voice 3 (US)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-iog-network",
+      "Chrome OS US English 2",
+      "Android Speech Recognition and Synthesis from Google en-us-x-iog-local"
+    ],
+    "nativeIds": [
+      "en-us-x-iog-network",
+      "en-us-x-iog-local"
+    ]
+  },
+  "Google US English 7 (Natural)": {
+    "id": "google-us-english-7-(natural)",
+    "displayName": "ENGLISH (US) Female voice 4 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female voice 4 (US)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-tpf-network",
+      "Chrome OS US English 7",
+      "Android Speech Recognition and Synthesis from Google en-us-x-tpf-local"
+    ],
+    "nativeIds": [
+      "en-us-x-tpf-network",
+      "en-us-x-tpf-local"
+    ]
+  },
+  "Android Speech Recognition and Synthesis from Google en-us-x-sfg-network": {
+    "id": "android-speech-recognition-and-synthesis-from-google-en-us-x-sfg-network",
+    "displayName": "ENGLISH (US) Female voice 5 (US) NORMAL",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female voice 5 (US)",
+    "gender": "female",
+    "quality": "normal",
+    "style": "Standard",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-sfg-local"
+    ],
+    "nativeIds": [
+      "en-us-x-sfg-network",
+      "en-us-x-sfg-local"
+    ]
+  },
+  "Chrome OS US English 8": {
+    "id": "chrome-os-us-english-8",
+    "displayName": "ENGLISH (US) Female voice 6 (US) LOW",
+    "platform": "unknown",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Female voice 6 (US)",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Google US English 4 (Natural)": {
+    "id": "google-us-english-4-(natural)",
+    "displayName": "ENGLISH (US) Male voice 1 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Male voice 1 (US)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-iom-network",
+      "Chrome OS US English 4",
+      "Android Speech Recognition and Synthesis from Google en-us-x-iom-local"
+    ],
+    "nativeIds": [
+      "en-us-x-iom-network",
+      "en-us-x-iom-local"
+    ]
+  },
+  "Google US English 3 (Natural)": {
+    "id": "google-us-english-3-(natural)",
+    "displayName": "ENGLISH (US) Male voice 2 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Male voice 2 (US)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-iol-network",
+      "Chrome OS US English 3",
+      "Android Speech Recognition and Synthesis from Google en-us-x-iol-local"
+    ],
+    "nativeIds": [
+      "en-us-x-iol-network",
+      "en-us-x-iol-local"
+    ]
+  },
+  "Google US English 6 (Natural)": {
+    "id": "google-us-english-6-(natural)",
+    "displayName": "ENGLISH (US) Male voice 3 (US) HIGH",
+    "platform": "google",
+    "language": "en-US",
+    "languageName": "ENGLISH",
+    "region": "US",
+    "name": "Male voice 3 (US)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-us-x-tpd-network",
+      "Chrome OS US English 6",
+      "Android Speech Recognition and Synthesis from Google en-us-x-tpd-local"
+    ],
+    "nativeIds": [
+      "en-us-x-tpd-network",
+      "en-us-x-tpd-local"
+    ]
+  },
+  "Google UK English 2 (Natural)": {
+    "id": "google-uk-english-2-(natural)",
+    "displayName": "ENGLISH (UK) Female voice 1 (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Female voice 1 (UK)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gba-network",
+      "Chrome OS UK English 2",
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gba-local",
+      "Android Speech Recognition and Synthesis from Google en-GB-language"
+    ],
+    "nativeIds": [
+      "en-gb-x-gba-network",
+      "en-gb-x-gba-local"
+    ]
+  },
+  "Google UK English 4 (Natural)": {
+    "id": "google-uk-english-4-(natural)",
+    "displayName": "ENGLISH (UK) Female voice 2 (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Female voice 2 (UK)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbc-network",
+      "Chrome OS UK English 4",
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbc-local"
+    ],
+    "nativeIds": [
+      "en-gb-x-gbc-network",
+      "en-gb-x-gbc-local"
+    ]
+  },
+  "Google UK English 6 (Natural)": {
+    "id": "google-uk-english-6-(natural)",
+    "displayName": "ENGLISH (UK) Female voice 3 (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Female voice 3 (UK)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbg-network",
+      "Chrome OS UK English 6",
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbg-local"
+    ],
+    "nativeIds": [
+      "en-gb-x-gbg-network",
+      "en-gb-x-gbg-local"
+    ]
+  },
+  "Chrome OS UK English 7": {
+    "id": "chrome-os-uk-english-7",
+    "displayName": "ENGLISH (UK) Female voice 4 (UK) LOW",
+    "platform": "unknown",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Female voice 4 (UK)",
+    "gender": "female",
+    "quality": "low",
+    "style": "Basic",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Google UK English 1 (Natural)": {
+    "id": "google-uk-english-1-(natural)",
+    "displayName": "ENGLISH (UK) Male voice 1 (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Male voice 1 (UK)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-gb-x-rjs-network",
+      "Chrome OS UK English 1",
+      "Android Speech Recognition and Synthesis from Google en-gb-x-rjs-local"
+    ],
+    "nativeIds": [
+      "en-gb-x-rjs-network",
+      "en-gb-x-rjs-local"
+    ]
+  },
+  "Google UK English 3 (Natural)": {
+    "id": "google-uk-english-3-(natural)",
+    "displayName": "ENGLISH (UK) Male voice 2 (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Male voice 2 (UK)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbb-network",
+      "Chrome OS UK English 3",
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbb-local"
+    ],
+    "nativeIds": [
+      "en-gb-x-gbb-network",
+      "en-gb-x-gbb-local"
+    ]
+  },
+  "Google UK English 5 (Natural)": {
+    "id": "google-uk-english-5-(natural)",
+    "displayName": "ENGLISH (UK) Male voice 3 (UK) HIGH",
+    "platform": "google",
+    "language": "en-GB",
+    "languageName": "ENGLISH",
+    "region": "UK",
+    "name": "Male voice 3 (UK)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbd-network",
+      "Chrome OS UK English 5",
+      "Android Speech Recognition and Synthesis from Google en-gb-x-gbd-local"
+    ],
+    "nativeIds": [
+      "en-gb-x-gbd-network",
+      "en-gb-x-gbd-local"
+    ]
+  },
+  "Google Australian English 1 (Natural)": {
+    "id": "google-australian-english-1-(natural)",
+    "displayName": "ENGLISH (AU) Female voice 1 (Australia) HIGH",
+    "platform": "google",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Female voice 1 (Australia)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-au-x-aua-network",
+      "Chrome OS Australian English 1",
+      "Android Speech Recognition and Synthesis from Google en-au-x-aua-local",
+      "Android Speech Recognition and Synthesis from Google en-AU-language"
+    ],
+    "nativeIds": [
+      "en-au-x-aua-network",
+      "en-au-x-aua-local"
+    ]
+  },
+  "Google Australian English 3 (Natural)": {
+    "id": "google-australian-english-3-(natural)",
+    "displayName": "ENGLISH (AU) Female voice 2 (Australia) HIGH",
+    "platform": "google",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Female voice 2 (Australia)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-au-x-auc-network",
+      "Chrome OS Australian English 3",
+      "Android Speech Recognition and Synthesis from Google en-au-x-auc-local"
+    ],
+    "nativeIds": [
+      "en-au-x-auc-network",
+      "en-au-x-auc-local"
+    ]
+  },
+  "Google Australian English 2 (Natural)": {
+    "id": "google-australian-english-2-(natural)",
+    "displayName": "ENGLISH (AU) Male voice 1 (Australia) HIGH",
+    "platform": "google",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Male voice 1 (Australia)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-au-x-aub-network",
+      "Chrome OS Australian English 2",
+      "Android Speech Recognition and Synthesis from Google en-au-x-aub-local"
+    ],
+    "nativeIds": [
+      "en-au-x-aub-network",
+      "en-au-x-aub-local"
+    ]
+  },
+  "Google Australian English 4 (Natural)": {
+    "id": "google-australian-english-4-(natural)",
+    "displayName": "ENGLISH (AU) Male voice 2 (Australia) HIGH",
+    "platform": "google",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Male voice 2 (Australia)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-au-x-aud-network",
+      "Chrome OS Australian English 4",
+      "Android Speech Recognition and Synthesis from Google en-au-x-aud-local"
+    ],
+    "nativeIds": [
+      "en-au-x-aud-network",
+      "en-au-x-aud-local"
+    ]
+  },
+  "Chrome OS Australian English 5": {
+    "id": "chrome-os-australian-english-5",
+    "displayName": "ENGLISH (AU) Male voice 3 (Australia) HIGH",
+    "platform": "unknown",
+    "language": "en-AU",
+    "languageName": "ENGLISH",
+    "region": "AU",
+    "name": "Male voice 3 (Australia)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [],
+    "nativeIds": []
+  },
+  "Android Speech Recognition and Synthesis from Google en-in-x-ena-network": {
+    "id": "android-speech-recognition-and-synthesis-from-google-en-in-x-ena-network",
+    "displayName": "ENGLISH (IN) Female voice 1 (India) HIGH",
+    "platform": "google",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Female voice 1 (India)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-in-x-ena-local",
+      "Android Speech Recognition and Synthesis from Google en-IN-language"
+    ],
+    "nativeIds": [
+      "en-in-x-ena-network",
+      "en-in-x-ena-local"
+    ]
+  },
+  "Android Speech Recognition and Synthesis from Google en-in-x-enc-network": {
+    "id": "android-speech-recognition-and-synthesis-from-google-en-in-x-enc-network",
+    "displayName": "ENGLISH (IN) Female voice 2 (India) HIGH",
+    "platform": "google",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Female voice 2 (India)",
+    "gender": "female",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-in-x-enc-local"
+    ],
+    "nativeIds": [
+      "en-in-x-enc-network",
+      "en-in-x-enc-local"
+    ]
+  },
+  "Android Speech Recognition and Synthesis from Google en-in-x-end-network": {
+    "id": "android-speech-recognition-and-synthesis-from-google-en-in-x-end-network",
+    "displayName": "ENGLISH (IN) Male voice 1 (India) HIGH",
+    "platform": "google",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Male voice 1 (India)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-in-x-end-local"
+    ],
+    "nativeIds": [
+      "en-in-x-end-network",
+      "en-in-x-end-local"
+    ]
+  },
+  "Android Speech Recognition and Synthesis from Google en-in-x-ene-network": {
+    "id": "android-speech-recognition-and-synthesis-from-google-en-in-x-ene-network",
+    "displayName": "ENGLISH (IN) Male voice 2 (India) HIGH",
+    "platform": "google",
+    "language": "en-IN",
+    "languageName": "ENGLISH",
+    "region": "IN",
+    "name": "Male voice 2 (India)",
+    "gender": "male",
+    "quality": "high",
+    "style": "Clear",
+    "altIds": [
+      "Android Speech Recognition and Synthesis from Google en-in-x-ene-local"
+    ],
+    "nativeIds": [
+      "en-in-x-ene-network",
+      "en-in-x-ene-local"
+    ]
+  }
+};
+
+// Helper function to generate display names
+export const generateDisplayName = (
+  languageName: string,
+  region: string,
+  name: string,
+  quality: string
+): string => {
+  const qualityMap: Record<string, string> = {
+    'veryHigh': 'HQ',
+    'high': 'HIGH',
+    'normal': 'NORMAL',
+    'low': 'LOW',
+  };
+  const displayQuality = qualityMap[quality] || quality.toUpperCase();
+  return `${languageName} (${region}) ${name} ${displayQuality}`;
+};

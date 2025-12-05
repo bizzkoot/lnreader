@@ -1,101 +1,60 @@
-export interface VoiceMapping {
-  label: string;
-  gender: 'male' | 'female' | 'neutral';
-}
+import {
+  AUTHORITATIVE_VOICE_MAP,
+  VoiceMapping,
+} from './authoritative-voice-map';
 
-export const GOOGLE_TTS_VOICE_MAP: Record<string, VoiceMapping> = {
-  // US English
-  'en-us-x-iob-network': {
-    label: 'English (US) - Female voice 1',
-    gender: 'female',
-  },
-  'en-us-x-iol-network': {
-    label: 'English (US) - Male voice 2',
-    gender: 'male',
-  }, // High quality
-  'en-us-x-iog-network': {
-    label: 'English (US) - Female voice 3',
-    gender: 'female',
-  },
-  'en-us-x-iom-network': {
-    label: 'English (US) - Male voice 1',
-    gender: 'male',
-  },
-  'en-us-x-tpf-network': {
-    label: 'English (US) - Female voice 4',
-    gender: 'female',
-  },
-  'en-us-x-tpd-network': {
-    label: 'English (US) - Male voice 3',
-    gender: 'male',
-  },
-  'en-us-x-sfg-network': {
-    label: 'English (US) - Female voice 5',
-    gender: 'female',
-  }, // Normal quality
+export type { VoiceMapping };
 
-  // UK English
-  'en-gb-x-gba-network': {
-    label: 'English (UK) - Female voice 1',
-    gender: 'female',
-  },
-  'en-gb-x-gbc-network': {
-    label: 'English (UK) - Female voice 2',
-    gender: 'female',
-  },
-  'en-gb-x-gbg-network': {
-    label: 'English (UK) - Female voice 3',
-    gender: 'female',
-  },
-  'en-gb-x-rjs-network': {
-    label: 'English (UK) - Male voice 1',
-    gender: 'male',
-  },
-  'en-gb-x-gbb-network': {
-    label: 'English (UK) - Male voice 2',
-    gender: 'male',
-  },
-  'en-gb-x-gbd-network': {
-    label: 'English (UK) - Male voice 3',
-    gender: 'male',
-  },
-
-  // Australian English
-  'en-au-x-aua-network': {
-    label: 'English (Australia) - Female voice 1',
-    gender: 'female',
-  },
-  'en-au-x-auc-network': {
-    label: 'English (Australia) - Female voice 2',
-    gender: 'female',
-  },
-  'en-au-x-aub-network': {
-    label: 'English (Australia) - Male voice 1',
-    gender: 'male',
-  },
-  'en-au-x-aud-network': {
-    label: 'English (Australia) - Male voice 2',
-    gender: 'male',
-  },
-
-  // Indian English
-  'en-in-x-ena-network': {
-    label: 'English (India) - Female voice 1',
-    gender: 'female',
-  },
-  'en-in-x-enc-network': {
-    label: 'English (India) - Female voice 2',
-    gender: 'female',
-  },
-  'en-in-x-end-network': {
-    label: 'English (India) - Male voice 1',
-    gender: 'male',
-  },
-  // Add more as needed
-};
-
+/**
+ * Lookup a voice mapping by its identifier.
+ * The identifier can be:
+ * 1. The full voice name (key in AUTHORITATIVE_VOICE_MAP)
+ * 2. A native Android ID (e.g. "en-us-x-iob-network") - found in nativeIds
+ * 3. An alternative ID - found in altIds
+ * 4. The normalized ID - found in id field
+ */
 export const getVoiceMapping = (
   identifier: string,
 ): VoiceMapping | undefined => {
-  return GOOGLE_TTS_VOICE_MAP[identifier];
+  if (!identifier) return undefined;
+
+  // 1. Try exact match on the key (most common for web/some android)
+  if (AUTHORITATIVE_VOICE_MAP[identifier]) {
+    return AUTHORITATIVE_VOICE_MAP[identifier];
+  }
+
+  const lowerId = identifier.toLowerCase();
+
+  // Iterate once to find match
+  for (const mapping of Object.values(AUTHORITATIVE_VOICE_MAP)) {
+    // 2. Check native IDs (fastest for Android)
+    if (mapping.nativeIds?.includes(identifier)) {
+      // Determine whether this native id is a local or network variant and
+      // return a shallow clone with the information (do NOT change quality).
+      const lower = identifier.toLowerCase();
+      let matchedNativeType: VoiceMapping['matchedNativeType'] = 'unknown';
+      if (lower.endsWith('-local')) matchedNativeType = 'local';
+      else if (lower.endsWith('-network')) matchedNativeType = 'network';
+
+      const clone: VoiceMapping = { ...mapping, matchedNativeType };
+      return clone;
+    }
+
+    // 3. Check ID field
+    if (mapping.id === lowerId) {
+      return mapping;
+    }
+
+    // 4. Check alt IDs
+    if (mapping.altIds?.some(alt => alt.toLowerCase() === lowerId)) {
+      return mapping;
+    }
+
+    // 5. Check native IDs case-insensitive (fallback)
+    if (mapping.nativeIds?.some(native => native.toLowerCase() === lowerId)) {
+      return mapping;
+    }
+  }
+
+  return undefined;
 };

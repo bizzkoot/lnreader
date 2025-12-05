@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, Pressable } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { Voice, VoiceQuality } from 'expo-speech';
@@ -21,6 +21,9 @@ import TTSScrollBehaviorModal from '../Modals/TTSScrollBehaviorModal';
 import AutoResumeModal from '../Modals/AutoResumeModal';
 
 const AccessibilityTab: React.FC = () => {
+    // No-op: Reader listens for settings changes via persisted storage and will
+    // apply updates live. We keep a helper if needed for web-based debug.
+    const sendTTSSettingsToReader = (_settings: any) => false;
   const theme = useTheme();
   const {
     fullScreenMode = true,
@@ -34,11 +37,54 @@ const AccessibilityTab: React.FC = () => {
     ttsScrollPrompt = 'always-ask',
     ttsScrollBehavior = 'continue',
     ttsBackgroundPlayback = true,
+    ttsContinueToNextChapter = 'none',
+    ttsAutoDownload = 'disabled',
+    ttsAutoDownloadAmount = '10',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
   const { tts, setChapterReaderSettings } = useChapterReaderSettings();
   const [voices, setVoices] = useState<TTSVoice[]>([]);
+  
+  // Local state for slider values to enable real-time display during drag
+  const [localRate, setLocalRate] = useState(tts?.rate || 1);
+  const [localPitch, setLocalPitch] = useState(tts?.pitch || 1);
+  const [isDraggingRate, setIsDraggingRate] = useState(false);
+  const [isDraggingPitch, setIsDraggingPitch] = useState(false);
+  
+  // Sync local state when tts settings change externally
+  useEffect(() => {
+    if (!isDraggingRate) {
+      setLocalRate(tts?.rate || 1);
+    }
+  }, [tts?.rate, isDraggingRate]);
+
+  // Send TTS settings to Reader/webview when rate changes
+  useEffect(() => {
+    if (!isDraggingRate && tts?.rate) {
+      sendTTSSettingsToReader({ ...tts, rate: tts.rate });
+    }
+  }, [tts?.rate, isDraggingRate]);
+  
+  useEffect(() => {
+    if (!isDraggingPitch) {
+      setLocalPitch(tts?.pitch || 1);
+    }
+  }, [tts?.pitch, isDraggingPitch]);
+
+  // Send TTS settings to Reader/webview when pitch changes
+  useEffect(() => {
+    if (!isDraggingPitch && tts?.pitch) {
+      sendTTSSettingsToReader({ ...tts, pitch: tts.pitch });
+    }
+  }, [tts?.pitch, isDraggingPitch]);
+    // Send TTS settings to Reader/webview when voice changes
+    useEffect(() => {
+      if (tts?.voice) {
+        sendTTSSettingsToReader({ ...tts, voice: tts.voice });
+      }
+    }, [tts?.voice]);
+  
   const {
     value: voiceModalVisible,
     setTrue: showVoiceModal,
@@ -58,6 +104,21 @@ const AccessibilityTab: React.FC = () => {
     value: scrollBehaviorModalVisible,
     setTrue: showScrollBehaviorModal,
     setFalse: hideScrollBehaviorModal,
+  } = useBoolean();
+  const {
+    value: continueNextChapterModalVisible,
+    setTrue: showContinueNextChapterModal,
+    setFalse: hideContinueNextChapterModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoDownloadModalVisible,
+    setTrue: showTtsAutoDownloadModal,
+    setFalse: hideTtsAutoDownloadModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoDownloadAmountModalVisible,
+    setTrue: showTtsAutoDownloadAmountModal,
+    setFalse: hideTtsAutoDownloadAmountModal,
   } = useBoolean();
 
   useEffect(() => {
@@ -201,47 +262,124 @@ const AccessibilityTab: React.FC = () => {
                 onPress={showVoiceModal}
                 theme={theme}
               />
+              
+              {/* Voice Rate Slider with enhanced UX */}
               <View style={styles.sliderSection}>
-                <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
-                  Voice rate: {tts?.rate?.toFixed(1) || '1.0'}
-                </Text>
-                <Slider
-                  style={styles.slider}
-                  value={tts?.rate || 1}
-                  minimumValue={0.1}
-                  maximumValue={5}
-                  step={0.1}
-                  minimumTrackTintColor={theme.primary}
-                  maximumTrackTintColor={theme.surfaceVariant}
-                  thumbTintColor={theme.primary}
-                  onSlidingComplete={value =>
-                    setChapterReaderSettings({ tts: { ...tts, rate: value } })
-                  }
-                />
+                <View style={styles.sliderLabelRow}>
+                  <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
+                    Voice speed
+                  </Text>
+                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                    {localRate.toFixed(1)}x
+                  </Text>
+                </View>
+                <View style={styles.sliderContainer}>
+                  <Pressable
+                    style={styles.sliderButton}
+                    onPress={() => {
+                      const newValue = Math.max(0.1, localRate - 0.1);
+                      setLocalRate(newValue);
+                      setChapterReaderSettings({ tts: { ...tts, rate: newValue } });
+                    }}
+                  >
+                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>−</Text>
+                  </Pressable>
+                  <Slider
+                    style={styles.slider}
+                    value={localRate}
+                    minimumValue={0.1}
+                    maximumValue={3}
+                    step={0.1}
+                    minimumTrackTintColor={theme.primary}
+                    maximumTrackTintColor={theme.surfaceVariant}
+                    thumbTintColor={theme.primary}
+                    onSlidingStart={() => setIsDraggingRate(true)}
+                    onValueChange={setLocalRate}
+                    onSlidingComplete={value => {
+                      setIsDraggingRate(false);
+                      setChapterReaderSettings({ tts: { ...tts, rate: value } });
+                    }}
+                  />
+                  <Pressable
+                    style={styles.sliderButton}
+                    onPress={() => {
+                      const newValue = Math.min(3, localRate + 0.1);
+                      setLocalRate(newValue);
+                      setChapterReaderSettings({ tts: { ...tts, rate: newValue } });
+                    }}
+                  >
+                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>+</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.sliderMarkers}>
+                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Slow</Text>
+                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Normal</Text>
+                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Fast</Text>
+                </View>
               </View>
+              
+              {/* Voice Pitch Slider with enhanced UX */}
               <View style={styles.sliderSection}>
-                <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
-                  Voice pitch: {tts?.pitch?.toFixed(1) || '1.0'}
-                </Text>
-                <Slider
-                  style={styles.slider}
-                  value={tts?.pitch || 1}
-                  minimumValue={0.1}
-                  maximumValue={5}
-                  step={0.1}
-                  minimumTrackTintColor={theme.primary}
-                  maximumTrackTintColor={theme.surfaceVariant}
-                  thumbTintColor={theme.primary}
-                  onSlidingComplete={value =>
-                    setChapterReaderSettings({ tts: { ...tts, pitch: value } })
-                  }
-                />
+                <View style={styles.sliderLabelRow}>
+                  <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
+                    Voice pitch
+                  </Text>
+                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                    {localPitch.toFixed(1)}x
+                  </Text>
+                </View>
+                <View style={styles.sliderContainer}>
+                  <Pressable
+                    style={styles.sliderButton}
+                    onPress={() => {
+                      const newValue = Math.max(0.1, localPitch - 0.1);
+                      setLocalPitch(newValue);
+                      setChapterReaderSettings({ tts: { ...tts, pitch: newValue } });
+                    }}
+                  >
+                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>−</Text>
+                  </Pressable>
+                  <Slider
+                    style={styles.slider}
+                    value={localPitch}
+                    minimumValue={0.1}
+                    maximumValue={2}
+                    step={0.1}
+                    minimumTrackTintColor={theme.primary}
+                    maximumTrackTintColor={theme.surfaceVariant}
+                    thumbTintColor={theme.primary}
+                    onSlidingStart={() => setIsDraggingPitch(true)}
+                    onValueChange={setLocalPitch}
+                    onSlidingComplete={value => {
+                      setIsDraggingPitch(false);
+                      setChapterReaderSettings({ tts: { ...tts, pitch: value } });
+                    }}
+                  />
+                  <Pressable
+                    style={styles.sliderButton}
+                    onPress={() => {
+                      const newValue = Math.min(2, localPitch + 0.1);
+                      setLocalPitch(newValue);
+                      setChapterReaderSettings({ tts: { ...tts, pitch: newValue } });
+                    }}
+                  >
+                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>+</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.sliderMarkers}>
+                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Low</Text>
+                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Normal</Text>
+                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>High</Text>
+                </View>
               </View>
+              
               <View style={styles.resetButtonContainer}>
                 <Button
                   title={getString('common.reset')}
                   mode="outlined"
                   onPress={() => {
+                    setLocalRate(1);
+                    setLocalPitch(1);
                     setChapterReaderSettings({
                       tts: {
                         pitch: 1,
@@ -282,6 +420,44 @@ const AccessibilityTab: React.FC = () => {
                 onPress={showScrollBehaviorModal}
                 theme={theme}
               />
+
+              <List.SubHeader theme={theme}>TTS Chapter Navigation</List.SubHeader>
+              <List.Item
+                title="Continue to next chapter"
+                description={
+                  ttsContinueToNextChapter === 'none'
+                    ? 'No (stop at end of chapter)'
+                    : ttsContinueToNextChapter === '5'
+                    ? 'Up to 5 chapters'
+                    : ttsContinueToNextChapter === '10'
+                    ? 'Up to 10 chapters'
+                    : 'Continuously (until stopped)'
+                }
+                onPress={showContinueNextChapterModal}
+                theme={theme}
+              />
+
+              <List.SubHeader theme={theme}>TTS Auto-Download</List.SubHeader>
+              <List.Item
+                title="Auto-download during TTS"
+                description={
+                  ttsAutoDownload === 'disabled'
+                    ? 'Disabled (use app setting)'
+                    : ttsAutoDownload === '5'
+                    ? 'When 5 chapters remain'
+                    : 'When 10 chapters remain'
+                }
+                onPress={showTtsAutoDownloadModal}
+                theme={theme}
+              />
+              {ttsAutoDownload !== 'disabled' && (
+                <List.Item
+                  title="Chapters to download"
+                  description={`${ttsAutoDownloadAmount} chapters`}
+                  onPress={showTtsAutoDownloadAmountModal}
+                  theme={theme}
+                />
+              )}
             </>
           )}
         </View>
@@ -341,6 +517,58 @@ const AccessibilityTab: React.FC = () => {
             { label: 'Pause TTS when I scroll', value: 'pause-on-scroll' },
           ]}
         />
+        <TTSScrollBehaviorModal
+          visible={continueNextChapterModalVisible}
+          onDismiss={hideContinueNextChapterModal}
+          theme={theme}
+          title="Continue to next chapter"
+          currentValue={ttsContinueToNextChapter}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsContinueToNextChapter: value as 'none' | '5' | '10' | 'continuous',
+            })
+          }
+          options={[
+            { label: 'No (stop at end of chapter)', value: 'none' },
+            { label: 'Up to 5 chapters', value: '5' },
+            { label: 'Up to 10 chapters', value: '10' },
+            { label: 'Continuously (until stopped)', value: 'continuous' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsAutoDownloadModalVisible}
+          onDismiss={hideTtsAutoDownloadModal}
+          theme={theme}
+          title="TTS Auto-Download"
+          currentValue={ttsAutoDownload}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsAutoDownload: value as 'disabled' | '5' | '10',
+            })
+          }
+          options={[
+            { label: 'Disabled (use app setting)', value: 'disabled' },
+            { label: 'When 5 chapters remain', value: '5' },
+            { label: 'When 10 chapters remain', value: '10' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsAutoDownloadAmountModalVisible}
+          onDismiss={hideTtsAutoDownloadAmountModal}
+          theme={theme}
+          title="Chapters to Download"
+          currentValue={ttsAutoDownloadAmount}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsAutoDownloadAmount: value as '5' | '10' | '15',
+            })
+          }
+          options={[
+            { label: '5 chapters', value: '5' },
+            { label: '10 chapters', value: '10' },
+            { label: '15 chapters', value: '15' },
+          ]}
+        />
       </Portal>
     </>
   );
@@ -366,14 +594,53 @@ const styles = StyleSheet.create({
   },
   sliderSection: {
     paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  sliderLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   sliderLabel: {
     fontSize: 16,
-    marginBottom: 8,
-    paddingHorizontal: 16,
+  },
+  sliderValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   slider: {
+    flex: 1,
+    height: 48,
+  },
+  sliderButton: {
+    width: 40,
     height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+  },
+  sliderButtonText: {
+    fontSize: 24,
+    fontWeight: '500',
+    lineHeight: 28,
+  },
+  sliderMarkers: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 48,
+    marginTop: 4,
+  },
+  sliderMarkerText: {
+    fontSize: 12,
   },
   resetButtonContainer: {
     paddingHorizontal: 16,

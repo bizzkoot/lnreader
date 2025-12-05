@@ -52,6 +52,20 @@ export interface AppSettings {
 
   hideBackdrop: boolean;
   defaultChapterSort: string;
+
+  /**
+   * Auto-download settings
+   * Automatically download chapters when remaining downloaded chapters fall below threshold
+   * - 'disabled': No auto-download
+   * - '5': Auto-download when 5 or fewer chapters remain
+   * - '10': Auto-download when 10 or fewer chapters remain
+   * - '15': Auto-download when 15 or fewer chapters remain
+   */
+  autoDownloadOnRemaining: 'disabled' | '5' | '10' | '15';
+  /**
+   * Number of chapters to download when auto-download triggers
+   */
+  autoDownloadAmount: '5' | '10' | '15' | '20';
 }
 
 export interface BrowseSettings {
@@ -93,6 +107,28 @@ export interface ChapterGeneralSettings {
   ttsScrollPrompt: 'always-ask' | 'auto-change' | 'never-change';
   ttsScrollBehavior: 'continue' | 'pause-on-scroll';
   ttsBackgroundPlayback: boolean;
+  /**
+   * Continue to next chapter when TTS finishes current chapter.
+   * - 'none': Stop at end of chapter (default)
+   * - '5': Auto-continue up to 5 additional chapters
+   * - '10': Auto-continue up to 10 additional chapters
+   * - 'continuous': Keep auto-advancing until stopped or content ends
+   */
+  ttsContinueToNextChapter: 'none' | '5' | '10' | 'continuous';
+  /**
+   * TTS-specific auto-download setting.
+   * When TTS is playing and remaining downloaded chapters fall below threshold,
+   * automatically download more chapters.
+   * - 'disabled': Use app-level auto-download setting (Step 1)
+   * - '5': Auto-download when 5 or fewer chapters remain
+   * - '10': Auto-download when 10 or fewer chapters remain
+   * Works even when screen is off.
+   */
+  ttsAutoDownload: 'disabled' | '5' | '10';
+  /**
+   * Number of chapters to download when TTS auto-download triggers
+   */
+  ttsAutoDownloadAmount: '5' | '10' | '15';
 }
 
 export interface ReaderTheme {
@@ -162,6 +198,13 @@ const initialAppSettings: AppSettings = {
 
   hideBackdrop: false,
   defaultChapterSort: 'ORDER BY position ASC',
+
+  /**
+   * Auto-download settings
+   */
+
+  autoDownloadOnRemaining: 'disabled',
+  autoDownloadAmount: '10',
 };
 
 const initialBrowseSettings: BrowseSettings = {
@@ -191,6 +234,9 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsScrollPrompt: 'always-ask',
   ttsScrollBehavior: 'continue',
   ttsBackgroundPlayback: true,
+  ttsContinueToNextChapter: 'none',
+  ttsAutoDownload: 'disabled',
+  ttsAutoDownloadAmount: '10',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

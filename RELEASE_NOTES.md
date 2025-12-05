@@ -1,24 +1,26 @@
+
 ## What's New
-This release brings a **comprehensive overhaul to the Text-to-Speech (TTS) system**, focusing on stability, customization, and user experience. It includes a new draggable TTS button, dedicated settings screens, and critical fixes for scrolling and reloading issues.
+
+### v2.0.6 — 2025-12-05
+
+**Stable, reliable TTS across sessions — this release fixes critical race conditions and background-resume issues so Text‑to‑Speech playback is predictable across chapter boundaries, device sleep/wake, and foreground/background transitions.**
 
 ### ✨ Features
-*   **TTS UI Overhaul**: The TTS button is now **draggable** and remembers its position. New, cleaner dialogs for resuming playback and syncing scroll position.
-*   **Advanced TTS Settings**: Added dedicated settings screens for **Auto Resume** behavior, **Scroll Sync** preferences, and an improved **Voice Picker**.
-*   **Background TTS Playback**: TTS continues playing seamlessly when the screen is off or the app is in the background (Android 14+ support included).
-*   **Reading Stability**: Fixed critical bugs where the reader would reload unnecessarily or fail to scroll to the saved position.
-*   **Enhanced Voice Naming**: TTS voices are displayed with human-readable names and sorted by language.
-*   **Robust Playback Logic**: Improved queue system to prevent stops and ensure highlighting stays in sync.
+
+- **Continuous multi-chapter playback** — TTS now reliably continues across chapter boundaries with improved paragraph highlighting and queue management.
+- **Race condition & sync fixes** — fixed several timing and state-racing issues that caused premature jumps, wrong lines, and paragraph resets during screen wake and settings changes.
+- **Background/foreground resilience** — addressed foreground-service issues (incl. Android 12+), improved resume behavior after interruptions, and hardened background playback logic.
+- **Live settings & sync flow** — reading-mode TTS settings now apply live; added an auto-retry + sync dialog to recover from out-of-sync states.
+- **Convenience & polish** — LOCAL/NETWORK voice badges, language-first voice labels, auto-download for remaining chapters, and UI/interaction improvements in the reader TTS experience.
 
 ### 📜 Commits
-*   **feat(tts): comprehensive TTS overhaul and stability fixes**
-    *   [0b50169599d14e4d76c510230939823f6d51516e](https://github.com/bizzkoot/lnreader/commit/0b50169599d14e4d76c510230939823f6d51516e)
-*   **Fix: TTS button position persistence and icons**
-    *   [89447ef08e77ff5a8165f81ab74a4332c4f704d0](https://github.com/bizzkoot/lnreader/commit/89447ef08e77ff5a8165f81ab74a4332c4f704d0)
-*   **fix: resolve initial scroll race condition in WebView**
-    *   [2eb9c48f0646415860e66c243477ecf1fc27e7a4](https://github.com/bizzkoot/lnreader/commit/2eb9c48f0646415860e66c243477ecf1fc27e7a4)
-*   **Fix TTS 'Phantom 5' reset and improve progress saving**
-    *   [ff8827ddc523cf13faebf75add399d40601cceae](https://github.com/bizzkoot/lnreader/commit/ff8827ddc523cf13faebf75add399d40601cceae)
-*   **feat: enhance TTS with background playback, voice naming, and robustness fixes**
-    *   [c87462fa911f55668c4c75258d83c7f21cdca7c9](https://github.com/LNReader/lnreader/commit/c87462fa911f55668c4c75258d83c7f21cdca7c9)
-*   **Merge upstream/master**
-    *   [e09704c71198df381033d3dc10910baa47c8c8e6](https://github.com/LNReader/lnreader/commit/e09704c71198df381033d3dc10910baa47c8c8e6)
+
+Range: `v2.0.5..HEAD` — 27 commits
+
+Detailed technical summary:
+
+- **Core architecture:** Heavy refactors to the TTS queue and playback controller to support continuous cross-chapter playback, consistent paragraph highlighting, and deterministic resume points.
+- **Race & timing hardening:** Multiple fixes to prevent stale closures and race conditions during chapter transitions, settings changes, and screen wake — eliminating premature chapter/paragraph jumps.
+- **Background service fixes:** Resolved Android foreground-service edge cases and shaped better recovery paths for background → foreground transitions (Android 12+ fixes included).
+- **Sync & retry flow:** Implemented live TTS settings propagation, an auto-retry mechanism for intermittent failures, and a sync dialog to manually reconcile out-of-sync playback/reader state.
+- **UX, diagnostics, and tests:** Improved voice labeling and badges, added small UX polish across the reader, and included tests and simulators to reproduce refill/auto-download scenarios.
