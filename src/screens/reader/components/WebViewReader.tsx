@@ -166,6 +166,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const autoResumeAfterWakeRef = useRef<boolean>(false);
   // Remember if TTS was playing when screen woke
   const wasReadingBeforeWakeRef = useRef<boolean>(false);
+  // CRITICAL FIX: Track the EXACT chapter ID and paragraph index at the moment of screen wake
+  // These are used to verify we're resuming on the correct chapter after WebView reloads
+  const wakeChapterIdRef = useRef<number | null>(null);
+  const wakeParagraphIndexRef = useRef<number | null>(null);
 
   // FIX: Refs to prevent stale closures in onQueueEmpty handler
   // The handler is created once (empty deps) but needs current values
@@ -953,13 +957,39 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             
             // Check if WebView is synced with current chapter
             if (!isWebViewSyncedRef.current) {
-              // WebView has old chapter's HTML - it will reload automatically
-              // when we return to foreground and React re-renders with new HTML source
-              // The onLoadEnd handler will set isWebViewSyncedRef.current = true
-              console.log('WebViewReader: WebView out of sync - waiting for reload');
-
+              // CRITICAL FIX: WebView has old chapter's HTML and TTS may have advanced
+              // to a different chapter. We MUST:
+              // 1. Save the EXACT chapter ID and paragraph index at this moment
+              // 2. STOP TTS completely (not just pause) to prevent further queue processing
+              // 3. Navigate back to the correct chapter if needed on reload
+              
+              const wakeChapterId = prevChapterIdRef.current;
+              const wakeParagraphIdx = currentParagraphIndexRef.current;
+              
+              console.log(
+                'WebViewReader: WebView out of sync - STOPPING TTS and saving position:',
+                `Chapter ${wakeChapterId}, Paragraph ${wakeParagraphIdx}`
+              );
+              
+              // Save wake position for verification on reload
+              wakeChapterIdRef.current = wakeChapterId;
+              wakeParagraphIndexRef.current = wakeParagraphIdx;
+              
+              // CRITICAL: STOP TTS completely to prevent onQueueEmpty from advancing chapters
+              // This is different from pause() which allows the queue to continue
+              TTSHighlight.stop()
+                .then(() => {
+                  console.log('WebViewReader: TTS stopped on wake (out-of-sync) for safe resume');
+                })
+                .catch(e => {
+                  console.warn('WebViewReader: Failed to stop TTS on wake', e);
+                });
+              
+              // Mark as not playing - we'll restart from saved position after sync
+              isTTSReadingRef.current = false;
+              backgroundTTSPendingRef.current = false; // Don't auto-start on next chapter
+              
               // Mark that we need to sync position after WebView reloads
-              // The position is tracked in currentParagraphIndexRef
               pendingScreenWakeSyncRef.current = true;
               return;
             }
@@ -1219,16 +1249,51 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             return;
           }
 
-          // If we have a pending screen-wake sync (screen was woken while
-          // WebView was suspended) run the same sync routine to position
-          // the WebView to the current TTS paragraph
-          if (pendingScreenWakeSyncRef.current && isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+          // CRITICAL FIX: Handle pending screen-wake sync with chapter verification
+          // When screen woke while TTS was playing in background, we saved the exact
+          // chapter ID and paragraph index. Now we must verify we're on the correct chapter.
+          if (pendingScreenWakeSyncRef.current) {
             pendingScreenWakeSyncRef.current = false;
-            console.log('WebViewReader: Running pending screen-wake sync to paragraph', currentParagraphIndexRef.current);
-
-            // Reuse the same sync injection used on AppState active
-            const syncIndex = currentParagraphIndexRef.current;
-            const chapterId = prevChapterIdRef.current;
+            
+            const savedWakeChapterId = wakeChapterIdRef.current;
+            const savedWakeParagraphIdx = wakeParagraphIndexRef.current;
+            const currentChapterId = chapter.id;
+            
+            console.log(
+              'WebViewReader: Processing pending screen-wake sync.',
+              `Saved: Chapter ${savedWakeChapterId}, Paragraph ${savedWakeParagraphIdx}.`,
+              `Current: Chapter ${currentChapterId}`
+            );
+            
+            // ENFORCE CHAPTER MATCH: If the loaded chapter doesn't match where TTS was,
+            // we cannot safely resume. The user needs to be on the correct chapter.
+            if (savedWakeChapterId !== null && savedWakeChapterId !== currentChapterId) {
+              console.warn(
+                `WebViewReader: Chapter mismatch! TTS was at chapter ${savedWakeChapterId} but WebView loaded chapter ${currentChapterId}.`,
+                'NOT resuming TTS - user should manually navigate to the correct chapter.'
+              );
+              
+              // Clear wake refs since we're not resuming
+              wakeChapterIdRef.current = null;
+              wakeParagraphIndexRef.current = null;
+              autoResumeAfterWakeRef.current = false;
+              wasReadingBeforeWakeRef.current = false;
+              
+              // Show a toast or alert to inform user? For now just log.
+              // The user will see they're on a different chapter and can navigate back.
+              return;
+            }
+            
+            // Chapter matches! Now we can safely sync and resume.
+            const syncIndex = savedWakeParagraphIdx ?? currentParagraphIndexRef.current ?? 0;
+            const chapterId = currentChapterId;
+            
+            console.log(`WebViewReader: Chapter verified, syncing to paragraph ${syncIndex}`);
+            
+            // Clear wake refs
+            wakeChapterIdRef.current = null;
+            wakeParagraphIndexRef.current = null;
+            
             if (webViewRef.current) {
               webViewRef.current.injectJavaScript(`
                 try {
@@ -1255,7 +1320,42 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 }
                 true;
               `);
+              
+              // Resume TTS playback from the verified position
+              if (wasReadingBeforeWakeRef.current || autoResumeAfterWakeRef.current) {
+                setTimeout(() => {
+                  try {
+                    const paragraphs = extractParagraphs(html);
+                    if (paragraphs && paragraphs.length > syncIndex) {
+                      const remaining = paragraphs.slice(syncIndex);
+                      const ids = remaining.map((_, i) => `chapter_${chapterId}_utterance_${syncIndex + i}`);
+                      
+                      currentParagraphIndexRef.current = syncIndex;
+                      latestParagraphIndexRef.current = syncIndex;
+                      
+                      TTSHighlight.speakBatch(remaining, ids, {
+                        voice: readerSettingsRef.current.tts?.voice?.identifier,
+                        pitch: readerSettingsRef.current.tts?.pitch || 1,
+                        rate: readerSettingsRef.current.tts?.rate || 1,
+                      })
+                        .then(() => {
+                          console.log(`WebViewReader: Resumed TTS after wake from chapter ${chapterId}, paragraph ${syncIndex}`);
+                          isTTSReadingRef.current = true;
+                        })
+                        .catch(err => {
+                          console.error('WebViewReader: Failed to resume TTS after wake', err);
+                        });
+                    }
+                  } catch (e) {
+                    console.warn('WebViewReader: Cannot resume TTS after wake (failed extract)', e);
+                  }
+                  
+                  autoResumeAfterWakeRef.current = false;
+                  wasReadingBeforeWakeRef.current = false;
+                }, 500);
+              }
             }
+            return; // Don't process autoStartTTSRef when handling wake sync
           }
           
           if (autoStartTTSRef.current) {
