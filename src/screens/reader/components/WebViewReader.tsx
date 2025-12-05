@@ -1383,10 +1383,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   currentParagraphIndexRef.current = paragraphIdx;
                 }
                 
+                // FIX: Use readerSettingsRef.current to get latest TTS settings
+                // (the prop doesn't update when settings change in the panel)
                 TTSHighlight.speak(event.data, {
-                  voice: readerSettings.tts?.voice?.identifier,
-                  pitch: readerSettings.tts?.pitch || 1,
-                  rate: readerSettings.tts?.rate || 1,
+                  voice: readerSettingsRef.current.tts?.voice?.identifier,
+                  pitch: readerSettingsRef.current.tts?.pitch || 1,
+                  rate: readerSettingsRef.current.tts?.rate || 1,
                   utteranceId,
                 });
               } else {
