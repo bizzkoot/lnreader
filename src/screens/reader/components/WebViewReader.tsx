@@ -191,11 +191,57 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   useEffect(() => {
     if (liveReaderTts) {
+      // Check if voice/rate/pitch actually changed
+      const oldTts = readerSettingsRef.current.tts;
+      const voiceChanged = oldTts?.voice?.identifier !== liveReaderTts.voice?.identifier;
+      const rateChanged = oldTts?.rate !== liveReaderTts.rate;
+      const pitchChanged = oldTts?.pitch !== liveReaderTts.pitch;
+      const settingsChanged = voiceChanged || rateChanged || pitchChanged;
+
       // Update our ref so other listeners will use the latest settings
       readerSettingsRef.current = { ...readerSettingsRef.current, tts: liveReaderTts } as any;
       applyTtsUpdateToWebView(liveReaderTts, webViewRef);
+
+      // BUG 1 FIX: If TTS is actively reading and voice/rate/pitch changed,
+      // restart playback from current position with new settings
+      if (settingsChanged && isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+        console.log('WebViewReader: TTS settings changed while playing, restarting with new settings');
+        
+        // Stop current playback
+        TTSHighlight.stop();
+        
+        // Get current paragraph index and restart
+        const idx = currentParagraphIndexRef.current;
+        const paragraphs = extractParagraphs(html);
+        
+        if (paragraphs && paragraphs.length > idx) {
+          const remaining = paragraphs.slice(idx);
+          const ids = remaining.map((_, i) => `chapter_${chapter.id}_utterance_${idx + i}`);
+          
+          // Update TTS queue ref
+          ttsQueueRef.current = {
+            texts: remaining,
+            startIndex: idx,
+          };
+          
+          // Start batch playback with new settings
+          TTSHighlight.speakBatch(remaining, ids, {
+            voice: liveReaderTts.voice?.identifier,
+            pitch: liveReaderTts.pitch || 1,
+            rate: liveReaderTts.rate || 1,
+          })
+            .then(() => {
+              console.log('WebViewReader: TTS restarted with new settings from index', idx);
+              isTTSReadingRef.current = true;
+            })
+            .catch(err => {
+              console.error('WebViewReader: Failed to restart TTS with new settings', err);
+              isTTSReadingRef.current = false;
+            });
+        }
+      }
     }
-  }, [liveReaderTts, webViewRef]);
+  }, [liveReaderTts, webViewRef, html, chapter.id]);
 
   // FIX: Keep navigation refs synced to prevent stale closures in onQueueEmpty
   useEffect(() => {
@@ -908,7 +954,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Give WebView a moment to stabilize after screen wake
             setTimeout(() => {
               if (webViewRef.current) {
-                const syncIndex = currentParagraphIndexRef.current;
+                // BUG 2 FIX: Read from MMKV as authoritative source for paragraph index
+                // The ref might be stale if there was a race condition during chapter transition
+                const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+                const refIndex = currentParagraphIndexRef.current;
+                
+                // Use MMKV if available, otherwise fall back to ref
+                // MMKV is always persisted on onSpeechDone, so it's the most reliable source
+                const syncIndex = mmkvIndex >= 0 ? mmkvIndex : refIndex;
+                
+                // Update ref to match MMKV (keep them in sync)
+                if (mmkvIndex >= 0 && mmkvIndex !== refIndex) {
+                  console.log(`WebViewReader: Correcting paragraph index from ref (${refIndex}) to MMKV (${mmkvIndex})`);
+                  currentParagraphIndexRef.current = mmkvIndex;
+                  latestParagraphIndexRef.current = mmkvIndex;
+                }
+                
                 const chapterId = prevChapterIdRef.current;
                 
                 // Force sync WebView to current TTS position with chapter validation
@@ -961,9 +1022,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // Schedule a resume on RN side if we paused native playback earlier
               setTimeout(() => {
                 if (autoResumeAfterWakeRef.current && isTTSReadingRef.current === false) {
-                  // Resume native TTS from the currentParagraphIndexRef
-                  const idx = currentParagraphIndexRef.current ?? -1;
+                  // BUG 2 FIX: Re-read from MMKV to get the most current index
+                  // in case it was updated during the 900ms wait
+                  const mmkvIdx = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+                  const idx = mmkvIdx >= 0 ? mmkvIdx : (currentParagraphIndexRef.current ?? -1);
+                  
                   if (idx >= 0) {
+                    // Sync ref with MMKV
+                    if (mmkvIdx >= 0) {
+                      currentParagraphIndexRef.current = mmkvIdx;
+                    }
+                    
                     // Attempt to resume using native batch playback
                     try {
                       const paragraphs = extractParagraphs(html);
@@ -977,7 +1046,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                           rate: readerSettingsRef.current.tts?.rate || 1,
                         })
                           .then(() => {
-                            console.log('WebViewReader: Resumed TTS after wake (RN-side)');
+                            console.log('WebViewReader: Resumed TTS after wake (RN-side) from index', idx);
                             isTTSReadingRef.current = true;
                           })
                           .catch(err => {
