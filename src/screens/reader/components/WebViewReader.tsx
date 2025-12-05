@@ -173,6 +173,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // These are used to verify we're resuming on the correct chapter after WebView reloads
   const wakeChapterIdRef = useRef<number | null>(null);
   const wakeParagraphIndexRef = useRef<number | null>(null);
+  // BUG FIX: Track if wake transition is in progress to block stale events from updating refs
+  // This prevents race conditions where onSpeechStart events mutate currentParagraphIndexRef
+  // during the async pause/sync/resume sequence
+  const wakeTransitionInProgressRef = useRef<boolean>(false);
+  // BUG FIX: Capture the exact paragraph index at the moment of wake BEFORE any events can change it
+  const capturedWakeParagraphIndexRef = useRef<number | null>(null);
 
   // State for TTS sync dialog (shown when screen wakes and chapter mismatch occurs)
   const [syncDialogVisible, setSyncDialogVisible] = useState(false);
@@ -793,6 +799,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // Listen for utterance start to ensure paragraph highlight and state are synced
     const startSubscription = TTSHighlight.addListener('onSpeechStart', (event) => {
       try {
+        // BUG FIX: Block events during wake transition to prevent ref mutation
+        // This prevents race conditions where late events update currentParagraphIndexRef
+        // during the async pause/sync/resume sequence
+        if (wakeTransitionInProgressRef.current) {
+          console.log('WebViewReader: Ignoring onSpeechStart during wake transition');
+          return;
+        }
+        
         const utteranceId = event?.utteranceId || '';
         let paragraphIndex = currentParagraphIndexRef.current ?? -1;
         
@@ -851,6 +865,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // This prevents false chapter navigation during settings change restarts
       if (TTSHighlight.isRestartInProgress()) {
         console.log('WebViewReader: Queue empty ignored - restart in progress');
+        return;
+      }
+
+      // BUG FIX: Don't proceed if a refill operation is in progress
+      // This prevents premature chapter navigation when async refill is still running
+      if (TTSHighlight.isRefillInProgress()) {
+        console.log('WebViewReader: Queue empty ignored - refill in progress');
         return;
       }
 
@@ -931,6 +952,19 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           // position to prevent stale scrolling, then resume playback once
           // the UI has been positioned.
           if (isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+            // BUG FIX: IMMEDIATELY capture the current paragraph index BEFORE any async operations
+            // This prevents race conditions where onSpeechStart events mutate the ref during pause
+            const capturedParagraphIndex = currentParagraphIndexRef.current;
+            capturedWakeParagraphIndexRef.current = capturedParagraphIndex;
+            
+            // BUG FIX: Set wake transition flag to block all native events from updating refs
+            wakeTransitionInProgressRef.current = true;
+            
+            console.log(
+              'WebViewReader: Screen wake detected, capturing paragraph index:',
+              capturedParagraphIndex
+            );
+            
             // BUG FIX: Immediately set screen wake sync flag to block all scroll saves
             // This must happen FIRST before any other processing
             if (webViewRef.current) {
@@ -967,7 +1001,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
             console.log(
               'WebViewReader: Screen woke during TTS, syncing to paragraph',
-              currentParagraphIndexRef.current,
+              capturedParagraphIndex,
               'WebView synced:', isWebViewSyncedRef.current,
             );
             
@@ -979,8 +1013,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // 2. STOP TTS completely (not just pause) to prevent further queue processing
               // 3. Navigate back to the correct chapter if needed on reload
               
+              // BUG FIX: Use the captured paragraph index for out-of-sync case too
               const wakeChapterId = prevChapterIdRef.current;
-              const wakeParagraphIdx = currentParagraphIndexRef.current;
+              const wakeParagraphIdx = capturedWakeParagraphIndexRef.current ?? currentParagraphIndexRef.current;
               
               console.log(
                 'WebViewReader: WebView out of sync - STOPPING TTS and saving position:',
@@ -1004,6 +1039,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // Mark as not playing - we'll restart from saved position after sync
               isTTSReadingRef.current = false;
               backgroundTTSPendingRef.current = false; // Don't auto-start on next chapter
+              
+              // BUG FIX: Clear wake transition flags for out-of-sync case
+              // They will be set again when pending screen wake sync runs after WebView reloads
+              wakeTransitionInProgressRef.current = false;
+              capturedWakeParagraphIndexRef.current = null;
               
               // Mark that we need to sync position after WebView reloads
               pendingScreenWakeSyncRef.current = true;
@@ -1030,21 +1070,31 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Give WebView a moment to stabilize after screen wake
             setTimeout(() => {
               if (webViewRef.current) {
-                // BUG 2 FIX: Read from MMKV as authoritative source for paragraph index
-                // The ref might be stale if there was a race condition during chapter transition
+                // BUG FIX: Use the captured paragraph index from when wake was detected
+                // This is immune to race conditions with onSpeechStart events
+                const capturedIndex = capturedWakeParagraphIndexRef.current;
+                
+                // Also check MMKV as a secondary source
                 const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
                 const refIndex = currentParagraphIndexRef.current;
                 
-                // Use MMKV if available, otherwise fall back to ref
-                // MMKV is always persisted on onSpeechDone, so it's the most reliable source
-                const syncIndex = mmkvIndex >= 0 ? mmkvIndex : refIndex;
-                
-                // Update ref to match MMKV (keep them in sync)
-                if (mmkvIndex >= 0 && mmkvIndex !== refIndex) {
-                  console.log(`WebViewReader: Correcting paragraph index from ref (${refIndex}) to MMKV (${mmkvIndex})`);
-                  currentParagraphIndexRef.current = mmkvIndex;
-                  latestParagraphIndexRef.current = mmkvIndex;
+                // Priority: captured index > MMKV > current ref
+                // The captured index is the most reliable because it was taken BEFORE pause
+                let syncIndex: number;
+                if (capturedIndex !== null && capturedIndex >= 0) {
+                  syncIndex = capturedIndex;
+                  console.log(`WebViewReader: Using captured wake index: ${capturedIndex}`);
+                } else if (mmkvIndex >= 0) {
+                  syncIndex = mmkvIndex;
+                  console.log(`WebViewReader: Using MMKV index: ${mmkvIndex}`);
+                } else {
+                  syncIndex = refIndex;
+                  console.log(`WebViewReader: Using ref index: ${refIndex}`);
                 }
+                
+                // Update refs to match the chosen sync index
+                currentParagraphIndexRef.current = syncIndex;
+                latestParagraphIndexRef.current = syncIndex;
                 
                 const chapterId = prevChapterIdRef.current;
                 
@@ -1097,18 +1147,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
               // Schedule a resume on RN side if we paused native playback earlier
               setTimeout(() => {
+                // BUG FIX: Clear the wake transition flag now that sync is complete
+                wakeTransitionInProgressRef.current = false;
+                capturedWakeParagraphIndexRef.current = null;
+                
                 if (autoResumeAfterWakeRef.current && isTTSReadingRef.current === false) {
-                  // BUG 2 FIX: Re-read from MMKV to get the most current index
-                  // in case it was updated during the 900ms wait
-                  const mmkvIdx = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
-                  const idx = mmkvIdx >= 0 ? mmkvIdx : (currentParagraphIndexRef.current ?? -1);
+                  // BUG FIX: Use the sync index we already computed, not re-reading
+                  // The sync index was already set to currentParagraphIndexRef in the outer timeout
+                  const idx = currentParagraphIndexRef.current ?? -1;
                   
                   if (idx >= 0) {
-                    // Sync ref with MMKV
-                    if (mmkvIdx >= 0) {
-                      currentParagraphIndexRef.current = mmkvIdx;
-                    }
-                    
                     // Attempt to resume using native batch playback
                     try {
                       const paragraphs = extractParagraphs(html);

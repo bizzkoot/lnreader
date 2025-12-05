@@ -101,6 +101,21 @@ class TTSHighlightService {
     return TTSAudioManager.isRestartInProgress();
   }
 
+  /**
+   * Mark that a refill operation is beginning.
+   * This prevents onQueueEmpty from firing during async refill operations.
+   */
+  setRefillInProgress(value: boolean) {
+    TTSAudioManager.setRefillInProgress(value);
+  }
+
+  /**
+   * Check if a refill operation is in progress.
+   */
+  isRefillInProgress(): boolean {
+    return TTSAudioManager.isRefillInProgress();
+  }
+
   pause(): Promise<boolean> {
     return TTSAudioManager.stop();
   }

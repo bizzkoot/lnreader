@@ -11,8 +11,14 @@ export type TTSAudioParams = {
     utteranceId?: string;
 };
 
-const BATCH_SIZE = 15; // Number of paragraphs to queue at once
-const REFILL_THRESHOLD = 5; // Refill queue when this many items left
+// BUG FIX: Increased batch size and refill threshold to prevent queue exhaustion
+// during fast speech or short paragraphs. The race condition occurs when:
+// 1. refillQueue() starts async call to get queue size
+// 2. Native TTS continues speaking and exhausts remaining utterances
+// 3. onQueueEmpty fires before refill completes
+// Larger margins give more buffer time.
+const BATCH_SIZE = 25; // Number of paragraphs to queue at once (was 15)
+const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
 
 // eslint-disable-next-line no-console
 const logDebug = __DEV__ ? console.log : () => {};
@@ -34,6 +40,9 @@ class TTSAudioManager {
     // BUG FIX: Track if a restart operation is in progress to prevent
     // onQueueEmpty from firing during intentional stop/restart cycles
     private restartInProgress = false;
+    // BUG FIX: Track if a refill operation is in progress to prevent
+    // premature onQueueEmpty from triggering chapter navigation
+    private refillInProgress = false;
 
     /**
      * Mark that a restart operation is beginning.
@@ -49,6 +58,22 @@ class TTSAudioManager {
      */
     isRestartInProgress(): boolean {
         return this.restartInProgress;
+    }
+
+    /**
+     * Mark that a refill operation is beginning.
+     * This prevents onQueueEmpty from firing during async refill operations.
+     */
+    setRefillInProgress(value: boolean) {
+        this.refillInProgress = value;
+        logDebug(`TTSAudioManager: refillInProgress set to ${value}`);
+    }
+
+    /**
+     * Check if a refill operation is in progress.
+     */
+    isRefillInProgress(): boolean {
+        return this.refillInProgress;
     }
 
     async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
@@ -169,11 +194,16 @@ class TTSAudioManager {
         // Reset the "no more items" flag since we have items to refill
         this.hasLoggedNoMoreItems = false;
 
+        // BUG FIX: Set refill in progress flag to prevent premature onQueueEmpty
+        this.refillInProgress = true;
+        logDebug('TTSAudioManager: Starting refill operation');
+
         try {
             const queueSize = await TTSHighlight.getQueueSize();
 
             if (queueSize > REFILL_THRESHOLD) {
                 // Still enough items in queue
+                this.refillInProgress = false;
                 return false;
             }
 
@@ -218,6 +248,7 @@ class TTSAudioManager {
                         await TTSHighlight.speakBatch(nextTexts, nextIds);
                         this.currentIndex += nextBatchSize;
                         logDebug(`TTSAudioManager: speakBatch fallback started ${nextBatchSize} items`);
+                        this.refillInProgress = false;
                         return true;
                     }
                 } catch (err2) {
@@ -226,6 +257,7 @@ class TTSAudioManager {
 
                 // Ultimately fail the refill
                 logError('TTSAudioManager: Failed to add next batch to native queue after retries.', addError);
+                this.refillInProgress = false;
                 return false;
             }
 
@@ -235,9 +267,11 @@ class TTSAudioManager {
                 `TTSAudioManager: Refilled queue with ${nextBatchSize} items, ${this.currentQueue.length - this.currentIndex} remaining`
             );
 
+            this.refillInProgress = false;
             return true;
         } catch (error) {
             logError('TTSAudioManager: Failed to refill queue:', error);
+            this.refillInProgress = false;
             return false;
         }
     }
@@ -316,6 +350,24 @@ class TTSAudioManager {
             // This prevents false "queue empty" signals during intentional stop/restart cycles
             if (this.restartInProgress) {
                 logDebug('TTSAudioManager: onQueueEmpty ignored - restart in progress');
+                return;
+            }
+            
+            // BUG FIX: Don't fire callback if a refill operation is in progress
+            // This prevents premature chapter navigation when async refill is still running
+            if (this.refillInProgress) {
+                logDebug('TTSAudioManager: onQueueEmpty ignored - refill in progress');
+                return;
+            }
+            
+            // BUG FIX: Check if we still have items to refill - if so, this is a false alarm
+            // Native queue might be empty but JS still has more paragraphs to queue
+            if (this.currentIndex < this.currentQueue.length) {
+                logDebug('TTSAudioManager: onQueueEmpty ignored - still have items to refill, triggering immediate refill');
+                // Trigger immediate refill
+                this.refillQueue().catch(err => {
+                    logError('TTSAudioManager: Emergency refill failed:', err);
+                });
                 return;
             }
             
