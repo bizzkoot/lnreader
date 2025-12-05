@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeEventEmitter,
   NativeModules,
@@ -28,10 +28,12 @@ import { useChapterContext } from '../ChapterContext';
 import TTSResumeDialog from './TTSResumeDialog';
 import TTSScrollSyncDialog from './TTSScrollSyncDialog';
 import TTSManualModeDialog from './TTSManualModeDialog';
+import TTSSyncDialog from './TTSSyncDialog';
 import Toast from '@components/Toast';
 import { useBoolean } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView } from './ttsHelpers';
+import { getChapter as getChapterFromDb } from '@database/queries/ChapterQueries';
 
 type WebViewPostEvent = {
   type: string;
@@ -75,6 +77,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     prevChapter,
     webViewRef,
     savedParagraphIndex,
+    getChapter,
   } = useChapterContext();
   const theme = useTheme();
   const readerSettings = useMemo(
@@ -170,6 +173,19 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // These are used to verify we're resuming on the correct chapter after WebView reloads
   const wakeChapterIdRef = useRef<number | null>(null);
   const wakeParagraphIndexRef = useRef<number | null>(null);
+
+  // State for TTS sync dialog (shown when screen wakes and chapter mismatch occurs)
+  const [syncDialogVisible, setSyncDialogVisible] = useState(false);
+  const [syncDialogStatus, setSyncDialogStatus] = useState<'syncing' | 'success' | 'failed'>('syncing');
+  const [syncDialogInfo, setSyncDialogInfo] = useState<{
+    chapterName: string;
+    paragraphIndex: number;
+    totalParagraphs: number;
+    progress: number;
+  } | undefined>(undefined);
+  // Track retry attempts to prevent infinite loops
+  const syncRetryCountRef = useRef<number>(0);
+  const MAX_SYNC_RETRIES = 2;
 
   // FIX: Refs to prevent stale closures in onQueueEmpty handler
   // The handler is created once (empty deps) but needs current values
@@ -1266,25 +1282,109 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             );
             
             // ENFORCE CHAPTER MATCH: If the loaded chapter doesn't match where TTS was,
-            // we cannot safely resume. The user needs to be on the correct chapter.
+            // attempt to navigate to the correct chapter automatically.
             if (savedWakeChapterId !== null && savedWakeChapterId !== currentChapterId) {
               console.warn(
                 `WebViewReader: Chapter mismatch! TTS was at chapter ${savedWakeChapterId} but WebView loaded chapter ${currentChapterId}.`,
-                'NOT resuming TTS - user should manually navigate to the correct chapter.'
+                'Attempting to navigate to correct chapter...'
               );
               
-              // Clear wake refs since we're not resuming
-              wakeChapterIdRef.current = null;
-              wakeParagraphIndexRef.current = null;
-              autoResumeAfterWakeRef.current = false;
-              wasReadingBeforeWakeRef.current = false;
+              // Check retry count to prevent infinite loops
+              if (syncRetryCountRef.current >= MAX_SYNC_RETRIES) {
+                console.error('WebViewReader: Max sync retries reached, showing failure dialog');
+                
+                // Calculate progress info for the error dialog
+                const paragraphs = extractParagraphs(html);
+                const totalParagraphs = paragraphs?.length ?? 0;
+                const paragraphIdx = savedWakeParagraphIdx ?? 0;
+                const progressPercent = totalParagraphs > 0 
+                  ? (paragraphIdx / totalParagraphs) * 100 
+                  : 0;
+                
+                // Try to get chapter name from DB
+                getChapterFromDb(savedWakeChapterId).then(savedChapter => {
+                  setSyncDialogInfo({
+                    chapterName: savedChapter?.name ?? `Chapter ID: ${savedWakeChapterId}`,
+                    paragraphIndex: paragraphIdx,
+                    totalParagraphs: totalParagraphs,
+                    progress: progressPercent,
+                  });
+                  setSyncDialogStatus('failed');
+                  setSyncDialogVisible(true);
+                }).catch(() => {
+                  setSyncDialogInfo({
+                    chapterName: `Chapter ID: ${savedWakeChapterId}`,
+                    paragraphIndex: paragraphIdx,
+                    totalParagraphs: totalParagraphs,
+                    progress: progressPercent,
+                  });
+                  setSyncDialogStatus('failed');
+                  setSyncDialogVisible(true);
+                });
+                
+                // Clear wake refs since we're not resuming
+                wakeChapterIdRef.current = null;
+                wakeParagraphIndexRef.current = null;
+                autoResumeAfterWakeRef.current = false;
+                wasReadingBeforeWakeRef.current = false;
+                syncRetryCountRef.current = 0;
+                return;
+              }
               
-              // Show a toast or alert to inform user? For now just log.
-              // The user will see they're on a different chapter and can navigate back.
+              // Show syncing dialog
+              setSyncDialogStatus('syncing');
+              setSyncDialogVisible(true);
+              syncRetryCountRef.current += 1;
+              
+              // Fetch the saved chapter info and navigate to it
+              getChapterFromDb(savedWakeChapterId).then(savedChapter => {
+                if (savedChapter) {
+                  console.log(`WebViewReader: Navigating to saved chapter: ${savedChapter.name}`);
+                  // Keep wake refs intact so we can resume after navigation
+                  // Set flag so we continue the sync process on next load
+                  pendingScreenWakeSyncRef.current = true;
+                  // Navigate to the correct chapter
+                  getChapter(savedChapter);
+                } else {
+                  console.error(`WebViewReader: Could not find chapter ${savedWakeChapterId} in database`);
+                  setSyncDialogStatus('failed');
+                  setSyncDialogInfo({
+                    chapterName: `Unknown Chapter (ID: ${savedWakeChapterId})`,
+                    paragraphIndex: savedWakeParagraphIdx ?? 0,
+                    totalParagraphs: 0,
+                    progress: 0,
+                  });
+                  // Clear refs
+                  wakeChapterIdRef.current = null;
+                  wakeParagraphIndexRef.current = null;
+                  autoResumeAfterWakeRef.current = false;
+                  wasReadingBeforeWakeRef.current = false;
+                  syncRetryCountRef.current = 0;
+                }
+              }).catch(err => {
+                console.error('WebViewReader: Failed to fetch saved chapter', err);
+                setSyncDialogStatus('failed');
+                // Clear refs
+                wakeChapterIdRef.current = null;
+                wakeParagraphIndexRef.current = null;
+                autoResumeAfterWakeRef.current = false;
+                wasReadingBeforeWakeRef.current = false;
+                syncRetryCountRef.current = 0;
+              });
+              
               return;
             }
             
             // Chapter matches! Now we can safely sync and resume.
+            // Reset retry counter on success
+            syncRetryCountRef.current = 0;
+            
+            // Hide sync dialog if it was showing
+            if (syncDialogVisible) {
+              setSyncDialogStatus('success');
+              // Auto-hide after a short delay
+              setTimeout(() => setSyncDialogVisible(false), 1500);
+            }
             const syncIndex = savedWakeParagraphIdx ?? currentParagraphIndexRef.current ?? 0;
             const chapterId = currentChapterId;
             
@@ -1739,6 +1839,35 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         onStopTTS={handleStopTTS}
         onContinueFollowing={handleContinueFollowing}
         onDismiss={hideManualModeDialog}
+      />
+      <TTSSyncDialog
+        visible={syncDialogVisible}
+        theme={theme}
+        status={syncDialogStatus}
+        syncInfo={syncDialogInfo}
+        onDismiss={() => {
+          setSyncDialogVisible(false);
+          syncRetryCountRef.current = 0;
+        }}
+        onRetry={() => {
+          // Reset and try again
+          syncRetryCountRef.current = 0;
+          if (wakeChapterIdRef.current) {
+            pendingScreenWakeSyncRef.current = true;
+            setSyncDialogStatus('syncing');
+            getChapterFromDb(wakeChapterIdRef.current).then(savedChapter => {
+              if (savedChapter) {
+                getChapter(savedChapter);
+              } else {
+                setSyncDialogStatus('failed');
+              }
+            }).catch(() => {
+              setSyncDialogStatus('failed');
+            });
+          } else {
+            setSyncDialogVisible(false);
+          }
+        }}
       />
       <Toast
         visible={toastVisible}
