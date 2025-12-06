@@ -1,4 +1,7 @@
 /* eslint-disable no-console */
+// Define DEBUG globally for all scopes in this file
+var DEBUG = typeof initialReaderConfig !== 'undefined' ? initialReaderConfig.DEBUG : false;
+
 window.reader = new (function () {
   const {
     readerSettings,
@@ -9,9 +12,17 @@ window.reader = new (function () {
     prevChapter,
     batteryLevel,
     autoSaveInterval,
-    DEBUG,
+    // DEBUG is already defined globally, but we can keep it here too
     strings,
   } = initialReaderConfig;
+
+  // Quiet all non-error console output in non-debug builds to avoid log flooding
+  // WebView logs are forwarded to native via postMessage and can create thousands
+  // of lines during TTS playback; silence them unless DEBUG is enabled.
+  if (!DEBUG) {
+    console.log = console.debug = console.info = function () {};
+    console.warn = function () {};
+  }
 
   // state
   this.hidden = van.state(true);
@@ -138,7 +149,7 @@ window.reader = new (function () {
       this.post({ type: 'tts-update-settings', data: ttsSettings });
     } catch (e) {
       // best-effort
-      console.warn('tts-update-settings post failed', e);
+      if (DEBUG) console.warn('tts-update-settings post failed', e);
     }
 
     // Also let the in-webview TTS instance apply non-native settings
@@ -146,7 +157,7 @@ window.reader = new (function () {
       try {
         window.tts.applySettings(ttsSettings);
       } catch (e) {
-        console.warn('window.tts.applySettings failed', e);
+        if (DEBUG) console.warn('window.tts.applySettings failed', e);
       }
     }
   });
@@ -161,7 +172,7 @@ window.reader = new (function () {
   this.getReadableElements = () => {
     // NEW: Check if chapterElement is still valid. If not, re-query it.
     if (!this.chapterElement || !this.chapterElement.isConnected) {
-      console.log(
+      if (DEBUG) console.log(
         'Reader: chapterElement is disconnected or missing, re-querying...',
       );
       this.chapterElement = document.querySelector('#LNReader-chapter');
@@ -174,7 +185,7 @@ window.reader = new (function () {
         this._cachedReadableElements.length > 0 &&
         !this._cachedReadableElements[0].isConnected
       ) {
-        console.log(
+        if (DEBUG) console.log(
           'Reader: Cached elements are disconnected, invalidating cache...',
         );
         this._cacheInvalidated = true;
@@ -240,7 +251,7 @@ window.reader = new (function () {
     }
 
     if (this.suppressSaveOnScroll) {
-      console.log('Skipping save on initial scroll');
+      if (DEBUG) console.log('Skipping save on initial scroll');
       // FIX: Do NOT reset this here. Let calculatePages reset it after the timeout.
       return;
     }
@@ -274,7 +285,7 @@ window.reader = new (function () {
   this.processScroll = currentScrollY => {
     // CRITICAL: Block scroll processing entirely during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
-      console.log('processScroll: BLOCKED - Screen wake sync pending');
+      if (DEBUG) console.log('processScroll: BLOCKED - Screen wake sync pending');
       this.accumulatedScrollDelta = 0;
       return;
     }
@@ -379,7 +390,7 @@ window.reader = new (function () {
     
     // BUG FIX: Block saves during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
-      console.log('processScroll: Skipping save - screen wake sync pending');
+      if (DEBUG) console.log('processScroll: Skipping save - screen wake sync pending');
       return;
     }
     
@@ -387,7 +398,7 @@ window.reader = new (function () {
     // This prevents small scrolls from corrupting the TTS position
     const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
     if (timeSinceTTSStop < 2000) { // 2 second grace period
-      console.log('processScroll: Skipping save - TTS grace period (' + timeSinceTTSStop + 'ms)');
+      if (DEBUG) console.log('processScroll: Skipping save - TTS grace period (' + timeSinceTTSStop + 'ms)');
       return;
     }
 
@@ -518,7 +529,7 @@ window.tts = new (function () {
   this.DEBUG_TTS = false;
   this.log = (...args) => {
     if (this.DEBUG_TTS || initialReaderConfig.DEBUG) {
-      console.log('[TTS]', ...args);
+      if (initialReaderConfig.DEBUG) console.log('[TTS]', ...args);
     }
   };
 
@@ -604,7 +615,7 @@ window.tts = new (function () {
       ) {
         // At least 2 paragraphs back
 
-        console.log(
+        if (initialReaderConfig.DEBUG) console.log(
           `TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}`,
         );
 
@@ -624,7 +635,7 @@ window.tts = new (function () {
         ) {
           // Automatically change TTS position
           window.tts.currentElement = readableElements[visibleParagraphIndex];
-          console.log(
+          if (initialReaderConfig.DEBUG) console.log(
             `TTS: Auto-changed position to paragraph ${visibleParagraphIndex}`,
           );
 
@@ -758,11 +769,11 @@ window.tts = new (function () {
     }
 
     if (!config || !config.shouldResume) {
-      console.log('TTS: No resume needed');
+      if (initialReaderConfig.DEBUG) console.log('TTS: No resume needed');
       this.hasAutoResumed = true;
 
       if (config?.startFromBeginning) {
-        console.log('TTS: User chose to restart from beginning');
+        if (initialReaderConfig.DEBUG) console.log('TTS: User chose to restart from beginning');
         this.start();
       }
       return;
@@ -877,7 +888,7 @@ window.tts = new (function () {
           this.next();
           return;
         } else {
-          console.log(
+          if (initialReaderConfig.DEBUG) console.log(
             'TTS: Saved index',
             savedIndex,
             'not found in readableElements of length',
@@ -885,7 +896,7 @@ window.tts = new (function () {
           );
         }
       } else {
-        console.log(
+        if (initialReaderConfig.DEBUG) console.log(
           'TTS: Skipping resume. hasAutoResumed:',
           this.hasAutoResumed,
           'savedIndex:',
@@ -941,7 +952,7 @@ window.tts = new (function () {
         );
         this.currentElement = bestElement;
       } else {
-        console.log('TTS: No visible element found, starting from beginning');
+        if (initialReaderConfig.DEBUG) console.log('TTS: No visible element found, starting from beginning');
         this.currentElement = reader.chapterElement;
       }
     }
@@ -971,7 +982,7 @@ window.tts = new (function () {
         if (!forceResume) {
           // If the current TTS element is still visible, we don't need to prompt
           if (this.isElementInViewport(this.currentElement)) {
-            console.log(
+            if (initialReaderConfig.DEBUG) console.log(
               'TTS: Current element is visible, skipping scroll check',
             );
           } else {
@@ -995,7 +1006,7 @@ window.tts = new (function () {
               visibleParagraphIndex !== -1 &&
               Math.abs(visibleParagraphIndex - currentTTSIndex) >= 2
             ) {
-              console.log(
+              if (initialReaderConfig.DEBUG) console.log(
                 `TTS: Resume requested but user scrolled away. TTS: ${currentTTSIndex}, Visible: ${visibleParagraphIndex}`,
               );
 
@@ -1144,7 +1155,7 @@ window.tts = new (function () {
 
     // NEW: If checkVisibility is true and element is fully visible, skip scroll
     if (checkVisibility && isFullyVisible) {
-      console.log('TTS: Element is fully visible, skipping initial scroll');
+      if (initialReaderConfig.DEBUG) console.log('TTS: Element is fully visible, skipping initial scroll');
       return;
     }
 
@@ -1197,7 +1208,7 @@ window.tts = new (function () {
 
       // CRITICAL: During manual mode dialog, prevent any position changes
       if (this.dialogActive) {
-        console.log('TTS: Dialog active - speaking from locked position');
+        if (initialReaderConfig.DEBUG) console.log('TTS: Dialog active - speaking from locked position');
         this.reading = true;
 
         const text = this.currentElement.textContent;
@@ -1295,14 +1306,14 @@ window.tts = new (function () {
   };
 
   this.handleManualModeDialog = action => {
-    console.log(`TTS: Manual mode dialog action: ${action}`);
+    if (initialReaderConfig.DEBUG) console.log(`TTS: Manual mode dialog action: ${action}`);
 
     if (action === 'continue') {
       // User wants to continue TTS following - restore normal operation
       this.dialogActive = false;
       this.lockedCurrentElement = null;
       this.lockedParagraphIndex = null;
-      console.log('TTS: Resumed normal following mode');
+      if (initialReaderConfig.DEBUG) console.log('TTS: Resumed normal following mode');
 
       // Continue with normal TTS progression from current locked position
       setTimeout(() => {
@@ -1311,7 +1322,7 @@ window.tts = new (function () {
     } else if (action === 'stop') {
       // User wants to stop TTS and read manually
       this.dialogActive = false;
-      console.log('TTS: Stopped - user chose manual reading');
+      if (initialReaderConfig.DEBUG) console.log('TTS: Stopped - user chose manual reading');
       this.stop();
     }
   };
@@ -1337,7 +1348,7 @@ window.tts = new (function () {
         this.currentElement.classList.add('highlight');
       }
 
-      console.log(`TTS: Position changed to paragraph ${paragraphIndex}`);
+      if (initialReaderConfig.DEBUG) console.log(`TTS: Position changed to paragraph ${paragraphIndex}`);
       return true;
     }
 
@@ -1349,7 +1360,7 @@ window.tts = new (function () {
   this.highlightParagraph = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter causing wrong scrolls
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(`TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      if (initialReaderConfig.DEBUG) console.log(`TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
       return false;
     }
     
@@ -1384,11 +1395,11 @@ window.tts = new (function () {
   this.updateState = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter corrupting state
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(`TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      if (initialReaderConfig.DEBUG) console.log(`TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
       return;
     }
     
-    console.log(`TTS: updateState called with index ${paragraphIndex}`);
+    if (initialReaderConfig.DEBUG) console.log(`TTS: updateState called with index ${paragraphIndex}`);
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
       // Mark background playback as active
@@ -1612,7 +1623,7 @@ function calculatePages() {
   // BUG 3 FIX: Block calculatePages during screen wake sync to prevent scroll jumble
   // This flag is set by RN when screen wakes during background TTS playback
   if (window.ttsScreenWakeSyncPending) {
-    console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    if (initialReaderConfig.DEBUG) console.log('[calculatePages] BLOCKED - Screen wake sync pending');
     return;
   }
 
@@ -1649,7 +1660,7 @@ function calculatePages() {
     window.ttsOperationActive ||
     (window.tts && (window.tts.reading || window.tts.cleanupInProgress))
   ) {
-    console.log('[calculatePages] BLOCKED - TTS operation active');
+    if (initialReaderConfig.DEBUG) console.log('[calculatePages] BLOCKED - TTS operation active');
     return;
   }
 
@@ -1671,7 +1682,7 @@ function calculatePages() {
     (controller.dataset.dragging === 'true' ||
       controller.dataset.cleanupInProgress === 'true')
   ) {
-    console.log('[calculatePages] BLOCKED - TTS controller drag in progress');
+    if (initialReaderConfig.DEBUG) console.log('[calculatePages] BLOCKED - TTS controller drag in progress');
     return;
   }
 
@@ -1682,7 +1693,7 @@ function calculatePages() {
     initialReaderConfig.savedParagraphIndex !== undefined &&
     initialReaderConfig.savedParagraphIndex >= 0
   ) {
-    console.log('[calculatePages] BLOCKED - Initial scroll already performed');
+    if (initialReaderConfig.DEBUG) console.log('[calculatePages] BLOCKED - Initial scroll already performed');
     return;
   }
 
@@ -1765,7 +1776,7 @@ function calculatePages() {
             const isPartiallyVisible =
               rect.top < viewportHeight && rect.bottom > 0;
 
-            console.log(
+            if (initialReaderConfig.DEBUG) console.log(
               '[calculatePages] Element position: top=',
               rect.top,
               'bottom=',
@@ -1777,7 +1788,7 @@ function calculatePages() {
             reader.suppressSaveOnScroll = false;
             reader.initialScrollPending = false; // Reset pending flag
             reader.hasPerformedInitialScroll = true;
-            console.log('[calculatePages] Initial scroll complete');
+            if (initialReaderConfig.DEBUG) console.log('[calculatePages] Initial scroll complete');
           }, 300);
         }, 250); // Increased delay for layout stability
 
@@ -1854,7 +1865,7 @@ const CALCULATE_PAGES_DEBOUNCE = 500; // 500ms minimum between calls
 const ro = new ResizeObserver(() => {
   // BUG 3 FIX: Block during screen wake sync
   if (window.ttsScreenWakeSyncPending) {
-    console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    if (initialReaderConfig.DEBUG) console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
     return;
   }
 
@@ -1888,7 +1899,7 @@ const ro = new ResizeObserver(() => {
     window.ttsOperationActive ||
     (window.tts && (window.tts.reading || window.tts.cleanupInProgress))
   ) {
-    console.log('[ResizeObserver] BLOCKED - TTS operation active');
+    if (initialReaderConfig.DEBUG) console.log('[ResizeObserver] BLOCKED - TTS operation active');
     return;
   }
 
@@ -1910,23 +1921,23 @@ const ro = new ResizeObserver(() => {
     (controller.dataset.dragging === 'true' ||
       controller.dataset.cleanupInProgress === 'true')
   ) {
-    console.log('[ResizeObserver] BLOCKED - TTS controller drag in progress');
+    if (initialReaderConfig.DEBUG) console.log('[ResizeObserver] BLOCKED - TTS controller drag in progress');
     return;
   }
 
   // Update last call timestamp
   window.lastCalculatePagesCall = now;
 
-  console.log('[ResizeObserver] TRIGGERED! Stack:', new Error().stack);
-  console.log(
+  if (initialReaderConfig.DEBUG) console.log('[ResizeObserver] TRIGGERED! Stack:', new Error().stack);
+  if (initialReaderConfig.DEBUG) console.log(
     '[ResizeObserver] Trigger state - TTS Reading:',
     window.tts && window.tts.reading,
   );
-  console.log(
+  if (initialReaderConfig.DEBUG) console.log(
     '[ResizeObserver] Trigger state - TTS Cleanup:',
     window.tts && window.tts.cleanupInProgress,
   );
-  console.log(
+  if (initialReaderConfig.DEBUG) console.log(
     '[ResizeObserver] TTS Operation Active:',
     window.ttsOperationActive,
   );

@@ -1,3 +1,5 @@
+import logger from './devLogger';
+
 export function postTtsSettingsToWebView(settings: any) {
   try {
     if (typeof window !== 'undefined' && (window as any).ReactNativeWebView && (window as any).ReactNativeWebView.postMessage) {
@@ -7,12 +9,10 @@ export function postTtsSettingsToWebView(settings: any) {
       return true;
     }
     // Not available - nothing to do
-    // eslint-disable-next-line no-console
-    console.warn('Reader/webview not available for TTS settings update');
+    logger.warn('Reader/webview not available for TTS settings update');
     return false;
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to send TTS settings to Reader/webview:', e);
+    logger.error('Failed to send TTS settings to Reader/webview:', e);
     return false;
   }
 }

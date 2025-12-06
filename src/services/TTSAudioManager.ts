@@ -1,4 +1,5 @@
 import { NativeModules, NativeEventEmitter, EmitterSubscription } from 'react-native';
+import logger from '../utils/devLogger';
 
 const { TTSHighlight } = NativeModules;
 
@@ -20,17 +21,7 @@ export type TTSAudioParams = {
 const BATCH_SIZE = 25; // Number of paragraphs to queue at once (was 15)
 const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
 
-const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : (globalThis as any).__DEV__) as boolean;
-const logDebug = (...args: any[]) => {
-    if (!isDev) return;
-    // eslint-disable-next-line no-console
-    console.log(...args);
-};
-const logError = (...args: any[]) => {
-    if (!isDev) return;
-    // eslint-disable-next-line no-console
-    console.error(...args);
-};
+const { debug: logDebug, error: logError, warn: logWarn } = logger;
 
 class TTSAudioManager {
     private isPlaying = false;
@@ -138,7 +129,7 @@ class TTSAudioManager {
                                                 )
                                         );
                     if (!found) {
-                        logDebug('TTSAudioManager: preferred voice not available — using system default for batch');
+                        logWarn('TTSAudioManager: preferred voice not available — using system default for batch');
                         voice = undefined;
                     }
                 }
@@ -194,7 +185,7 @@ class TTSAudioManager {
                 voice: undefined,
             });
             // Fallback notification: log warning
-            logError('Preferred TTS voice unavailable for batch, using system default.');
+            logWarn('Preferred TTS voice unavailable for batch, using system default.');
             this.currentQueue = texts;
             this.currentUtteranceIds = utteranceIds;
             // Account for smaller-than-BATCH_SIZE batch sizes

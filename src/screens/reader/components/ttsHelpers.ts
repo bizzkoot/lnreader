@@ -1,5 +1,7 @@
 import type { RefObject } from 'react';
 
+import logger from '../../../utils/devLogger';
+
 export function applyTtsUpdateToWebView(settings: any, webViewRef: RefObject<any>) {
   try {
     if (webViewRef && webViewRef.current) {
@@ -14,10 +16,7 @@ export function applyTtsUpdateToWebView(settings: any, webViewRef: RefObject<any
     }
     return false;
   } catch (e) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error('applyTtsUpdateToWebView failed', e);
-    }
+    logger.error('applyTtsUpdateToWebView failed', e);
     return false;
   }
 }
