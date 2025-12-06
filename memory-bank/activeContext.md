@@ -2,6 +2,12 @@
 
 ## Current Goals
 
+- **TTS Cross-Chapter Resume Fix (2025-12-06)**
+- Fixed bug where TTS started playing in background before user confirmed cross-chapter dialog.
+- **Root Cause**: `handleResumeConfirm` processed deferred `speak` events without checking `checkCrossChapterTTS`. `tts-queue` handler also missed the check.
+- **Solution**: Added `checkCrossChapterTTS` guard in `handleResumeConfirm` deferred loop and `tts-queue` handler.
+- **Files Changed**: WebViewReader.tsx
+
 - **TTS Wake/Resume Queue Sync Fix (2025-12-06)**
 - Fixed bug where TTS audio position drifted from UI after multiple screen wake cycles.
 - **Root Cause**: When resuming TTS after screen wake, `speakBatch()` was called but `ttsQueueRef.current` was NOT updated. The `onSpeechDone` handler uses ttsQueueRef for paragraph progression, causing drift with stale data.

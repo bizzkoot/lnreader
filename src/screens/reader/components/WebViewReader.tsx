@@ -939,6 +939,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // Drain speak queue (in-order)
       while (deferredSpeakQueueRef.current && deferredSpeakQueueRef.current.length > 0) {
         const dsp = deferredSpeakQueueRef.current.shift()!;
+
+        // FIX: Check for cross-chapter TTS before playing deferred items
+        if (checkCrossChapterTTS(dsp.paragraphIndex ?? -1)) {
+          devLogger.debug('WebViewReader: Cross-chapter TTS detected in deferred queue, stopping playback');
+          deferredSpeakQueueRef.current = [];
+          return;
+        }
+
         // best-effort speak; await so we don't flood native TTS
          
         await TTSHighlight.speak(dsp.text, {
@@ -2282,6 +2290,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                                 };
                                 break;
                               }
+
+              if (checkCrossChapterTTS(typeof event.startIndex === 'number' ? event.startIndex : -1)) {
+                break;
+              }
+
               if (
                 event.data &&
                 Array.isArray(event.data) &&
