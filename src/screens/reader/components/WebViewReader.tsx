@@ -27,6 +27,7 @@ import {
 } from '@hooks/persisted/useSettings';
 import { getBatteryLevelSync } from 'react-native-device-info';
 import TTSHighlight from '@services/TTSHighlight';
+import TTSAudioManager from '@services/TTSAudioManager';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import { useChapterContext } from '../ChapterContext';
 import TTSResumeDialog from './TTSResumeDialog';
@@ -37,10 +38,12 @@ import Toast from '@components/Toast';
 import { useBoolean } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView } from './ttsHelpers';
+import { shouldIgnoreSaveEvent } from './saveGuard';
 import {
   getChapter as getChapterFromDb,
   resetChaptersProgress,
   getChaptersBetweenPositions,
+  getMaxChapterPosition,
 } from '@database/queries/ChapterQueries';
 
 type WebViewPostEvent = {
@@ -52,6 +55,8 @@ type WebViewPostEvent = {
   ttsState?: any;
   chapterId?: number;
 };
+
+
 
 type WebViewReaderProps = {
   onPress(): void;
@@ -120,9 +125,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         merged.showParagraphHighlight = defaults.showParagraphHighlight ?? true;
       }
 
-      console.log('[WebViewReader] Initial Settings:', JSON.stringify(defaults));
-      console.log('[WebViewReader] Stored Settings:', JSON.stringify(stored));
-      console.log('[WebViewReader] Merged Settings:', JSON.stringify(merged));
+      if (__DEV__) {
+        console.log('[WebViewReader] Initial Settings:', JSON.stringify(defaults));
+        console.log('[WebViewReader] Stored Settings:', JSON.stringify(stored));
+        console.log('[WebViewReader] Merged Settings:', JSON.stringify(merged));
+      }
 
       return merged;
     },
@@ -187,6 +194,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // When screen wakes while WebView was suspended during background TTS,
   // mark that we need to run the screen-wake sync after the new HTML loads.
   const pendingScreenWakeSyncRef = useRef<boolean>(false);
+  // NEW: Use a shared guard for pending deletion operations to make testing easier
+  // Note: `deletionGuard` is a small runtime helper used to coordinate deletion state
+  // across modules and tests.
+   
+  const deletionGuard = require('@utils/deletionGuard').default;
+  // Guard ref used to ignore progress 'save' events while deletion/reset operations are in progress
+  const pendingDeletionRef = useRef<boolean>(false);
   // If true we should resume native playback after we've synced UI
   const autoResumeAfterWakeRef = useRef<boolean>(false);
   // Remember if TTS was playing when screen woke
@@ -258,7 +272,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         timestamp: Date.now(),
       };
       MMKVStorage.set(TTS_LAST_POSITION, JSON.stringify(position));
-      console.log('WebViewReader: Saved global TTS position:', position);
+      if (__DEV__) console.log('WebViewReader: Saved global TTS position:', position);
     }
   }, [chapter.id, chapter.name, chapter.position, novel.id]);
 
@@ -292,6 +306,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const handleCrossChapterContinue = useCallback(() => {
     setCrossChapterDialogVisible(false);
     if (crossChapterInfo?.lastChapter) {
+      // Prevent auto-start race: mark resume confirmation pending so any
+      // incoming speak/tts-queue messages are deferred until the native dialog
+      // has a chance to render and the user can choose.
+      setResumePending();
       // Navigate to the last chapter
       getChapter({ id: crossChapterInfo.lastChapter.chapterId } as any);
     }
@@ -303,40 +321,175 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     if (crossChapterInfo?.lastChapter && chapter.position !== undefined) {
       // Reset forward chapters based on setting
       const resetMode = chapterGeneralSettingsRef.current.ttsForwardChapterReset || 'reset-all';
-      await resetChaptersProgress(
-        novel.id,
-        chapter.position,
-        crossChapterInfo.lastChapter.chapterPosition,
-        resetMode,
-      );
 
-      // Also clear MMKV progress for those chapters
-      const chaptersToReset = await getChaptersBetweenPositions(
-        novel.id,
-        chapter.position,
-        crossChapterInfo.lastChapter.chapterPosition,
-      );
-      for (const ch of chaptersToReset) {
-        MMKVStorage.delete(`chapter_progress_${ch.id}`);
+      // Correlation id for this deletion operation
+      const corrId = `delete_future_${Date.now()}`;
+      console.log(`[TTS-DELETE] confirm restart from chapter ${chapter.id} pos ${chapter.position} corr=${corrId}`);
+
+      // Prevent concurrent deletions / saves
+      if (deletionGuard.isPending()) {
+        console.warn(`[TTS-DELETE] deletion already in progress corr=${corrId}, aborting`);
+      } else {
+        try {
+          // mark as begun
+          const started = deletionGuard.begin();
+          if (!started) {
+            console.warn(`[TTS-DELETE] could not mark deletion start corr=${corrId}`);
+            return;
+          }
+
+          // Signal that a deletion is pending so we can ignore in-page save events
+          pendingDeletionRef.current = true;
+
+          // Pause native TTS/refill to avoid race with refill/addToBatch
+          try {
+            console.log(`[TTS-DELETE] pausing TTS before deletion corr=${corrId}`);
+            // Use JS manager pause with timeout to avoid hanging
+            const paused = await TTSAudioManager.pauseWithTimeout(1200);
+            if (!paused) {
+              console.error(`[TTS-DELETE] failed to pause native TTS within timeout, aborting corr=${corrId}`);
+              showToastMessage('Unable to pause TTS — aborting reset');
+              deletionGuard.end();
+              return;
+            }
+          } catch (e) {
+            console.warn('[TTS-DELETE] exception while pausing TTS before deletion', e);
+          }
+
+          // Prevent onQueueEmpty and refill handlers from acting during our operation
+          try {
+            TTSAudioManager.setRestartInProgress(true);
+            TTSAudioManager.setRefillInProgress(true);
+          } catch (e) {
+            // ignore if not available
+          }
+
+          // Get list of chapters to reset and snapshot existing progress
+          // If resetMode is 'reset-all' we should reset all chapters after the
+          // current one (not just up to the last saved TTS chapter). Get the
+          // maximum chapter position in that novel and use it as the upper limit.
+          let toPosition = crossChapterInfo.lastChapter.chapterPosition;
+          if (resetMode === 'reset-all') {
+            try {
+              const maxPos = await getMaxChapterPosition(novel.id);
+              toPosition = Math.max(toPosition, maxPos);
+            } catch (e) {
+              console.warn('[TTS-DELETE] failed to get max chapter position, falling back to saved chapter position', e);
+            }
+          }
+
+          const chaptersToReset = await getChaptersBetweenPositions(
+            novel.id,
+            chapter.position,
+            toPosition,
+          );
+
+          const backupEntries: Array<any> = [];
+          for (const ch of chaptersToReset) {
+            const mmkvVal = MMKVStorage.getNumber(`chapter_progress_${ch.id}`) ?? -1;
+            // ch.progress may be available from DB query; include for backup
+            backupEntries.push({ chapterId: ch.id, dbProgress: ch.progress ?? null, mmkvProgress: mmkvVal });
+          }
+
+          // Attempt to trim native/JS queues for those chapters before destructive ops
+          try {
+            const ids = chaptersToReset.map(c => String(c.id));
+            TTSAudioManager.removeQueuedForChapterIds(ids);
+            TTSAudioManager.clearRemainingQueue();
+            // Also attempt native stop as a final guard
+            try { await TTSHighlight.stop(); } catch (e) { /* ignore */ }
+          } catch (e) {
+            console.warn('[TTS-DELETE] failed to trim TTS queues before deletion', e);
+          }
+
+          // Write backup to MMKV before deleting
+          const backupKey = `progress_backup_${corrId}`;
+          let backupOk = true;
+          try {
+            MMKVStorage.set(backupKey, JSON.stringify({ novelId: novel.id, timestamp: Date.now(), entries: backupEntries }));
+            console.log(`[TTS-DELETE] backed up ${backupEntries.length} entries to ${backupKey} corr=${corrId}`);
+          } catch (e) {
+            backupOk = false;
+            console.warn(`[TTS-DELETE] failed to write backup ${backupKey}`, e);
+          }
+
+          if (!backupOk) {
+            console.error(`[TTS-DELETE] backup failed, aborting deletion corr=${corrId}`);
+            showToastMessage('Failed to backup progress — aborting reset');
+            try {
+              if ((TTSHighlight as any).resume) {
+                await (TTSHighlight as any).resume();
+              }
+            } catch (e) {
+              // ignore resume errors
+            }
+            pendingDeletionRef.current = false;
+            return;
+          }
+
+          // Perform DB-level reset
+          await resetChaptersProgress(
+            novel.id,
+            chapter.position,
+            toPosition,
+            resetMode,
+          );
+
+          // Clear MMKV progress for those chapters
+          let deletedCount = 0;
+          for (const ch of chaptersToReset) {
+            try {
+              MMKVStorage.delete(`chapter_progress_${ch.id}`);
+              deletedCount += 1;
+            } catch (e) {
+              console.warn(`[TTS-DELETE] failed to delete MMKV for chapter ${ch.id} corr=${corrId}`, e);
+            }
+          }
+
+          // Update global TTS position to current chapter
+          const position: TTSLastPosition = {
+            novelId: novel.id,
+            chapterId: chapter.id,
+            chapterName: chapter.name,
+            chapterPosition: chapter.position,
+            paragraphIndex: crossChapterInfo.currentParagraphIndex,
+            timestamp: Date.now(),
+          };
+          MMKVStorage.set(TTS_LAST_POSITION, JSON.stringify(position));
+
+          console.log(`[TTS-DELETE] deletion complete: removed ${deletedCount} MMKV entries corr=${corrId}`);
+
+          // Notify WebView (fire-and-forget) so UI can react — use safe JSON serialization
+          try {
+            const detail = JSON.stringify({ corrId, deleted: deletedCount });
+            webViewRef.current?.injectJavaScript(`window.dispatchEvent(new CustomEvent('progress:deleted', { detail: ${detail} })); true;`);
+          } catch (e) {
+            // ignore
+          }
+
+          // Start TTS from current paragraph
+          webViewRef.current?.injectJavaScript(
+            `tts.startFromIndex(${crossChapterInfo.currentParagraphIndex})`
+          );
+          // Clear restart/refill flags now that operation is complete
+          try {
+            TTSAudioManager.setRefillInProgress(false);
+            TTSAudioManager.setRestartInProgress(false);
+          } catch (e) {
+            // ignore
+          }
+        } catch (err) {
+          console.error('[TTS-DELETE] error during deletion flow', err);
+          } finally {
+          // Clear the pending flag even if deletion failed or errored
+          pendingDeletionRef.current = false;
+          deletionGuard.end();
+        }
       }
-
-      // Update global TTS position to current chapter
-      const position: TTSLastPosition = {
-        novelId: novel.id,
-        chapterId: chapter.id,
-        chapterName: chapter.name,
-        chapterPosition: chapter.position,
-        paragraphIndex: crossChapterInfo.currentParagraphIndex,
-        timestamp: Date.now(),
-      };
-      MMKVStorage.set(TTS_LAST_POSITION, JSON.stringify(position));
-
-      // Start TTS from current paragraph
-      webViewRef.current?.injectJavaScript(
-        `tts.startFromIndex(${crossChapterInfo.currentParagraphIndex})`
-      );
     }
-  }, [crossChapterInfo, chapter, novel.id, webViewRef]);
+  // showToastMessage is stable (useCallback) and intentionally omitted
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crossChapterInfo, chapter, novel.id, webViewRef, deletionGuard]);
 
   // Listen to live settings changes using the persisted hook; this will react
   // to changes coming from the settings screen and notify the WebView.
@@ -666,12 +819,48 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   } = useBoolean();
 
   const pendingResumeIndexRef = useRef<number>(-1);
+  const resumeDialogPendingRef = useRef<boolean>(false);
+  const deferredSpeakQueueRef = useRef<Array<{ text: string; paragraphIndex: number | undefined }>>([]);
+  const resumePendingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Generation token protects against timeout races when setResumePending
+  // is called multiple times in quick succession.
+  const resumePendingGenerationRef = useRef<number>(0);
+  const RESUME_PENDING_TIMEOUT_MS = 15000; // safety fallback
+
+  const setResumePending = () => {
+    resumeDialogPendingRef.current = true;
+    // increment generation token and schedule a safety timeout
+    resumePendingGenerationRef.current += 1;
+    const gen = resumePendingGenerationRef.current;
+    if (resumePendingTimeoutRef.current) clearTimeout(resumePendingTimeoutRef.current);
+    resumePendingTimeoutRef.current = setTimeout(() => {
+      // only act if this timeout corresponds to the latest generation
+      if (resumePendingGenerationRef.current !== gen) return;
+      console.warn('WebViewReader: resumeDialogPendingRef timeout — clearing');
+      resumeDialogPendingRef.current = false;
+      resumePendingTimeoutRef.current = null;
+      // drop any deferred items to avoid stale state
+      deferredSpeakQueueRef.current = [];
+      ttsQueueRef.current = null;
+    }, RESUME_PENDING_TIMEOUT_MS);
+  };
+
+  const clearResumePending = () => {
+    resumeDialogPendingRef.current = false;
+    // bump generation so any outstanding timeout becomes a no-op
+    resumePendingGenerationRef.current += 1;
+    if (resumePendingTimeoutRef.current) {
+      clearTimeout(resumePendingTimeoutRef.current);
+      resumePendingTimeoutRef.current = null;
+    }
+  };
   const ttsScrollPromptDataRef = useRef<{
     currentIndex: number;
     visibleIndex: number;
     isResume?: boolean;
   } | null>(null);
   const toastMessageRef = useRef<string>('');
+  // Guard used to ignore WebView save events while a deletion/reset is in progress
 
   // NEW: TTS Queue for background playback
   const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(
@@ -686,7 +875,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
    */
   const chaptersAutoPlayedRef = useRef<number>(0);
 
-  const handleResumeConfirm = () => {
+  const handleResumeConfirm = async () => {
     // Always set both refs to the last read paragraph before resuming
     const mmkvValue = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
     const refValue = latestParagraphIndexRef.current ?? -1;
@@ -715,6 +904,38 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       autoStart: true,
       shouldResume: true,
     });
+
+    // Process any deferred speaks/queues that were held while waiting for the user
+    try {
+      // Drain speak queue (in-order)
+      while (deferredSpeakQueueRef.current && deferredSpeakQueueRef.current.length > 0) {
+        const dsp = deferredSpeakQueueRef.current.shift()!;
+        // best-effort speak; await so we don't flood native TTS
+         
+        await TTSHighlight.speak(dsp.text, {
+          voice: readerSettingsRef.current.tts?.voice?.identifier,
+          pitch: readerSettingsRef.current.tts?.pitch || 1,
+          rate: readerSettingsRef.current.tts?.rate || 1,
+          utteranceId: dsp.paragraphIndex !== undefined ? `chapter_${chapter.id}_utterance_${dsp.paragraphIndex}` : undefined,
+        }).catch(e => console.warn('WebViewReader: deferred speak failed', e));
+      }
+
+      if (ttsQueueRef.current && ttsQueueRef.current.texts.length > 0) {
+        const q = ttsQueueRef.current;
+        const ids = q.texts.map((_, i) => `chapter_${chapter.id}_utterance_${q.startIndex + i}`);
+        try {
+          await TTSHighlight.addToBatch(q.texts, ids);
+        } catch (e) {
+          console.warn('WebViewReader: deferred addToBatch failed, falling back to webview', e);
+          webViewRef.current?.injectJavaScript('tts.next?.()');
+        }
+        ttsQueueRef.current = null;
+      }
+    } catch (e) {
+      console.warn('WebViewReader: error processing deferred TTS items', e);
+    } finally {
+      clearResumePending();
+    }
   };
 
   const handleResumeCancel = () => {
@@ -723,6 +944,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       window.tts.hasAutoResumed = true;
       window.tts.start();
     `);
+    // user cancelled resume — drop any deferred playback payloads
+    deferredSpeakQueueRef.current = [];
+    ttsQueueRef.current = null;
+    // ensure pending timeouts/generation are cleared
+    clearResumePending();
   };
 
   const handleRestartChapter = () => {
@@ -771,7 +997,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     }
     ttsScrollPromptDataRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showToast]);
 
   const handleStopTTS = () => {
     // Stop TTS and switch to manual reading mode - inform JavaScript first
@@ -786,6 +1012,21 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     hideManualModeDialog();
   };
 
+  // Cleanup any pending resume timeout and queues on unmount
+  useEffect(() => {
+    return () => {
+      if (resumePendingTimeoutRef.current) {
+        clearTimeout(resumePendingTimeoutRef.current);
+        resumePendingTimeoutRef.current = null;
+      }
+      // clear any deferred queues on unmount
+      deferredSpeakQueueRef.current = [];
+      ttsQueueRef.current = null;
+      // bump generation so any outstanding timeouts are no-ops
+      resumePendingGenerationRef.current += 1;
+    };
+  }, []);
+
   const handleContinueFollowing = () => {
     // Continue with TTS following mode - inform JavaScript to resume from locked position
     webViewRef.current?.injectJavaScript(`
@@ -797,10 +1038,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     hideManualModeDialog();
   };
 
-  const showToastMessage = (message: string) => {
+  const showToastMessage = useCallback((message: string) => {
     toastMessageRef.current = message;
     showToast();
-  };
+  }, [showToast]);
 
   useEffect(() => {
     const onSpeechDoneSubscription = TTSHighlight.addListener(
@@ -1369,6 +1610,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           }),
         );
       }
+      // Cleanup resume pending state & any deferred items to avoid leakage
+      clearResumePending();
+      deferredSpeakQueueRef.current = [];
+      ttsQueueRef.current = null;
     };
     // Empty deps intentional - only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1688,12 +1933,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           __DEV__ && onLogMessage(ev);
           const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
           switch (event.type) {
-            case 'tts-update-settings': {
-              if (event.data) {
-                applyTtsUpdateToWebView(event.data, webViewRef);
-              }
-              break;
-            }
+            
             case 'hide':
               onPress();
               break;
@@ -1733,6 +1973,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               break;
             case 'save':
               if (event.data && typeof event.data === 'number') {
+                // Centralized guard: ignore saves while deletion pending / during grace period / invalid TTS saves
+                const saveEvent = { data: event.data, paragraphIndex: event.paragraphIndex, chapterId: event.chapterId };
+                if (shouldIgnoreSaveEvent(saveEvent, {
+                  pendingDeletion: pendingDeletionRef.current,
+                  chapterTransitionTime: chapterTransitionTimeRef.current,
+                  currentChapterId: chapter.id,
+                  isTTSReading: isTTSReadingRef.current,
+                  currentIdx: currentParagraphIndexRef.current ?? -1,
+                  latestIdx: latestParagraphIndexRef.current ?? -1,
+                })) {
+                  console.log('WebViewReader: Ignoring save event due to guard');
+                  break;
+                }
+                // Safety: ignore save events while a deletion/reset is in progress
+                if (pendingDeletionRef.current) {
+                  console.log('WebViewReader: Ignoring save event during pending deletion');
+                  break;
+                }
                 // CRITICAL: Validate chapterId to prevent stale save events from old chapter
                 // corrupting new chapter's progress during transitions
                 const GRACE_PERIOD_MS = 1000; // 1 second grace period after chapter change
@@ -1828,6 +2086,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   : currentParagraphIndexRef.current;
 
                 // If cross-chapter dialog is shown, don't start TTS yet
+                                // If cross-chapter dialog is shown, don't start TTS yet
+                                if (resumeDialogPendingRef.current) {
+                                  console.log('WebViewReader: Deferring speak() while resume confirmation pending');
+                                  deferredSpeakQueueRef.current.push({ text: event.data as string, paragraphIndex: paragraphIdx });
+                                  break;
+                                }
                 if (checkCrossChapterTTS(paragraphIdx)) {
                   break;
                 }
@@ -1896,7 +2160,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 event.data.savedIndex !== undefined
               ) {
                 // handleTTSConfirmation(Number(event.data.savedIndex));
-                pendingResumeIndexRef.current = Number(event.data.savedIndex);
+                const idx = Number(event.data.savedIndex);
+                pendingResumeIndexRef.current = Number.isFinite(idx) ? idx : -1;
+                // Mark that a resume confirmation is pending so incoming speak/queue
+                // messages are deferred until user responds.
+                setResumePending();
                 showResumeDialog();
               }
               break;
@@ -1938,13 +2206,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               }
               break;
             case 'tts-queue':
+                              if (resumeDialogPendingRef.current) {
+                                console.log('WebViewReader: Deferring TTS queue until resume confirmation resolved');
+                                // store for diagnostics but do not start playback
+                                ttsQueueRef.current = {
+                                  startIndex: typeof event.startIndex === 'number' ? event.startIndex : 0,
+                                  texts: event.data as string[],
+                                };
+                                break;
+                              }
               if (
                 event.data &&
                 Array.isArray(event.data) &&
                 typeof event.startIndex === 'number'
               ) {
                 ttsQueueRef.current = {
-                  startIndex: event.startIndex,
+                  startIndex: typeof event.startIndex === 'number' ? event.startIndex : 0,
                   texts: event.data as string[],
                 };
 
@@ -1989,6 +2266,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     }
                   });
                 }
+                
               }
               break;
             case 'save-tts-position':
@@ -2002,6 +2280,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'tts-update-settings':
             case 'tts-apply-settings':
               // Handle live TTS settings updates from WebView
+              // Also ensure we sync tts settings into the WebView if needed
+              if (event.data) applyTtsUpdateToWebView(event.data, webViewRef);
               if (event.data && typeof event.data === 'object' && !Array.isArray(event.data)) {
                 const ttsData = event.data as { rate?: number; pitch?: number; voice?: string; enabled?: boolean; showParagraphHighlight?: boolean };
                 console.log('WebViewReader: Received TTS settings update:', ttsData);
@@ -2108,9 +2388,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 Resume TTS from different chapter?
               </Text>
               <Text style={[styles.crossChapterDescription, { color: theme.onSurfaceVariant }]}>
-                You were reading "{crossChapterInfo.lastChapter.chapterName}" at paragraph {crossChapterInfo.lastChapter.paragraphIndex + 1}.
-                Starting from current chapter will reset progress of chapters read ahead.
+                You were reading "{crossChapterInfo.lastChapter.chapterName}" (position {crossChapterInfo.lastChapter.chapterPosition}) at paragraph {crossChapterInfo.lastChapter.paragraphIndex + 1}.
+                Starting from the current chapter will reset progress of chapters read ahead.
               </Text>
+              <Text style={[styles.crossChapterSub, { color: theme.onSurfaceVariant }]}> {
+                // Show a short summary how many positions will be reset (best-effort)
+                Math.max(0, (crossChapterInfo.lastChapter.chapterPosition ?? 0) - (chapter.position ?? 0)) > 0
+                  ? `Will reset ${Math.max(0, (crossChapterInfo.lastChapter.chapterPosition ?? 0) - (chapter.position ?? 0))} chapters ahead.`
+                  : 'No later chapters will be reset.'
+              } </Text>
             </View>
             <View style={styles.crossChapterButtons}>
               <Pressable
@@ -2118,15 +2404,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 style={[styles.crossChapterPrimaryButton, { backgroundColor: theme.primary }]}
               >
                 <Text style={[styles.crossChapterButtonText, { color: theme.onPrimary }]}>
-                  Continue from "{crossChapterInfo.lastChapter.chapterName.slice(0, 20)}..."
+                  Continue from "{crossChapterInfo.lastChapter.chapterName.slice(0, 24)}..." (pos {crossChapterInfo.lastChapter.chapterPosition}, para {crossChapterInfo.lastChapter.paragraphIndex + 1})
                 </Text>
               </Pressable>
               <Pressable
                 onPress={handleCrossChapterRestart}
                 style={[styles.crossChapterSecondaryButton, { backgroundColor: theme.surfaceVariant }]}
               >
-                <Text style={[styles.crossChapterButtonText, { color: theme.onSurfaceVariant }]}>
-                  Start from "{chapter.name.slice(0, 20)}..." (reset forward chapters)
+                  <Text style={[styles.crossChapterButtonText, { color: theme.onSurfaceVariant }]}>
+                  Start from "{chapter.name.slice(0, 24)}..." (pos {chapter.position}) — reset forward chapters
                 </Text>
               </Pressable>
               <Pressable
@@ -2179,6 +2465,11 @@ const styles = StyleSheet.create({
   },
   crossChapterDescription: {
     fontSize: 14,
+  },
+  crossChapterSub: {
+    fontSize: 13,
+    marginTop: 8,
+    opacity: 0.95,
   },
   crossChapterButtons: {
     gap: 8,

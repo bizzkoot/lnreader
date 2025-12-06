@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -345,6 +345,29 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
   const [selectedFilters, setSelectedFilters] =
     useState<SelectedFilters>(filters);
 
+  const renderHandleComponent = useCallback(() => (
+    <View
+      style={[styles.buttonContainer, { borderBottomColor: theme.outline }]}
+    >
+      <Button
+        title={getString('common.reset')}
+        onPress={() => {
+          setSelectedFilters(filters);
+          clearFilters(filters);
+        }}
+      />
+      <Button
+        title={getString('common.filter')}
+        textColor={theme.onPrimary}
+        onPress={() => {
+          setFilters(selectedFilters);
+          filterSheetRef?.current?.close();
+        }}
+        mode="contained"
+      />
+    </View>
+  ), [filters, clearFilters, setFilters, filterSheetRef, selectedFilters, theme.outline, theme.onPrimary, setSelectedFilters]);
+
   return (
     <BottomSheet
       bottomSheetRef={filterSheetRef}
@@ -352,28 +375,7 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
       bottomInset={bottom}
       backgroundStyle={styles.transparent}
       style={[styles.container, { backgroundColor: overlay(2, theme.surface) }]}
-      handleComponent={() => (
-        <View
-          style={[styles.buttonContainer, { borderBottomColor: theme.outline }]}
-        >
-          <Button
-            title={getString('common.reset')}
-            onPress={() => {
-              setSelectedFilters(filters);
-              clearFilters(filters);
-            }}
-          />
-          <Button
-            title={getString('common.filter')}
-            textColor={theme.onPrimary}
-            onPress={() => {
-              setFilters(selectedFilters);
-              filterSheetRef?.current?.close();
-            }}
-            mode="contained"
-          />
-        </View>
-      )}
+      handleComponent={renderHandleComponent}
     >
       <BottomSheetFlatList
         data={filters && Object.entries(filters)}

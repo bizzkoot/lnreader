@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 
 import { Category } from '@database/types';
@@ -37,17 +37,28 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
     setFalse: closeDeleteCategoryModal,
   } = useBoolean();
 
+  const cardStyle = useMemo(
+    () => [
+      styles.cardCtn,
+      { backgroundColor: theme.secondaryContainer },
+      { opacity: isActive ? 0.8 : 1, elevation: isActive ? 8 : 2 },
+    ],
+    [theme.secondaryContainer, isActive],
+  );
+
+  const manageOpacityStyle = useMemo(
+    () => ({ opacity: category.id === 2 ? 0.4 : 1 }),
+    [category.id],
+  );
+
+  const badgeStyle = useMemo(
+    () => [{ paddingHorizontal: 8 }, { backgroundColor: theme.primary }],
+    [theme.primary],
+  );
+
   return (
     <>
-      <View
-        style={[
-          styles.cardCtn,
-          {
-            backgroundColor: theme.secondaryContainer,
-            opacity: isActive ? 0.8 : 1,
-            elevation: isActive ? 8 : 2,
-          },
-        ]}
+      <View style={cardStyle}
       >
         <View style={styles.buttonsCtn}>
           <TouchableOpacity
@@ -76,18 +87,13 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               {category.name}
             </Text>
             {category.id === 2 && (
-              <Badge
-                style={{
-                  backgroundColor: theme.primary,
-                  paddingHorizontal: 8,
-                }}
-              >
+              <Badge style={badgeStyle}>
                 System
               </Badge>
             )}
           </View>
           <View style={styles.flex} />
-          <View style={{ opacity: category.id === 2 ? 0.4 : 1 }}>
+          <View style={manageOpacityStyle}>
             <IconButton
               name="pencil-outline"
               color={category.id === 2 ? theme.outline : theme.onSurface}
@@ -97,7 +103,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               disabled={category.id === 2}
             />
           </View>
-          <View style={{ opacity: category.id === 2 ? 0.4 : 1 }}>
+          <View style={manageOpacityStyle}>
             <IconButton
               name="delete-outline"
               color={category.id === 2 ? theme.outline : theme.onSurface}

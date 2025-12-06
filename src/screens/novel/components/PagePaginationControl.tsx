@@ -76,17 +76,44 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
     }
   };
 
+  const navDefaultStyle = useMemo(
+    () => [styles.button, styles.navButton, { borderColor: borderColor, backgroundColor: theme.surface }],
+    [theme.surface],
+  );
+
+  const navDisabledStyle = useMemo(() => styles.disabledButton, []);
+
+  const ellipsisDefaultStyle = useMemo(
+    () => [styles.button, styles.ellipsisButton, { borderColor: borderColor, backgroundColor: theme.surface }],
+    [theme.surface],
+  );
+
+  const defaultPageStyle = useMemo(
+    () => [styles.button, { borderColor: borderColor, backgroundColor: theme.surface }],
+    [theme.surface],
+  );
+
+  const activePageStyle = useMemo(
+    () => [styles.button, { borderColor: 'transparent', backgroundColor: theme.primary }],
+    [theme.primary],
+  );
+
+  const activeRipple = useMemo(
+    () => color(theme.onPrimary).alpha(0.2).string(),
+    [theme.onPrimary],
+  );
+
+  const defaultRipple = useMemo(() => theme.rippleColor, [theme.rippleColor]);
+
+  const activeTextStyle = useMemo(() => ({ color: theme.onPrimary, fontWeight: '600' as const }), [theme.onPrimary]);
+  const inactiveTextStyle = useMemo(() => ({ color: theme.onSurface, fontWeight: '400' as const }), [theme.onSurface]);
+
   return (
     <View style={styles.container}>
       <Pressable
         style={[
-          styles.button,
-          styles.navButton,
-          {
-            borderColor: borderColor,
-            backgroundColor: theme.surface,
-          },
-          !canGoPrevious && styles.disabledButton,
+          navDefaultStyle,
+          !canGoPrevious && navDisabledStyle,
         ]}
         onPress={handlePrevious}
         disabled={!canGoPrevious}
@@ -106,14 +133,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
             return (
               <Pressable
                 key={`ellipsis-${index}`}
-                style={[
-                  styles.button,
-                  styles.ellipsisButton,
-                  {
-                    borderColor: borderColor,
-                    backgroundColor: theme.surface,
-                  },
-                ]}
+                style={ellipsisDefaultStyle}
                 onPress={onOpenDrawer}
                 android_ripple={{ color: theme.rippleColor }}
               >
@@ -128,28 +148,12 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
           return (
             <Pressable
               key={page}
-              style={[
-                styles.button,
-                {
-                  borderColor: isActive ? 'transparent' : borderColor,
-                  backgroundColor: isActive ? theme.primary : theme.surface,
-                },
-              ]}
+              style={isActive ? activePageStyle : defaultPageStyle}
               onPress={() => handlePagePress(page)}
-              android_ripple={{
-                color: isActive
-                  ? color(theme.onPrimary).alpha(0.2).string()
-                  : theme.rippleColor,
-              }}
+              android_ripple={{ color: isActive ? activeRipple : defaultRipple }}
             >
               <Text
-                style={[
-                  styles.pageText,
-                  {
-                    color: isActive ? theme.onPrimary : theme.onSurface,
-                    fontWeight: isActive ? '600' : '400',
-                  },
-                ]}
+                style={[styles.pageText, isActive ? activeTextStyle : inactiveTextStyle]}
               >
                 {page}
               </Text>

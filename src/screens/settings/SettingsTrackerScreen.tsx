@@ -48,6 +48,10 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
   const { isTrackerAuthenticated, setTracker, removeTracker, getTrackerAuth } =
     useTracker();
 
+  const renderCheckIcon = React.useCallback(() => (
+    <PaperList.Icon color={theme.primary} icon="check" style={styles.iconStyle} />
+  ), [theme.primary]);
+
   // Tracker Modal for logout confirmation
   const [logoutTrackerName, setLogoutTrackerName] = useState<string>('');
   const [visible, setVisible] = useState(false);
@@ -106,17 +110,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
               title="AniList"
               titleStyle={{ color: theme.onSurface }}
               left={AniListLogo}
-              right={
-                isTrackerAuthenticated('AniList')
-                  ? () => (
-                      <PaperList.Icon
-                        color={theme.primary}
-                        icon="check"
-                        style={styles.iconStyle}
-                      />
-                    )
-                  : undefined
-              }
+              right={isTrackerAuthenticated('AniList') ? renderCheckIcon : undefined}
               onPress={async () => {
                 if (isTrackerAuthenticated('AniList')) {
                   showModal('AniList');
@@ -134,17 +128,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
               title="MyAnimeList"
               titleStyle={{ color: theme.onSurface }}
               left={MyAnimeListLogo}
-              right={
-                isTrackerAuthenticated('MyAnimeList')
-                  ? () => (
-                      <PaperList.Icon
-                        color={theme.primary}
-                        icon="check"
-                        style={styles.iconStyle}
-                      />
-                    )
-                  : undefined
-              }
+              right={isTrackerAuthenticated('MyAnimeList') ? renderCheckIcon : undefined}
               onPress={async () => {
                 if (isTrackerAuthenticated('MyAnimeList')) {
                   showModal('MyAnimeList');
@@ -162,17 +146,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
               title="MangaUpdates"
               titleStyle={{ color: theme.onSurface }}
               left={MangaUpdatesLogo}
-              right={
-                isTrackerAuthenticated('MangaUpdates')
-                  ? () => (
-                      <PaperList.Icon
-                        color={theme.primary}
-                        icon="check"
-                        style={styles.iconStyle}
-                      />
-                    )
-                  : undefined
-              }
+              right={isTrackerAuthenticated('MangaUpdates') ? renderCheckIcon : undefined}
               onPress={() => {
                 if (isTrackerAuthenticated('MangaUpdates')) {
                   showModal('MangaUpdates');

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '@theme/types';
@@ -16,6 +16,31 @@ interface TabBarProps {
   theme: ThemeColors;
 }
 
+const TabItem: React.FC<{ tab: Tab; isActive: boolean; onTabChange: (tabId: string) => void; theme: ThemeColors }> = ({ tab, isActive, onTabChange, theme }) => {
+  const tabStyle = useMemo(
+    () => [styles.tab, { borderBottomColor: isActive ? theme.primary : 'transparent' }],
+    [isActive, theme.primary],
+  );
+
+  return (
+    <Pressable
+      key={tab.id}
+      style={tabStyle}
+      onPress={() => onTabChange(tab.id)}
+      android_ripple={{
+        color: theme.rippleColor,
+        borderless: false,
+      }}
+    >
+      <MaterialCommunityIcons
+        name={tab.icon}
+        size={20}
+        color={isActive ? theme.primary : theme.onSurfaceVariant}
+      />
+    </Pressable>
+  );
+};
+
 const TabBar: React.FC<TabBarProps> = ({
   tabs,
   activeTab,
@@ -27,26 +52,7 @@ const TabBar: React.FC<TabBarProps> = ({
       {tabs.map(tab => {
         const isActive = activeTab === tab.id;
         return (
-          <Pressable
-            key={tab.id}
-            style={[
-              styles.tab,
-              {
-                borderBottomColor: isActive ? theme.primary : 'transparent',
-              },
-            ]}
-            onPress={() => onTabChange(tab.id)}
-            android_ripple={{
-              color: theme.rippleColor,
-              borderless: false,
-            }}
-          >
-            <MaterialCommunityIcons
-              name={tab.icon}
-              size={20}
-              color={isActive ? theme.primary : theme.onSurfaceVariant}
-            />
-          </Pressable>
+          <TabItem key={tab.id} tab={tab} isActive={isActive} onTabChange={onTabChange} theme={theme} />
         );
       })}
     </View>

@@ -453,6 +453,17 @@ export const getChaptersBetweenPositions = (
   );
 
 /**
+ * Get maximum chapter position for a novel (returns 0 if none)
+ */
+export const getMaxChapterPosition = async (novelId: number) => {
+  const res = await db.getFirstAsync<{ maxPos: number }>(
+    'SELECT MAX(position) as maxPos FROM Chapter WHERE novelId = ?',
+    novelId,
+  );
+  return (res?.maxPos ?? 0) as number;
+};
+
+/**
  * Reset progress for chapters between positions
  * @param mode 'reset-all' | 'reset-unread' | 'keep'
  */
@@ -465,8 +476,10 @@ export const resetChaptersProgress = async (
   if (mode === 'keep') return;
 
   if (mode === 'reset-all') {
+    // Reset progress and mark chapters unread so UI and counters reflect the
+    // chapters are once again "unread" after restarting earlier chapters.
     await db.runAsync(
-      'UPDATE Chapter SET progress = 0 WHERE novelId = ? AND position > ? AND position <= ?',
+      'UPDATE Chapter SET progress = 0, unread = 1 WHERE novelId = ? AND position > ? AND position <= ?',
       novelId,
       fromPosition,
       toPosition,

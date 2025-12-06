@@ -37,9 +37,9 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
           Change TTS Reading Position?
         </Dialog.Title>
         <Dialog.Content>
-          <Text style={[styles.content, { color: theme.onSurface }]}>
+          <Text style={[styles.content, { color: theme.onSurface }]}> 
             You have scrolled{' '}
-            <Text style={{ fontWeight: 'bold', color: theme.onSurface }}>
+            <Text style={[styles.bold, { color: theme.onSurface }]}> 
               {directionText}
             </Text>{' '}
             to paragraph {visibleIndex + 1}.{'\n\n'}
@@ -80,6 +80,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0,
+  },
+  bold: {
+    fontWeight: 'bold',
   },
   buttonCtn: {
     flexDirection: 'column',

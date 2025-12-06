@@ -86,6 +86,10 @@ const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({
     setTimeout(measureAnchor, 0);
   }, [measureAnchor]);
 
+  const backdropStyle = React.useMemo(() => ({
+    backgroundColor: theme.isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+  }), [theme.isDark]);
+
   if (!visible) {
     return (
       <View ref={anchorRef} collapsable={false} onLayout={measureAnchor}>
@@ -104,15 +108,7 @@ const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({
         <Portal>
           {/* Backdrop */}
           <Pressable style={StyleSheet.absoluteFillObject} onPress={onDismiss}>
-            <Animated.View
-              style={[
-                styles.backdrop,
-                {
-                  backgroundColor: theme.isDark
-                    ? 'rgba(0, 0, 0, 0.2)'
-                    : 'rgba(0, 0, 0, 0.1)',
-                },
-              ]}
+            <Animated.View style={[styles.backdrop, backdropStyle]}
               entering={backdropEntering}
               exiting={backdropExiting}
             />

@@ -156,7 +156,6 @@ describe('ttsWakeUtils', () => {
      */
     test('wake flow preserves paragraph position', () => {
       // Simulate: TTS was at paragraph 50 when screen woke
-      const ttsProgressBeforeWake = 50;
       const dbIndex = 45; // DB slightly behind (async save)
       const mmkvIndex = 48; // MMKV slightly behind
       const ttsStateIndex = 50; // Most recent
@@ -238,7 +237,6 @@ describe('ttsWakeUtils', () => {
       // User wakes screen during chapter 2, paragraph 30
 
       // Chapter 2 state
-      const chapter2Progress = 30;
       const dbIndex = -1; // DB not yet updated
       const mmkvIndex = 28; // MMKV slightly behind
       const ttsStateIndex = 30; // Most recent from native TTS

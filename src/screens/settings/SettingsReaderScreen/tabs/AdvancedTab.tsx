@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  TextStyle,
 } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { TextInput, Portal } from 'react-native-paper';
@@ -19,6 +20,32 @@ import { showToast } from '@utils/showToast';
 import { useBoolean } from '@hooks';
 
 type CodeTab = 'css' | 'js';
+
+const CodeTabButton: React.FC<{
+  id: CodeTab;
+  icon: string;
+  label: string;
+  isActive: boolean;
+  onPress: (id: CodeTab) => void;
+  theme: any;
+}> = ({ id, icon, label, isActive, onPress, theme }) => {
+  const tabStyle = useMemo(
+    () => [styles.tab, isActive && { borderBottomColor: theme.primary, borderBottomWidth: 2 }],
+    [isActive, theme.primary],
+  );
+
+  const textStyle = useMemo(
+    () => ({ color: isActive ? theme.primary : theme.onSurfaceVariant, fontWeight: isActive ? '500' : '400' } as TextStyle),
+    [isActive, theme.primary, theme.onSurfaceVariant],
+  );
+
+  return (
+    <Pressable style={tabStyle} onPress={() => onPress(id)} android_ripple={{ color: theme.rippleColor }}>
+      <MaterialCommunityIcons name={icon as any} size={20} color={isActive ? theme.primary : theme.onSurfaceVariant} style={styles.tabIcon} />
+      <Text style={[styles.tabLabel, textStyle]}>{label}</Text>
+    </Pressable>
+  );
+};
 
 const AdvancedTab: React.FC = () => {
   const theme = useTheme();
@@ -139,75 +166,8 @@ if (title) {
       >
         {/* Tab Selector */}
         <View style={styles.tabContainer}>
-          <Pressable
-            style={[
-              styles.tab,
-              activeCodeTab === 'css' && {
-                borderBottomColor: theme.primary,
-                borderBottomWidth: 2,
-              },
-            ]}
-            onPress={() => setActiveCodeTab('css')}
-            android_ripple={{ color: theme.rippleColor }}
-          >
-            <MaterialCommunityIcons
-              name="language-css3"
-              size={20}
-              color={
-                activeCodeTab === 'css' ? theme.primary : theme.onSurfaceVariant
-              }
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color:
-                    activeCodeTab === 'css'
-                      ? theme.primary
-                      : theme.onSurfaceVariant,
-                  fontWeight: activeCodeTab === 'css' ? '500' : '400',
-                },
-              ]}
-            >
-              CSS
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.tab,
-              activeCodeTab === 'js' && {
-                borderBottomColor: theme.primary,
-                borderBottomWidth: 2,
-              },
-            ]}
-            onPress={() => setActiveCodeTab('js')}
-            android_ripple={{ color: theme.rippleColor }}
-          >
-            <MaterialCommunityIcons
-              name="language-javascript"
-              size={20}
-              color={
-                activeCodeTab === 'js' ? theme.primary : theme.onSurfaceVariant
-              }
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color:
-                    activeCodeTab === 'js'
-                      ? theme.primary
-                      : theme.onSurfaceVariant,
-                  fontWeight: activeCodeTab === 'js' ? '500' : '400',
-                },
-              ]}
-            >
-              JS
-            </Text>
-          </Pressable>
+          <CodeTabButton id="css" icon="language-css3" label="CSS" isActive={activeCodeTab === 'css'} onPress={setActiveCodeTab} theme={theme} />
+          <CodeTabButton id="js" icon="language-javascript" label="JS" isActive={activeCodeTab === 'js'} onPress={setActiveCodeTab} theme={theme} />
         </View>
 
         {/* Code Editor */}

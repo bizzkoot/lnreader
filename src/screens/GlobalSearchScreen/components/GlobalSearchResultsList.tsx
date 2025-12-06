@@ -111,7 +111,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
               contentContainerStyle={styles.novelsContainer}
               keyExtractor={novelItem => item.plugin.id + '_' + novelItem.path}
               data={item.novels}
-              extraData={inActivity.length}
+              extraData={inActivity}
               ListEmptyComponent={
                 <Text style={[styles.listEmpty, { color: noResultsColor }]}>
                   {getString('sourceScreen.noResultsFound')}
@@ -163,7 +163,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
         </View>
       </>
     ),
-    [
+      [
       errorColor,
       inActivity,
       item.error,
@@ -179,7 +179,8 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
       novelInLibrary,
       switchNovelToLibrary,
       theme,
-    ],
+        imageRequestInit,
+      ]
   );
 };
 

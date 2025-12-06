@@ -20,10 +20,17 @@ export type TTSAudioParams = {
 const BATCH_SIZE = 25; // Number of paragraphs to queue at once (was 15)
 const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
 
-// eslint-disable-next-line no-console
-const logDebug = __DEV__ ? console.log : () => {};
-// eslint-disable-next-line no-console
-const logError = __DEV__ ? console.error : () => {};
+const isDev = (typeof __DEV__ !== 'undefined' ? __DEV__ : (globalThis as any).__DEV__) as boolean;
+const logDebug = (...args: any[]) => {
+    if (!isDev) return;
+    // eslint-disable-next-line no-console
+    console.log(...args);
+};
+const logError = (...args: any[]) => {
+    if (!isDev) return;
+    // eslint-disable-next-line no-console
+    console.error(...args);
+};
 
 class TTSAudioManager {
     private isPlaying = false;
@@ -111,7 +118,35 @@ class TTSAudioManager {
         const maxAttempts = 2;
         const rate = params.rate || 1;
         const pitch = params.pitch || 1;
-        const voice = params.voice;
+        let voice = params.voice;
+
+        // PRE-FLIGHT: If a voice was requested, verify it's available before
+        // attempting speakBatch. Native TTS implementations can reject
+        // unsupported voice identifiers for batch calls; querying available
+        // voices first avoids unnecessary failure + fallback attempts.
+        if (voice) {
+            try {
+                // getVoices may not exist on some mocks or platforms; guard it.
+                if (typeof (TTSHighlight as any).getVoices === 'function') {
+                    const voices: any[] = await (TTSHighlight as any).getVoices();
+                                        const found = voices.some(v =>
+                                                v && (
+                                                    v.identifier === voice ||
+                                                    // Some native implementations may use 'id' or 'name'
+                                                    (v as any).id === voice ||
+                                                    (v as any).name === voice
+                                                )
+                                        );
+                    if (!found) {
+                        logDebug('TTSAudioManager: preferred voice not available — using system default for batch');
+                        voice = undefined;
+                    }
+                }
+            } catch (e) {
+                // If getVoices fails, fallthrough and let speakBatch attempt with the requested voice
+                logDebug('TTSAudioManager: getVoices failed, proceeding with requested voice', e);
+            }
+        }
         while (attempts < maxAttempts) {
             try {
                 // Clear any existing queue state before starting new batch
@@ -127,7 +162,8 @@ class TTSAudioManager {
                 });
                 this.currentQueue = texts;
                 this.currentUtteranceIds = utteranceIds;
-                this.currentIndex = BATCH_SIZE;
+                // Ensure index tracks the actual batch length (may be < BATCH_SIZE)
+                this.currentIndex = batchTexts.length;
                 this.isPlaying = true;
                 this.hasLoggedNoMoreItems = false;
                 // BUG FIX: Clear restart flag now that new queue is populated
@@ -161,7 +197,8 @@ class TTSAudioManager {
             logError('Preferred TTS voice unavailable for batch, using system default.');
             this.currentQueue = texts;
             this.currentUtteranceIds = utteranceIds;
-            this.currentIndex = BATCH_SIZE;
+            // Account for smaller-than-BATCH_SIZE batch sizes
+            this.currentIndex = batchTexts.length;
             this.isPlaying = true;
             this.hasLoggedNoMoreItems = false;
             logDebug(
@@ -293,6 +330,62 @@ class TTSAudioManager {
             logError('TTSAudioManager: Failed to stop playback:', error);
             return false;
         }
+    }
+
+    /**
+     * Attempt to pause native TTS but fail safely after timeout.
+     * Returns true if pause succeeded, false if timed out or failed.
+     */
+    async pauseWithTimeout(timeoutMs = 1200): Promise<boolean> {
+        try {
+            const pausePromise = TTSHighlight.pause();
+            const timeoutPromise = new Promise<boolean>((resolve) =>
+                setTimeout(() => resolve(false), timeoutMs)
+            );
+            const result = await Promise.race([pausePromise.then(() => true), timeoutPromise]);
+            if (!result) {
+                logError(`TTSAudioManager: pauseWithTimeout timed out after ${timeoutMs}ms`);
+            }
+            return Boolean(result);
+        } catch (error) {
+            logError('TTSAudioManager: pauseWithTimeout failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Remove queued utterances whose utteranceIds match any of the provided chapterIds.
+     * This is a best-effort filter: it matches by substring inclusion in the utteranceId.
+     */
+    removeQueuedForChapterIds(chapterIds: string[]): void {
+        if (!chapterIds || chapterIds.length === 0) return;
+        const origLen = this.currentQueue.length;
+        const keepTexts: string[] = [];
+        const keepIds: string[] = [];
+        for (let i = 0; i < this.currentUtteranceIds.length; i++) {
+            const uid = this.currentUtteranceIds[i];
+            const shouldRemove = chapterIds.some(cid => uid.includes(cid));
+            if (!shouldRemove) {
+                keepTexts.push(this.currentQueue[i]);
+                keepIds.push(uid);
+            }
+        }
+        this.currentQueue = keepTexts;
+        this.currentUtteranceIds = keepIds;
+        // Ensure currentIndex does not point past available queued items
+        this.currentIndex = Math.min(this.currentIndex, this.currentQueue.length);
+        logDebug(`TTSAudioManager: removeQueuedForChapterIds removed ${origLen - this.currentQueue.length} items`);
+    }
+
+    /**
+     * Clear any remaining queued utterances in JS state. Does not call native stop().
+     */
+    clearRemainingQueue(): void {
+        const cleared = this.currentQueue.length;
+        this.currentQueue = [];
+        this.currentUtteranceIds = [];
+        this.currentIndex = 0;
+        logDebug(`TTSAudioManager: clearRemainingQueue cleared ${cleared} items`);
     }
 
     /**

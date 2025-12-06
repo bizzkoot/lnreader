@@ -171,7 +171,7 @@ const SettingsReaderScreen = () => {
   return (
     <SafeAreaView
       excludeTop
-      style={{ flex: 1, backgroundColor: readerBackgroundColor }}
+      style={[styles.flex1, { backgroundColor: readerBackgroundColor }]}
     >
       <Appbar
         mode="small"
@@ -181,7 +181,7 @@ const SettingsReaderScreen = () => {
       />
 
       {/* Large Preview Area */}
-      <View style={{ flex: 1 }}>
+      <View style={styles.flex1}>
         <WebView
           ref={webViewRef}
           originWhitelist={['*']}
@@ -189,7 +189,7 @@ const SettingsReaderScreen = () => {
           scalesPageToFit={true}
           showsVerticalScrollIndicator={false}
           javaScriptEnabled={true}
-          style={{ flex: 1, backgroundColor: readerBackgroundColor }}
+          style={[styles.flex1, { backgroundColor: readerBackgroundColor }]}
           nestedScrollEnabled={true}
           onMessage={(ev: { nativeEvent: { data: string } }) => {
             const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
@@ -331,6 +331,7 @@ const SettingsReaderScreen = () => {
 export default SettingsReaderScreen;
 
 const styles = StyleSheet.create({
+  flex1: { flex: 1 },
   fab: {
     position: 'absolute',
     margin: 16,
