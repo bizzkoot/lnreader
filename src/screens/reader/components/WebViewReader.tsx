@@ -276,32 +276,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     }
   }, [chapter.id, chapter.name, chapter.position, novel.id]);
 
-  // Helper to check if we should show cross-chapter dialog
-  const checkCrossChapterTTS = useCallback((visibleParagraphIndex: number): boolean => {
-    try {
-      const lastPosStr = MMKVStorage.getString(TTS_LAST_POSITION);
-      if (!lastPosStr) return false;
-
-      const lastPos: TTSLastPosition = JSON.parse(lastPosStr);
-
-      // Only check if same novel and current chapter is BEFORE last TTS position
-      if (lastPos.novelId !== novel.id) return false;
-      if (chapter.position === undefined || lastPos.chapterPosition === undefined) return false;
-      if (chapter.position >= lastPos.chapterPosition) return false;
-
-      // User is going back - show dialog
-      setCrossChapterInfo({
-        lastChapter: lastPos,
-        currentParagraphIndex: visibleParagraphIndex,
-      });
-      setCrossChapterDialogVisible(true);
-      return true;
-    } catch (e) {
-      devLogger.warn('WebViewReader: Error checking cross-chapter TTS:', e);
-      return false;
-    }
-  }, [novel.id, chapter.position]);
-
   // Handle cross-chapter dialog: continue from last position
   const handleCrossChapterContinue = useCallback(() => {
     setCrossChapterDialogVisible(false);
@@ -839,6 +813,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const resumePendingGenerationRef = useRef<number>(0);
   const RESUME_PENDING_TIMEOUT_MS = 15000; // safety fallback
 
+  // NEW: TTS Queue for background playback
+  const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(
+    null,
+  );
+  const currentParagraphIndexRef = useRef<number>(-1);
+
   const setResumePending = () => {
     resumeDialogPendingRef.current = true;
     // increment generation token and schedule a safety timeout
@@ -866,6 +846,49 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       resumePendingTimeoutRef.current = null;
     }
   };
+
+  // Immediately stop any ongoing TTS while awaiting user confirmation to prevent
+  // background playback during resume/cross-chapter dialogs.
+  const suspendTTSForUserChoice = useCallback(() => {
+    try {
+      TTSHighlight.fullStop();
+    } catch (e) {
+      devLogger.warn('WebViewReader: suspendTTSForUserChoice fullStop failed', e);
+    }
+
+    isTTSReadingRef.current = false;
+    autoStartTTSRef.current = false;
+    ttsQueueRef.current = null;
+    deferredSpeakQueueRef.current = [];
+    backgroundTTSPendingRef.current = false;
+  }, []);
+
+  // Helper to check if we should show cross-chapter dialog
+  const checkCrossChapterTTS = useCallback((visibleParagraphIndex: number): boolean => {
+    try {
+      const lastPosStr = MMKVStorage.getString(TTS_LAST_POSITION);
+      if (!lastPosStr) return false;
+
+      const lastPos: TTSLastPosition = JSON.parse(lastPosStr);
+
+      // Only check if same novel and current chapter is BEFORE last TTS position
+      if (lastPos.novelId !== novel.id) return false;
+      if (chapter.position === undefined || lastPos.chapterPosition === undefined) return false;
+      if (chapter.position >= lastPos.chapterPosition) return false;
+
+      // User is going back - show dialog
+      suspendTTSForUserChoice();
+      setCrossChapterInfo({
+        lastChapter: lastPos,
+        currentParagraphIndex: visibleParagraphIndex,
+      });
+      setCrossChapterDialogVisible(true);
+      return true;
+    } catch (e) {
+      devLogger.warn('WebViewReader: Error checking cross-chapter TTS:', e);
+      return false;
+    }
+  }, [novel.id, chapter.position, suspendTTSForUserChoice]);
   const ttsScrollPromptDataRef = useRef<{
     currentIndex: number;
     visibleIndex: number;
@@ -873,12 +896,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   } | null>(null);
   const toastMessageRef = useRef<string>('');
   // Guard used to ignore WebView save events while a deletion/reset is in progress
-
-  // NEW: TTS Queue for background playback
-  const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(
-    null,
-  );
-  const currentParagraphIndexRef = useRef<number>(-1);
 
   /**
    * Track how many additional chapters have been auto-played in this TTS session.
@@ -2211,6 +2228,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // handleTTSConfirmation(Number(event.data.savedIndex));
                 const idx = Number(event.data.savedIndex);
                 pendingResumeIndexRef.current = Number.isFinite(idx) ? idx : -1;
+                suspendTTSForUserChoice();
                 // Mark that a resume confirmation is pending so incoming speak/queue
                 // messages are deferred until user responds.
                 setResumePending();
