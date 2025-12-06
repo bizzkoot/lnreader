@@ -5,6 +5,13 @@ This file contains the architectural decisions and design patterns for the Memor
 
 ## Architectural Decisions
 
+- Add pluginManagement repositories (gradlePluginPortal, google, mavenCentral) to android/settings.gradle so included builds can resolve com.android and kotlin plugins.
+- Expose aliased property `kotlin_version` in android/build.gradle to satisfy third-party gradle scripts that expect the legacy variable name.
+- Add a `subprojects { afterEvaluate { ... } }` fallback to propagate root `compileSdkVersion` and `buildToolsVersion` to node_modules Android library modules to avoid 'compileSdkVersion not specified' errors.
+- Add `allprojects.repositories` with `google()` and `mavenCentral()` to make plugin/dependency resolution consistent for nested modules.
+
+
+
 - Retry + fallback in TTSAudioManager.refillQueue to handle intermittent addToBatch rejections; try addToBatch up to 3 attempts with backoff, then if native queue is empty fallback to speakBatch to restart playback.
 - Add robust retry and fallback in WebViewReader tts-queue handler to try addToBatch before falling back to injecting WebView tts.next.
 - Add pendingScreenWakeSyncRef to WebViewReader to run a screen-wake sync on onLoadEnd when WebView was out-of-sync during background TTS.
@@ -131,6 +138,11 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 
 ## Design Considerations
 
+- Avoid editing files inside node_modules; prefer root pluginManagement and ext shims to provide expected properties.
+- If third-party libraries use deprecated Gradle APIs (IncrementalTaskInputs) they should be upgraded; if not possible, consider pinning to an older Gradle/AGP compatible combination as a temporary workaround.
+
+
+
 - Native TTS can intermittently return non-SUCCESS; this leads to failing queue refills which stops background TTS.
 - Avoid using speakBatch (QUEUE_FLUSH) unless native queue is empty to prevent interrupting currently-playing utterance.
 - Keep debug logs minimal and rely on existing logDebug/logError helpers; avoid leaving experimental [DEBUG] markers.
@@ -138,6 +150,18 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 
 
 ## Components
+
+### android/settings.gradle
+
+Add pluginManagement repositories and keep includeBuild for react-native gradle plugin.
+
+### android/build.gradle
+
+Add kotlin alias and subprojects compileSdk/buildTools fallback and allprojects repositories.
+
+
+
+
 
 ### TTSAudioManager.refillQueue
 

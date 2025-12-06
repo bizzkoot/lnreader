@@ -6,16 +6,26 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.1.20"
+        // Provide classic alias some third-party gradle scripts expect
+        kotlin_version = kotlinVersion
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle")
+            classpath("com.android.tools.build:gradle:8.11.0")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Provide repositories for nested/third-party modules that evaluate against the root project.
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}

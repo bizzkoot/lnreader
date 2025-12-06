@@ -2,6 +2,21 @@
 
 ## Current Goals
 
+- **TTS Wake/Resume Queue Sync Fix (2025-12-06)**
+- Fixed bug where TTS audio position drifted from UI after multiple screen wake cycles.
+- **Root Cause**: When resuming TTS after screen wake, `speakBatch()` was called but `ttsQueueRef.current` was NOT updated. The `onSpeechDone` handler uses ttsQueueRef for paragraph progression, causing drift with stale data.
+- **Solution**: Added `ttsQueueRef.current = { texts: remaining, startIndex: idx }` before `speakBatch()` in the wake resume block.
+- **Files Changed**: WebViewReader.tsx
+
+- **TTS Chapter Skip Prevention Fix (2025-12-06)**
+- Fixed bug where starting TTS from a chosen position in a previous chapter would skip all remaining paragraphs and jump to next chapter.
+- **Root Cause**: `onQueueEmpty` fired before `addToBatch` async operation completed, causing premature chapter navigation.
+- **Solution**: 
+  1. Added 3-second grace period (`manualTTSStartTimeRef`) after manual TTS start that blocks `onQueueEmpty` chapter navigation
+  2. Reset `backgroundTTSPendingRef` when user manually starts TTS to prevent conflicting batch starts
+  3. Reset `chaptersAutoPlayedRef` on manual TTS start
+- **Files Changed**: WebViewReader.tsx
+
 - **TTS Wake/Resume Flow Fix (2025-12-04)**
 - Fixed bug where waking screen during background TTS (3rd+ chapter) would restart TTS from paragraph 0 instead of current position.
 - **Root Cause**: Chapter-change effect was unconditionally resetting `currentParagraphIndexRef` and `latestParagraphIndexRef` to 0. When screen wakes, the indices were already reset before native TTS events could update them.

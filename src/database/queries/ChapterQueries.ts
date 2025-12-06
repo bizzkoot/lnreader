@@ -418,10 +418,9 @@ FROM
 JOIN
   Novel
   ON Chapter.novelId = Novel.id
-WHERE novelId = ?  ${
-      onlyDownloadableChapters
-        ? 'AND Chapter.isDownloaded = 1 '
-        : 'AND updatedTime IS NOT NULL'
+WHERE novelId = ?  ${onlyDownloadableChapters
+      ? 'AND Chapter.isDownloaded = 1 '
+      : 'AND updatedTime IS NOT NULL'
     }
 ORDER BY updatedTime DESC; 
 `,
@@ -436,3 +435,49 @@ export const isChapterDownloaded = (chapterId: number) =>
     'SELECT * FROM Chapter WHERE id = ? AND isDownloaded = 1',
     chapterId,
   );
+
+/**
+ * Get chapters between two positions (inclusive of start, exclusive of end)
+ * Used for resetting forward chapters when user starts TTS from earlier chapter
+ */
+export const getChaptersBetweenPositions = (
+  novelId: number,
+  fromPosition: number,
+  toPosition: number,
+) =>
+  db.getAllAsync<ChapterInfo>(
+    'SELECT * FROM Chapter WHERE novelId = ? AND position > ? AND position <= ? ORDER BY position ASC',
+    novelId,
+    fromPosition,
+    toPosition,
+  );
+
+/**
+ * Reset progress for chapters between positions
+ * @param mode 'reset-all' | 'reset-unread' | 'keep'
+ */
+export const resetChaptersProgress = async (
+  novelId: number,
+  fromPosition: number,
+  toPosition: number,
+  mode: 'reset-all' | 'reset-unread' | 'keep',
+) => {
+  if (mode === 'keep') return;
+
+  if (mode === 'reset-all') {
+    await db.runAsync(
+      'UPDATE Chapter SET progress = 0 WHERE novelId = ? AND position > ? AND position <= ?',
+      novelId,
+      fromPosition,
+      toPosition,
+    );
+  } else if (mode === 'reset-unread') {
+    // Only reset chapters that are not marked as read (unread = 1)
+    await db.runAsync(
+      'UPDATE Chapter SET progress = 0 WHERE novelId = ? AND position > ? AND position <= ? AND unread = 1',
+      novelId,
+      fromPosition,
+      toPosition,
+    );
+  }
+};

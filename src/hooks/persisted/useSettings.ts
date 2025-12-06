@@ -129,6 +129,13 @@ export interface ChapterGeneralSettings {
    * Number of chapters to download when TTS auto-download triggers
    */
   ttsAutoDownloadAmount: '5' | '10' | '15';
+  /**
+   * When user starts TTS from earlier chapter, what to do with later chapters' progress
+   * - 'reset-all': Reset progress of all chapters after current (recommended)
+   * - 'reset-unread': Only reset chapters that were started but not marked read
+   * - 'keep': Keep all progress (may cause confusion on resume)
+   */
+  ttsForwardChapterReset: 'reset-all' | 'reset-unread' | 'keep';
 }
 
 export interface ReaderTheme {
@@ -237,6 +244,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsContinueToNextChapter: 'none',
   ttsAutoDownload: 'disabled',
   ttsAutoDownloadAmount: '10',
+  ttsForwardChapterReset: 'reset-all',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {
