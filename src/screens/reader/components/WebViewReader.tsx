@@ -1060,14 +1060,19 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       'onSpeechDone',
       () => {
         // Try to play next from queue first (Background/Robust Mode)
-        if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
+        // CRITICAL: Only use queue logic if background playback is actually enabled
+        // Otherwise fall through to WebView-driven mode even if ttsQueueRef exists
+        if (
+          chapterGeneralSettingsRef.current.ttsBackgroundPlayback &&
+          ttsQueueRef.current &&
+          currentParagraphIndexRef.current >= 0
+        ) {
           const nextIndex = currentParagraphIndexRef.current + 1;
           const queueStartIndex = ttsQueueRef.current.startIndex;
           const queueEndIndex =
             queueStartIndex + ttsQueueRef.current.texts.length;
 
           if (nextIndex >= queueStartIndex && nextIndex < queueEndIndex) {
-            const text = ttsQueueRef.current.texts[nextIndex - queueStartIndex];
             devLogger.debug('WebViewReader: Playing from queue. Index:', nextIndex);
 
             // Update refs
@@ -1095,14 +1100,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // In batch mode, we DO NOT call speak() here because the native queue
             // is already playing the next item. Calling speak() would flush the queue!
             // We only need to update the UI and state.
-            if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
-              // Only manually speak next if NOT in background/batch mode
-              TTSHighlight.speak(text, {
-                voice: readerSettingsRef.current.tts?.voice?.identifier,
-                pitch: readerSettingsRef.current.tts?.pitch || 1,
-                rate: readerSettingsRef.current.tts?.rate || 1,
-              });
-            }
+            // (This path is only reached when background playback is enabled)
 
             // Sync WebView UI & Logic (fire and forget)
             // Added 'true;' and console logs for debugging
@@ -1137,6 +1135,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         }
 
         // Fallback to WebView driven (Foreground Mode)
+        // This is used when:
+        // 1. Background playback is disabled (normal single-utterance mode)
+        // 2. Queue is exhausted
+        // 3. No queue exists
+        devLogger.debug('WebViewReader: onSpeechDone - calling tts.next()');
         webViewRef.current?.injectJavaScript('tts.next?.()');
       },
     );
@@ -1305,6 +1308,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // FIX: Use refs to get current values (avoid stale closure from empty deps)
       if (nextChapterRef.current) {
         devLogger.debug('WebViewReader: Navigating to next chapter via onQueueEmpty');
+
+        // BUG FIX: Save chapter completion when TTS queue empties and requests next chapter
+        // This ensures chapters are marked as read even when screen is off
+        const currentProgress = progressRef.current ?? 0;
+        saveProgress(
+          100, // Mark chapter as complete
+          undefined, // No need to save paragraph index as we're moving to next chapter
+          ttsStateRef.current ? JSON.stringify({
+            ...ttsStateRef.current,
+            timestamp: Date.now(),
+          }) : undefined
+        );
+        devLogger.debug(`WebViewReader: Saved chapter completion progress via onQueueEmpty (was ${currentProgress}%, now 100%)`);
+
         autoStartTTSRef.current = true;
         // NEW: Set background TTS pending flag so we can start TTS directly from RN
         // when the new chapter HTML is loaded (in case WebView is suspended)
@@ -1952,6 +1969,19 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'next':
               nextChapterScreenVisible.current = true;
               if (event.autoStartTTS) {
+                // BUG FIX: Save chapter completion when TTS reaches end and requests next chapter
+                // This ensures chapters are marked as read even when screen is off
+                const currentProgress = progressRef.current ?? 0;
+                saveProgress(
+                  100, // Mark chapter as complete
+                  undefined, // No need to save paragraph index as we're moving to next chapter
+                  ttsStateRef.current ? JSON.stringify({
+                    ...ttsStateRef.current,
+                    timestamp: Date.now(),
+                  }) : undefined
+                );
+                devLogger.debug(`WebViewReader: Saved chapter completion progress via 'next' event (was ${currentProgress}%, now 100%)`);
+
                 // Check if we should continue to next chapter based on setting
                 const continueMode = chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
 
@@ -2133,6 +2163,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // Update current index
                 if (paragraphIdx >= 0) {
                   currentParagraphIndexRef.current = paragraphIdx;
+                }
+
+                // CRITICAL: Clear queue ref when not in background mode
+                // This prevents onSpeechDone from incorrectly thinking we're in batch mode
+                // when we're actually doing single-utterance playback (e.g., resume with autoStart)
+                if (!chapterGeneralSettings.ttsBackgroundPlayback) {
+                  ttsQueueRef.current = null;
                 }
 
                 // FIX: Use readerSettingsRef.current to get latest TTS settings

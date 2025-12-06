@@ -396,8 +396,9 @@ window.reader = new (function () {
     
     // BUG FIX: Block saves shortly after TTS stops (grace period)
     // This prevents small scrolls from corrupting the TTS position
+    // EXCEPTION: Allow saves during active user touch scrolling (intentional navigation)
     const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
-    if (timeSinceTTSStop < 2000) { // 2 second grace period
+    if (timeSinceTTSStop < 2000 && !this.isUserScrolling) { // 2 second grace period, bypassed during user touch
       if (DEBUG) console.log('processScroll: Skipping save - TTS grace period (' + timeSinceTTSStop + 'ms)');
       return;
     }
@@ -513,6 +514,9 @@ window.tts = new (function () {
   this.currentElement = reader.chapterElement;
   this.started = false;
   this.reading = false;
+  this.isResuming = false;
+  this.resumeGuardTimeout = null;
+  this.RESUME_GUARD_DURATION = 1500;
 
   // CONSTANTS
   this.CONSTANTS = {
@@ -806,6 +810,7 @@ window.tts = new (function () {
 
       if (config.autoStart) {
         this.log('Auto-starting playback from current paragraph');
+        this.startResumeGuard();
         setTimeout(() => {
           // FIX: Call speak() directly on the current element instead of next()
           // This ensures the saved paragraph is spoken, not skipped
@@ -1033,6 +1038,7 @@ window.tts = new (function () {
 
   this.pause = () => {
     this.reading = false;
+    this.clearResumeGuard();
 
     // Set global TTS operation flag during pause
     window.ttsOperationActive = true;
@@ -1072,6 +1078,7 @@ window.tts = new (function () {
   this.stop = () => {
     // Set global TTS operation flag during stop
     window.ttsOperationActive = true;
+    this.clearResumeGuard();
     // BUG FIX: Track when TTS stops to implement grace period for scroll saves
     window.ttsLastStopTime = Date.now();
 
@@ -1194,6 +1201,28 @@ window.tts = new (function () {
         this.log('Auto-scroll complete (unlocked)');
       }, this.CONSTANTS.SCROLL_LOCK_DURATION); // Buffer time for smooth scroll animation
     }
+  };
+
+  this.startResumeGuard = () => {
+    this.isResuming = true;
+    window.ttsResuming = true;
+    if (this.resumeGuardTimeout) {
+      clearTimeout(this.resumeGuardTimeout);
+    }
+    this.resumeGuardTimeout = setTimeout(() => {
+      this.isResuming = false;
+      window.ttsResuming = false;
+      this.resumeGuardTimeout = null;
+    }, this.RESUME_GUARD_DURATION);
+  };
+
+  this.clearResumeGuard = () => {
+    if (this.resumeGuardTimeout) {
+      clearTimeout(this.resumeGuardTimeout);
+      this.resumeGuardTimeout = null;
+    }
+    this.isResuming = false;
+    window.ttsResuming = false;
   };
 
   this.speak = () => {
@@ -1620,6 +1649,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function calculatePages() {
   const now = Date.now();
 
+  if (window.ttsResuming) {
+    if (initialReaderConfig.DEBUG) console.log('[calculatePages] BLOCKED - TTS resuming');
+    return;
+  }
+
   // BUG 3 FIX: Block calculatePages during screen wake sync to prevent scroll jumble
   // This flag is set by RN when screen wakes during background TTS playback
   if (window.ttsScreenWakeSyncPending) {
@@ -1856,6 +1890,8 @@ window.ttsOperationEndTime = 0;
 window.ttsLastStopTime = 0;
 // BUG 3 FIX: Screen wake sync flag - set by RN when screen wakes during background TTS
 window.ttsScreenWakeSyncPending = false;
+// NEW: Resume guard flag to prevent CalculatePages during resume
+window.ttsResuming = false;
 
 // Global ResizeObserver debounce tracking
 window.lastCalculatePagesCall = 0;
@@ -1866,6 +1902,11 @@ const ro = new ResizeObserver(() => {
   // BUG 3 FIX: Block during screen wake sync
   if (window.ttsScreenWakeSyncPending) {
     if (initialReaderConfig.DEBUG) console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    return;
+  }
+
+  if (window.ttsResuming) {
+    if (initialReaderConfig.DEBUG) console.log('[ResizeObserver] BLOCKED - TTS resuming');
     return;
   }
 
