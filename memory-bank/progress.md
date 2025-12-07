@@ -2,17 +2,16 @@
 
 ## Done
 
-- Merge upstream/master into dev
-- Resolve merge conflicts
-- Fix TypeScript errors
-- Run regression tests (Jest, TTS simulation)
-- Verify Android build configuration (dry run)
+- Investigate TTS progress tracking issue
+- Identify stale closure issue in WebViewReader listeners
+- Implement saveProgressRef and totalParagraphsRef
+- Update onQueueEmpty to mark chapter as 100% complete
+- Update onSpeechDone to calculate accurate progress
 
 ## Doing
 
-- Verify build stability
+- Fix TTS progress tracking for intermediate chapters (screen off)
 
 ## Next
 
-- User acceptance testing
-- Full release build (optional)
+- Verify fix in production (user task)

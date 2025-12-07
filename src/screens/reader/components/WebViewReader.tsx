@@ -230,6 +230,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // The handler is created once (empty deps) but needs current values
   const nextChapterRef = useRef(nextChapter);
   const navigateChapterRef = useRef(navigateChapter);
+  const saveProgressRef = useRef(saveProgress);
 
   useEffect(() => {
     progressRef.current = chapter.progress;
@@ -243,6 +244,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
   }, [readerSettings, chapterGeneralSettings]);
+
+  useEffect(() => {
+    saveProgressRef.current = saveProgress;
+  }, [saveProgress]);
 
   // Listen to live settings changes using the persisted hook; this will react
   // to changes coming from the settings screen and notify the WebView.
@@ -592,6 +597,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     null,
   );
   const currentParagraphIndexRef = useRef<number>(-1);
+  const totalParagraphsRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (html) {
+      // Calculate total paragraphs for progress tracking
+      const paragraphs = extractParagraphs(html);
+      totalParagraphsRef.current = paragraphs?.length || 0;
+    }
+  }, [html]);
 
   /**
    * Track how many additional chapters have been auto-played in this TTS session.
@@ -770,7 +784,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
 
             // Persist Progress (Critical for App Kill/Restart)
-            saveProgress(progressRef.current ?? 0, nextIndex);
+            // FIX: Calculate percentage based on total paragraphs
+            const total = totalParagraphsRef.current;
+            const percentage = total > 0 ? Math.round(((nextIndex + 1) / total) * 100) : (progressRef.current ?? 0);
+            saveProgressRef.current(percentage, nextIndex);
 
             // In batch mode, we DO NOT call speak() here because the native queue
             // is already playing the next item. Calling speak() would flush the queue!
@@ -985,6 +1002,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // FIX: Use refs to get current values (avoid stale closure from empty deps)
       if (nextChapterRef.current) {
         console.log('WebViewReader: Navigating to next chapter via onQueueEmpty');
+
+        // FIX: Mark current chapter as 100% complete before navigating
+        // This ensures intermediate chapters read via TTS are marked as read
+        saveProgressRef.current(100);
+
         autoStartTTSRef.current = true;
         // NEW: Set background TTS pending flag so we can start TTS directly from RN
         // when the new chapter HTML is loaded (in case WebView is suspended)
@@ -1017,7 +1039,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               'WebViewReader: Saving TTS state on background',
               ttsStateRef.current,
             );
-            saveProgress(
+            saveProgressRef.current(
               progressRef.current ?? 0,
               undefined,
               JSON.stringify({
@@ -1312,7 +1334,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           'WebViewReader: Saving TTS state on unmount',
           ttsStateRef.current,
         );
-        saveProgress(
+        saveProgressRef.current(
           progressRef.current ?? 0,
           undefined,
           JSON.stringify({
