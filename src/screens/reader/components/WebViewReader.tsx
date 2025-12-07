@@ -38,6 +38,7 @@ import {
   getChapter as getChapterFromDb,
   markChaptersBeforePositionRead,
   resetFutureChaptersProgress,
+  getRecentReadingChapters,
 } from '@database/queries/ChapterQueries';
 import TTSExitDialog from './TTSExitDialog';
 import { useNavigation } from '@react-navigation/native';
@@ -187,13 +188,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   const [showChapterSelectionDialog, setShowChapterSelectionDialog] =
     useState(false);
-  const [chapterSelectionData, setChapterSelectionData] = useState<{
-    lastChapterId: number;
-    lastChapterName: string;
-    lastParagraph: number;
-    currentChapterName: string;
-    currentParagraph: number;
-  } | null>(null);
+  const [conflictingChapters, setConflictingChapters] = useState<
+    Array<{ id: number; name: string; paragraph: number }>
+  >([]);
 
   const updateLastTTSChapter = (id: number) => {
     lastTTSChapterIdRef.current = id;
@@ -1467,8 +1464,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   });
 
   const handleRequestTTSConfirmation = async (savedIndex: number) => {
-    const lastId = lastTTSChapterIdRef.current;
-
     // SMART RESUME FIX:
     // If the user has manually scrolled in this session (indicated by latestParagraphIndexRef being set and valid),
     // and that position is significantly different from the saved index, we assume the user intends to read
@@ -1480,22 +1475,27 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       return;
     }
 
-    // Logic: If we have a stored TTS chapter, and it's DIFFERENT from current chapter,
-    // we should ask the user what to do.
-    if (lastId && lastId !== chapter.id) {
-      const lastChapter = await getChapterFromDb(lastId);
-      if (lastChapter) {
-        setChapterSelectionData({
-          lastChapterId: lastId,
-          lastChapterName: lastChapter.name,
-          lastParagraph: MMKVStorage.getNumber(`chapter_progress_${lastId}`) || 0,
-          currentChapterName: chapter.name,
-          currentParagraph: savedIndex,
-        });
-        pendingResumeIndexRef.current = savedIndex; // Store this for later
+    // Logic: fetch all recent chapters with active progress (inc. possibly lastTTSChapterId if it's active)
+    try {
+      const conflicts = await getRecentReadingChapters(novel.id, 4);
+      // Filter out current chapter from conflicts list (it's handled separately as 'Start Here')
+      const relevantConflicts = conflicts.filter(c => c.id !== chapter.id);
+
+      if (relevantConflicts.length > 0) {
+        // Map to display format
+        const conflictsData = relevantConflicts.map(c => ({
+          id: c.id,
+          name: c.name || `Chapter ${c.chapterNumber}`,
+          paragraph: MMKVStorage.getNumber(`chapter_progress_${c.id}`) || 0,
+        }));
+
+        setConflictingChapters(conflictsData);
+        pendingResumeIndexRef.current = savedIndex;
         setShowChapterSelectionDialog(true);
         return;
       }
+    } catch (e) {
+      // Ignore errors, proceed to start TTS
     }
 
     // Default behavior: Show standard resume dialog
@@ -1504,38 +1504,47 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     showResumeDialog();
   };
 
-  const handleSelectLastChapter = async () => {
-    if (chapterSelectionData) {
-      const { lastChapterId } = chapterSelectionData;
-      const lastChapter = await getChapterFromDb(lastChapterId);
-      setShowChapterSelectionDialog(false);
-      if (lastChapter) {
-        getChapter(lastChapter);
-      }
-    }
-  };
-
-  const handleSelectCurrentChapter = async () => {
+  const handleSelectChapter = async (targetChapterId: number) => {
     setShowChapterSelectionDialog(false);
 
-    // Auto-complete previous chapters (User Choice: "Start Here" implies skipping previous)
-    if (chapter.position !== undefined) {
-      await markChaptersBeforePositionRead(novel.id, chapter.position);
-    }
+    if (targetChapterId === chapter.id) {
+      // User chose "Current Chapter / Start Here"
+      // Logic: Cleanup everything before this chapter
+      if (chapter.position !== undefined) {
+        await markChaptersBeforePositionRead(novel.id, chapter.position);
+      }
+      // Reset future logic (optional setting)
+      const resetMode =
+        chapterGeneralSettingsRef.current.ttsForwardChapterReset || 'none';
+      if (resetMode !== 'none') {
+        await resetFutureChaptersProgress(novel.id, chapter.id, resetMode);
+        showToastMessage(`Future progress reset: ${resetMode}`);
+      }
 
-    const resetMode =
-      chapterGeneralSettingsRef.current.ttsForwardChapterReset || 'none';
-    if (resetMode !== 'none') {
-      await resetFutureChaptersProgress(novel.id, chapter.id, resetMode);
-      showToastMessage(`Future progress reset: ${resetMode}`);
-    }
+      // Commit to this chapter
+      updateLastTTSChapter(chapter.id);
 
-    // Commit to this chapter
-    updateLastTTSChapter(chapter.id);
+      if (pendingResumeIndexRef.current >= 0) {
+        showResumeDialog();
+      }
+    } else {
+      // User chose a different chapter (Resume that one)
+      // Logic: Switch to that chapter, but ALSO clean up relative to IT.
+      const targetChapter = await getChapterFromDb(targetChapterId);
+      if (targetChapter) {
+        // Cleanup before THAT chapter
+        if (targetChapter.position !== undefined) {
+          await markChaptersBeforePositionRead(novel.id, targetChapter.position);
+        }
+        // Reset future AFTER that chapter (if configured) - essentially resetting current chapter
+        const resetMode = chapterGeneralSettingsRef.current.ttsForwardChapterReset || 'none';
+        if (resetMode !== 'none') {
+          await resetFutureChaptersProgress(novel.id, targetChapter.id, resetMode);
+        }
 
-    // Show the standard resume dialog now
-    if (pendingResumeIndexRef.current >= 0) {
-      showResumeDialog();
+        updateLastTTSChapter(targetChapter.id);
+        getChapter(targetChapter); // Navigate
+      }
     }
   };
 
@@ -2222,16 +2231,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       <TTSChapterSelectionDialog
         visible={showChapterSelectionDialog}
         theme={theme}
-        lastChapter={{
-          name: chapterSelectionData?.lastChapterName || 'Unknown',
-          paragraph: chapterSelectionData?.lastParagraph || 0,
-        }}
+        conflictingChapters={conflictingChapters}
         currentChapter={{
-          name: chapterSelectionData?.currentChapterName || chapter.name,
-          paragraph: chapterSelectionData?.currentParagraph || 0,
+          id: chapter.id,
+          name: chapter.name,
+          paragraph: pendingResumeIndexRef.current,
         }}
-        onSelectLastChapter={handleSelectLastChapter}
-        onSelectCurrentChapter={handleSelectCurrentChapter}
+        onSelectChapter={handleSelectChapter}
         onDismiss={() => setShowChapterSelectionDialog(false)}
       />
       <TTSExitDialog

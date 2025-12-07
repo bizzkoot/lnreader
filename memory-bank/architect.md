@@ -5,6 +5,10 @@ This file contains the architectural decisions and design patterns for the Memor
 
 ## Architectural Decisions
 
+- TTS wake/resume queue handling: clear stale queue on wake start, track ttsSession, add wake-resume grace period, validate queue bounds and enforce monotonic lastSpokenIndex. Added Unified Batch playback resilience and exit dialog smart resume heuristics.
+
+
+
 - Retry + fallback in TTSAudioManager.refillQueue to handle intermittent addToBatch rejections; try addToBatch up to 3 attempts with backoff, then if native queue is empty fallback to speakBatch to restart playback.
 - Add robust retry and fallback in WebViewReader tts-queue handler to try addToBatch before falling back to injecting WebView tts.next.
 - Add pendingScreenWakeSyncRef to WebViewReader to run a screen-wake sync on onLoadEnd when WebView was out-of-sync during background TTS.
@@ -131,6 +135,10 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 
 ## Design Considerations
 
+- Prevented paragraph duplication/skips on screen wake cycles
+
+
+
 - Native TTS can intermittently return non-SUCCESS; this leads to failing queue refills which stops background TTS.
 - Avoid using speakBatch (QUEUE_FLUSH) unless native queue is empty to prevent interrupting currently-playing utterance.
 - Keep debug logs minimal and rely on existing logDebug/logError helpers; avoid leaving experimental [DEBUG] markers.
@@ -138,6 +146,37 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 
 
 ## Components
+
+### WebViewReader
+
+Handles WebView messaging and wake/resume TTS queue management
+
+**Responsibilities:**
+
+- Queue lifecycle
+- Wake handling
+- Exit dialog orchestration
+
+### TTSAudioManager
+
+Manages TTS queue and lastSpokenIndex for monotonic enforcement
+
+**Responsibilities:**
+
+- Queue playback
+- lastSpokenIndex tracking
+
+### scripts/tts_wake_cycle_test.js
+
+Local test to reproduce multi-wake queue issues
+
+**Responsibilities:**
+
+- Simulate wake cycles and validate queue correctness
+
+
+
+
 
 ### TTSAudioManager.refillQueue
 

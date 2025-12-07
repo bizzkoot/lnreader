@@ -16,6 +16,7 @@ This document identifies potential issues, missing connections, and edge cases i
 8. [Chapter Boundary Edge Cases](#8-chapter-boundary-edge-cases)
 9. [Error Handling Gaps](#9-error-handling-gaps)
 10. [Missing Documentation Connections](#10-missing-documentation-connections)
+11. [Cross-Chapter Progress Synchronization](#11-cross-chapter-progress-synchronization)
 
 ---
 
@@ -450,6 +451,67 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 ---
 
 
+---
+
+## 11. Cross-Chapter Progress Synchronization
+
+### Case 11.1: Resetting Future Progress (Scenario A) ✅ RESOLVED
+
+**Description**: When user reads Chapter N+1 to 50%, then returns to Chapter N and chooses "Start Here" or "Reset Future", the progress of Chapter N+1 should be reset.
+
+**Scenario**:
+1. Chapter 3 read to 35%
+2. Chapter 4 read to 56%
+3. User enters Chapter 3 -> Starts TTS -> Selects "Start Here"
+4. **Issue**: `resetFutureChaptersProgress` was only setting `progress = 0` but leaving `unread = 0`.
+5. **Impact**: Chapter 4 appears in "Recent" list as completed or partially read but empty progress.
+
+**Mitigation**: ✅ **Resolved** - Updated `resetFutureChaptersProgress` in `ChapterQueries.ts` to explicitly set `unread = 1` along with `progress = 0`. This ensures Chapter 4 is correctly marked as Unread.
+
+---
+
+### Case 11.2: Completing Past Progress (Scenario B) ✅ RESOLVED
+
+**Description**: When user reads Chapter N-1 to 35%, then enters Chapter N and chooses "Start Here", Chapter N-1 should be marked as completed.
+
+**Scenario**:
+1. Chapter 3 read to 35%
+2. Chapter 4 read to 56%
+3. User enters Chapter 4 -> Starts TTS -> Selects "Start Here"
+4. **Issue**: `markChaptersBeforePositionRead` was only setting `unread = 0` but leaving `progress` unchanged (35%).
+5. **Impact**: Chapter 3 is marked as Read but retains 35% progress, confusing the user who expects it to be finished.
+
+**Mitigation**: ✅ **Resolved** - Updated `markChaptersBeforePositionRead` in `ChapterQueries.ts` to explicitly set `progress = 100` alongside `unread = 0`.
+
+---
+
+### Case 11.3: Implicit Handling (Scenario C) ✅ RESOLVED
+
+**Description**: What happens if no prompt for confirmation? e.g., resume or no prior TTS state.
+
+**Scenario**:
+1. Chapter 3 read to 35%
+2. User enters Chapter 3 -> Starts TTS
+3. No confirmation dialog (implicit start)
+4. **Expectation**: No changes to other chapters.
+
+**Mitigation**: ✅ **Resolved** - Implicit start logic only affects the current chapter's session state. No cross-chapter operations are triggered without explicit user selection in `TTSChapterSelectionDialog` or manual reset settings.
+
+---
+
+### Case 11.4: General Conflict (Scenario D) ✅ RESOLVED
+
+**Description**: Users may switch between manual reading and TTS. If a user manually reads Chapter A, then opens Chapter B and starts TTS, the system should strictly enforce cleanup of Chapter A to keep the reading list valid.
+
+**Scenario**:
+1. User manually scrolls **Chapter 1** to 50% (active progress).
+2. User opens **Chapter 2**.
+3. User presses "Start TTS".
+4. **Issue**: Previously, conflict dialog only appeared if `lastTTSChapterId` existed. Manual reading was ignored.
+5. **Mitigation**: ✅ **Resolved** - `onRequestTTSConfirmation` now queries `getRecentReadingChapters(novelId)`. A list of up to 3 conflicting chapters is displayed. The user can select any chapter to "Resume" (switching to it) or the current chapter "Start Here" (forcing cleanup of previous chapters relative to the selected start point). Overflow (>3 active chapters) triggers a warning in the dialog." Chapter 1.
+
+---
+
 ## Summary Priority Matrix
 
 | Issue                        | Severity | Likelihood | Impact         | Recommended Action              | Resolution Status                                             |
@@ -467,6 +529,10 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 | 9.2 WebView Injection        | Medium   | Low        | Silent failure | Add error handling              | ✅ **Resolved** - `safeInjectJS()` helper with try-catch       |
 
 | 10.3 Exit Confirmation     | Medium   | Low        | User annoyance | Add BackHandler dialog          | ✅ **Resolved** - `TTSExitDialog` prompts on back press        |
+| 11.1 Future Progress Reset | Medium   | Medium     | UI mismatch    | Set `unread=1`                  | ✅ **Resolved** - `resetFutureChaptersProgress` modified       |
+| 11.2 Past Progress Compl.  | Medium   | Medium     | Confusing state| Set `progress=100`              | ✅ **Resolved** - `markChaptersBeforePositionRead` modified    |
+| 11.3 Implicit Handling     | Low      | Low        | None           | Document behavior               | ✅ **Resolved** - Verified no side effects                     |
+| 11.4 General Conflict      | Medium   | High       | Messy List     | Check `getLastReadChapter`      | ✅ **Resolved** - Expanded conflict logic                      |
 
 ### Overall Resolution Summary
 
@@ -475,7 +541,10 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 | ✅ Resolved           | 24     | 92%        |
 | ⚠️ Partially Resolved | 0      | 0%         |
 | ❌ Not Resolved       | 2      | 8%         |
-| **Total**            | **26** | **100%**   |
+| ✅ Resolved           | 28     | 93%        |
+| ⚠️ Partially Resolved | 0      | 0%         |
+| ❌ Not Resolved       | 2      | 7%         |
+| **Total**            | **30** | **100%**   |
 
 ### Key Mitigations Implemented
 

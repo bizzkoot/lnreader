@@ -214,7 +214,7 @@ export const markChaptersBeforePositionRead = (
   position: number,
 ) =>
   db.runAsync(
-    'UPDATE Chapter SET `unread` = 0 WHERE novelId = ? AND position < ?',
+    'UPDATE Chapter SET `unread` = 0, `progress` = 100 WHERE novelId = ? AND position < ?',
     novelId,
     position,
   );
@@ -242,7 +242,7 @@ export const resetFutureChaptersProgress = async (
   }
 
   const { position } = currentChapter;
-  let query = 'UPDATE Chapter SET progress = 0, ttsState = NULL WHERE novelId = ? AND position > ?';
+  let query = 'UPDATE Chapter SET progress = 0, unread = 1, ttsState = NULL WHERE novelId = ? AND position > ?';
   const args: (string | number)[] = [novelId, position];
 
   if (resetMode === 'reset-next') {
@@ -278,9 +278,16 @@ export const resetFutureChaptersProgress = async (
 
   if (chaptersToReset.length > 0) {
     const ids = chaptersToReset.map(c => c.id).join(',');
-    await db.execAsync(`UPDATE Chapter SET progress = 0, ttsState = NULL WHERE id IN (${ids})`);
+    await db.execAsync(`UPDATE Chapter SET progress = 0, unread = 1, ttsState = NULL WHERE id IN (${ids})`);
   }
 };
+
+export const getRecentReadingChapters = (novelId: number, limit: number = 4) =>
+  db.getAllAsync<ChapterInfo>(
+    'SELECT * FROM Chapter WHERE novelId = ? AND progress > 0 AND progress < 100 ORDER BY updatedTime DESC LIMIT ?',
+    novelId,
+    limit,
+  );
 
 // #endregion
 // #region Selectors
