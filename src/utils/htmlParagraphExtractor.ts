@@ -2,29 +2,24 @@
  * Extracts readable paragraphs from HTML text for TTS playback.
  * This is used when WebView JavaScript is suspended (screen off).
  *
- * NOTE: This is a simplified parser. It won't perfectly match
- * the WebView DOM traversal, but it's good enough for TTS.
+ * NOTE: Uses a "Flattening Strategy" to capture text across all nesting levels.
+ * It replaces block tags with delimiters and strips inline tags, ensuring
+ * no content is skipped due to complex nesting.
  */
 
-// Tags that contain readable text (for reference)
-// const READABLE_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN'];
-
-// Tags that are block-level containers (for reference)
-// const CONTAINER_TAGS = ['SECTION', 'ARTICLE', 'MAIN', 'HEADER', 'FOOTER', 'BODY', 'HTML'];
+// List of block tags that signify a paragraph break
+const BLOCK_TAGS = [
+  'address', 'article', 'aside', 'blockquote', 'canvas', 'dd', 'div', 'dl', 'dt',
+  'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'header', 'hr', 'li', 'main', 'nav', 'noscript', 'ol', 'p', 'pre', 'section',
+  'table', 'tfoot', 'ul', 'video',
+];
 
 /**
- * Strip HTML tags and decode entities
+ * Decode common HTML entities
  */
-function stripHtml(html: string): string {
-  // Remove script and style tags with their content
-  let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-
-  // Remove HTML tags
-  text = text.replace(/<[^>]+>/g, ' ');
-
-  // Decode common HTML entities
-  text = text
+function decodeHtmlEntities(text: string): string {
+  return text
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -36,52 +31,44 @@ function stripHtml(html: string): string {
     .replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
       String.fromCharCode(parseInt(code, 16)),
     );
-
-  // Normalize whitespace
-  text = text.replace(/\s+/g, ' ').trim();
-
-  return text;
 }
 
 /**
  * Extract readable paragraphs from HTML content
  */
 export function extractParagraphs(html: string): string[] {
-  const paragraphs: string[] = [];
-
-  // Simple regex-based extraction of paragraph-like content
-  // Match content within P, DIV, H1-H6 tags
-  const tagPattern =
-    /<(p|div|h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi;
-
-  let match;
-  while ((match = tagPattern.exec(html)) !== null) {
-    const content = match[2];
-
-    // Skip if this is a container with nested block elements
-    if (/<(p|div|h[1-6])[^>]*>/i.test(content)) {
-      continue;
-    }
-
-    const text = stripHtml(content);
-
-    // Only include non-empty paragraphs
-    if (text.length > 0) {
-      paragraphs.push(text);
-    }
+  if (!html) {
+    return [];
   }
 
-  // Fallback: If no paragraphs found with tags, split by line breaks
-  if (paragraphs.length === 0) {
-    const lines = html
-      .split(/<br\s*\/?>/i)
-      .map(line => stripHtml(line))
-      .filter(line => line.length > 0);
+  // 1. Remove script and style tags completely
+  let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
 
-    paragraphs.push(...lines);
-  }
+  // 2. Insert delimiters at block boundaries
+  // We use a pipe delimiter that is unlikely to be in text
+  const DELIMITER = '|||';
 
-  return paragraphs;
+  // Replace <br> with delimiter
+  text = text.replace(/<br\s*\/?>/gi, `\n${DELIMITER}\n`);
+
+  // Replace block tags with delimiter
+  // Matches <tag> or </tag> or <tag attr="...">
+  const blockPattern = new RegExp(`</?(${BLOCK_TAGS.join('|')})(\\s[^>]*)?>`, 'gi');
+  text = text.replace(blockPattern, `\n${DELIMITER}\n`);
+
+  // 3. Remove all remaining tags (inline tags like span, b, i, a)
+  // Replace with space to prevent concatenating words
+  text = text.replace(/<[^>]+>/g, ' ');
+
+  // 4. Decode HTML entities
+  text = decodeHtmlEntities(text);
+
+  // 5. Split, trim, and filter
+  return text
+    .split(DELIMITER)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(line => line.length > 0);
 }
 
 /**
@@ -98,11 +85,9 @@ export function extractParagraphsFrom(
     ? Math.min(startIndex + count, allParagraphs.length)
     : allParagraphs.length;
 
+  if (startIndex >= allParagraphs.length) {
+    return [];
+  }
+
   return allParagraphs.slice(startIndex, endIndex);
 }
-
-export default {
-  extractParagraphs,
-  extractParagraphsFrom,
-  stripHtml,
-};

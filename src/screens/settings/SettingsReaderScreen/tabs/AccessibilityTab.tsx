@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
+import { View, StyleSheet, Text, Pressable, Alert } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { Voice, VoiceQuality } from 'expo-speech';
@@ -21,9 +21,9 @@ import TTSScrollBehaviorModal from '../Modals/TTSScrollBehaviorModal';
 import AutoResumeModal from '../Modals/AutoResumeModal';
 
 const AccessibilityTab: React.FC = () => {
-    // No-op: Reader listens for settings changes via persisted storage and will
-    // apply updates live. We keep a helper if needed for web-based debug.
-    const sendTTSSettingsToReader = (_settings: any) => false;
+  // No-op: Reader listens for settings changes via persisted storage and will
+  // apply updates live. We keep a helper if needed for web-based debug.
+  const sendTTSSettingsToReader = (_settings: any) => false;
   const theme = useTheme();
   const {
     fullScreenMode = true,
@@ -40,18 +40,19 @@ const AccessibilityTab: React.FC = () => {
     ttsContinueToNextChapter = 'none',
     ttsAutoDownload = 'disabled',
     ttsAutoDownloadAmount = '10',
+    ttsForwardChapterReset = 'none',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
   const { tts, setChapterReaderSettings } = useChapterReaderSettings();
   const [voices, setVoices] = useState<TTSVoice[]>([]);
-  
+
   // Local state for slider values to enable real-time display during drag
   const [localRate, setLocalRate] = useState(tts?.rate || 1);
   const [localPitch, setLocalPitch] = useState(tts?.pitch || 1);
   const [isDraggingRate, setIsDraggingRate] = useState(false);
   const [isDraggingPitch, setIsDraggingPitch] = useState(false);
-  
+
   // Sync local state when tts settings change externally
   useEffect(() => {
     if (!isDraggingRate) {
@@ -65,7 +66,7 @@ const AccessibilityTab: React.FC = () => {
       sendTTSSettingsToReader({ ...tts, rate: tts.rate });
     }
   }, [tts?.rate, isDraggingRate]);
-  
+
   useEffect(() => {
     if (!isDraggingPitch) {
       setLocalPitch(tts?.pitch || 1);
@@ -78,13 +79,13 @@ const AccessibilityTab: React.FC = () => {
       sendTTSSettingsToReader({ ...tts, pitch: tts.pitch });
     }
   }, [tts?.pitch, isDraggingPitch]);
-    // Send TTS settings to Reader/webview when voice changes
-    useEffect(() => {
-      if (tts?.voice) {
-        sendTTSSettingsToReader({ ...tts, voice: tts.voice });
-      }
-    }, [tts?.voice]);
-  
+  // Send TTS settings to Reader/webview when voice changes
+  useEffect(() => {
+    if (tts?.voice) {
+      sendTTSSettingsToReader({ ...tts, voice: tts.voice });
+    }
+  }, [tts?.voice]);
+
   const {
     value: voiceModalVisible,
     setTrue: showVoiceModal,
@@ -119,6 +120,11 @@ const AccessibilityTab: React.FC = () => {
     value: ttsAutoDownloadAmountModalVisible,
     setTrue: showTtsAutoDownloadAmountModal,
     setFalse: hideTtsAutoDownloadAmountModal,
+  } = useBoolean();
+  const {
+    value: ttsResetModeModalVisible,
+    setTrue: showTtsResetModeModal,
+    setFalse: hideTtsResetModeModal,
   } = useBoolean();
 
   useEffect(() => {
@@ -250,8 +256,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoResume === 'always'
                     ? 'Always resume'
                     : ttsAutoResume === 'never'
-                    ? 'Never resume'
-                    : 'Ask every time'
+                      ? 'Never resume'
+                      : 'Ask every time'
                 }
                 onPress={showAutoResumeModal}
                 theme={theme}
@@ -262,7 +268,7 @@ const AccessibilityTab: React.FC = () => {
                 onPress={showVoiceModal}
                 theme={theme}
               />
-              
+
               {/* Voice Rate Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
@@ -317,7 +323,7 @@ const AccessibilityTab: React.FC = () => {
                   <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Fast</Text>
                 </View>
               </View>
-              
+
               {/* Voice Pitch Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
@@ -372,7 +378,7 @@ const AccessibilityTab: React.FC = () => {
                   <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>High</Text>
                 </View>
               </View>
-              
+
               <View style={styles.resetButtonContainer}>
                 <Button
                   title={getString('common.reset')}
@@ -404,8 +410,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsScrollPrompt === 'always-ask'
                     ? 'Ask me if I want to change TTS position'
                     : ttsScrollPrompt === 'auto-change'
-                    ? 'Automatically update TTS position'
-                    : 'Never change TTS position'
+                      ? 'Automatically update TTS position'
+                      : 'Never change TTS position'
                 }
                 onPress={showScrollPromptModal}
                 theme={theme}
@@ -428,12 +434,28 @@ const AccessibilityTab: React.FC = () => {
                   ttsContinueToNextChapter === 'none'
                     ? 'No (stop at end of chapter)'
                     : ttsContinueToNextChapter === '5'
-                    ? 'Up to 5 chapters'
-                    : ttsContinueToNextChapter === '10'
-                    ? 'Up to 10 chapters'
-                    : 'Continuously (until stopped)'
+                      ? 'Up to 5 chapters'
+                      : ttsContinueToNextChapter === '10'
+                        ? 'Up to 10 chapters'
+                        : 'Continuously (until stopped)'
                 }
                 onPress={showContinueNextChapterModal}
+                theme={theme}
+              />
+              <List.Item
+                title="Auto-reset future progress"
+                description={
+                  ttsForwardChapterReset === 'none'
+                    ? 'Disabled'
+                    : ttsForwardChapterReset === 'reset-next'
+                      ? 'Reset next chapter'
+                      : ttsForwardChapterReset === 'reset-until-5'
+                        ? 'Reset next 5 chapters'
+                        : ttsForwardChapterReset === 'reset-until-10'
+                          ? 'Reset next 10 chapters'
+                          : 'Reset ALL future chapters (Destructive)'
+                }
+                onPress={showTtsResetModeModal}
                 theme={theme}
               />
 
@@ -444,8 +466,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoDownload === 'disabled'
                     ? 'Disabled (use app setting)'
                     : ttsAutoDownload === '5'
-                    ? 'When 5 chapters remain'
-                    : 'When 10 chapters remain'
+                      ? 'When 5 chapters remain'
+                      : 'When 10 chapters remain'
                 }
                 onPress={showTtsAutoDownloadModal}
                 theme={theme}
@@ -567,6 +589,43 @@ const AccessibilityTab: React.FC = () => {
             { label: '5 chapters', value: '5' },
             { label: '10 chapters', value: '10' },
             { label: '15 chapters', value: '15' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsResetModeModalVisible}
+          onDismiss={hideTtsResetModeModal}
+          theme={theme}
+          title="Auto-reset Progress"
+          currentValue={ttsForwardChapterReset}
+          onSelect={value => {
+            if (value === 'reset-all') {
+              Alert.alert(
+                'Confirm Reset All',
+                'This will automatically reset read progress for ALL subsequent chapters when you start TTS from an earlier chapter. This cannot be undone per session.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Enable',
+                    style: 'destructive',
+                    onPress: () =>
+                      setChapterGeneralSettings({
+                        ttsForwardChapterReset: 'reset-all',
+                      }),
+                  },
+                ],
+              );
+            } else {
+              setChapterGeneralSettings({
+                ttsForwardChapterReset: value as any,
+              });
+            }
+          }}
+          options={[
+            { label: 'Disabled', value: 'none' },
+            { label: 'Reset next chapter only', value: 'reset-next' },
+            { label: 'Reset next 5 chapters', value: 'reset-until-5' },
+            { label: 'Reset next 10 chapters', value: 'reset-until-10' },
+            { label: 'Reset ALL future chapters (Warning)', value: 'reset-all' },
           ]}
         />
       </Portal>

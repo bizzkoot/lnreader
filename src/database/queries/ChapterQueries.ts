@@ -209,8 +209,78 @@ export const markPreviousChaptersUnread = (
     novelId,
   );
 
+export const markChaptersBeforePositionRead = (
+  novelId: number,
+  position: number,
+) =>
+  db.runAsync(
+    'UPDATE Chapter SET `unread` = 0 WHERE novelId = ? AND position < ?',
+    novelId,
+    position,
+  );
+
 export const clearUpdates = () =>
   db.execAsync('UPDATE Chapter SET updatedTime = NULL');
+
+export const resetFutureChaptersProgress = async (
+  novelId: number,
+  currentChapterId: number,
+  resetMode:
+    | 'reset-next'
+    | 'reset-until-5'
+    | 'reset-until-10'
+    | 'reset-all'
+    | 'none',
+) => {
+  if (resetMode === 'none') {
+    return;
+  }
+
+  const currentChapter = await getChapter(currentChapterId);
+  if (!currentChapter || currentChapter.position === undefined) {
+    return;
+  }
+
+  const { position } = currentChapter;
+  let query = 'UPDATE Chapter SET progress = 0, ttsState = NULL WHERE novelId = ? AND position > ?';
+  const args: (string | number)[] = [novelId, position];
+
+  if (resetMode === 'reset-next') {
+    query += ' ORDER BY position ASC LIMIT 1';
+  } else if (resetMode === 'reset-until-5') {
+    query += ' ORDER BY position ASC LIMIT 5';
+  } else if (resetMode === 'reset-until-10') {
+    query += ' ORDER BY position ASC LIMIT 10';
+  } else if (resetMode === 'reset-all') {
+    // No limit needed
+  }
+
+  // SQLite UPDATE with ORDER BY/LIMIT validation
+  // Note: Standard SQLite supports ORDER BY/LIMIT in UPDATE if enabled at compile time.
+  // React Native Quick SQLite usually supports this. If not, we might need nested query.
+  // Safer approach for broad compatibility:
+
+  if (resetMode === 'reset-all') {
+    await db.runAsync(query, ...args);
+    return;
+  }
+
+  // For limited updates, we fetch IDs first to be safe and robust
+  let limit = 0;
+  if (resetMode === 'reset-next') limit = 1;
+  else if (resetMode === 'reset-until-5') limit = 5;
+  else if (resetMode === 'reset-until-10') limit = 10;
+
+  const chaptersToReset = await db.getAllAsync<{ id: number }>(
+    `SELECT id FROM Chapter WHERE novelId = ? AND position > ? ORDER BY position ASC LIMIT ?`,
+    novelId, position, limit
+  );
+
+  if (chaptersToReset.length > 0) {
+    const ids = chaptersToReset.map(c => c.id).join(',');
+    await db.execAsync(`UPDATE Chapter SET progress = 0, ttsState = NULL WHERE id IN (${ids})`);
+  }
+};
 
 // #endregion
 // #region Selectors
@@ -418,10 +488,9 @@ FROM
 JOIN
   Novel
   ON Chapter.novelId = Novel.id
-WHERE novelId = ?  ${
-      onlyDownloadableChapters
-        ? 'AND Chapter.isDownloaded = 1 '
-        : 'AND updatedTime IS NOT NULL'
+WHERE novelId = ?  ${onlyDownloadableChapters
+      ? 'AND Chapter.isDownloaded = 1 '
+      : 'AND updatedTime IS NOT NULL'
     }
 ORDER BY updatedTime DESC; 
 `,

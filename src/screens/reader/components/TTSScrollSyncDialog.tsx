@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
+import { useBackHandler } from '@hooks/index';
 
 interface TTSScrollSyncDialogProps {
   visible: boolean;
@@ -23,6 +24,17 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
   onKeepCurrent,
   onDismiss,
 }) => {
+  // FIX Case 5.2: Handle Android back button press
+  // When back is pressed while dialog visible, call safe default action (keep current position)
+  useBackHandler(() => {
+    if (visible) {
+      onKeepCurrent();
+      onDismiss();
+      return true; // Consume the event
+    }
+    return false;
+  });
+
   const isAhead = visibleIndex > currentIndex;
   const directionText = isAhead ? 'ahead' : 'back';
 

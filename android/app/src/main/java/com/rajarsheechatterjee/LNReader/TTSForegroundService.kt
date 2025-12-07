@@ -44,6 +44,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun onSpeechError(utteranceId: String)
         fun onWordRange(utteranceId: String, start: Int, end: Int, frame: Int)
         fun onQueueEmpty()  // Called when TTS queue is completely empty (chapter finished)
+        fun onVoiceFallback(originalVoice: String, fallbackVoice: String)  // FIX Case 7.2: Notify when voice fallback occurs
     }
 
     inner class TTSBinder : Binder() {
@@ -161,6 +162,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                             if (bestVoice != null) {
                                 ttsInstance.voice = bestVoice
                                 android.util.Log.w("TTSForegroundService", "Using fallback voice: ${bestVoice.name} (quality: $bestQuality)")
+                                // FIX Case 7.2: Notify listener about voice fallback
+                                ttsListener?.onVoiceFallback(voiceId, bestVoice.name)
                             }
                         }
                     }
@@ -237,6 +240,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                             if (bestVoice != null) {
                                 ttsInstance.voice = bestVoice
                                 android.util.Log.w("TTSForegroundService", "Using fallback voice for batch: ${bestVoice.name} (quality: $bestQuality)")
+                                // FIX Case 7.2: Notify listener about voice fallback
+                                ttsListener?.onVoiceFallback(voiceId, bestVoice.name)
                             }
                         }
                     }

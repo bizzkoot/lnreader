@@ -212,6 +212,14 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         sendEvent("onQueueEmpty", params)
     }
 
+    // FIX Case 7.2: Notify JS when voice fallback occurs
+    override fun onVoiceFallback(originalVoice: String, fallbackVoice: String) {
+        val params = Arguments.createMap()
+        params.putString("originalVoice", originalVoice)
+        params.putString("fallbackVoice", fallbackVoice)
+        sendEvent("onVoiceFallback", params)
+    }
+
     private fun sendEvent(eventName: String, params: WritableMap) {
         if (reactContext.hasActiveCatalystInstance()) {
             reactContext

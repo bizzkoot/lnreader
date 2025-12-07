@@ -116,6 +116,14 @@ class TTSHighlightService {
     return TTSAudioManager.isRefillInProgress();
   }
 
+  /**
+   * Check if TTSAudioManager still has items remaining to queue.
+   * Used to prevent premature onQueueEmpty from triggering chapter navigation.
+   */
+  hasRemainingItems(): boolean {
+    return TTSAudioManager.hasRemainingItems();
+  }
+
   pause(): Promise<boolean> {
     return TTSAudioManager.stop();
   }
@@ -130,7 +138,8 @@ class TTSHighlightService {
       | 'onSpeechStart'
       | 'onSpeechDone'
       | 'onSpeechError'
-      | 'onQueueEmpty',
+      | 'onQueueEmpty'
+      | 'onVoiceFallback',  // FIX Case 7.2: Voice fallback notification
     listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);
@@ -185,8 +194,8 @@ class TTSHighlightService {
       const nativeTag = mapping.matchedNativeType === 'local'
         ? ' — LOCAL'
         : mapping.matchedNativeType === 'network'
-        ? ' — NETWORK'
-        : '';
+          ? ' — NETWORK'
+          : '';
 
       // Format: "English (UK) — Male 1 — Clear — LOCAL"
       return `${lang} — ${simpleName}${styleInfo}${nativeTag || hqMarker}`;

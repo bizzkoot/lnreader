@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
+import { useBackHandler } from '@hooks/index';
 
 interface TTSResumeDialogProps {
   visible: boolean;
@@ -21,6 +22,16 @@ const TTSResumeDialog: React.FC<TTSResumeDialogProps> = ({
   onRestartChapter,
   onDismiss,
 }) => {
+  // FIX Case 5.2: Handle Android back button press
+  // When back is pressed while dialog visible, just dismiss (user can re-open TTS later)
+  useBackHandler(() => {
+    if (visible) {
+      onDismiss();
+      return true; // Consume the event
+    }
+    return false;
+  });
+
   return (
     <Portal>
       <Dialog

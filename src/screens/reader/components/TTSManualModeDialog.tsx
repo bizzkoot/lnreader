@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
+import { useBackHandler } from '@hooks/index';
 
 interface TTSManualModeDialogProps {
   visible: boolean;
@@ -19,6 +20,17 @@ const TTSManualModeDialog: React.FC<TTSManualModeDialogProps> = ({
   onContinueFollowing,
   onDismiss,
 }) => {
+  // FIX Case 5.2: Handle Android back button press
+  // When back is pressed while dialog visible, call safe default action (continue following)
+  useBackHandler(() => {
+    if (visible) {
+      onContinueFollowing();
+      onDismiss();
+      return true; // Consume the event
+    }
+    return false;
+  });
+
   return (
     <Portal>
       <Dialog

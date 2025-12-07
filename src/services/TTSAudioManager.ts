@@ -21,9 +21,9 @@ const BATCH_SIZE = 25; // Number of paragraphs to queue at once (was 15)
 const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
 
 // eslint-disable-next-line no-console
-const logDebug = __DEV__ ? console.log : () => {};
+const logDebug = __DEV__ ? console.log : () => { };
 // eslint-disable-next-line no-console
-const logError = __DEV__ ? console.error : () => {};
+const logError = __DEV__ ? console.error : () => { };
 
 class TTSAudioManager {
     private isPlaying = false;
@@ -74,6 +74,15 @@ class TTSAudioManager {
      */
     isRefillInProgress(): boolean {
         return this.refillInProgress;
+    }
+
+    /**
+     * Check if there are remaining items in the JS queue that haven't been 
+     * sent to the native queue yet. This is used to prevent premature 
+     * onQueueEmpty events from triggering chapter navigation.
+     */
+    hasRemainingItems(): boolean {
+        return this.currentIndex < this.currentQueue.length;
     }
 
     async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
@@ -352,14 +361,14 @@ class TTSAudioManager {
                 logDebug('TTSAudioManager: onQueueEmpty ignored - restart in progress');
                 return;
             }
-            
+
             // BUG FIX: Don't fire callback if a refill operation is in progress
             // This prevents premature chapter navigation when async refill is still running
             if (this.refillInProgress) {
                 logDebug('TTSAudioManager: onQueueEmpty ignored - refill in progress');
                 return;
             }
-            
+
             // BUG FIX: Check if we still have items to refill - if so, this is a false alarm
             // Native queue might be empty but JS still has more paragraphs to queue
             if (this.currentIndex < this.currentQueue.length) {
@@ -370,7 +379,7 @@ class TTSAudioManager {
                 });
                 return;
             }
-            
+
             logDebug('TTSAudioManager: Queue empty event received');
             if (this.onQueueEmptyCallback) {
                 this.onQueueEmptyCallback();

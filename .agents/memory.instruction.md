@@ -23,6 +23,26 @@ applyTo: '**'
 - Removed duplicate native badge rendering in `VoicePickerModal` (single source of truth is formatVoiceName()).
 - Added scripts to regenerate authoritative voice data and report (scripts/).
 
+# 2025-12-07: TTS runtime fixes & safety additions
+- Added safeInjectJS and validateAndClampParagraphIndex helpers (src/screens/reader/components/ttsHelpers.ts) to make WebView injections safer and clamp resume indices.
+- WebViewReader.tsx: improved screen-wake resume (capture/verify chapter id and paragraph, clamp resume indexes), added `request-tts-exit` handling and `TTSExitDialog` + `TTSChapterSelectionDialog`, tightened save-event validation during chapter transitions, and fixed multiple resume/auto-start corner cases.
+- TTSAudioManager.ts: increased batch size and refill threshold, added `hasRemainingItems()` and hardened the onQueueEmpty handler to ignore false-empty signals while refill/state operations are in progress.
+- TTSHighlight.ts: added hasRemainingItems wrapper + onVoiceFallback event type and minor improvements to highlight/queue logic.
+- htmlParagraphExtractor.ts: improved extraction logic (block-level delimiters, entity decoding, robust splitting) to better match WebView DOM traversal when WebView is suspended.
+- AccessibilityTab.tsx: added UI for `ttsForwardChapterReset` and confirmation dialog for destructive reset-all behaviour; minor UX improvements for sliders and voice change handling.
+
+Files modified in this set:
+- src/screens/reader/components/WebViewReader.tsx
+- src/screens/reader/components/ttsHelpers.ts
+- src/services/TTSAudioManager.ts
+- src/services/TTSHighlight.ts
+- src/utils/htmlParagraphExtractor.ts
+- src/screens/settings/SettingsReaderScreen/tabs/AccessibilityTab.tsx
+
+Action / Next checks
+- Verify MMKV <-> DB sync stability in the wild (add save-source debug logging).
+- Add targeted unit tests around resume/index clamping and onQueueEmpty false-positive scenarios.
+
 # Notes / Next Actions
 - Keep `authoritative-voice-map.ts` up-to-date from web-speech-recommended-voices when possible.
 - Add cross-language voice mappings in future iterations (currently English-focused dataset added).
