@@ -83,18 +83,15 @@
 
 <h3 align="center">🎵 Text-to-Speech in Action</h3>
 
-<div align="center">
-  <video controls autoplay muted loop playsinline style="max-height:480px; width:auto;">
-    <source src="./.github/readme-images/TTS/TTS-Dragable_Bottom Panel_Direct Update.webm" type="video/webm">
-    Your browser does not support the video tag.
-  </video>
-</div>
+<p align="center">
+
+[TTS-Dragable_Bottom Panel_Direct Update.webm](https://github.com/user-attachments/assets/94fad773-f63d-4a43-ac6d-53f62421e14a)
+
+</p>
 
 <p align="center">
   <em>Experience the new draggable TTS bottom panel with direct update functionality</em>
 </p>
-
-> **Note**: Video should autoplay in most browsers. If not, click the play button to start the demonstration. The video loops continuously for better viewing experience.
 
 ### Key TTS Features Showcase
 
