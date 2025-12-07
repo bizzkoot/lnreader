@@ -176,6 +176,28 @@ This document identifies potential issues, missing connections, and edge cases i
 
 **Test Script**: `pnpm test:tts-wake-cycle` - Simulates multiple wake cycles and validates queue state management.
 
+
+---
+
+### Case 3.5: Wake State Stale Event Injection ✅ RESOLVED
+
+**Description**: When the screen wakes, the native side pauses TTS and injects JS to sync the WebView. However, due to race conditions or previous queued operations, the WebView might emit 'speak' or 'onWordRange' events during this sensitive transition, causing the state to jump back to an old paragraph or interrupt the sync process.
+
+**Scenario**:
+1. TTS playing at paragraph 100.
+2. Screen wakes. Native pauses TTS.
+3. Native starts sync process (`wakeTransitionInProgressRef = true`).
+4. WebView (due to some JS side effect) emits a 'speak' message for paragraph 99.
+5. Native receives 'speak', ignores the wake flag, and effectively "resumes" from 99.
+6. Sync process completes but TTS is already mistakenly playing from 99.
+
+**Current Mitigation**: ✅ **Resolved** - 
+1. **Block 'speak' requests**: `onMessage` handler explicitly checks `wakeTransitionInProgressRef` and drops 'speak' requests during wake transition.
+2. **Block 'onWordRange'**: `onWordRange` listener checks `wakeTransitionInProgressRef` and drops events.
+3. **Chapter-Aware IDs**: Interactive `speak` calls now generate `chapter_N_utterance_N` IDs, allowing `onSpeechStart` to validate the chapter ID.
+
+**Code Location**: [WebViewReader.tsx:1986](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L1986)
+
 ---
 
 ## 4. Memory & State Management

@@ -598,6 +598,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   );
   const currentParagraphIndexRef = useRef<number>(-1);
   const totalParagraphsRef = useRef<number>(0);
+  // Ref for log throttling
+  const lastStaleLogTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (html) {
@@ -708,6 +710,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       }
       true;
     `);
+    // FIX: Mark as not playing BEFORE calling stop to prevent race condition with onQueueEmpty
+    isTTSReadingRef.current = false;
     TTSHighlight.stop();
     showToastMessage('Switched to manual reading mode');
     hideManualModeDialog();
@@ -794,10 +798,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // We only need to update the UI and state.
             if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
               // Only manually speak next if NOT in background/batch mode
+              // BUG FIX: Generate chapter-aware utterance ID to prevent stale processing
+              // and ensure onSpeechStart/onWordRange can validate against prevChapterIdRef
+              const currentChapterId = prevChapterIdRef.current;
+              const nextUtteranceId = `chapter_${currentChapterId}_utterance_${nextIndex}`;
+
               TTSHighlight.speak(text, {
                 voice: readerSettingsRef.current.tts?.voice?.identifier,
                 pitch: readerSettingsRef.current.tts?.pitch || 1,
                 rate: readerSettingsRef.current.tts?.rate || 1,
+                utteranceId: nextUtteranceId,
               });
             }
 
@@ -823,7 +833,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 `);
             } else if (!isWebViewSyncedRef.current) {
               // WebView is not synced (background mode) - skip injection but log
-              console.log(`WebViewReader: Skipping WebView sync (background mode) - index ${nextIndex}`);
+              // Log removed to reduce noise: Skipping WebView sync (background mode)
             } else {
               console.warn(
                 'WebViewReader: webViewRef is null during queue playback',
@@ -842,6 +852,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // Listen for native word-range updates to drive in-page highlighting
     const rangeSubscription = TTSHighlight.addListener('onWordRange', (event) => {
       try {
+        // BUG FIX: Block events during wake transition to prevent ref mutation/JS injection
+        if (wakeTransitionInProgressRef.current) {
+          // console.log('WebViewReader: Ignoring onWordRange during wake transition'); (spammy)
+          return;
+        }
+
         const utteranceId = event?.utteranceId || '';
         let paragraphIndex = currentParagraphIndexRef.current ?? -1;
 
@@ -852,13 +868,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           if (chapterMatch) {
             const eventChapterId = Number(chapterMatch[1]);
             // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
-            if (eventChapterId !== prevChapterIdRef.current) {
-              console.log(`WebViewReader: Ignoring stale onWordRange from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+            if (eventChapterId !== Number(prevChapterIdRef.current)) {
+              const now = Date.now();
+              if (now - lastStaleLogTimeRef.current > 1000) {
+                console.log(`WebViewReader: Ignoring stale onWordRange from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+                lastStaleLogTimeRef.current = now;
+              }
               return;
             }
             paragraphIndex = Number(chapterMatch[2]);
           } else {
-            // Legacy format
+            // Legacy format or events without explicit ID
             const m = utteranceId.match(/utterance_(\d+)/);
             if (m) paragraphIndex = Number(m[1]);
           }
@@ -905,8 +925,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           if (chapterMatch) {
             const eventChapterId = Number(chapterMatch[1]);
             // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
-            if (eventChapterId !== prevChapterIdRef.current) {
-              console.log(`WebViewReader: Ignoring stale onSpeechStart from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+            if (eventChapterId !== Number(prevChapterIdRef.current)) {
+              const now = Date.now();
+              if (now - lastStaleLogTimeRef.current > 1000) {
+                console.log(`WebViewReader: Ignoring stale onSpeechStart from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+                lastStaleLogTimeRef.current = now;
+              }
               return;
             }
             paragraphIndex = Number(chapterMatch[2]);
@@ -1147,6 +1171,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
               // CRITICAL: STOP TTS completely to prevent onQueueEmpty from advancing chapters
               // This is different from pause() which allows the queue to continue
+
+              // FIX: Mark as not playing BEFORE calling stop to prevent race condition with onQueueEmpty
+              isTTSReadingRef.current = false;
+              backgroundTTSPendingRef.current = false; // Don't auto-start on next chapter
+
               TTSHighlight.stop()
                 .then(() => {
                   console.log('WebViewReader: TTS stopped on wake (out-of-sync) for safe resume');
@@ -1154,10 +1183,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 .catch(e => {
                   console.warn('WebViewReader: Failed to stop TTS on wake', e);
                 });
-
-              // Mark as not playing - we'll restart from saved position after sync
-              isTTSReadingRef.current = false;
-              backgroundTTSPendingRef.current = false; // Don't auto-start on next chapter
 
               // BUG FIX: Clear wake transition flags for out-of-sync case
               // They will be set again when pending screen wake sync runs after WebView reloads
@@ -1886,9 +1911,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 const timeSinceTransition = Date.now() - chapterTransitionTimeRef.current;
 
                 if (event.chapterId !== undefined && event.chapterId !== chapter.id) {
-                  console.log(
-                    `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
-                  );
+                  const now = Date.now();
+                  if (now - lastStaleLogTimeRef.current > 1000) {
+                    console.log(
+                      `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
+                    );
+                    lastStaleLogTimeRef.current = now;
+                  }
                   break;
                 }
 
@@ -1968,6 +1997,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               }
               break;
             case 'speak':
+              // BUG FIX: Block 'speak' requests during wake transition
+              // The native side handles resume logic; allowing WebView to drive speak
+              // here would cause race conditions and potentially resume with stale state.
+              if (wakeTransitionInProgressRef.current) {
+                console.log('WebViewReader: Ignoring speak request during wake transition');
+                break;
+              }
+
               if (event.data && typeof event.data === 'string') {
                 if (!isTTSReadingRef.current) {
                   isTTSReadingRef.current = true;
