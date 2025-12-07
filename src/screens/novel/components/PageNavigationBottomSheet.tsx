@@ -95,6 +95,7 @@ export default function PageNavigationBottomSheet({
             recycleItems
             extraData={pageIndex}
             renderItem={renderItem}
+            keyExtractor={(item, index) => `page_${index}_${item}`}
             estimatedItemSize={56}
             contentContainerStyle={styles.listContent}
           />

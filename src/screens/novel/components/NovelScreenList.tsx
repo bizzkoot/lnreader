@@ -331,9 +331,9 @@ const NovelScreenList = ({
             hasMultiplePages ? (
               <View>
                 <PagePaginationControl
-                  currentPage={pageIndex + 1}
-                  totalPages={pages.length}
-                  onPageChange={pageNum => openPage(pageNum - 1)}
+                  pages={pages}
+                  currentPageIndex={pageIndex}
+                  onPageChange={openPage}
                   onOpenDrawer={() => pageNavigationSheetRef.current?.present()}
                   theme={theme}
                 />

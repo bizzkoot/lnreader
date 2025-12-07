@@ -49,7 +49,7 @@ export const showTTSNotification = async (data: TTSNotificationData) => {
       sound: false,
       priority: Notifications.AndroidNotificationPriority.HIGH,
     },
-    trigger: null,
+    trigger: { seconds: 1, channelId: 'tts-controls' },
   });
 };
 
@@ -66,7 +66,7 @@ export const updateTTSNotification = async (data: TTSNotificationData) => {
       sound: false,
       priority: Notifications.AndroidNotificationPriority.HIGH,
     },
-    trigger: null,
+    trigger: { seconds: 1, channelId: 'tts-controls' },
   });
 };
 

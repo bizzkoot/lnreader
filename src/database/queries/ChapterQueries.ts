@@ -459,7 +459,7 @@ export const getUpdatedOverviewFromDb = () =>
   Novel.name AS novelName,
   Novel.cover AS novelCover,
   Novel.path AS novelPath,
-  DATE(Chapter.updatedTime) AS updateDate, -- Extract the date from updatedTime
+  DATE(Chapter.updatedTime) AS updateDate,
   COUNT(*) AS updatesPerDay
 FROM
   Chapter
@@ -471,14 +471,10 @@ WHERE
   Chapter.updatedTime IS NOT NULL
 GROUP BY
   Novel.id,
-  Novel.name,
-  Novel.cover,
-  Novel.path,
-  DATE(Chapter.updatedTime) -- Group by date and novelId
+  DATE(Chapter.updatedTime)
 ORDER BY
-  novelId,
-  updateDate;
-
+  updateDate DESC,
+  novelId;
 `);
 
 export const getDetailedUpdatesFromDb = async (

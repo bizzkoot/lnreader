@@ -7,72 +7,74 @@ import { Row } from '@components/Common';
 import { borderColor } from '@theme/colors';
 
 interface PagePaginationControlProps {
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
+  pages: string[];
+  currentPageIndex: number;
+  onPageChange: (pageIndex: number) => void;
   onOpenDrawer: () => void;
   theme: ThemeColors;
 }
 
 const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
-  currentPage,
-  totalPages,
+  pages,
+  currentPageIndex,
   onPageChange,
   onOpenDrawer,
   theme,
 }) => {
-  const pageNumbers = useMemo(() => {
-    const pages: (number | 'ellipsis')[] = [];
+  const totalPages = pages.length;
+
+  const pageIndices = useMemo(() => {
+    const indices: (number | 'ellipsis')[] = [];
 
     if (totalPages <= 3) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
+      for (let i = 0; i < totalPages; i++) {
+        indices.push(i);
       }
     } else {
-      if (currentPage !== 1) {
-        pages.push(1);
+      if (currentPageIndex !== 0) {
+        indices.push(0);
       }
 
-      const leftPage = currentPage - 1;
-      if (leftPage > 1) {
-        if (leftPage > 2) {
-          pages.push('ellipsis');
+      const leftPageIndex = currentPageIndex - 1;
+      if (leftPageIndex > 0) {
+        if (leftPageIndex > 1) {
+          indices.push('ellipsis');
         }
-        pages.push(leftPage);
+        indices.push(leftPageIndex);
       }
 
-      pages.push(currentPage);
+      indices.push(currentPageIndex);
 
-      if (currentPage < totalPages - 1) {
-        pages.push('ellipsis');
+      if (currentPageIndex < totalPages - 1) {
+        indices.push('ellipsis');
       }
 
-      if (totalPages !== currentPage) {
-        pages.push(totalPages);
+      if (currentPageIndex !== totalPages - 1) {
+        indices.push(totalPages - 1);
       }
     }
 
-    return pages;
-  }, [currentPage, totalPages]);
+    return indices;
+  }, [currentPageIndex, totalPages]);
 
-  const canGoPrevious = currentPage > 1;
-  const canGoNext = currentPage < totalPages;
+  const canGoPrevious = currentPageIndex > 0;
+  const canGoNext = currentPageIndex < totalPages - 1;
 
   const handlePrevious = () => {
     if (canGoPrevious) {
-      onPageChange(currentPage - 1);
+      onPageChange(currentPageIndex - 1);
     }
   };
 
   const handleNext = () => {
     if (canGoNext) {
-      onPageChange(currentPage + 1);
+      onPageChange(currentPageIndex + 1);
     }
   };
 
-  const handlePagePress = (page: number) => {
-    if (page !== currentPage) {
-      onPageChange(page);
+  const handlePagePress = (pageIndex: number) => {
+    if (pageIndex !== currentPageIndex) {
+      onPageChange(pageIndex);
     }
   };
 
@@ -101,8 +103,8 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
       </Pressable>
 
       <Row style={styles.pageNumbersRow}>
-        {pageNumbers.map((page, index) => {
-          if (page === 'ellipsis') {
+        {pageIndices.map((pageIndex, index) => {
+          if (pageIndex === 'ellipsis') {
             return (
               <Pressable
                 key={`ellipsis-${index}`}
@@ -124,10 +126,11 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
             );
           }
 
-          const isActive = page === currentPage;
+          const isActive = pageIndex === currentPageIndex;
+          const pageName = pages[pageIndex];
           return (
             <Pressable
-              key={page}
+              key={`page-${pageIndex}`}
               style={[
                 styles.button,
                 {
@@ -135,7 +138,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                   backgroundColor: isActive ? theme.primary : theme.surface,
                 },
               ]}
-              onPress={() => handlePagePress(page)}
+              onPress={() => handlePagePress(pageIndex)}
               android_ripple={{
                 color: isActive
                   ? color(theme.onPrimary).alpha(0.2).string()
@@ -150,8 +153,9 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                     fontWeight: isActive ? '600' : '400',
                   },
                 ]}
+                numberOfLines={1}
               >
-                {page}
+                {pageName}
               </Text>
             </Pressable>
           );
@@ -226,6 +230,7 @@ const styles = StyleSheet.create({
   pageText: {
     fontSize: 15,
     letterSpacing: 0.15,
+    maxWidth: 100,
   },
 });
 

@@ -73,7 +73,9 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
               theme={theme}
             />
           )}
-          keyExtractor={item => item.identifier || 'system'}
+          keyExtractor={(item, index) =>
+            item.identifier || `voice_${index}_${item.name}`
+          }
           estimatedItemSize={64}
           ListEmptyComponent={
             <ActivityIndicator

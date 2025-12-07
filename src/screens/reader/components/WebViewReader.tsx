@@ -1560,6 +1560,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         javaScriptEnabled={true}
         webviewDebuggingEnabled={__DEV__}
         onLoadEnd={() => {
+          // Update battery level when WebView finishes loading
+          const currentBatteryLevel = getBatteryLevelSync();
+          webViewRef.current?.injectJavaScript(
+            `if (window.reader && window.reader.batteryLevel) {
+              window.reader.batteryLevel.val = ${currentBatteryLevel};
+            }`,
+          );
+
           // Mark WebView as synced with current chapter
           isWebViewSyncedRef.current = true;
 
