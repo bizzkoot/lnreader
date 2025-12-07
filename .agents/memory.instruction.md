@@ -31,6 +31,8 @@ applyTo: '**'
 - htmlParagraphExtractor.ts: improved extraction logic (block-level delimiters, entity decoding, robust splitting) to better match WebView DOM traversal when WebView is suspended.
 - AccessibilityTab.tsx: added UI for `ttsForwardChapterReset` and confirmation dialog for destructive reset-all behaviour; minor UX improvements for sliders and voice change handling.
 
+- Cross-chapter progress updates (2025-12-07): DB and UI fixes to ensure consistent states when using TTS "Start Here" and reset flows: `markChaptersBeforePositionRead` sets `progress = 100` along with `unread = 0`; `resetFutureChaptersProgress` sets `unread = 1` with `progress = 0`; added `getRecentReadingChapters()` selector and improved `WebViewReader` + `TTSChapterSelectionDialog` UX to present up to 3 conflicting active chapters and overflow warning.
+
 Files modified in this set:
 - src/screens/reader/components/WebViewReader.tsx
 - src/screens/reader/components/ttsHelpers.ts
