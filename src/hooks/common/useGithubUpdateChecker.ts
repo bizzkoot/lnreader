@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { version } from '../../../package.json';
 import { newer } from '@utils/compareVersion';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import pickApkAsset from './githubReleaseUtils';
 
 interface GithubUpdate {
   isNewVersion: boolean;
@@ -11,9 +12,12 @@ interface GithubUpdate {
 const LAST_UPDATE_CHECK_KEY = 'LAST_UPDATE_CHECK';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
+ 
+
 export const useGithubUpdateChecker = (): GithubUpdate => {
+  // Target repo for update checks — change owner/repo here if needed
   const latestReleaseUrl =
-    'https://api.github.com/repos/rajarsheechatterjee/lnreader/releases/latest';
+    'https://api.github.com/repos/bizzkoot/lnreader/releases/latest';
 
   const [checking, setChecking] = useState(true);
   const [latestRelease, setLatestRelease] = useState<any>();
@@ -51,10 +55,14 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
         return;
       }
 
+      // Pick the most appropriate .apk asset (robust selection) or fall back to the
+      // first asset's browser_download_url if none match.
+
       const release = {
         tag_name: data.tag_name,
         body: data.body,
-        downloadUrl: data.assets?.[0]?.browser_download_url || undefined,
+        downloadUrl:
+        pickApkAsset(data.assets) || data.assets?.[0]?.browser_download_url,
       };
 
       MMKVStorage.set(LAST_UPDATE_CHECK_KEY, Date.now());
