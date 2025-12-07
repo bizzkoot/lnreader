@@ -43,6 +43,9 @@ class TTSAudioManager {
     // BUG FIX: Track if a refill operation is in progress to prevent
     // premature onQueueEmpty from triggering chapter navigation
     private refillInProgress = false;
+    // BUG FIX: Track last successfully spoken paragraph index for monotonic enforcement
+    private lastSpokenIndex = -1;
+
 
     /**
      * Mark that a restart operation is beginning.
@@ -84,6 +87,37 @@ class TTSAudioManager {
     hasRemainingItems(): boolean {
         return this.currentIndex < this.currentQueue.length;
     }
+
+    /**
+     * Get the last spoken paragraph index.
+     */
+    getLastSpokenIndex(): number {
+        return this.lastSpokenIndex;
+    }
+
+    /**
+     * Set the last spoken paragraph index with monotonic enforcement.
+     * Only accepts forward progression; backward moves are logged as errors.
+     */
+    setLastSpokenIndex(index: number) {
+        if (index > this.lastSpokenIndex) {
+            this.lastSpokenIndex = index;
+            logDebug(`TTSAudioManager: lastSpokenIndex updated to ${index}`);
+        } else if (index === this.lastSpokenIndex) {
+            logDebug(`TTSAudioManager: Same index spoken again: ${index}`);
+        } else {
+            logError(`TTSAudioManager: BACKWARD index detected! ${index} < ${this.lastSpokenIndex}`);
+        }
+    }
+
+    /**
+     * Reset last spoken index (called on new batch or chapter change).
+     */
+    resetLastSpokenIndex() {
+        this.lastSpokenIndex = -1;
+        logDebug('TTSAudioManager: lastSpokenIndex reset to -1');
+    }
+
 
     async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
         try {
@@ -127,7 +161,10 @@ class TTSAudioManager {
                 this.currentQueue = [];
                 this.currentUtteranceIds = [];
                 this.currentIndex = 0;
+                // BUG FIX: Reset last spoken index for new session
+                this.resetLastSpokenIndex();
                 const batchTexts = texts.slice(0, BATCH_SIZE);
+
                 const batchIds = utteranceIds.slice(0, BATCH_SIZE);
                 await TTSHighlight.speakBatch(batchTexts, batchIds, {
                     rate,

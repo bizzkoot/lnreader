@@ -144,6 +144,39 @@ This document identifies potential issues, missing connections, and edge cases i
 
 ---
 
+### Case 3.4: Multi-Wake Queue State Fragmentation ✅ RESOLVED
+
+**Description**: After multiple screen off/on cycles, the TTS queue state becomes fragmented, causing paragraph repetition and skipping when user interacts with the screen.
+
+**Scenario**:
+1. TTS playing at paragraph 30
+2. Screen off → screen on (wake #1): captures index 30, creates queue starting at 30
+3. TTS advances to paragraph 35
+4. Screen off → screen on (wake #2): captures index 35, creates queue starting at 35
+5. Screen off → screen on (wake #3): captures index 40, but `ttsQueueRef` may still hold fragments from wake #1 or #2
+6. User taps screen → WebView sends `tts-queue` message with old `startIndex`
+7. `onSpeechDone` calculates `nextIndex` using mismatched queue data
+8. **Result**: Paragraph repeated twice, then multiple paragraphs skipped
+
+**Root Cause**: Each wake cycle creates a new `speakBatch` session, but `ttsQueueRef` wasn't being properly cleared. Old queue state fragments accumulated across wake cycles. When user tapped screen, WebView sent `tts-queue` messages that could overwrite the current session's queue with stale data.
+
+**Code Location**: 
+- [WebViewReader.tsx:1050-1300](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L1050-1300) - Wake handling
+- [WebViewReader.tsx:1967-2020](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L1967-2020) - `tts-queue` handler
+
+**Resolution**: ✅ **Resolved** via multiple fixes:
+1. **Queue cleared on wake start**: `ttsQueueRef.current = null` on wake transition start
+2. **Session tracking**: `ttsSessionRef` incremented on each wake to detect stale operations
+3. **Wake resume grace period**: 500ms grace period (`wakeResumeGracePeriodRef`) ignores WebView queue messages immediately after wake resume
+4. **Stale queue rejection**: `tts-queue` handler validates `startIndex` against `currentParagraphIndexRef`, rejecting queues that start before current position
+5. **onSpeechDone blocking**: Handler blocked during `wakeTransitionInProgressRef`
+6. **Queue bounds validation**: `onSpeechDone` validates current index is within queue bounds before advancing
+7. **Monotonic index enforcement**: `TTSAudioManager.lastSpokenIndex` tracks and logs backward progression
+
+**Test Script**: `pnpm test:tts-wake-cycle` - Simulates multiple wake cycles and validates queue state management.
+
+---
+
 ## 4. Memory & State Management
 
 ### Case 4.1: MMKV ↔ Database Progress Conflict ⚠️ PARTIALLY RESOLVED
@@ -394,16 +427,28 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 ---
 
-### Case 10.3: Exit Confirmation Dialog Not Documented ✅ RESOLVED
+### Case 10.3: Exit Confirmation Dialog Not Documented ✅ RESOLVED (Enhanced)
 
 **Description**: An exit confirmation dialog for significant scroll-TTS gap was mentioned in conversation history but not present in current codebase or documentation.
 
 **Context**: User scrolled to paragraph 5, TTS at paragraph 50. Back button should confirm intent.
 
-**Resolution**: Implemented `TTSExitDialog` and `BackHandler` interception in `WebViewReader.tsx`. Now prompts user to "Save TTS Position" or "Save Reader Position" or Cancel.
+**Resolution**: Implemented `TTSExitDialog` and `BackHandler` interception in `WebViewReader.tsx`.
+
+**Enhanced UX Logic** (2025-12-07):
+1. **TTS is ACTIVELY playing** → Skips dialog, uses TTS position directly, exits immediately
+   - Rationale: User is clearly engaged with TTS; saving their TTS position is the expected behavior
+2. **TTS is STOPPED AND positions differ by >5 paragraphs** → Shows dialog with:
+   - Title: "Save Reading Progress"
+   - Explanation of paragraph difference (e.g., "differs by 15 paragraphs")
+   - Indication of scroll direction ("scrolled ahead" or "TTS was ahead")
+   - Clear buttons: "TTS Position (Paragraph X)" / "Scroll Position (Paragraph Y)" / Cancel
+3. **TTS is STOPPED AND positions are within 5 paragraphs** → Exits immediately with TTS position
+   - Rationale: Small gaps are likely due to auto-scroll; no need to prompt
 
 
 ---
+
 
 ## Summary Priority Matrix
 
@@ -427,10 +472,10 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 | Status               | Count  | Percentage |
 | -------------------- | ------ | ---------- |
-| ✅ Resolved           | 23     | 92%        |
+| ✅ Resolved           | 24     | 92%        |
 | ⚠️ Partially Resolved | 0      | 0%         |
 | ❌ Not Resolved       | 2      | 8%         |
-| **Total**            | **25** | **100%**   |
+| **Total**            | **26** | **100%**   |
 
 ### Key Mitigations Implemented
 
@@ -450,11 +495,14 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 8. **Dialog Back Button Handling**: All TTS dialogs handle Android back button via `useBackHandler` hook with safe default actions.
 
-9. **Voice Fallback Notification**: Native `onVoiceFallback` event emitted when preferred voice unavailable, displayed as toast to user.
+9. **Multi-Wake Queue State Management** (NEW): `ttsSessionRef` tracks wake sessions, `wakeResumeGracePeriodRef` adds 500ms grace period after wake resume, and `tts-queue` handler validates incoming queues against current position to reject stale data.
 
-10. **TTS Failure Notifications**: Toast messages shown when TTS fails to start or restart, improving user feedback.
+10. **Voice Fallback Notification**: Native `onVoiceFallback` event emitted when preferred voice unavailable, displayed as toast to user.
 
-11. **WebView Injection Safety**: `safeInjectJS()` wrapper prevents silent failures when WebView is in a bad state.
+11. **TTS Failure Notifications**: Toast messages shown when TTS fails to start or restart, improving user feedback.
+
+12. **WebView Injection Safety**: `safeInjectJS()` wrapper prevents silent failures when WebView is in a bad state.
+
 
 ### Remaining Concerns
 

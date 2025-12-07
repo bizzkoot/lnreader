@@ -33,6 +33,9 @@ const TTSExitDialog: React.FC<TTSExitDialogProps> = ({
         return false;
     });
 
+    const paragraphDiff = Math.abs(ttsParagraph - readerParagraph);
+    const isScrolledAhead = readerParagraph > ttsParagraph;
+
     return (
         <Portal>
             <Dialog
@@ -41,21 +44,27 @@ const TTSExitDialog: React.FC<TTSExitDialogProps> = ({
                 style={[styles.container, { backgroundColor: theme.overlay3 }]}
             >
                 <Dialog.Title style={{ color: theme.onSurface }}>
-                    TTS is Playing
+                    Save Reading Progress
                 </Dialog.Title>
                 <Dialog.Content>
                     <Text style={[styles.content, { color: theme.onSurface }]}>
-                        You are exiting while Text-to-Speech is active. Which progress would you like to save?
+                        Your scroll position differs from where you stopped TTS by {paragraphDiff} paragraphs.
+                        {isScrolledAhead
+                            ? " You've scrolled ahead of the TTS position."
+                            : " The TTS was ahead of your scroll position."}
+                    </Text>
+                    <Text style={[styles.subtitle, { color: theme.onSurfaceVariant }]}>
+                        Which position would you like to save?
                     </Text>
                 </Dialog.Content>
                 <View style={styles.buttonCtn}>
                     <Button
                         onPress={onExitTTS}
-                        title={`Save TTS Position (Para ${ttsParagraph})`}
+                        title={`TTS Position (Paragraph ${ttsParagraph + 1})`}
                     />
                     <Button
                         onPress={onExitReader}
-                        title={`Save Reader Position (Para ${readerParagraph})`}
+                        title={`Scroll Position (Paragraph ${readerParagraph + 1})`}
                         textColor={theme.onSurface}
                         mode="outlined"
                     />
@@ -79,6 +88,10 @@ const styles = StyleSheet.create({
     },
     content: {
         fontSize: 16,
+        marginBottom: 8,
+    },
+    subtitle: {
+        fontSize: 14,
         marginBottom: 16,
     },
     buttonCtn: {
