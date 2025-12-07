@@ -53,6 +53,7 @@ const FirstRoute = () => {
         estimatedItemSize={4}
         extraData={[filter]}
         data={libraryFilterList}
+        keyExtractor={item => `filter_${item.filter}`}
         renderItem={({ item }) => (
           <Checkbox
             label={item.label}
@@ -85,6 +86,7 @@ const SecondRoute = () => {
         data={librarySortOrderList}
         extraData={[sortOrder]}
         estimatedItemSize={5}
+        keyExtractor={(item, index) => `sort_${index}_${item.ASC}`}
         renderItem={({ item }) => (
           <SortItem
             label={item.label}
@@ -161,6 +163,7 @@ const ThirdRoute = () => {
         estimatedItemSize={4}
         data={displayModesList}
         extraData={[displayMode]}
+        keyExtractor={item => `display_mode_${item.value}`}
         renderItem={({ item }) => (
           <RadioButton
             label={item.label}

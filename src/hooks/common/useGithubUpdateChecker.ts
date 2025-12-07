@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { version } from '../../../package.json';
 import { newer } from '@utils/compareVersion';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { showToast } from '@utils/showToast';
-import { getErrorMessage } from '@utils/error';
 
 interface GithubUpdate {
   isNewVersion: boolean;
@@ -40,12 +38,23 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
 
     try {
       const res = await fetch(latestReleaseUrl);
+
+      if (!res.ok) {
+        setChecking(false);
+        return;
+      }
+
       const data = await res.json();
+
+      if (!data || !data.tag_name) {
+        setChecking(false);
+        return;
+      }
 
       const release = {
         tag_name: data.tag_name,
         body: data.body,
-        downloadUrl: data.assets[0].browser_download_url,
+        downloadUrl: data.assets?.[0]?.browser_download_url || undefined,
       };
 
       MMKVStorage.set(LAST_UPDATE_CHECK_KEY, Date.now());
@@ -53,7 +62,7 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
       setLatestRelease(release);
       setChecking(false);
     } catch (error) {
-      showToast(`Failed to check for updates: ${getErrorMessage(error)}`);
+      // Silently fail in offline mode or on network errors
       setChecking(false);
     }
   };
@@ -71,17 +80,15 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
     checkForRelease();
   }, []);
 
-  if (!checking && shouldCheckForUpdate()) {
-    const data = {
+  if (!checking && latestRelease?.tag_name) {
+    return {
       latestRelease,
       isNewVersion: isNewVersion(latestRelease.tag_name),
     };
-
-    return data;
-  } else {
-    return {
-      latestRelease: undefined,
-      isNewVersion: false,
-    };
   }
+
+  return {
+    latestRelease: undefined,
+    isNewVersion: false,
+  };
 };

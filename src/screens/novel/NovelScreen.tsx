@@ -318,7 +318,6 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
               <JumpToChapterModal
                 modalVisible={jumpToChapterModal}
                 hideModal={() => showJumpToChapterModal(false)}
-                chapters={chapters}
                 novel={novel}
                 chapterListRef={chapterListRef}
                 navigation={navigation}

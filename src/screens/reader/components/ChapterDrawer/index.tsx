@@ -159,7 +159,9 @@ const ChapterDrawer = () => {
           onViewableItemsChanged={checkViewableItems}
           data={chapters}
           extraData={[chapter, scrollToIndex.current]}
-          keyExtractor={item => (item.position ?? item.id).toString()}
+          keyExtractor={item =>
+            `chapter_${item.id}_${item.position ?? 'no_pos'}`
+          }
           renderItem={val =>
             renderListChapter({
               item: val.item,

@@ -1,18 +1,17 @@
-# Progress (Updated: 2025-12-05)
+# Progress (Updated: 2025-12-07)
 
 ## Done
 
-- Fixed TTS bugs: wrong lines after wake + premature chapter jump (race conditions)
+- Investigate TTS progress tracking issue
+- Identify stale closure issue in WebViewReader listeners
+- Implement saveProgressRef and totalParagraphsRef
+- Update onQueueEmpty to mark chapter as 100% complete
+- Update onSpeechDone to calculate accurate progress
 
 ## Doing
- - Cross-chapter progress sync fixes: ensure prior chapters marked completed and future chapters reset to unread (DB changes + selector + UI flow)
- - TTS resume UI: added conflicting-chapters list, limited to 3 with overflow warning; unified selection handler for Start/Resume flows
-- Committing TTS bug fixes
-## Doing
 
-- Run unit tests + device verification
-## Next
+- Fix TTS progress tracking for intermediate chapters (screen off)
+
 ## Next
 
-- Monitor telemetry for cross-chapter progress cases; add targeted unit tests for ChapterQueries behavior
-- Build and test on device
+- Verify fix in production (user task)

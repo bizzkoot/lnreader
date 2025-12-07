@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -17,11 +17,11 @@ import {
   LegendListRef,
   LegendListRenderItemProps,
 } from '@legendapp/list';
+import { getNovelChapters } from '@database/queries/ChapterQueries';
 
 interface JumpToChapterModalProps {
   hideModal: () => void;
   modalVisible: boolean;
-  chapters: ChapterInfo[];
   navigation: NovelScreenProps['navigation'];
   novel: NovelInfo;
   chapterListRef: React.RefObject<LegendListRef | null>;
@@ -30,16 +30,14 @@ interface JumpToChapterModalProps {
 const JumpToChapterModal = ({
   hideModal,
   modalVisible,
-  chapters,
   navigation,
   novel,
   chapterListRef,
 }: JumpToChapterModalProps) => {
-  const minNumber = Math.min(...chapters.map(c => c.chapterNumber || -1));
-  const maxNumber = Math.max(...chapters.map(c => c.chapterNumber || -1));
   const theme = useTheme();
   const [mode, setMode] = useState(false);
   const [openChapter, setOpenChapter] = useState(false);
+  const [allChapters, setAllChapters] = useState<ChapterInfo[]>([]);
 
   const [text, setText] = useState('');
   const [error, setError] = useState('');
@@ -47,6 +45,30 @@ const JumpToChapterModal = ({
 
   const inputRef = useRef<RNTextInput>(null);
   const [inputFocused, setInputFocused] = useState(false);
+
+  useEffect(() => {
+    if (modalVisible && novel?.id) {
+      getNovelChapters(novel.id).then(chapters => {
+        setAllChapters(chapters);
+      });
+    }
+  }, [modalVisible, novel?.id]);
+
+  const minNumber = useMemo(() => {
+    if (allChapters.length === 0) {
+      return 1;
+    }
+
+    return Math.min(...allChapters.map(c => c.chapterNumber || -1));
+  }, [allChapters]);
+
+  const maxNumber = useMemo(() => {
+    if (allChapters.length === 0) {
+      return 1;
+    }
+
+    return Math.max(...allChapters.map(c => c.chapterNumber || -1));
+  }, [allChapters]);
 
   const onDismiss = () => {
     hideModal();
@@ -67,20 +89,21 @@ const JumpToChapterModal = ({
 
   const scrollToChapter = (chap: ChapterInfo) => {
     onDismiss();
-    chapterListRef.current?.scrollToItem({
-      animated: true,
-      item: chap,
-      viewPosition: 0.5,
-    });
-  };
+    const index = allChapters.findIndex(c => c.id === chap.id);
 
-  const scrollToIndex = (index: number) => {
-    onDismiss();
-    chapterListRef.current?.scrollToIndex({
-      animated: true,
-      index: index,
-      viewPosition: 0.5,
-    });
+    if (index !== -1) {
+      chapterListRef.current?.scrollToIndex({
+        animated: true,
+        index: index,
+        viewPosition: 0.5,
+      });
+    } else {
+      chapterListRef.current?.scrollToItem({
+        animated: true,
+        item: chap,
+        viewPosition: 0.5,
+      });
+    }
   };
 
   const executeFunction = (item: ChapterInfo) => {
@@ -118,13 +141,15 @@ const JumpToChapterModal = ({
       const num = Number(text);
       if (num && num >= minNumber && num <= maxNumber) {
         if (openChapter) {
-          const chapter = chapters.find(c => c.chapterNumber === num);
+          const chapter = allChapters.find(c => c.chapterNumber === num);
           if (chapter) {
             return navigateToChapter(chapter);
           }
         } else {
-          const index = chapters.findIndex(c => c.chapterNumber === num);
-          return scrollToIndex(index);
+          const chapter = allChapters.find(c => c.chapterNumber === num);
+          if (chapter) {
+            return scrollToChapter(chapter);
+          }
         }
       }
       return setError(
@@ -132,7 +157,7 @@ const JumpToChapterModal = ({
           ` (${num < minNumber ? '≥ ' + minNumber : '≤ ' + maxNumber})`,
       );
     } else {
-      const searchedChapters = chapters.filter(chap =>
+      const searchedChapters = allChapters.filter(chap =>
         chap.name.toLowerCase().includes(text?.toLowerCase()),
       );
 
@@ -226,6 +251,7 @@ const JumpToChapterModal = ({
               data={result}
               extraData={openChapter}
               renderItem={renderItem}
+              keyExtractor={item => `chapter_${item.id}`}
               contentContainerStyle={styles.listContentCtn}
             />
           </View>

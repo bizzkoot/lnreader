@@ -20,6 +20,7 @@ export const sanitizeChapterText = (
       'title',
       'details',
       'summary',
+      'ref',
     ]),
     allowedAttributes: {
       '*': ['data-*'],
@@ -29,6 +30,7 @@ export const sanitizeChapterText = (
       ol: ['reversed', 'start', 'type'],
       p: ['class', 'id'],
       span: ['class', 'id'],
+      ref: ['href', 'class', 'id'],
     },
     allowedSchemes: ['data', 'http', 'https', 'file'],
   });

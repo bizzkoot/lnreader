@@ -88,3 +88,5 @@ flake.lock
 
 # pnpm
 .pnpm-store
+
+.cursor/

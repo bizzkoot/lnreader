@@ -63,6 +63,7 @@ export default function NovelDrawer({
         recycleItems
         extraData={pageIndex}
         renderItem={renderItem}
+        keyExtractor={(item, index) => `novel_page_${index}_${item}`}
         estimatedItemSize={60}
       />
     </View>
