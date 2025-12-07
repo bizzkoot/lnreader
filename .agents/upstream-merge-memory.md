@@ -30,9 +30,17 @@ applyTo: '**'
 - src/screens/reader/components/ReaderBottomSheet/TTSTab.tsx (Upstream file removed in favor of ReaderTTSTab.tsx)
 
 # Merge History
-## 2025-12-07 - Initial Setup
+## 2025-12-07 - Upstream Merge & Validation
 - Strategy: Manual Resolution (Prioritized Fork Features)
 - Conflicts: 9 files (Resolved by keeping fork version + manual patches)
-- Resolution: Success
-- Tests: Passed (Type Check & Lint)
+- Resolution: 
+  - Kept fork versions for config files.
+  - Manually patched `WebViewReader.tsx` (Battery fix + TTS).
+  - Deleted conflicting `TTSTab.tsx`.
+- Tests: 
+  - Type Check: Passed
+  - Lint: Passed
+  - Jest: Passed (4 suites)
+  - TTS Simulation: Passed (Refill & Wake Cycle)
+  - Build Dry Run: Passed
 - Status: Pushed to origin/dev
