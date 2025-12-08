@@ -38,7 +38,7 @@ export const PluginListItem = memo(
 
     const rightActionStyle = useMemo(
       () => [styles.buttonGroup, { backgroundColor: theme.primary }],
-      [theme.error],
+      [theme.primary],
     );
     const containerStyle = useMemo(
       () => [styles.container, { backgroundColor: theme.surface }],
@@ -151,11 +151,12 @@ export const PluginListItem = memo(
         </View>
       ),
       [
-        rightActionStyle,
-        theme,
+        handleWebviewPress,
         handlePinPress,
         handleDeletePress,
         isPluginPinned,
+        rightActionStyle,
+        theme,
       ],
     );
 

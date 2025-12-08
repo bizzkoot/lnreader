@@ -45,7 +45,9 @@ const TTSSyncDialog: React.FC<TTSSyncDialogProps> = ({
         return (
           <View style={styles.loadingContent}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.onSurfaceVariant }]}>
+            <Text
+              style={[styles.loadingText, { color: theme.onSurfaceVariant }]}
+            >
               Navigating to the correct chapter...
             </Text>
           </View>
@@ -68,21 +70,30 @@ const TTSSyncDialog: React.FC<TTSSyncDialogProps> = ({
               Failed to resume TTS at the correct position.
             </Text>
             <View style={styles.detailsContainer}>
-              <Text style={[styles.detailLabel, { color: theme.onSurfaceVariant }]}>
+              <Text
+                style={[styles.detailLabel, { color: theme.onSurfaceVariant }]}
+              >
                 Expected Chapter:
               </Text>
-              <Text style={[styles.detailValue, { color: theme.onSurface }]} numberOfLines={2}>
+              <Text
+                style={[styles.detailValue, { color: theme.onSurface }]}
+                numberOfLines={2}
+              >
                 {syncInfo.chapterName}
               </Text>
-              
-              <Text style={[styles.detailLabel, { color: theme.onSurfaceVariant }]}>
+
+              <Text
+                style={[styles.detailLabel, { color: theme.onSurfaceVariant }]}
+              >
                 Paragraph:
               </Text>
               <Text style={[styles.detailValue, { color: theme.onSurface }]}>
                 {syncInfo.paragraphIndex + 1} of {syncInfo.totalParagraphs}
               </Text>
-              
-              <Text style={[styles.detailLabel, { color: theme.onSurfaceVariant }]}>
+
+              <Text
+                style={[styles.detailLabel, { color: theme.onSurfaceVariant }]}
+              >
                 Progress:
               </Text>
               <Text style={[styles.detailValue, { color: theme.onSurface }]}>
@@ -112,9 +123,7 @@ const TTSSyncDialog: React.FC<TTSSyncDialogProps> = ({
         <Dialog.Title style={{ color: theme.onSurface }}>
           {getTitle()}
         </Dialog.Title>
-        <Dialog.Content>
-          {getContent()}
-        </Dialog.Content>
+        <Dialog.Content>{getContent()}</Dialog.Content>
         {status !== 'syncing' && (
           <View style={styles.buttonCtn}>
             {status === 'failed' && onRetry && (

@@ -111,8 +111,6 @@ function detectPlatform(voice) {
   return 'unknown';
 }
 
-
-
 function getStyleFromQuality(quality) {
   const styleMap = {
     'veryHigh': 'Natural',

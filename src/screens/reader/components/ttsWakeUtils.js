@@ -9,10 +9,14 @@ function computeInitialIndex(dbIndex, mmkvIndex, ttsStateIndex) {
 }
 
 function buildBatch(paragraphs, startIndex) {
-  if (!Array.isArray(paragraphs)) throw new Error('paragraphs must be an array');
+  if (!Array.isArray(paragraphs)) {
+    throw new Error('paragraphs must be an array');
+  }
   const idx = Math.max(0, typeof startIndex === 'number' ? startIndex : 0);
   const textsToSpeak = paragraphs.slice(idx);
-  const utteranceIds = textsToSpeak.map((_, i) => `chapter_XXX_utterance_${idx + i}`);
+  const utteranceIds = textsToSpeak.map(
+    (_, i) => `chapter_XXX_utterance_${idx + i}`,
+  );
   return { startIndex: idx, textsToSpeak, utteranceIds };
 }
 
@@ -25,7 +29,9 @@ function shouldIgnoreSaveEvent({
   latestIdx = -1,
   graceMs = 1000,
 }) {
-  if (eventChapterId !== undefined && eventChapterId !== currentChapterId) return true;
+  if (eventChapterId !== undefined && eventChapterId !== currentChapterId) {
+    return true;
+  }
 
   if (timeSinceTransition < graceMs) {
     if (eventChapterId === undefined) return true;

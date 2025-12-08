@@ -26,15 +26,13 @@ const TabBar: React.FC<TabBarProps> = ({
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
       {tabs.map(tab => {
         const isActive = activeTab === tab.id;
+        const tabStyle = {
+          borderBottomColor: isActive ? theme.primary : 'transparent',
+        };
         return (
           <Pressable
             key={tab.id}
-            style={[
-              styles.tab,
-              {
-                borderBottomColor: isActive ? theme.primary : 'transparent',
-              },
-            ]}
+            style={[styles.tab, tabStyle]}
             onPress={() => onTabChange(tab.id)}
             android_ripple={{
               color: theme.rippleColor,

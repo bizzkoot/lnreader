@@ -165,6 +165,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
     ),
     [
       errorColor,
+      imageRequestInit,
       inActivity,
       item.error,
       item.isLoading,

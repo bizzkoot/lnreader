@@ -9,10 +9,40 @@
 
 // List of block tags that signify a paragraph break
 const BLOCK_TAGS = [
-  'address', 'article', 'aside', 'blockquote', 'canvas', 'dd', 'div', 'dl', 'dt',
-  'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'header', 'hr', 'li', 'main', 'nav', 'noscript', 'ol', 'p', 'pre', 'section',
-  'table', 'tfoot', 'ul', 'video',
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'canvas',
+  'dd',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'li',
+  'main',
+  'nav',
+  'noscript',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'table',
+  'tfoot',
+  'ul',
+  'video',
 ];
 
 /**
@@ -54,7 +84,10 @@ export function extractParagraphs(html: string): string[] {
 
   // Replace block tags with delimiter
   // Matches <tag> or </tag> or <tag attr="...">
-  const blockPattern = new RegExp(`</?(${BLOCK_TAGS.join('|')})(\\s[^>]*)?>`, 'gi');
+  const blockPattern = new RegExp(
+    `</?(${BLOCK_TAGS.join('|')})(\\s[^>]*)?>`,
+    'gi',
+  );
   text = text.replace(blockPattern, `\n${DELIMITER}\n`);
 
   // 3. Remove all remaining tags (inline tags like span, b, i, a)

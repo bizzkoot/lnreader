@@ -28,10 +28,16 @@ describe('ttsWakeUtils', () => {
   describe('buildBatch', () => {
     test('creates slice and correct utterance ids from startIndex', () => {
       const paragraphs = ['a', 'b', 'c', 'd'];
-      const { startIndex, textsToSpeak, utteranceIds } = buildBatch(paragraphs, 2);
+      const { startIndex, textsToSpeak, utteranceIds } = buildBatch(
+        paragraphs,
+        2,
+      );
       expect(startIndex).toBe(2);
       expect(textsToSpeak).toEqual(['c', 'd']);
-      expect(utteranceIds).toEqual(['chapter_XXX_utterance_2', 'chapter_XXX_utterance_3']);
+      expect(utteranceIds).toEqual([
+        'chapter_XXX_utterance_2',
+        'chapter_XXX_utterance_3',
+      ]);
     });
 
     test('defaults to 0 when startIndex is negative or undefined', () => {
@@ -50,7 +56,9 @@ describe('ttsWakeUtils', () => {
 
     test('throws if paragraphs is not an array', () => {
       expect(() => buildBatch(null, 0)).toThrow('paragraphs must be an array');
-      expect(() => buildBatch('string', 0)).toThrow('paragraphs must be an array');
+      expect(() => buildBatch('string', 0)).toThrow(
+        'paragraphs must be an array',
+      );
     });
   });
 
@@ -156,18 +164,27 @@ describe('ttsWakeUtils', () => {
      */
     test('wake flow preserves paragraph position', () => {
       // Simulate: TTS was at paragraph 50 when screen woke
-      const ttsProgressBeforeWake = 50;
       const dbIndex = 45; // DB slightly behind (async save)
       const mmkvIndex = 48; // MMKV slightly behind
       const ttsStateIndex = 50; // Most recent
 
       // Step 1: Compute initial index (should pick highest)
-      const resolvedIndex = computeInitialIndex(dbIndex, mmkvIndex, ttsStateIndex);
+      const resolvedIndex = computeInitialIndex(
+        dbIndex,
+        mmkvIndex,
+        ttsStateIndex,
+      );
       expect(resolvedIndex).toBe(50);
 
       // Step 2: Build batch from resolved index
-      const paragraphs = Array.from({ length: 100 }, (_, i) => `Paragraph ${i}`);
-      const { startIndex, textsToSpeak } = buildBatch(paragraphs, resolvedIndex);
+      const paragraphs = Array.from(
+        { length: 100 },
+        (_, i) => `Paragraph ${i}`,
+      );
+      const { startIndex, textsToSpeak } = buildBatch(
+        paragraphs,
+        resolvedIndex,
+      );
       expect(startIndex).toBe(50);
       expect(textsToSpeak.length).toBe(50); // 100 - 50 remaining
 
@@ -212,7 +229,11 @@ describe('ttsWakeUtils', () => {
       const mmkvIndex = -1;
       const ttsStateIndex = -1;
 
-      const resolvedIndex = computeInitialIndex(dbIndex, mmkvIndex, ttsStateIndex);
+      const resolvedIndex = computeInitialIndex(
+        dbIndex,
+        mmkvIndex,
+        ttsStateIndex,
+      );
       expect(resolvedIndex).toBe(-1);
 
       // In this case, startIndex defaults to 0
@@ -238,12 +259,15 @@ describe('ttsWakeUtils', () => {
       // User wakes screen during chapter 2, paragraph 30
 
       // Chapter 2 state
-      const chapter2Progress = 30;
       const dbIndex = -1; // DB not yet updated
       const mmkvIndex = 28; // MMKV slightly behind
       const ttsStateIndex = 30; // Most recent from native TTS
 
-      const resolvedIndex = computeInitialIndex(dbIndex, mmkvIndex, ttsStateIndex);
+      const resolvedIndex = computeInitialIndex(
+        dbIndex,
+        mmkvIndex,
+        ttsStateIndex,
+      );
       expect(resolvedIndex).toBe(30);
 
       // Events from chapter 1 should be ignored

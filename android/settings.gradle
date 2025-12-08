@@ -7,5 +7,15 @@ rootProject.name = 'LNReader'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
 
-apply from: new File(["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim(), "../scripts/autolinking.gradle")
+// Configuration-cache compatible Expo path resolution
+// Note: exec runs at configuration time because apply from: requires immediate evaluation
+def expoScriptPath = providers.exec {
+    workingDir(rootDir)
+    commandLine("node", "--print", "require.resolve('expo/package.json')")
+}.standardOutput.asText.map { path ->
+    file(path.trim()).parent + "/scripts/autolinking.gradle"
+}
+
+// Apply the Expo autolinking script
+apply from: expoScriptPath.get()
 useExpoModules()

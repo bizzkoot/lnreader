@@ -137,7 +137,12 @@ export interface ChapterGeneralSettings {
    * - 'reset-until-10': Reset progress for next 10 chapters
    * - 'reset-all': Reset progress for ALL future chapters
    */
-  ttsForwardChapterReset: 'none' | 'reset-next' | 'reset-until-5' | 'reset-until-10' | 'reset-all';
+  ttsForwardChapterReset:
+    | 'none'
+    | 'reset-next'
+    | 'reset-until-5'
+    | 'reset-until-10'
+    | 'reset-all';
 }
 
 export interface ReaderTheme {

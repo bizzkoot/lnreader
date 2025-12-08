@@ -128,16 +128,18 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
 
           const isActive = pageIndex === currentPageIndex;
           const pageName = pages[pageIndex];
+          const buttonStyle = {
+            borderColor: isActive ? 'transparent' : borderColor,
+            backgroundColor: isActive ? theme.primary : theme.surface,
+          };
+          const textStyle = {
+            color: isActive ? theme.onPrimary : theme.onSurface,
+            fontWeight: isActive ? ('600' as const) : ('400' as const),
+          };
           return (
             <Pressable
               key={`page-${pageIndex}`}
-              style={[
-                styles.button,
-                {
-                  borderColor: isActive ? 'transparent' : borderColor,
-                  backgroundColor: isActive ? theme.primary : theme.surface,
-                },
-              ]}
+              style={[styles.button, buttonStyle]}
               onPress={() => handlePagePress(pageIndex)}
               android_ripple={{
                 color: isActive
@@ -145,16 +147,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                   : theme.rippleColor,
               }}
             >
-              <Text
-                style={[
-                  styles.pageText,
-                  {
-                    color: isActive ? theme.onPrimary : theme.onSurface,
-                    fontWeight: isActive ? '600' : '400',
-                  },
-                ]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.pageText, textStyle]} numberOfLines={1}>
                 {pageName}
               </Text>
             </Pressable>

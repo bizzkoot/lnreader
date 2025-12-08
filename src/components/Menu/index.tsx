@@ -44,6 +44,12 @@ const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({
   });
   const [isMeasured, setIsMeasured] = useState(false);
 
+  const backdropStyle = {
+    backgroundColor: theme.isDark
+      ? 'rgba(0, 0, 0, 0.2)'
+      : 'rgba(0, 0, 0, 0.1)',
+  };
+
   const menuAnimatedStyle = useAnimatedStyle(() => ({
     shadowColor: theme.isDark ? '#000' : theme.shadow,
     position: 'absolute' as const,
@@ -107,11 +113,7 @@ const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({
             <Animated.View
               style={[
                 styles.backdrop,
-                {
-                  backgroundColor: theme.isDark
-                    ? 'rgba(0, 0, 0, 0.2)'
-                    : 'rgba(0, 0, 0, 0.1)',
-                },
+                backdropStyle,
               ]}
               entering={backdropEntering}
               exiting={backdropExiting}

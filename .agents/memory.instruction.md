@@ -22,6 +22,7 @@ applyTo: '**'
 - Added `matchedNativeType` to VoiceMapping to distinguish local vs network native IDs.
 - Removed duplicate native badge rendering in `VoicePickerModal` (single source of truth is formatVoiceName()).
 - Added scripts to regenerate authoritative voice data and report (scripts/).
+- Fixed Gradle 8.14.3 configuration cache compatibility (2025-12-08): Updated `android/settings.gradle` to use single-chain provider approach with `.map()` for Expo path resolution, eliminating external process errors. Increased Metaspace from 512m to 1024m in `android/gradle.properties` to prevent memory warnings.
 
 # 2025-12-07: TTS runtime fixes & safety additions
 - Added safeInjectJS and validateAndClampParagraphIndex helpers (src/screens/reader/components/ttsHelpers.ts) to make WebView injections safer and clamp resume indices.

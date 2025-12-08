@@ -26,15 +26,11 @@ export const useAutoDownload = ({
   novel,
   isTTSPlaying = false,
 }: UseAutoDownloadOptions) => {
-  const {
-    autoDownloadOnRemaining = 'disabled',
-    autoDownloadAmount = '10',
-  } = useAppSettings();
+  const { autoDownloadOnRemaining = 'disabled', autoDownloadAmount = '10' } =
+    useAppSettings();
 
-  const {
-    ttsAutoDownload = 'disabled',
-    ttsAutoDownloadAmount = '10',
-  } = useChapterGeneralSettings();
+  const { ttsAutoDownload = 'disabled', ttsAutoDownloadAmount = '10' } =
+    useChapterGeneralSettings();
 
   const lastCheckedChapterId = useRef<number | null>(null);
   const isChecking = useRef(false);
@@ -106,11 +102,7 @@ export const useAutoDownload = ({
           `AutoDownload: Checking chapter ${currentChapter.name} (TTS: ${isTTSPlaying})`,
         );
 
-        return await checkAndTriggerAutoDownload(
-          novel,
-          currentChapter,
-          config,
-        );
+        return await checkAndTriggerAutoDownload(novel, currentChapter, config);
       } catch (error) {
         logDebug('AutoDownload: Error checking:', error);
         return false;

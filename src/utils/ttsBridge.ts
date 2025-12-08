@@ -1,8 +1,12 @@
 export function postTtsSettingsToWebView(settings: any) {
   try {
-    if (typeof window !== 'undefined' && (window as any).ReactNativeWebView && (window as any).ReactNativeWebView.postMessage) {
+    if (
+      typeof window !== 'undefined' &&
+      (window as any).ReactNativeWebView &&
+      (window as any).ReactNativeWebView.postMessage
+    ) {
       (window as any).ReactNativeWebView.postMessage(
-        JSON.stringify({ type: 'tts-update-settings', data: settings })
+        JSON.stringify({ type: 'tts-update-settings', data: settings }),
       );
       return true;
     }

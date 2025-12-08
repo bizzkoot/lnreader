@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   NativeEventEmitter,
   NativeModules,
@@ -33,7 +33,10 @@ import TTSSyncDialog from './TTSSyncDialog';
 import Toast from '@components/Toast';
 import { useBoolean, useBackHandler } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
-import { applyTtsUpdateToWebView, validateAndClampParagraphIndex } from './ttsHelpers';
+import {
+  applyTtsUpdateToWebView,
+  validateAndClampParagraphIndex,
+} from './ttsHelpers';
 import {
   getChapter as getChapterFromDb,
   markChaptersBeforePositionRead,
@@ -89,6 +92,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   } = useChapterContext();
   const navigation = useNavigation();
   const theme = useTheme();
+  
+  // Move toast-related hooks to the top to avoid hoisting issues
+  const {
+    value: toastVisible,
+    setTrue: showToast,
+    setFalse: hideToast,
+  } = useBoolean();
+  
+  const toastMessageRef = useRef<string>('');
+  
+  const showToastMessage = useCallback((message: string) => {
+    toastMessageRef.current = message;
+    showToast();
+  }, [showToast]);
   const readerSettings = useMemo(
     () =>
       getMMKVObject<ChapterReaderSettings>(CHAPTER_READER_SETTINGS) ||
@@ -100,7 +117,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const chapterGeneralSettings = useMemo(
     () => {
       const defaults = initialChapterGeneralSettings;
-      const stored = getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) || {};
+      const stored =
+        getMMKVObject<ChapterGeneralSettings>(CHAPTER_GENERAL_SETTINGS) || {};
 
       // Robust merge: Ensure defaults are preserved if stored value is undefined/missing
       const merged = { ...defaults, ...stored };
@@ -110,7 +128,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         merged.showParagraphHighlight = defaults.showParagraphHighlight ?? true;
       }
 
-      console.log('[WebViewReader] Initial Settings:', JSON.stringify(defaults));
+      console.log(
+        '[WebViewReader] Initial Settings:',
+        JSON.stringify(defaults),
+      );
       console.log('[WebViewReader] Stored Settings:', JSON.stringify(stored));
       console.log('[WebViewReader] Merged Settings:', JSON.stringify(merged));
 
@@ -136,7 +157,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     },
     // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
     // when progress is saved (which would update savedParagraphIndex)
-    [chapter.id],
+    [chapter.id, savedParagraphIndex],
   );
 
   // NEW: Create a stable chapter object that doesn't update on progress changes
@@ -148,7 +169,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // The key is that this object reference (and its stringified version)
       // won't change unless chapter.id changes
     }),
-    [chapter.id],
+    [chapter],
   );
 
   const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
@@ -215,13 +236,18 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   // State for TTS sync dialog (shown when screen wakes and chapter mismatch occurs)
   const [syncDialogVisible, setSyncDialogVisible] = useState(false);
-  const [syncDialogStatus, setSyncDialogStatus] = useState<'syncing' | 'success' | 'failed'>('syncing');
-  const [syncDialogInfo, setSyncDialogInfo] = useState<{
-    chapterName: string;
-    paragraphIndex: number;
-    totalParagraphs: number;
-    progress: number;
-  } | undefined>(undefined);
+  const [syncDialogStatus, setSyncDialogStatus] = useState<
+    'syncing' | 'success' | 'failed'
+  >('syncing');
+  const [syncDialogInfo, setSyncDialogInfo] = useState<
+    | {
+        chapterName: string;
+        paragraphIndex: number;
+        totalParagraphs: number;
+        progress: number;
+      }
+    | undefined
+  >(undefined);
   // Track retry attempts to prevent infinite loops
   const syncRetryCountRef = useRef<number>(0);
   const MAX_SYNC_RETRIES = 2;
@@ -257,19 +283,29 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     if (liveReaderTts) {
       // Check if voice/rate/pitch actually changed
       const oldTts = readerSettingsRef.current.tts;
-      const voiceChanged = oldTts?.voice?.identifier !== liveReaderTts.voice?.identifier;
+      const voiceChanged =
+        oldTts?.voice?.identifier !== liveReaderTts.voice?.identifier;
       const rateChanged = oldTts?.rate !== liveReaderTts.rate;
       const pitchChanged = oldTts?.pitch !== liveReaderTts.pitch;
       const settingsChanged = voiceChanged || rateChanged || pitchChanged;
 
       // Update our ref so other listeners will use the latest settings
-      readerSettingsRef.current = { ...readerSettingsRef.current, tts: liveReaderTts } as any;
+      readerSettingsRef.current = {
+        ...readerSettingsRef.current,
+        tts: liveReaderTts,
+      } as any;
       applyTtsUpdateToWebView(liveReaderTts, webViewRef);
 
       // BUG 1 FIX: If TTS is actively reading and voice/rate/pitch changed,
       // restart playback from current position with new settings
-      if (settingsChanged && isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
-        console.log('WebViewReader: TTS settings changed while playing, restarting with new settings');
+      if (
+        settingsChanged &&
+        isTTSReadingRef.current &&
+        currentParagraphIndexRef.current >= 0
+      ) {
+        console.log(
+          'WebViewReader: TTS settings changed while playing, restarting with new settings',
+        );
 
         // CRITICAL: Set restart flag BEFORE stopping to prevent onQueueEmpty from firing
         TTSHighlight.setRestartInProgress(true);
@@ -283,7 +319,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
         if (paragraphs && paragraphs.length > idx) {
           const remaining = paragraphs.slice(idx);
-          const ids = remaining.map((_, i) => `chapter_${chapter.id}_utterance_${idx + i}`);
+          const ids = remaining.map(
+            (_, i) => `chapter_${chapter.id}_utterance_${idx + i}`,
+          );
 
           // Update TTS queue ref
           ttsQueueRef.current = {
@@ -299,11 +337,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             rate: liveReaderTts.rate || 1,
           })
             .then(() => {
-              console.log('WebViewReader: TTS restarted with new settings from index', idx);
+              console.log(
+                'WebViewReader: TTS restarted with new settings from index',
+                idx,
+              );
               isTTSReadingRef.current = true;
             })
             .catch(err => {
-              console.error('WebViewReader: Failed to restart TTS with new settings', err);
+              console.error(
+                'WebViewReader: Failed to restart TTS with new settings',
+                err,
+              );
               isTTSReadingRef.current = false;
               // Clear restart flag on failure too
               TTSHighlight.setRestartInProgress(false);
@@ -316,7 +360,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         }
       }
     }
-  }, [liveReaderTts, webViewRef, html, chapter.id]);
+  }, [liveReaderTts, webViewRef, html, chapter.id, showToastMessage]);
 
   // FIX: Keep navigation refs synced to prevent stale closures in onQueueEmpty
   useEffect(() => {
@@ -333,7 +377,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       return;
     }
 
-    console.log(`WebViewReader: Chapter changed from ${prevChapterIdRef.current} to ${chapter.id}`);
+    console.log(
+      `WebViewReader: Chapter changed from ${prevChapterIdRef.current} to ${chapter.id}`,
+    );
     prevChapterIdRef.current = chapter.id;
 
     // Set grace period timestamp to ignore stale save events from old chapter
@@ -343,12 +389,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // race with native TTS events and cause the UI to jump to paragraph 0
     // after a background advance), initialise them from the most recent
     // persisted or TTS state we have available.
-    const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+    const mmkvIndex =
+      MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
     const dbIndex = savedParagraphIndex ?? -1;
     let ttsStateIndex = -1;
     try {
-      ttsStateIndex = stableChapter.ttsState ? (JSON.parse(stableChapter.ttsState).paragraphIndex ?? -1) : -1;
-    } catch (e) {
+      ttsStateIndex = stableChapter.ttsState
+        ? JSON.parse(stableChapter.ttsState).paragraphIndex ?? -1
+        : -1;
+    } catch {
       ttsStateIndex = -1;
     }
 
@@ -363,7 +412,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
     // Check if we need to start TTS directly (background mode)
     if (backgroundTTSPendingRef.current && html) {
-      console.log('WebViewReader: Background TTS pending, starting directly from RN');
+      console.log(
+        'WebViewReader: Background TTS pending, starting directly from RN',
+      );
       backgroundTTSPendingRef.current = false;
 
       // CRITICAL: Mark WebView as NOT synced - it still has old chapter's HTML
@@ -372,7 +423,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
       // Extract paragraphs from HTML
       const paragraphs = extractParagraphs(html);
-      console.log(`WebViewReader: Extracted ${paragraphs.length} paragraphs for background TTS`);
+      console.log(
+        `WebViewReader: Extracted ${paragraphs.length} paragraphs for background TTS`,
+      );
 
       if (paragraphs.length > 0) {
         // Start from any previously known index if available (for example
@@ -383,14 +436,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         const startIndex = validateAndClampParagraphIndex(
           Math.max(0, rawIndex),
           paragraphs.length,
-          'background TTS start'
+          'background TTS start',
         );
 
         // Only queue the paragraphs that remain to be spoken starting at
         // startIndex — prevents restarting from 0 when we already progressed.
         const textsToSpeak = paragraphs.slice(startIndex);
         // Create utterance IDs with chapter ID to prevent stale event processing
-        const utteranceIds = textsToSpeak.map((_, i) => `chapter_${chapter.id}_utterance_${startIndex + i}`);
+        const utteranceIds = textsToSpeak.map(
+          (_, i) => `chapter_${chapter.id}_utterance_${startIndex + i}`,
+        );
 
         // Update TTS queue ref so event handlers know where the batch starts
         ttsQueueRef.current = {
@@ -415,14 +470,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             rate: readerSettingsRef.current.tts?.rate || 1,
           })
             .then(() => {
-              console.log('WebViewReader: Background TTS batch started successfully');
+              console.log(
+                'WebViewReader: Background TTS batch started successfully',
+              );
               // CRITICAL FIX: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
               isTTSReadingRef.current = true;
             })
             .catch(err => {
               console.error('WebViewReader: Background TTS batch failed:', err);
               isTTSReadingRef.current = false;
-              // FIX Case 9.1: Notify user of TTS failure  
+              // FIX Case 9.1: Notify user of TTS failure
               showToastMessage('TTS failed to start. Please try again.');
             });
         } else {
@@ -431,7 +488,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         }
       }
     }
-  }, [chapter.id, html]);
+  }, [chapter.id, html, savedParagraphIndex, showToastMessage, stableChapter.ttsState]);
 
   const memoizedHTML = useMemo(() => {
     return `
@@ -462,8 +519,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               --theme-onSecondary: ${theme.onSecondary};
               --theme-surface: ${theme.surface};
               --theme-surface-0-9: ${color(theme.surface)
-        .alpha(0.9)
-        .toString()};
+                .alpha(0.9)
+                .toString()};
               --theme-onSurface: ${theme.onSurface};
               --theme-surfaceVariant: ${theme.surfaceVariant};
               --theme-onSurfaceVariant: ${theme.onSurfaceVariant};
@@ -472,7 +529,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
             @font-face {
               font-family: ${readerSettings.fontFamily};
-              src: url("file:///android_asset/fonts/${readerSettings.fontFamily}.ttf");
+              src: url("file:///android_asset/fonts/${
+                readerSettings.fontFamily
+              }.ttf");
             }
           </style>
           <link rel="stylesheet" href="${pluginCustomCSS}">
@@ -481,7 +540,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           </style>
         </head>
         <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
-          <div class="transition-chapter" style="transform: translateX(0%);${chapterGeneralSettings.pageReader ? '' : 'display: none'}">
+          <div class="transition-chapter" style="transform: translateX(0%);${
+            chapterGeneralSettings.pageReader ? '' : 'display: none'
+          }">
             ${stableChapter.name}
           </div>
           <div id="LNReader-chapter">
@@ -491,35 +552,37 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         </body>
         <script>
           var initialPageReaderConfig = ${JSON.stringify({
-          nextChapterScreenVisible: false,
-        })};
+            nextChapterScreenVisible: false,
+          })};
 
 
           var initialReaderConfig = ${JSON.stringify({
-          readerSettings,
-          chapterGeneralSettings,
-          novel,
-          chapter: stableChapter,
-          nextChapter,
-          prevChapter,
-          batteryLevel,
-          autoSaveInterval: 2222,
-          DEBUG: __DEV__,
-          strings: {
-            finished: `${getString('readerScreen.finished')}: ${stableChapter.name.trim()}`,
-            nextChapter: getString('readerScreen.nextChapter', {
-              name: nextChapter?.name,
-            }),
-            noNextChapter: getString('readerScreen.noNextChapter'),
-          },
-          savedParagraphIndex: initialSavedParagraphIndex ?? -1,
-          ttsRestoreState: stableChapter.ttsState
-            ? JSON.parse(stableChapter.ttsState)
-            : null,
-          ttsButtonPosition: MMKVStorage.getString('tts_button_position')
-            ? JSON.parse(MMKVStorage.getString('tts_button_position')!)
-            : null,
-        })}
+            readerSettings,
+            chapterGeneralSettings,
+            novel,
+            chapter: stableChapter,
+            nextChapter,
+            prevChapter,
+            batteryLevel,
+            autoSaveInterval: 2222,
+            DEBUG: __DEV__,
+            strings: {
+              finished: `${getString(
+                'readerScreen.finished',
+              )}: ${stableChapter.name.trim()}`,
+              nextChapter: getString('readerScreen.nextChapter', {
+                name: nextChapter?.name,
+              }),
+              noNextChapter: getString('readerScreen.noNextChapter'),
+            },
+            savedParagraphIndex: initialSavedParagraphIndex ?? -1,
+            ttsRestoreState: stableChapter.ttsState
+              ? JSON.parse(stableChapter.ttsState)
+              : null,
+            ttsButtonPosition: MMKVStorage.getString('tts_button_position')
+              ? JSON.parse(MMKVStorage.getString('tts_button_position')!)
+              : null,
+          })}
         </script>
         <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>
         <script src="${assetsUriPrefix}/js/icons.js"></script>
@@ -545,7 +608,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     initialSavedParagraphIndex,
     pluginCustomCSS,
     pluginCustomJS,
-    assetsUriPrefix,
     theme,
   ]);
 
@@ -578,19 +640,12 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     setFalse: hideManualModeDialog,
   } = useBoolean();
 
-  const {
-    value: toastVisible,
-    setTrue: showToast,
-    setFalse: hideToast,
-  } = useBoolean();
-
   const pendingResumeIndexRef = useRef<number>(-1);
   const ttsScrollPromptDataRef = useRef<{
     currentIndex: number;
     visibleIndex: number;
     isResume?: boolean;
   } | null>(null);
-  const toastMessageRef = useRef<string>('');
 
   // NEW: TTS Queue for background playback
   const ttsQueueRef = useRef<{ startIndex: number; texts: string[] } | null>(
@@ -618,7 +673,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   const handleResumeConfirm = () => {
     // Always set both refs to the last read paragraph before resuming
-    const mmkvValue = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+    const mmkvValue =
+      MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
     const refValue = latestParagraphIndexRef.current ?? -1;
     const savedIndex = pendingResumeIndexRef.current;
     // Pick the highest index as the last read paragraph
@@ -728,18 +784,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     hideManualModeDialog();
   };
 
-  const showToastMessage = (message: string) => {
-    toastMessageRef.current = message;
-    showToast();
-  };
-
   useEffect(() => {
     const onSpeechDoneSubscription = TTSHighlight.addListener(
       'onSpeechDone',
       () => {
         // BUG FIX: Block during wake transition to prevent stale events
         if (wakeTransitionInProgressRef.current) {
-          console.log('WebViewReader: onSpeechDone ignored during wake transition');
+          console.log(
+            'WebViewReader: onSpeechDone ignored during wake transition',
+          );
           return;
         }
 
@@ -755,13 +808,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           // In Unified Batch Mode, this shouldn't happen often, but if it does,
           // we should just log it and NOT defer to WebView, because RN is now the driver.
           if (currentIdx < queueStartIndex) {
-            console.log(`WebViewReader: onSpeechDone - currentIdx ${currentIdx} < queueStart ${queueStartIndex}, ignoring event`);
+            console.log(
+              `WebViewReader: onSpeechDone - currentIdx ${currentIdx} < queueStart ${queueStartIndex}, ignoring event`,
+            );
             return;
           }
 
           // BUG FIX: If currentIdx >= queueEnd, we've gone past the queue - need fresh queue
           if (currentIdx >= queueEndIndex) {
-            console.log(`WebViewReader: onSpeechDone - currentIdx ${currentIdx} >= queueEnd ${queueEndIndex}, deferring to WebView for new queue`);
+            console.log(
+              `WebViewReader: onSpeechDone - currentIdx ${currentIdx} >= queueEnd ${queueEndIndex}, deferring to WebView for new queue`,
+            );
             webViewRef.current?.injectJavaScript('tts.next?.()');
             return;
           }
@@ -770,11 +827,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
           if (nextIndex >= queueStartIndex && nextIndex < queueEndIndex) {
             const text = ttsQueueRef.current.texts[nextIndex - queueStartIndex];
-            console.log('WebViewReader: Playing from queue. Index:', nextIndex, `(queue: ${queueStartIndex}-${queueEndIndex - 1})`);
+            console.log(
+              'WebViewReader: Playing from queue. Index:',
+              nextIndex,
+              `(queue: ${queueStartIndex}-${queueEndIndex - 1})`,
+            );
 
             // Update refs with monotonic enforcement (should always be going forward)
             if (nextIndex <= currentParagraphIndexRef.current) {
-              console.warn(`WebViewReader: Index not advancing! next=${nextIndex}, current=${currentParagraphIndexRef.current}`);
+              console.warn(
+                `WebViewReader: Index not advancing! next=${nextIndex}, current=${currentParagraphIndexRef.current}`,
+              );
             }
             currentParagraphIndexRef.current = nextIndex;
 
@@ -790,7 +853,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Persist Progress (Critical for App Kill/Restart)
             // FIX: Calculate percentage based on total paragraphs
             const total = totalParagraphsRef.current;
-            const percentage = total > 0 ? Math.round(((nextIndex + 1) / total) * 100) : (progressRef.current ?? 0);
+            const percentage =
+              total > 0
+                ? Math.round(((nextIndex + 1) / total) * 100)
+                : progressRef.current ?? 0;
             saveProgressRef.current(percentage, nextIndex);
 
             // In batch mode, we DO NOT call speak() here because the native queue
@@ -848,9 +914,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       },
     );
 
-
     // Listen for native word-range updates to drive in-page highlighting
-    const rangeSubscription = TTSHighlight.addListener('onWordRange', (event) => {
+    const rangeSubscription = TTSHighlight.addListener('onWordRange', event => {
       try {
         // BUG FIX: Block events during wake transition to prevent ref mutation/JS injection
         if (wakeTransitionInProgressRef.current) {
@@ -864,14 +929,18 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         // Parse utterance ID - may be "chapter_123_utterance_5" or legacy "utterance_5"
         if (typeof utteranceId === 'string') {
           // Check for chapter-aware format first
-          const chapterMatch = utteranceId.match(/chapter_(\d+)_utterance_(\d+)/);
+          const chapterMatch = utteranceId.match(
+            /chapter_(\d+)_utterance_(\d+)/,
+          );
           if (chapterMatch) {
             const eventChapterId = Number(chapterMatch[1]);
             // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
             if (eventChapterId !== Number(prevChapterIdRef.current)) {
               const now = Date.now();
               if (now - lastStaleLogTimeRef.current > 1000) {
-                console.log(`WebViewReader: Ignoring stale onWordRange from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
+                console.log(
+                  `WebViewReader: Ignoring stale onWordRange from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`,
+                );
                 lastStaleLogTimeRef.current = now;
               }
               return;
@@ -888,7 +957,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         const end = Number(event?.end) || 0;
 
         // CRITICAL: Only inject JS if WebView is synced with current chapter
-        if (webViewRef.current && paragraphIndex >= 0 && isWebViewSyncedRef.current) {
+        if (
+          webViewRef.current &&
+          paragraphIndex >= 0 &&
+          isWebViewSyncedRef.current
+        ) {
           webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts && window.tts.highlightRange) {
@@ -905,50 +978,64 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     });
 
     // Listen for utterance start to ensure paragraph highlight and state are synced
-    const startSubscription = TTSHighlight.addListener('onSpeechStart', (event) => {
-      try {
-        // BUG FIX: Block events during wake transition to prevent ref mutation
-        // This prevents race conditions where late events update currentParagraphIndexRef
-        // during the async pause/sync/resume sequence
-        if (wakeTransitionInProgressRef.current) {
-          console.log('WebViewReader: Ignoring onSpeechStart during wake transition');
-          return;
-        }
-
-        const utteranceId = event?.utteranceId || '';
-        let paragraphIndex = currentParagraphIndexRef.current ?? -1;
-
-        // Parse utterance ID - may be "chapter_123_utterance_5" or legacy "utterance_5"
-        if (typeof utteranceId === 'string') {
-          // Check for chapter-aware format first
-          const chapterMatch = utteranceId.match(/chapter_(\d+)_utterance_(\d+)/);
-          if (chapterMatch) {
-            const eventChapterId = Number(chapterMatch[1]);
-            // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
-            if (eventChapterId !== Number(prevChapterIdRef.current)) {
-              const now = Date.now();
-              if (now - lastStaleLogTimeRef.current > 1000) {
-                console.log(`WebViewReader: Ignoring stale onSpeechStart from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`);
-                lastStaleLogTimeRef.current = now;
-              }
-              return;
-            }
-            paragraphIndex = Number(chapterMatch[2]);
-          } else {
-            // Legacy format
-            const m = utteranceId.match(/utterance_(\d+)/);
-            if (m) paragraphIndex = Number(m[1]);
+    const startSubscription = TTSHighlight.addListener(
+      'onSpeechStart',
+      event => {
+        try {
+          // BUG FIX: Block events during wake transition to prevent ref mutation
+          // This prevents race conditions where late events update currentParagraphIndexRef
+          // during the async pause/sync/resume sequence
+          if (wakeTransitionInProgressRef.current) {
+            console.log(
+              'WebViewReader: Ignoring onSpeechStart during wake transition',
+            );
+            return;
           }
-        }
 
-        // Update current index
-        if (paragraphIndex >= 0) currentParagraphIndexRef.current = paragraphIndex;
+          const utteranceId = event?.utteranceId || '';
+          let paragraphIndex = currentParagraphIndexRef.current ?? -1;
 
-        // CRITICAL: Only inject JS if WebView is synced with current chapter
-        if (webViewRef.current && paragraphIndex >= 0 && isWebViewSyncedRef.current) {
-          // CRITICAL: Pass chapter ID to prevent stale events from wrong chapter
-          const currentChapterId = prevChapterIdRef.current;
-          webViewRef.current.injectJavaScript(`
+          // Parse utterance ID - may be "chapter_123_utterance_5" or legacy "utterance_5"
+          if (typeof utteranceId === 'string') {
+            // Check for chapter-aware format first
+            const chapterMatch = utteranceId.match(
+              /chapter_(\d+)_utterance_(\d+)/,
+            );
+            if (chapterMatch) {
+              const eventChapterId = Number(chapterMatch[1]);
+              // CRITICAL: Ignore events from old chapters to prevent paragraph sync issues
+              if (eventChapterId !== Number(prevChapterIdRef.current)) {
+                const now = Date.now();
+                if (now - lastStaleLogTimeRef.current > 1000) {
+                  console.log(
+                    `WebViewReader: Ignoring stale onSpeechStart from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`,
+                  );
+                  lastStaleLogTimeRef.current = now;
+                }
+                return;
+              }
+              paragraphIndex = Number(chapterMatch[2]);
+            } else {
+              // Legacy format
+              const m = utteranceId.match(/utterance_(\d+)/);
+              if (m) paragraphIndex = Number(m[1]);
+            }
+          }
+
+          // Update current index
+          if (paragraphIndex >= 0) {
+            currentParagraphIndexRef.current = paragraphIndex;
+          }
+
+          // CRITICAL: Only inject JS if WebView is synced with current chapter
+          if (
+            webViewRef.current &&
+            paragraphIndex >= 0 &&
+            isWebViewSyncedRef.current
+          ) {
+            // CRITICAL: Pass chapter ID to prevent stale events from wrong chapter
+            const currentChapterId = prevChapterIdRef.current;
+            webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts) {
                   window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
@@ -957,102 +1044,130 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               } catch (e) { console.error('TTS: start inject failed', e); }
               true;
             `);
+          }
+          // Log periodically for background mode (every 10 paragraphs)
+          if (!isWebViewSyncedRef.current && paragraphIndex % 10 === 0) {
+            console.log(
+              `WebViewReader: Background TTS progress - paragraph ${paragraphIndex}`,
+            );
+          }
+        } catch (e) {
+          console.warn('WebViewReader: onSpeechStart handler error', e);
         }
-        // Log periodically for background mode (every 10 paragraphs)
-        if (!isWebViewSyncedRef.current && paragraphIndex % 10 === 0) {
-          console.log(`WebViewReader: Background TTS progress - paragraph ${paragraphIndex}`);
-        }
-      } catch (e) {
-        console.warn('WebViewReader: onSpeechStart handler error', e);
-      }
-    });
+      },
+    );
 
     // Listen for native TTS queue becoming empty (all utterances spoken).
     // This fires when the screen is off and WebView JS can't drive the next chapter.
     // We use this to trigger chapter navigation from React Native side.
-    const queueEmptySubscription = TTSHighlight.addListener('onQueueEmpty', () => {
-      console.log('WebViewReader: onQueueEmpty event received');
+    const queueEmptySubscription = TTSHighlight.addListener(
+      'onQueueEmpty',
+      () => {
+        console.log('WebViewReader: onQueueEmpty event received');
 
-      // BUG FIX: Don't proceed if a restart operation is in progress
-      // This prevents false chapter navigation during settings change restarts
-      if (TTSHighlight.isRestartInProgress()) {
-        console.log('WebViewReader: Queue empty ignored - restart in progress');
-        return;
-      }
+        // BUG FIX: Don't proceed if a restart operation is in progress
+        // This prevents false chapter navigation during settings change restarts
+        if (TTSHighlight.isRestartInProgress()) {
+          console.log(
+            'WebViewReader: Queue empty ignored - restart in progress',
+          );
+          return;
+        }
 
-      // BUG FIX: Don't proceed if a refill operation is in progress
-      // This prevents premature chapter navigation when async refill is still running
-      if (TTSHighlight.isRefillInProgress()) {
-        console.log('WebViewReader: Queue empty ignored - refill in progress');
-        return;
-      }
+        // BUG FIX: Don't proceed if a refill operation is in progress
+        // This prevents premature chapter navigation when async refill is still running
+        if (TTSHighlight.isRefillInProgress()) {
+          console.log(
+            'WebViewReader: Queue empty ignored - refill in progress',
+          );
+          return;
+        }
 
-      // BUG FIX: Don't proceed if TTSAudioManager still has items to queue
-      // The native queue may be empty, but JS queue may have more paragraphs waiting
-      if (TTSHighlight.hasRemainingItems()) {
-        console.log('WebViewReader: Queue empty ignored - TTSAudioManager still has items to queue');
-        // Note: TTSAudioManager's onQueueEmpty handler will trigger refillQueue() automatically
-        return;
-      }
+        // BUG FIX: Don't proceed if TTSAudioManager still has items to queue
+        // The native queue may be empty, but JS queue may have more paragraphs waiting
+        if (TTSHighlight.hasRemainingItems()) {
+          console.log(
+            'WebViewReader: Queue empty ignored - TTSAudioManager still has items to queue',
+          );
+          // Note: TTSAudioManager's onQueueEmpty handler will trigger refillQueue() automatically
+          return;
+        }
 
-      // Only proceed if TTS was actually reading (and thus chapter end is meaningful)
-      if (!isTTSReadingRef.current) {
-        console.log('WebViewReader: Queue empty but TTS was not reading, ignoring');
-        return;
-      }
+        // Only proceed if TTS was actually reading (and thus chapter end is meaningful)
+        if (!isTTSReadingRef.current) {
+          console.log(
+            'WebViewReader: Queue empty but TTS was not reading, ignoring',
+          );
+          return;
+        }
 
-      // Check the ttsContinueToNextChapter setting
-      const continueMode = chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
-      console.log('WebViewReader: Queue empty - continueMode:', continueMode);
+        // Check the ttsContinueToNextChapter setting
+        const continueMode =
+          chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
+        console.log('WebViewReader: Queue empty - continueMode:', continueMode);
 
-      if (continueMode === 'none') {
-        console.log('WebViewReader: ttsContinueToNextChapter is "none", stopping');
-        isTTSReadingRef.current = false;
-        return;
-      }
-
-      // Check chapter limit
-      if (continueMode !== 'continuous') {
-        const limit = parseInt(continueMode, 10);
-        if (chaptersAutoPlayedRef.current >= limit) {
-          console.log(`WebViewReader: Chapter limit (${limit}) reached, stopping`);
-          chaptersAutoPlayedRef.current = 0;
+        if (continueMode === 'none') {
+          console.log(
+            'WebViewReader: ttsContinueToNextChapter is "none", stopping',
+          );
           isTTSReadingRef.current = false;
           return;
         }
-      }
 
-      // If we have a next chapter, navigate to it
-      // FIX: Use refs to get current values (avoid stale closure from empty deps)
-      if (nextChapterRef.current) {
-        console.log('WebViewReader: Navigating to next chapter via onQueueEmpty');
+        // Check chapter limit
+        if (continueMode !== 'continuous') {
+          const limit = parseInt(continueMode, 10);
+          if (chaptersAutoPlayedRef.current >= limit) {
+            console.log(
+              `WebViewReader: Chapter limit (${limit}) reached, stopping`,
+            );
+            chaptersAutoPlayedRef.current = 0;
+            isTTSReadingRef.current = false;
+            return;
+          }
+        }
 
-        // FIX: Mark current chapter as 100% complete before navigating
-        // This ensures intermediate chapters read via TTS are marked as read
-        saveProgressRef.current(100);
+        // If we have a next chapter, navigate to it
+        // FIX: Use refs to get current values (avoid stale closure from empty deps)
+        if (nextChapterRef.current) {
+          console.log(
+            'WebViewReader: Navigating to next chapter via onQueueEmpty',
+          );
 
-        autoStartTTSRef.current = true;
-        // NEW: Set background TTS pending flag so we can start TTS directly from RN
-        // when the new chapter HTML is loaded (in case WebView is suspended)
-        backgroundTTSPendingRef.current = true;
-        chaptersAutoPlayedRef.current += 1;
-        nextChapterScreenVisible.current = true;
-        navigateChapterRef.current('NEXT');
-      } else {
-        // FIX Case 8.2: Show novel finished notification
-        console.log('WebViewReader: No next chapter available - novel reading complete');
-        isTTSReadingRef.current = false;
-        showToastMessage('Novel reading complete!');
-      }
-    });
+          // FIX: Mark current chapter as 100% complete before navigating
+          // This ensures intermediate chapters read via TTS are marked as read
+          saveProgressRef.current(100);
+
+          autoStartTTSRef.current = true;
+          // NEW: Set background TTS pending flag so we can start TTS directly from RN
+          // when the new chapter HTML is loaded (in case WebView is suspended)
+          backgroundTTSPendingRef.current = true;
+          chaptersAutoPlayedRef.current += 1;
+          nextChapterScreenVisible.current = true;
+          navigateChapterRef.current('NEXT');
+        } else {
+          // FIX Case 8.2: Show novel finished notification
+          console.log(
+            'WebViewReader: No next chapter available - novel reading complete',
+          );
+          isTTSReadingRef.current = false;
+          showToastMessage('Novel reading complete!');
+        }
+      },
+    );
 
     // FIX Case 7.2: Listen for voice fallback notifications
-    const voiceFallbackSubscription = TTSHighlight.addListener('onVoiceFallback', (event) => {
-      console.log('WebViewReader: Voice fallback occurred', event);
-      const originalVoice = event?.originalVoice || 'selected voice';
-      const fallbackVoice = event?.fallbackVoice || 'system default';
-      showToastMessage(`Voice "${originalVoice}" unavailable, using "${fallbackVoice}"`);
-    });
+    const voiceFallbackSubscription = TTSHighlight.addListener(
+      'onVoiceFallback',
+      event => {
+        console.log('WebViewReader: Voice fallback occurred', event);
+        const originalVoice = event?.originalVoice || 'selected voice';
+        const fallbackVoice = event?.fallbackVoice || 'system default';
+        showToastMessage(
+          `Voice "${originalVoice}" unavailable, using "${fallbackVoice}"`,
+        );
+      },
+    );
 
     const appStateSubscription = AppState.addEventListener(
       'change',
@@ -1086,7 +1201,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           // pause native playback, sync the WebView to the current paragraph
           // position to prevent stale scrolling, then resume playback once
           // the UI has been positioned.
-          if (isTTSReadingRef.current && currentParagraphIndexRef.current >= 0) {
+          if (
+            isTTSReadingRef.current &&
+            currentParagraphIndexRef.current >= 0
+          ) {
             // BUG FIX: IMMEDIATELY capture the current paragraph index BEFORE any async operations
             // This prevents race conditions where onSpeechStart events mutate the ref during pause
             const capturedParagraphIndex = currentParagraphIndexRef.current;
@@ -1104,9 +1222,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             console.log(
               'WebViewReader: Screen wake detected, capturing paragraph index:',
               capturedParagraphIndex,
-              'session:', ttsSessionRef.current
+              'session:',
+              ttsSessionRef.current,
             );
-
 
             // BUG FIX: Immediately set screen wake sync flag to block all scroll saves
             // This must happen FIRST before any other processing
@@ -1131,7 +1249,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // requeue & resume from the correct index after the UI sync.
               TTSHighlight.pause()
                 .then(() => {
-                  console.log('WebViewReader: Paused native TTS on wake for UI sync');
+                  console.log(
+                    'WebViewReader: Paused native TTS on wake for UI sync',
+                  );
                 })
                 .catch(e => {
                   console.warn('WebViewReader: Failed to pause TTS on wake', e);
@@ -1140,12 +1260,16 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // mark as not currently playing while UI sync runs
               isTTSReadingRef.current = false;
             } catch (e) {
-              console.warn('WebViewReader: Error while attempting to pause TTS', e);
+              console.warn(
+                'WebViewReader: Error while attempting to pause TTS',
+                e,
+              );
             }
             console.log(
               'WebViewReader: Screen woke during TTS, syncing to paragraph',
               capturedParagraphIndex,
-              'WebView synced:', isWebViewSyncedRef.current,
+              'WebView synced:',
+              isWebViewSyncedRef.current,
             );
 
             // Check if WebView is synced with current chapter
@@ -1158,11 +1282,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
               // BUG FIX: Use the captured paragraph index for out-of-sync case too
               const wakeChapterId = prevChapterIdRef.current;
-              const wakeParagraphIdx = capturedWakeParagraphIndexRef.current ?? currentParagraphIndexRef.current;
+              const wakeParagraphIdx =
+                capturedWakeParagraphIndexRef.current ??
+                currentParagraphIndexRef.current;
 
               console.log(
                 'WebViewReader: WebView out of sync - STOPPING TTS and saving position:',
-                `Chapter ${wakeChapterId}, Paragraph ${wakeParagraphIdx}`
+                `Chapter ${wakeChapterId}, Paragraph ${wakeParagraphIdx}`,
               );
 
               // Save wake position for verification on reload
@@ -1178,7 +1304,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
               TTSHighlight.stop()
                 .then(() => {
-                  console.log('WebViewReader: TTS stopped on wake (out-of-sync) for safe resume');
+                  console.log(
+                    'WebViewReader: TTS stopped on wake (out-of-sync) for safe resume',
+                  );
                 })
                 .catch(e => {
                   console.warn('WebViewReader: Failed to stop TTS on wake', e);
@@ -1219,7 +1347,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 const capturedIndex = capturedWakeParagraphIndexRef.current;
 
                 // Also check MMKV as a secondary source
-                const mmkvIndex = MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+                const mmkvIndex =
+                  MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
                 const refIndex = currentParagraphIndexRef.current;
 
                 // Priority: captured index > MMKV > current ref
@@ -1227,7 +1356,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 let syncIndex: number;
                 if (capturedIndex !== null && capturedIndex >= 0) {
                   syncIndex = capturedIndex;
-                  console.log(`WebViewReader: Using captured wake index: ${capturedIndex}`);
+                  console.log(
+                    `WebViewReader: Using captured wake index: ${capturedIndex}`,
+                  );
                 } else if (mmkvIndex >= 0) {
                   syncIndex = mmkvIndex;
                   console.log(`WebViewReader: Using MMKV index: ${mmkvIndex}`);
@@ -1295,7 +1426,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   wakeTransitionInProgressRef.current = false;
                   capturedWakeParagraphIndexRef.current = null;
 
-                  if (autoResumeAfterWakeRef.current && isTTSReadingRef.current === false) {
+                  if (
+                    autoResumeAfterWakeRef.current &&
+                    isTTSReadingRef.current === false
+                  ) {
                     // BUG FIX: Use the sync index we already computed, not re-reading
                     // The sync index was already set to currentParagraphIndexRef in the outer timeout
                     const idx = currentParagraphIndexRef.current ?? -1;
@@ -1306,7 +1440,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                         const paragraphs = extractParagraphs(html);
                         if (paragraphs && paragraphs.length > idx) {
                           const remaining = paragraphs.slice(idx);
-                          const ids = remaining.map((_, i) => `chapter_${chapter.id}_utterance_${idx + i}`);
+                          const ids = remaining.map(
+                            (_, i) =>
+                              `chapter_${chapter.id}_utterance_${idx + i}`,
+                          );
 
                           // BUG FIX: Update queue ref for the fresh batch
                           ttsQueueRef.current = {
@@ -1316,29 +1453,38 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
                           // Start batch playback from the resolved index
                           TTSHighlight.speakBatch(remaining, ids, {
-                            voice: readerSettingsRef.current.tts?.voice?.identifier,
+                            voice:
+                              readerSettingsRef.current.tts?.voice?.identifier,
                             pitch: readerSettingsRef.current.tts?.pitch || 1,
                             rate: readerSettingsRef.current.tts?.rate || 1,
                           })
                             .then(() => {
-                              console.log('WebViewReader: Resumed TTS after wake (RN-side) from index', idx);
+                              console.log(
+                                'WebViewReader: Resumed TTS after wake (RN-side) from index',
+                                idx,
+                              );
                               isTTSReadingRef.current = true;
                               // BUG FIX: Set grace period to ignore stale WebView queue messages
                               wakeResumeGracePeriodRef.current = Date.now();
                             })
                             .catch(err => {
-                              console.error('WebViewReader: Failed to resume TTS after wake', err);
+                              console.error(
+                                'WebViewReader: Failed to resume TTS after wake',
+                                err,
+                              );
                             });
                         }
                       } catch (e) {
-                        console.warn('WebViewReader: Cannot resume TTS after wake (failed extract)', e);
+                        console.warn(
+                          'WebViewReader: Cannot resume TTS after wake (failed extract)',
+                          e,
+                        );
                       }
                     }
 
                     autoResumeAfterWakeRef.current = false;
                   }
                 }, 900);
-
               }
             }, 300);
           }
@@ -1351,7 +1497,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       rangeSubscription.remove();
       startSubscription.remove();
       queueEmptySubscription.remove();
-      voiceFallbackSubscription.remove();  // FIX Case 7.2
+      voiceFallbackSubscription.remove(); // FIX Case 7.2
       appStateSubscription.remove();
       TTSHighlight.stop();
       if (ttsStateRef.current?.wasPlaying) {
@@ -1370,7 +1516,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         );
       }
     };
-  }, []);
+  }, [chapter.id, html, showToastMessage, webViewRef]);
 
   useEffect(() => {
     const mmkvListener = MMKVStorage.addOnValueChangedListener(key => {
@@ -1457,7 +1603,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // This is the most common case - user just wants to exit while listening
     if (isTTSReadingRef.current) {
       const ttsPosition = currentParagraphIndexRef.current ?? 0;
-      console.log(`WebViewReader: Back pressed while TTS playing. Saving TTS position: ${ttsPosition}`);
+      console.log(
+        `WebViewReader: Back pressed while TTS playing. Saving TTS position: ${ttsPosition}`,
+      );
 
       // Stop TTS gracefully
       handleStopTTS();
@@ -1516,8 +1664,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // and that position is significantly different from the saved index, we assume the user intends to read
     // from their current position. In this case, we suppress the resume prompt.
     const currentRef = latestParagraphIndexRef.current;
-    if (currentRef !== undefined && currentRef >= 0 && Math.abs(currentRef - savedIndex) > 5) {
-      console.log(`WebViewReader: Smart Resume - User manually scrolled to ${currentRef}. Ignoring saved index ${savedIndex}.`);
+    if (
+      currentRef !== undefined &&
+      currentRef >= 0 &&
+      Math.abs(currentRef - savedIndex) > 5
+    ) {
+      console.log(
+        `WebViewReader: Smart Resume - User manually scrolled to ${currentRef}. Ignoring saved index ${savedIndex}.`,
+      );
       handleResumeCancel(); // Forces start from current position without prompt
       return;
     }
@@ -1541,7 +1695,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         setShowChapterSelectionDialog(true);
         return;
       }
-    } catch (e) {
+    } catch {
       // Ignore errors, proceed to start TTS
     }
 
@@ -1581,12 +1735,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       if (targetChapter) {
         // Cleanup before THAT chapter
         if (targetChapter.position !== undefined) {
-          await markChaptersBeforePositionRead(novel.id, targetChapter.position);
+          await markChaptersBeforePositionRead(
+            novel.id,
+            targetChapter.position,
+          );
         }
         // Reset future AFTER that chapter (if configured) - essentially resetting current chapter
-        const resetMode = chapterGeneralSettingsRef.current.ttsForwardChapterReset || 'none';
+        const resetMode =
+          chapterGeneralSettingsRef.current.ttsForwardChapterReset || 'none';
         if (resetMode !== 'none') {
-          await resetFutureChaptersProgress(novel.id, targetChapter.id, resetMode);
+          await resetFutureChaptersProgress(
+            novel.id,
+            targetChapter.id,
+            resetMode,
+          );
         }
 
         updateLastTTSChapter(targetChapter.id);
@@ -1624,13 +1786,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           console.log(
             `WebViewReader: onLoadEnd - Chapter ${chapter.id} synced.`,
             `Total paragraphs: ${totalParagraphs},`,
-            `Saved index: ${currentParagraphIndexRef.current}`
+            `Saved index: ${currentParagraphIndexRef.current}`,
           );
 
           // If the chapter was loaded as part of background TTS navigation
           // we may need to resume a screen-wake sync or skip WebView-driven start
           if (backgroundTTSPendingRef.current) {
-            console.log('WebViewReader: onLoadEnd skipped TTS start - background TTS pending');
+            console.log(
+              'WebViewReader: onLoadEnd skipped TTS start - background TTS pending',
+            );
             return;
           }
 
@@ -1647,49 +1811,59 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             console.log(
               'WebViewReader: Processing pending screen-wake sync.',
               `Saved: Chapter ${savedWakeChapterId}, Paragraph ${savedWakeParagraphIdx}.`,
-              `Current: Chapter ${currentChapterId}`
+              `Current: Chapter ${currentChapterId}`,
             );
 
             // ENFORCE CHAPTER MATCH: If the loaded chapter doesn't match where TTS was,
             // attempt to navigate to the correct chapter automatically.
-            if (savedWakeChapterId !== null && savedWakeChapterId !== currentChapterId) {
+            if (
+              savedWakeChapterId !== null &&
+              savedWakeChapterId !== currentChapterId
+            ) {
               console.warn(
                 `WebViewReader: Chapter mismatch! TTS was at chapter ${savedWakeChapterId} but WebView loaded chapter ${currentChapterId}.`,
-                'Attempting to navigate to correct chapter...'
+                'Attempting to navigate to correct chapter...',
               );
 
               // Check retry count to prevent infinite loops
               if (syncRetryCountRef.current >= MAX_SYNC_RETRIES) {
-                console.error('WebViewReader: Max sync retries reached, showing failure dialog');
+                console.error(
+                  'WebViewReader: Max sync retries reached, showing failure dialog',
+                );
 
                 // Calculate progress info for the error dialog
                 const retryParagraphs = extractParagraphs(html);
                 const retryTotalParagraphs = retryParagraphs?.length ?? 0;
                 const paragraphIdx = savedWakeParagraphIdx ?? 0;
-                const progressPercent = retryTotalParagraphs > 0
-                  ? (paragraphIdx / retryTotalParagraphs) * 100
-                  : 0;
+                const progressPercent =
+                  retryTotalParagraphs > 0
+                    ? (paragraphIdx / retryTotalParagraphs) * 100
+                    : 0;
 
                 // Try to get chapter name from DB
-                getChapterFromDb(savedWakeChapterId).then(savedChapter => {
-                  setSyncDialogInfo({
-                    chapterName: savedChapter?.name ?? `Chapter ID: ${savedWakeChapterId}`,
-                    paragraphIndex: paragraphIdx,
-                    totalParagraphs: totalParagraphs,
-                    progress: progressPercent,
+                getChapterFromDb(savedWakeChapterId)
+                  .then(savedChapter => {
+                    setSyncDialogInfo({
+                      chapterName:
+                        savedChapter?.name ??
+                        `Chapter ID: ${savedWakeChapterId}`,
+                      paragraphIndex: paragraphIdx,
+                      totalParagraphs: totalParagraphs,
+                      progress: progressPercent,
+                    });
+                    setSyncDialogStatus('failed');
+                    setSyncDialogVisible(true);
+                  })
+                  .catch(() => {
+                    setSyncDialogInfo({
+                      chapterName: `Chapter ID: ${savedWakeChapterId}`,
+                      paragraphIndex: paragraphIdx,
+                      totalParagraphs: totalParagraphs,
+                      progress: progressPercent,
+                    });
+                    setSyncDialogStatus('failed');
+                    setSyncDialogVisible(true);
                   });
-                  setSyncDialogStatus('failed');
-                  setSyncDialogVisible(true);
-                }).catch(() => {
-                  setSyncDialogInfo({
-                    chapterName: `Chapter ID: ${savedWakeChapterId}`,
-                    paragraphIndex: paragraphIdx,
-                    totalParagraphs: totalParagraphs,
-                    progress: progressPercent,
-                  });
-                  setSyncDialogStatus('failed');
-                  setSyncDialogVisible(true);
-                });
 
                 // Clear wake refs since we're not resuming
                 wakeChapterIdRef.current = null;
@@ -1706,40 +1880,49 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               syncRetryCountRef.current += 1;
 
               // Fetch the saved chapter info and navigate to it
-              getChapterFromDb(savedWakeChapterId).then(savedChapter => {
-                if (savedChapter) {
-                  console.log(`WebViewReader: Navigating to saved chapter: ${savedChapter.name}`);
-                  // Keep wake refs intact so we can resume after navigation
-                  // Set flag so we continue the sync process on next load
-                  pendingScreenWakeSyncRef.current = true;
-                  // Navigate to the correct chapter
-                  getChapter(savedChapter);
-                } else {
-                  console.error(`WebViewReader: Could not find chapter ${savedWakeChapterId} in database`);
+              getChapterFromDb(savedWakeChapterId)
+                .then(savedChapter => {
+                  if (savedChapter) {
+                    console.log(
+                      `WebViewReader: Navigating to saved chapter: ${savedChapter.name}`,
+                    );
+                    // Keep wake refs intact so we can resume after navigation
+                    // Set flag so we continue the sync process on next load
+                    pendingScreenWakeSyncRef.current = true;
+                    // Navigate to the correct chapter
+                    getChapter(savedChapter);
+                  } else {
+                    console.error(
+                      `WebViewReader: Could not find chapter ${savedWakeChapterId} in database`,
+                    );
+                    setSyncDialogStatus('failed');
+                    setSyncDialogInfo({
+                      chapterName: `Unknown Chapter (ID: ${savedWakeChapterId})`,
+                      paragraphIndex: savedWakeParagraphIdx ?? 0,
+                      totalParagraphs: 0,
+                      progress: 0,
+                    });
+                    // Clear refs
+                    wakeChapterIdRef.current = null;
+                    wakeParagraphIndexRef.current = null;
+                    autoResumeAfterWakeRef.current = false;
+                    wasReadingBeforeWakeRef.current = false;
+                    syncRetryCountRef.current = 0;
+                  }
+                })
+                .catch(err => {
+                  console.error(
+                    'WebViewReader: Failed to fetch saved chapter',
+                    err,
+                  );
                   setSyncDialogStatus('failed');
-                  setSyncDialogInfo({
-                    chapterName: `Unknown Chapter (ID: ${savedWakeChapterId})`,
-                    paragraphIndex: savedWakeParagraphIdx ?? 0,
-                    totalParagraphs: 0,
-                    progress: 0,
-                  });
                   // Clear refs
                   wakeChapterIdRef.current = null;
                   wakeParagraphIndexRef.current = null;
                   autoResumeAfterWakeRef.current = false;
                   wasReadingBeforeWakeRef.current = false;
                   syncRetryCountRef.current = 0;
-                }
-              }).catch(err => {
-                console.error('WebViewReader: Failed to fetch saved chapter', err);
-                setSyncDialogStatus('failed');
-                // Clear refs
-                wakeChapterIdRef.current = null;
-                wakeParagraphIndexRef.current = null;
-                autoResumeAfterWakeRef.current = false;
-                wasReadingBeforeWakeRef.current = false;
-                syncRetryCountRef.current = 0;
-              });
+                });
 
               return;
             }
@@ -1754,10 +1937,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // Auto-hide after a short delay
               setTimeout(() => setSyncDialogVisible(false), 1500);
             }
-            const syncIndex = savedWakeParagraphIdx ?? currentParagraphIndexRef.current ?? 0;
+            const syncIndex =
+              savedWakeParagraphIdx ?? currentParagraphIndexRef.current ?? 0;
             const chapterId = currentChapterId;
 
-            console.log(`WebViewReader: Chapter verified, syncing to paragraph ${syncIndex}`);
+            console.log(
+              `WebViewReader: Chapter verified, syncing to paragraph ${syncIndex}`,
+            );
 
             // Clear wake refs
             wakeChapterIdRef.current = null;
@@ -1791,7 +1977,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               `);
 
               // Resume TTS playback from the verified position
-              if (wasReadingBeforeWakeRef.current || autoResumeAfterWakeRef.current) {
+              if (
+                wasReadingBeforeWakeRef.current ||
+                autoResumeAfterWakeRef.current
+              ) {
                 setTimeout(() => {
                   try {
                     const wakeParagraphs = extractParagraphs(html);
@@ -1799,12 +1988,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     const validSyncIndex = validateAndClampParagraphIndex(
                       syncIndex,
                       wakeParagraphs?.length ?? 0,
-                      'screen-wake TTS resume'
+                      'screen-wake TTS resume',
                     );
 
                     if (wakeParagraphs && wakeParagraphs.length > 0) {
                       const remaining = wakeParagraphs.slice(validSyncIndex);
-                      const ids = remaining.map((_, i) => `chapter_${chapterId}_utterance_${validSyncIndex + i}`);
+                      const ids = remaining.map(
+                        (_, i) =>
+                          `chapter_${chapterId}_utterance_${
+                            validSyncIndex + i
+                          }`,
+                      );
 
                       currentParagraphIndexRef.current = validSyncIndex;
                       latestParagraphIndexRef.current = validSyncIndex;
@@ -1815,15 +2009,23 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                         rate: readerSettingsRef.current.tts?.rate || 1,
                       })
                         .then(() => {
-                          console.log(`WebViewReader: Resumed TTS after wake from chapter ${chapterId}, paragraph ${validSyncIndex}`);
+                          console.log(
+                            `WebViewReader: Resumed TTS after wake from chapter ${chapterId}, paragraph ${validSyncIndex}`,
+                          );
                           isTTSReadingRef.current = true;
                         })
                         .catch(err => {
-                          console.error('WebViewReader: Failed to resume TTS after wake', err);
+                          console.error(
+                            'WebViewReader: Failed to resume TTS after wake',
+                            err,
+                          );
                         });
                     }
                   } catch (e) {
-                    console.warn('WebViewReader: Cannot resume TTS after wake (failed extract)', e);
+                    console.warn(
+                      'WebViewReader: Cannot resume TTS after wake (failed extract)',
+                      e,
+                    );
                   }
 
                   autoResumeAfterWakeRef.current = false;
@@ -1857,8 +2059,6 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           __DEV__ && onLogMessage(ev);
           const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
 
-
-
           switch (event.type) {
             case 'tts-update-settings': {
               if (event.data) {
@@ -1873,7 +2073,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               nextChapterScreenVisible.current = true;
               if (event.autoStartTTS) {
                 // Check if we should continue to next chapter based on setting
-                const continueMode = chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
+                const continueMode =
+                  chapterGeneralSettingsRef.current.ttsContinueToNextChapter ||
+                  'none';
 
                 if (continueMode === 'none') {
                   // User chose to stop at end of chapter - don't auto-start TTS
@@ -1908,9 +2110,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // CRITICAL: Validate chapterId to prevent stale save events from old chapter
                 // corrupting new chapter's progress during transitions
                 const GRACE_PERIOD_MS = 1000; // 1 second grace period after chapter change
-                const timeSinceTransition = Date.now() - chapterTransitionTimeRef.current;
+                const timeSinceTransition =
+                  Date.now() - chapterTransitionTimeRef.current;
 
-                if (event.chapterId !== undefined && event.chapterId !== chapter.id) {
+                if (
+                  event.chapterId !== undefined &&
+                  event.chapterId !== chapter.id
+                ) {
                   const now = Date.now();
                   if (now - lastStaleLogTimeRef.current > 1000) {
                     console.log(
@@ -1928,13 +2134,21 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   // TTS is reading - only allow saves that came from TTS (via tts-state or direct paragraph save)
                   // Scroll-based saves from core.js don't have ttsSource flag, so they'll be blocked
                   if (event.paragraphIndex === undefined) {
-                    console.log('WebViewReader: Ignoring non-TTS save while TTS is reading');
+                    console.log(
+                      'WebViewReader: Ignoring non-TTS save while TTS is reading',
+                    );
                     break;
                   }
                   // If paragraph is going BACKWARDS, it's likely a scroll-based save trying to override TTS
                   const currentIdx = currentParagraphIndexRef.current ?? -1;
-                  if (typeof event.paragraphIndex === 'number' && currentIdx >= 0 && event.paragraphIndex < currentIdx - 1) {
-                    console.log(`WebViewReader: Ignoring backwards save (${event.paragraphIndex}) while TTS at ${currentIdx}`);
+                  if (
+                    typeof event.paragraphIndex === 'number' &&
+                    currentIdx >= 0 &&
+                    event.paragraphIndex < currentIdx - 1
+                  ) {
+                    console.log(
+                      `WebViewReader: Ignoring backwards save (${event.paragraphIndex}) while TTS at ${currentIdx}`,
+                    );
                     break;
                   }
                 }
@@ -1955,7 +2169,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   // index is older/behind our current TTS progress (or is the
                   // initial 0) then ignore it to avoid clobbering the correct
                   // position written by the native TTS playback.
-                  const incomingIdx = typeof event.paragraphIndex === 'number' ? event.paragraphIndex : -1;
+                  const incomingIdx =
+                    typeof event.paragraphIndex === 'number'
+                      ? event.paragraphIndex
+                      : -1;
                   const currentIdx = currentParagraphIndexRef.current ?? -1;
                   const latestIdx = latestParagraphIndexRef.current ?? -1;
 
@@ -1963,14 +2180,21 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     // If incoming progress is strictly less than our last known
                     // progress, treat it as stale and ignore it.
                     if (latestIdx >= 0 && incomingIdx < latestIdx) {
-                      console.log(`WebViewReader: Ignoring early/stale save event (incoming=${incomingIdx} vs latest=${latestIdx})`);
+                      console.log(
+                        `WebViewReader: Ignoring early/stale save event (incoming=${incomingIdx} vs latest=${latestIdx})`,
+                      );
                       break;
                     }
 
                     // Some WebView instances emit 0 as an initial save; if we
                     // already have a positive index for this chapter ignore the 0.
-                    if (incomingIdx === 0 && Math.max(currentIdx, latestIdx) > 0) {
-                      console.log('WebViewReader: Ignoring initial 0 save during grace period');
+                    if (
+                      incomingIdx === 0 &&
+                      Math.max(currentIdx, latestIdx) > 0
+                    ) {
+                      console.log(
+                        'WebViewReader: Ignoring initial 0 save during grace period',
+                      );
                       break;
                     }
                   }
@@ -2001,7 +2225,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               // The native side handles resume logic; allowing WebView to drive speak
               // here would cause race conditions and potentially resume with stale state.
               if (wakeTransitionInProgressRef.current) {
-                console.log('WebViewReader: Ignoring speak request during wake transition');
+                console.log(
+                  'WebViewReader: Ignoring speak request during wake transition',
+                );
                 break;
               }
 
@@ -2010,12 +2236,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   isTTSReadingRef.current = true;
                 }
                 // Use chapter_N_utterance_N format so event handlers can validate chapter
-                const paragraphIdx = typeof event.paragraphIndex === 'number'
-                  ? event.paragraphIndex
-                  : currentParagraphIndexRef.current;
-                const utteranceId = paragraphIdx >= 0
-                  ? `chapter_${chapter.id}_utterance_${paragraphIdx}`
-                  : undefined;
+                const paragraphIdx =
+                  typeof event.paragraphIndex === 'number'
+                    ? event.paragraphIndex
+                    : currentParagraphIndexRef.current;
+                const utteranceId =
+                  paragraphIdx >= 0
+                    ? `chapter_${chapter.id}_utterance_${paragraphIdx}`
+                    : undefined;
 
                 // Update current index
                 if (paragraphIdx >= 0) {
@@ -2033,14 +2261,27 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 try {
                   paragraphs = extractParagraphs(html);
                 } catch (e) {
-                  console.error('WebViewReader: Failed to extract paragraphs for batch start', e);
+                  console.error(
+                    'WebViewReader: Failed to extract paragraphs for batch start',
+                    e,
+                  );
                 }
 
-                if (paragraphs && paragraphs.length > 0 && paragraphIdx >= 0 && paragraphIdx < paragraphs.length) {
-                  console.log(`WebViewReader: Starting Unified Batch from index ${paragraphIdx}`);
+                if (
+                  paragraphs &&
+                  paragraphs.length > 0 &&
+                  paragraphIdx >= 0 &&
+                  paragraphIdx < paragraphs.length
+                ) {
+                  console.log(
+                    `WebViewReader: Starting Unified Batch from index ${paragraphIdx}`,
+                  );
 
                   const remaining = paragraphs.slice(paragraphIdx);
-                  const ids = remaining.map((_, i) => `chapter_${chapter.id}_utterance_${paragraphIdx + i}`);
+                  const ids = remaining.map(
+                    (_, i) =>
+                      `chapter_${chapter.id}_utterance_${paragraphIdx + i}`,
+                  );
 
                   // Update Queue Ref IMMEDIATELY to prevent race conditions
                   ttsQueueRef.current = {
@@ -2055,7 +2296,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     pitch: readerSettingsRef.current.tts?.pitch || 1,
                     rate: readerSettingsRef.current.tts?.rate || 1,
                   }).catch(err => {
-                    console.error('WebViewReader: Failed to start Unified Batch', err);
+                    console.error(
+                      'WebViewReader: Failed to start Unified Batch',
+                      err,
+                    );
                     // Fallback to single speak if batch fails (unlikely)
                     TTSHighlight.speak(textToSpeak, {
                       voice: readerSettingsRef.current.tts?.voice?.identifier,
@@ -2066,7 +2310,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   });
                 } else {
                   // Fallback for edge cases (invalid index or extraction failed)
-                  console.warn('WebViewReader: Cannot start batch (invalid params), falling back to single speak');
+                  console.warn(
+                    'WebViewReader: Cannot start batch (invalid params), falling back to single speak',
+                  );
                   TTSHighlight.speak(textToSpeak, {
                     voice: readerSettingsRef.current.tts?.voice?.identifier,
                     pitch: readerSettingsRef.current.tts?.pitch || 1,
@@ -2165,32 +2411,50 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
                 // BUG FIX: Wake resume grace period - ignore queue updates right after wake
                 // This prevents stale WebView queues from overwriting the fresh batch started by wake resume
-                const timeSinceWakeResume = Date.now() - wakeResumeGracePeriodRef.current;
-                if (timeSinceWakeResume < 500 && wakeResumeGracePeriodRef.current > 0) {
-                  console.log(`WebViewReader: Ignoring tts-queue during wake grace period (${timeSinceWakeResume}ms)`);
+                const timeSinceWakeResume =
+                  Date.now() - wakeResumeGracePeriodRef.current;
+                if (
+                  timeSinceWakeResume < 500 &&
+                  wakeResumeGracePeriodRef.current > 0
+                ) {
+                  console.log(
+                    `WebViewReader: Ignoring tts-queue during wake grace period (${timeSinceWakeResume}ms)`,
+                  );
                   break;
                 }
 
                 // UNIFIED BATCH MODE FIX: Ignore tts-queue messages if we are already playing a batch
                 // that covers this range. This prevents redundant addToBatch calls that might cause duplicates.
-                if (isTTSReadingRef.current && ttsQueueRef.current && ttsQueueRef.current.startIndex <= incomingStart) {
-                  console.log(`WebViewReader: Ignoring redundant tts-queue (incoming=${incomingStart} covered by active extracted batch start=${ttsQueueRef.current.startIndex})`);
+                if (
+                  isTTSReadingRef.current &&
+                  ttsQueueRef.current &&
+                  ttsQueueRef.current.startIndex <= incomingStart
+                ) {
+                  console.log(
+                    `WebViewReader: Ignoring redundant tts-queue (incoming=${incomingStart} covered by active extracted batch start=${ttsQueueRef.current.startIndex})`,
+                  );
                   break;
                 }
 
                 // BUG FIX: Validate incoming queue against current TTS position
                 // If incoming queue starts BEFORE our current position, it's stale - IGNORE
                 if (currentIdx >= 0 && incomingStart < currentIdx) {
-                  console.log(`WebViewReader: Ignoring stale tts-queue (starts at ${incomingStart}, currently at ${currentIdx})`);
+                  console.log(
+                    `WebViewReader: Ignoring stale tts-queue (starts at ${incomingStart}, currently at ${currentIdx})`,
+                  );
                   break;
                 }
 
                 // If incoming queue starts MORE THAN 1 ahead, something is wrong - LOG but accept
                 if (currentIdx >= 0 && incomingStart > currentIdx + 1) {
-                  console.warn(`WebViewReader: tts-queue gap detected (starts at ${incomingStart}, currently at ${currentIdx})`);
+                  console.warn(
+                    `WebViewReader: tts-queue gap detected (starts at ${incomingStart}, currently at ${currentIdx})`,
+                  );
                 }
 
-                console.log(`WebViewReader: Accepting tts-queue from ${incomingStart} (current: ${currentIdx})`);
+                console.log(
+                  `WebViewReader: Accepting tts-queue from ${incomingStart} (current: ${currentIdx})`,
+                );
                 ttsQueueRef.current = {
                   startIndex: event.startIndex,
                   texts: event.data as string[],
@@ -2201,26 +2465,41 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // The first paragraph was already queued via the 'speak' event which uses QUEUE_FLUSH.
                 // If we call speakBatch here, it would QUEUE_FLUSH again, clearing the first paragraph.
                 // Instead, we use addToBatch to ADD remaining paragraphs to the queue.
-                if (chapterGeneralSettings.ttsBackgroundPlayback && event.data.length > 0 && typeof event.startIndex === 'number') {
+                if (
+                  chapterGeneralSettings.ttsBackgroundPlayback &&
+                  event.data.length > 0 &&
+                  typeof event.startIndex === 'number'
+                ) {
                   const startIndex = event.startIndex;
                   // Include chapter ID in utterance IDs to prevent stale event processing
-                  const utteranceIds = (event.data as string[]).map((_, i) =>
-                    `chapter_${chapter.id}_utterance_${startIndex + i}`
+                  const utteranceIds = (event.data as string[]).map(
+                    (_, i) =>
+                      `chapter_${chapter.id}_utterance_${startIndex + i}`,
                   );
 
-                  console.log(`WebViewReader: Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`);
+                  console.log(
+                    `WebViewReader: Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`,
+                  );
 
                   // Use addToBatch to preserve the currently playing utterance
-                  const addToBatchWithRetry = async (texts: string[], ids: string[]) => {
+                  const addToBatchWithRetry = async (
+                    texts: string[],
+                    ids: string[],
+                  ) => {
                     const maxAttempts = 3;
                     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                       try {
-                        console.log(`WebViewReader: addToBatch attempt ${attempt} startIndex=${startIndex} count=${texts.length}`);
+                        console.log(
+                          `WebViewReader: addToBatch attempt ${attempt} startIndex=${startIndex} count=${texts.length}`,
+                        );
                         await TTSHighlight.addToBatch(texts, ids);
                         console.log('WebViewReader: addToBatch succeeded');
                         return true;
                       } catch (err) {
-                        console.error(`WebViewReader: addToBatch failed (attempt ${attempt}):`, err);
+                        console.error(
+                          `WebViewReader: addToBatch failed (attempt ${attempt}):`,
+                          err,
+                        );
                         if (attempt < maxAttempts) {
                           await new Promise(r => setTimeout(r, 150 * attempt));
                         }
@@ -2229,9 +2508,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     return false;
                   };
 
-                  addToBatchWithRetry(event.data as string[], utteranceIds).then(success => {
+                  addToBatchWithRetry(
+                    event.data as string[],
+                    utteranceIds,
+                  ).then(success => {
                     if (!success) {
-                      console.error('WebViewReader: Add to batch failed after retries. Falling back to WebView-driven TTS');
+                      console.error(
+                        'WebViewReader: Add to batch failed after retries. Falling back to WebView-driven TTS',
+                      );
                       // Fallback to WebView-driven TTS
                       webViewRef.current?.injectJavaScript('tts.next?.()');
                     }
@@ -2251,12 +2535,29 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             case 'tts-update-settings':
             case 'tts-apply-settings':
               // Handle live TTS settings updates from WebView
-              if (event.data && typeof event.data === 'object' && !Array.isArray(event.data)) {
-                const ttsData = event.data as { rate?: number; pitch?: number; voice?: string; enabled?: boolean; showParagraphHighlight?: boolean };
-                console.log('WebViewReader: Received TTS settings update:', ttsData);
+              if (
+                event.data &&
+                typeof event.data === 'object' &&
+                !Array.isArray(event.data)
+              ) {
+                const ttsData = event.data as {
+                  rate?: number;
+                  pitch?: number;
+                  voice?: string;
+                  enabled?: boolean;
+                  showParagraphHighlight?: boolean;
+                };
+                console.log(
+                  'WebViewReader: Received TTS settings update:',
+                  ttsData,
+                );
 
                 // Update the refs so future speak() calls use new params
-                if (ttsData.rate !== undefined || ttsData.pitch !== undefined || ttsData.voice !== undefined) {
+                if (
+                  ttsData.rate !== undefined ||
+                  ttsData.pitch !== undefined ||
+                  ttsData.voice !== undefined
+                ) {
                   const currentTTS = readerSettingsRef.current.tts || {};
                   const currentVoice = currentTTS.voice;
 
@@ -2267,19 +2568,27 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                       rate: ttsData.rate ?? currentTTS.rate,
                       pitch: ttsData.pitch ?? currentTTS.pitch,
                       // Only update voice if we have a valid current voice to spread from
-                      voice: ttsData.voice !== undefined && currentVoice
-                        ? { ...currentVoice, identifier: ttsData.voice }
-                        : currentVoice,
+                      voice:
+                        ttsData.voice !== undefined && currentVoice
+                          ? { ...currentVoice, identifier: ttsData.voice }
+                          : currentVoice,
                     },
                   };
                 }
 
                 // Update general settings ref
-                if (ttsData.enabled !== undefined || ttsData.showParagraphHighlight !== undefined) {
+                if (
+                  ttsData.enabled !== undefined ||
+                  ttsData.showParagraphHighlight !== undefined
+                ) {
                   chapterGeneralSettingsRef.current = {
                     ...chapterGeneralSettingsRef.current,
-                    TTSEnable: ttsData.enabled ?? chapterGeneralSettingsRef.current.TTSEnable,
-                    showParagraphHighlight: ttsData.showParagraphHighlight ?? chapterGeneralSettingsRef.current.showParagraphHighlight,
+                    TTSEnable:
+                      ttsData.enabled ??
+                      chapterGeneralSettingsRef.current.TTSEnable,
+                    showParagraphHighlight:
+                      ttsData.showParagraphHighlight ??
+                      chapterGeneralSettingsRef.current.showParagraphHighlight,
                   };
                 }
 
@@ -2371,15 +2680,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           if (wakeChapterIdRef.current) {
             pendingScreenWakeSyncRef.current = true;
             setSyncDialogStatus('syncing');
-            getChapterFromDb(wakeChapterIdRef.current).then(savedChapter => {
-              if (savedChapter) {
-                getChapter(savedChapter);
-              } else {
+            getChapterFromDb(wakeChapterIdRef.current)
+              .then(savedChapter => {
+                if (savedChapter) {
+                  getChapter(savedChapter);
+                } else {
+                  setSyncDialogStatus('failed');
+                }
+              })
+              .catch(() => {
                 setSyncDialogStatus('failed');
-              }
-            }).catch(() => {
-              setSyncDialogStatus('failed');
-            });
+              });
           } else {
             setSyncDialogVisible(false);
           }

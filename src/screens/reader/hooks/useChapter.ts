@@ -277,7 +277,14 @@ export default function useChapter(
         getDbChapter(chapter.id).then(result => result && setLastRead(result));
       }
     };
-  }, [incognitoMode, setLastRead, setLoading, chapter.id, chapter, checkAutoDownload]);
+  }, [
+    incognitoMode,
+    setLastRead,
+    setLoading,
+    chapter.id,
+    chapter,
+    checkAutoDownload,
+  ]);
 
   useEffect(() => {
     if (!chapter || !chapterText) {

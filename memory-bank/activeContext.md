@@ -2,13 +2,7 @@
 
 ## Current Goals
 
-- Completed App Update UI/UX Enhancement.
-- - Fixed broken GitHub links in About screen (pointing to fork).
-- - Implemented "Check for Updates" manual trigger.
-- - Created hybrid `NewUpdateDialog` with in-app download and GitHub view options.
-- - Implemented APK download service with progress tracking.
-- - Added `REQUEST_INSTALL_PACKAGES` permission in AndroidManifest.
-- Next: Await next user directive.
+- Performing comprehensive audit of LNReader app focusing on security, performance, code quality, and architecture after recent improvements
 
 ## Key Files Modified
 

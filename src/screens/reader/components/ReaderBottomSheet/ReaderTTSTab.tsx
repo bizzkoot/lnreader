@@ -40,7 +40,13 @@ const ReaderTTSTab: React.FC = React.memo(() => {
 
   // Helper to post TTS settings to WebView for immediate effect
   const postTTSSettingsToWebView = useCallback(
-    (settings: { rate?: number; pitch?: number; voice?: string; enabled?: boolean; showParagraphHighlight?: boolean }) => {
+    (settings: {
+      rate?: number;
+      pitch?: number;
+      voice?: string;
+      enabled?: boolean;
+      showParagraphHighlight?: boolean;
+    }) => {
       if (webViewRef?.current) {
         const message = JSON.stringify({
           type: 'tts-update-settings',
@@ -180,7 +186,10 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     }}
                   >
                     <Text
-                      style={[styles.sliderButtonText, { color: theme.primary }]}
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
                     >
                       −
                     </Text>
@@ -216,7 +225,10 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     }}
                   >
                     <Text
-                      style={[styles.sliderButtonText, { color: theme.primary }]}
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
                     >
                       +
                     </Text>
@@ -249,7 +261,10 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     }}
                   >
                     <Text
-                      style={[styles.sliderButtonText, { color: theme.primary }]}
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
                     >
                       −
                     </Text>
@@ -285,7 +300,10 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     }}
                   >
                     <Text
-                      style={[styles.sliderButtonText, { color: theme.primary }]}
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
                     >
                       +
                     </Text>
@@ -317,7 +335,9 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     setChapterGeneralSettings({
                       showParagraphHighlight: newValue,
                     });
-                    postTTSSettingsToWebView({ showParagraphHighlight: newValue });
+                    postTTSSettingsToWebView({
+                      showParagraphHighlight: newValue,
+                    });
                   }}
                 />
               </View>
