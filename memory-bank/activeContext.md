@@ -2,22 +2,21 @@
 
 ## Current Goals
 
-- Completed upstream merge and validation.
-- - Merged upstream/master into dev.
-- - Resolved conflicts in build.gradle, core.js, package.json, etc.
-- - Fixed TypeScript errors by removing conflicting TTSTab.tsx.
-- - Verified logic with regression tests (Jest, TTS simulation).
-- - Verified build configuration with Gradle dry run.
-- Current state: Stable dev branch with upstream changes and local TTS features preserved.
+- Completed App Update UI/UX Enhancement.
+- - Fixed broken GitHub links in About screen (pointing to fork).
+- - Implemented "Check for Updates" manual trigger.
+- - Created hybrid `NewUpdateDialog` with in-app download and GitHub view options.
+- - Implemented APK download service with progress tracking.
+- - Added `REQUEST_INSTALL_PACKAGES` permission in AndroidManifest.
+- Next: Await next user directive.
 
 ## Key Files Modified
 
-- `src/screens/reader/components/WebViewReader.tsx`: TTS wake/resume flow with smart index init
-- `src/screens/reader/components/ttsWakeUtils.js`: Testable helper functions
-- `src/screens/reader/components/__tests__/ttsWakeUtils.test.js`: Jest test suite (17 tests)
-- `src/utils/htmlParagraphExtractor.ts`: HTML paragraph extraction utility
-- `src/services/TTSAudioManager.ts`: TTS queue management
-- `android/app/src/main/assets/js/core.js`: WebView-side highlighting logic
+- `src/screens/more/About.tsx`: Added Update check and fixed links.
+- `src/components/NewUpdateDialog.tsx`: Added download flow and progress UI.
+- `src/services/updates/downloadUpdate.ts`: New service for APK download/install.
+- `android/app/src/main/AndroidManifest.xml`: permission addition.
+- `strings/languages/en/strings.json`: Added update-related strings.
 
 ## Test Commands
 

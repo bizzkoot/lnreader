@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import * as Linking from 'expo-linking';
@@ -11,9 +11,20 @@ import { AboutScreenProps } from '@navigators/types';
 import { GIT_HASH, RELEASE_DATE, BUILD_TYPE } from '@env';
 import * as Clipboard from 'expo-clipboard';
 import { version } from '../../../package.json';
+import { Portal } from 'react-native-paper';
+import NewUpdateDialog from '@components/NewUpdateDialog';
+import { showToast } from '@utils/showToast';
+import { newer } from '@utils/compareVersion';
+import pickApkAsset from '@hooks/common/githubReleaseUtils';
 
 const AboutScreen = ({ navigation }: AboutScreenProps) => {
   const theme = useTheme();
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{
+    tag_name: string;
+    body: string;
+    downloadUrl: string;
+  } | null>(null);
 
   function getBuildName() {
     if (!GIT_HASH || !RELEASE_DATE || !BUILD_TYPE) {
@@ -28,6 +39,47 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
       return `${BUILD_TYPE} ${version} (${localDateTime}) Commit: ${GIT_HASH}`;
     }
   }
+
+  const checkForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      const res = await fetch(
+        'https://api.github.com/repos/bizzkoot/lnreader/releases/latest',
+      );
+
+      if (!res.ok) {
+        showToast(getString('common.noUpdatesAvailable'));
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!data || !data.tag_name) {
+        showToast(getString('common.noUpdatesAvailable'));
+        return;
+      }
+
+      const latestVersion = data.tag_name.replace(/[^\d.]/g, '');
+      const isNewer = newer(latestVersion, version);
+
+      if (isNewer) {
+        setUpdateInfo({
+          tag_name: data.tag_name,
+          body: data.body || '',
+          downloadUrl:
+            pickApkAsset(data.assets) ||
+            data.assets?.[0]?.browser_download_url ||
+            '',
+        });
+      } else {
+        showToast(getString('common.noUpdatesAvailable'));
+      }
+    } catch {
+      showToast(getString('common.noUpdatesAvailable'));
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   return (
     <SafeAreaView excludeTop>
@@ -51,9 +103,19 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
             title={getString('aboutScreen.whatsNew')}
             onPress={() =>
               Linking.openURL(
-                `https://github.com/LNReader/lnreader/releases/tag/v${version}`,
+                `https://github.com/bizzkoot/lnreader/releases/tag/v${version}`,
               )
             }
+            theme={theme}
+          />
+          <List.Item
+            title={getString('common.checkForUpdates')}
+            description={
+              isCheckingUpdate
+                ? getString('common.checkingForUpdates')
+                : undefined
+            }
+            onPress={isCheckingUpdate ? undefined : checkForUpdates}
             theme={theme}
           />
           <List.Divider theme={theme} />
@@ -71,9 +133,9 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
           />
           <List.Item
             title={getString('aboutScreen.github')}
-            description="https://github.com/LNReader/lnreader"
+            description="https://github.com/bizzkoot/lnreader"
             onPress={() =>
-              Linking.openURL('https://github.com/LNReader/lnreader')
+              Linking.openURL('https://github.com/bizzkoot/lnreader')
             }
             theme={theme}
           />
@@ -95,6 +157,15 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
           />
         </List.Section>
       </ScrollView>
+
+      {/* Update Dialog Portal */}
+      {updateInfo && (
+        <Portal>
+          <NewUpdateDialog
+            newVersion={updateInfo}
+          />
+        </Portal>
+      )}
     </SafeAreaView>
   );
 };

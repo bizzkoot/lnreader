@@ -235,7 +235,15 @@
     "sort": "Sort",
     "submit": "Submit",
     "loading": "Loading ...",
-    "warning": "Warning"
+    "warning": "Warning",
+    "later": "Later",
+    "viewOnGithub": "View on GitHub",
+    "downloadAndInstall": "Download & Install",
+    "downloading": "Downloading",
+    "installing": "Installing",
+    "checkForUpdates": "Check for updates",
+    "noUpdatesAvailable": "You're on the latest version",
+    "checkingForUpdates": "Checking for updates..."
   },
   "webview": {
     "refresh": "Refresh",

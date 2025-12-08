@@ -7,11 +7,16 @@
 - Implement saveProgressRef and totalParagraphsRef
 - Update onQueueEmpty to mark chapter as 100% complete
 - Update onSpeechDone to calculate accurate progress
+- Fix TTS progress tracking for intermediate chapters
+- **App Update UI/UX Enhancement**:
+  - Fix About page links
+  - Implement in-app APK download & install
+  - Add "Check for Updates" manual trigger
 
 ## Doing
 
-- Fix TTS progress tracking for intermediate chapters (screen off)
+- Maintenance / Await Request
 
 ## Next
 
-- Verify fix in production (user task)
+- TBD

@@ -4,18 +4,18 @@
 LNReader is a React Native application for reading light novels.
 
 ## Current Task
-Implement TTS Text Highlighting.
-- **Goal**: Highlight text as it is being spoken by the TTS engine.
-- **Spec**: `specs/tts-text-highlight/TTS Text Highlighting for LNReader.md`
-- **Approach**: Create a custom native Android module to expose `onRangeStart` callback from `UtteranceProgressListener`.
+Enhance App Update UI/UX (Completed).
+- **Goal**: Improve the update experience by offering both in-app download and GitHub release viewing.
+- **Approach**: Hybrid model using `expo-file-system` for download and `expo-intent-launcher` for installation, plus corrected GitHub links.
 
 ## Key Files
-- `specs/tts-text-highlight/TTS Text Highlighting for LNReader.md`: Detailed specification.
-- `CONTRIBUTING.md`: Build instructions.
-- `android/app/src/main/java/com/lnreader/`: Native Android code location.
-- `src/`: React Native source code.
+- `src/screens/more/About.tsx`: "Check for Updates" and "What's New" logic.
+- `src/components/NewUpdateDialog.tsx`: Dialog with "Download & Install" and progress UI.
+- `src/services/updates/downloadUpdate.ts`: Service for downloading APK and triggering install.
+- `android/app/src/main/AndroidManifest.xml`: Added `REQUEST_INSTALL_PACKAGES` permission.
 
 ## Notes
-- The current `react-native-tts` library does not support `onRangeStart`.
-- We need to implement a custom native module or fork the library. The spec recommends a custom native module.
-- We need to ensure compatibility with Google TTS and handle fallbacks.
+- Implemented a hybrid update flow: users can "Download & Install" (in-app) or "View on GitHub".
+- Uses `expo-file-system/legacy` for compatibility with v19.
+- Added "Check for Updates" button to About screen.
+- Fixed upstream vs fork link issues (Discord/Sources -> Upstream, Repo -> Fork).

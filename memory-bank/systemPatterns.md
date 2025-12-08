@@ -66,3 +66,11 @@ isWebViewSyncedRef.current = false;  // Set before navigation
 isWebViewSyncedRef.current = true;
 ```
 Skip WebView JS injection when not synced during background mode.
+
+### Hybrid App Update Pattern
+Combines in-app native installation with web-based fallback:
+1. **Check**: Fetch latest release from GitHub API.
+2. **Prompt**: Show dialog with "Download & Install" AND "View on GitHub".
+3. **Download**: Use `expo-file-system/legacy` to download APK to cache.
+4. **Install**: Use `expo-intent-launcher` to trigger `android.intent.action.VIEW` on the content URI.
+Requires `REQUEST_INSTALL_PACKAGES` permission and `FileProvider` (handled by Expo).

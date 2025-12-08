@@ -209,6 +209,14 @@ export interface StringMap {
   'common.submit': 'string';
   'common.loading': 'string';
   'common.warning': 'string';
+  'common.later': 'string';
+  'common.viewOnGithub': 'string';
+  'common.downloadAndInstall': 'string';
+  'common.downloading': 'string';
+  'common.installing': 'string';
+  'common.checkForUpdates': 'string';
+  'common.noUpdatesAvailable': 'string';
+  'common.checkingForUpdates': 'string';
   'webview.refresh': 'string';
   'webview.share': 'string';
   'webview.openInBrowser': 'string';
