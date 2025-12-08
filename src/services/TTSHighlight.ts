@@ -57,7 +57,7 @@ class TTSHighlightService {
   async speakBatch(
     texts: string[],
     utteranceIds: string[],
-    params: TTSParams = {}
+    params: TTSParams = {},
   ): Promise<number> {
     return TTSAudioManager.speakBatch(texts, utteranceIds, params);
   }
@@ -67,10 +67,7 @@ class TTSHighlightService {
    * This preserves any currently playing or queued utterances.
    * Use this when the first paragraph was already queued via speak().
    */
-  async addToBatch(
-    texts: string[],
-    utteranceIds: string[],
-  ): Promise<boolean> {
+  async addToBatch(texts: string[], utteranceIds: string[]): Promise<boolean> {
     return TTSHighlight.addToBatch(texts, utteranceIds);
   }
 
@@ -139,7 +136,7 @@ class TTSHighlightService {
       | 'onSpeechDone'
       | 'onSpeechError'
       | 'onQueueEmpty'
-      | 'onVoiceFallback',  // FIX Case 7.2: Voice fallback notification
+      | 'onVoiceFallback', // FIX Case 7.2: Voice fallback notification
     listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);
@@ -191,9 +188,10 @@ class TTSHighlightService {
 
       const styleInfo = mapping.style ? ` — ${mapping.style}` : '';
       // Prefer explicit native type tag over generic HQ marker
-      const nativeTag = mapping.matchedNativeType === 'local'
-        ? ' — LOCAL'
-        : mapping.matchedNativeType === 'network'
+      const nativeTag =
+        mapping.matchedNativeType === 'local'
+          ? ' — LOCAL'
+          : mapping.matchedNativeType === 'network'
           ? ' — NETWORK'
           : '';
 
@@ -207,7 +205,10 @@ class TTSHighlightService {
     let id = voice.identifier || '';
     // Clean up common noise
     id = id.replace(/-x-/g, '-');
-    id = id.replace(/com\.apple\.(ttsbundle|voice)\.(compact|enhanced)\./gi, '');
+    id = id.replace(
+      /com\.apple\.(ttsbundle|voice)\.(compact|enhanced)\./gi,
+      '',
+    );
     id = id.replace(/com\.apple\.ttsbundle\./gi, '');
     id = id.replace(/-network|-local|\.compact|_compact/gi, '');
     id = id.replace(/[._]+/g, ' ');
@@ -217,7 +218,8 @@ class TTSHighlightService {
 
     // Try to find a name-like token (skip language codes)
     let friendly = '';
-    const langCodePattern = /^(en|es|fr|de|it|ja|ko|zh|pt|ru|hi|ar)[-_]?[a-z]{0,2}$/i;
+    const langCodePattern =
+      /^(en|es|fr|de|it|ja|ko|zh|pt|ru|hi|ar)[-_]?[a-z]{0,2}$/i;
 
     if (/wavenet/i.test(id)) {
       const idx = tokens.findIndex(t => /wavenet/i.test(t));
@@ -235,8 +237,13 @@ class TTSHighlightService {
       }
     } else {
       // Take last meaningful token(s), skip language codes
-      const meaningfulTokens = tokens.filter(t => !langCodePattern.test(t) && t.length > 1);
-      friendly = meaningfulTokens.slice(-2).join(' ') || tokens[tokens.length - 1] || 'Voice';
+      const meaningfulTokens = tokens.filter(
+        t => !langCodePattern.test(t) && t.length > 1,
+      );
+      friendly =
+        meaningfulTokens.slice(-2).join(' ') ||
+        tokens[tokens.length - 1] ||
+        'Voice';
     }
 
     // Title case

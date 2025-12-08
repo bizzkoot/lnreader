@@ -51,7 +51,7 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
         <Dialog.Content>
           <Text style={[styles.content, { color: theme.onSurface }]}>
             You have scrolled{' '}
-            <Text style={{ fontWeight: 'bold', color: theme.onSurface }}>
+            <Text style={[styles.boldText, { color: theme.onSurface }]}>
               {directionText}
             </Text>{' '}
             to paragraph {visibleIndex + 1}.{'\n\n'}
@@ -92,6 +92,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0,
+  },
+  boldText: {
+    fontWeight: 'bold',
   },
   buttonCtn: {
     flexDirection: 'column',

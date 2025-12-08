@@ -242,7 +242,8 @@ export const resetFutureChaptersProgress = async (
   }
 
   const { position } = currentChapter;
-  let query = 'UPDATE Chapter SET progress = 0, unread = 1, ttsState = NULL WHERE novelId = ? AND position > ?';
+  let query =
+    'UPDATE Chapter SET progress = 0, unread = 1, ttsState = NULL WHERE novelId = ? AND position > ?';
   const args: (string | number)[] = [novelId, position];
 
   if (resetMode === 'reset-next') {
@@ -273,12 +274,16 @@ export const resetFutureChaptersProgress = async (
 
   const chaptersToReset = await db.getAllAsync<{ id: number }>(
     `SELECT id FROM Chapter WHERE novelId = ? AND position > ? ORDER BY position ASC LIMIT ?`,
-    novelId, position, limit
+    novelId,
+    position,
+    limit,
   );
 
   if (chaptersToReset.length > 0) {
     const ids = chaptersToReset.map(c => c.id).join(',');
-    await db.execAsync(`UPDATE Chapter SET progress = 0, unread = 1, ttsState = NULL WHERE id IN (${ids})`);
+    await db.execAsync(
+      `UPDATE Chapter SET progress = 0, unread = 1, ttsState = NULL WHERE id IN (${ids})`,
+    );
   }
 };
 
@@ -491,9 +496,10 @@ FROM
 JOIN
   Novel
   ON Chapter.novelId = Novel.id
-WHERE novelId = ?  ${onlyDownloadableChapters
-      ? 'AND Chapter.isDownloaded = 1 '
-      : 'AND updatedTime IS NOT NULL'
+WHERE novelId = ?  ${
+      onlyDownloadableChapters
+        ? 'AND Chapter.isDownloaded = 1 '
+        : 'AND updatedTime IS NOT NULL'
     }
 ORDER BY updatedTime DESC; 
 `,

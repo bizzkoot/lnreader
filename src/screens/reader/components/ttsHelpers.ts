@@ -1,6 +1,9 @@
 import type { RefObject } from 'react';
 
-export function applyTtsUpdateToWebView(settings: any, webViewRef: RefObject<any>) {
+export function applyTtsUpdateToWebView(
+  settings: any,
+  webViewRef: RefObject<any>,
+) {
   try {
     if (webViewRef && webViewRef.current) {
       webViewRef.current.injectJavaScript(`
@@ -26,7 +29,7 @@ export function applyTtsUpdateToWebView(settings: any, webViewRef: RefObject<any
  * FIX Case 9.2: Safe WebView JavaScript injection wrapper
  * Wraps injectJavaScript calls in try-catch to prevent silent failures
  * when WebView is in a bad state or has crashed.
- * 
+ *
  * @param webViewRef - Reference to the WebView component
  * @param script - JavaScript code to inject
  * @param context - Optional context string for error logging
@@ -35,13 +38,15 @@ export function applyTtsUpdateToWebView(settings: any, webViewRef: RefObject<any
 export function safeInjectJS(
   webViewRef: RefObject<any>,
   script: string,
-  context?: string
+  context?: string,
 ): boolean {
   try {
     if (!webViewRef?.current) {
       if (__DEV__) {
         // eslint-disable-next-line no-console
-        console.warn(`safeInjectJS: WebView ref is null${context ? ` (${context})` : ''}`);
+        console.warn(
+          `safeInjectJS: WebView ref is null${context ? ` (${context})` : ''}`,
+        );
       }
       return false;
     }
@@ -61,7 +66,7 @@ export function safeInjectJS(
  * FIX Case 1.1: Validate and clamp paragraph index to valid range
  * Ensures paragraph index doesn't exceed available paragraphs count.
  * Logs a warning when the saved index exceeds available paragraphs.
- * 
+ *
  * @param paragraphIndex - The paragraph index to validate
  * @param totalParagraphs - Total number of paragraphs available
  * @param context - Optional context string for logging
@@ -70,14 +75,16 @@ export function safeInjectJS(
 export function validateAndClampParagraphIndex(
   paragraphIndex: number,
   totalParagraphs: number,
-  context?: string
+  context?: string,
 ): number {
   // Handle edge cases
   if (totalParagraphs <= 0) {
     if (__DEV__) {
       // eslint-disable-next-line no-console
       console.warn(
-        `validateAndClampParagraphIndex: No paragraphs available${context ? ` (${context})` : ''}`
+        `validateAndClampParagraphIndex: No paragraphs available${
+          context ? ` (${context})` : ''
+        }`,
       );
     }
     return 0;
@@ -95,7 +102,9 @@ export function validateAndClampParagraphIndex(
       // eslint-disable-next-line no-console
       console.warn(
         `validateAndClampParagraphIndex: Index ${paragraphIndex} exceeds available paragraphs ` +
-        `(max: ${maxValidIndex})${context ? ` - ${context}` : ''}. Clamping to ${maxValidIndex}.`
+          `(max: ${maxValidIndex})${
+            context ? ` - ${context}` : ''
+          }. Clamping to ${maxValidIndex}.`,
       );
     }
     return maxValidIndex;

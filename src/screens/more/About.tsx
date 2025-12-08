@@ -161,9 +161,7 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
       {/* Update Dialog Portal */}
       {updateInfo && (
         <Portal>
-          <NewUpdateDialog
-            newVersion={updateInfo}
-          />
+          <NewUpdateDialog newVersion={updateInfo} />
         </Portal>
       )}
     </SafeAreaView>

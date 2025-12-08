@@ -30,19 +30,17 @@ export default function PageNavigationBottomSheet({
 
   const renderItem = ({ item, index }: LegendListRenderItemProps<string>) => {
     const isSelected = index === pageIndex;
+    
+    const pageItemContainerStyle = {
+      backgroundColor: isSelected
+        ? theme.isDark
+          ? color(theme.primary).alpha(0.2).string()
+          : color(theme.primaryContainer).alpha(0.5).string()
+        : 'transparent',
+    };
+
     return (
-      <View
-        style={[
-          styles.pageItemContainer,
-          {
-            backgroundColor: isSelected
-              ? theme.isDark
-                ? color(theme.primary).alpha(0.2).string()
-                : color(theme.primaryContainer).alpha(0.5).string()
-              : 'transparent',
-          },
-        ]}
-      >
+      <View style={[styles.pageItemContainer, pageItemContainerStyle]}>
         <Pressable
           android_ripple={{
             color: isSelected

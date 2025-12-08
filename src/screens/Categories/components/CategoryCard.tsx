@@ -25,6 +25,12 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 }) => {
   const theme = useTheme();
 
+  const cardStyle = {
+    backgroundColor: theme.secondaryContainer,
+    opacity: isActive ? 0.8 : 1,
+    elevation: isActive ? 8 : 2,
+  };
+
   const {
     value: categoryModalVisible,
     setTrue: showCategoryModal,
@@ -39,16 +45,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
   return (
     <>
-      <View
-        style={[
-          styles.cardCtn,
-          {
-            backgroundColor: theme.secondaryContainer,
-            opacity: isActive ? 0.8 : 1,
-            elevation: isActive ? 8 : 2,
-          },
-        ]}
-      >
+      <View style={[styles.cardCtn, cardStyle]}>
         <View style={styles.buttonsCtn}>
           <TouchableOpacity
             onLongPress={drag}
@@ -77,17 +74,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
             </Text>
             {category.id === 2 && (
               <Badge
-                style={{
-                  backgroundColor: theme.primary,
-                  paddingHorizontal: 8,
-                }}
+                style={[
+                  styles.badge,
+                  { backgroundColor: theme.primary },
+                ]}
               >
                 System
               </Badge>
             )}
           </View>
           <View style={styles.flex} />
-          <View style={{ opacity: category.id === 2 ? 0.4 : 1 }}>
+          <View style={category.id === 2 ? styles.disabledOpacity : {}}>
             <IconButton
               name="pencil-outline"
               color={category.id === 2 ? theme.outline : theme.onSurface}
@@ -97,7 +94,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               disabled={category.id === 2}
             />
           </View>
-          <View style={{ opacity: category.id === 2 ? 0.4 : 1 }}>
+          <View style={category.id === 2 ? styles.disabledOpacity : {}}>
             <IconButton
               name="delete-outline"
               color={category.id === 2 ? theme.outline : theme.onSurface}
@@ -162,5 +159,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingRight: 16,
     paddingVertical: 4,
+  },
+  disabledOpacity: {
+    opacity: 0.4,
+  },
+  badge: {
+    paddingHorizontal: 8,
   },
 });

@@ -142,10 +142,7 @@ if (title) {
           <Pressable
             style={[
               styles.tab,
-              activeCodeTab === 'css' && {
-                borderBottomColor: theme.primary,
-                borderBottomWidth: 2,
-              },
+              activeCodeTab === 'css' && [styles.activeTab, { borderBottomColor: theme.primary }],
             ]}
             onPress={() => setActiveCodeTab('css')}
             android_ripple={{ color: theme.rippleColor }}
@@ -166,8 +163,8 @@ if (title) {
                     activeCodeTab === 'css'
                       ? theme.primary
                       : theme.onSurfaceVariant,
-                  fontWeight: activeCodeTab === 'css' ? '500' : '400',
                 },
+                activeCodeTab === 'css' && styles.activeTabLabel,
               ]}
             >
               CSS
@@ -177,10 +174,7 @@ if (title) {
           <Pressable
             style={[
               styles.tab,
-              activeCodeTab === 'js' && {
-                borderBottomColor: theme.primary,
-                borderBottomWidth: 2,
-              },
+              activeCodeTab === 'js' && [styles.activeTab, { borderBottomColor: theme.primary }],
             ]}
             onPress={() => setActiveCodeTab('js')}
             android_ripple={{ color: theme.rippleColor }}
@@ -201,9 +195,10 @@ if (title) {
                     activeCodeTab === 'js'
                       ? theme.primary
                       : theme.onSurfaceVariant,
-                  fontWeight: activeCodeTab === 'js' ? '500' : '400',
                 },
+                activeCodeTab === 'js' && styles.activeTabLabel,
               ]}
+
             >
               JS
             </Text>
@@ -379,5 +374,11 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 24,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+  },
+  activeTabLabel: {
+    fontWeight: '500',
   },
 });

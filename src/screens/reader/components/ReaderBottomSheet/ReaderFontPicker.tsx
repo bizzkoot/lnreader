@@ -36,7 +36,7 @@ const ReaderFontPicker = () => {
         />
       );
     },
-    [isSelected, setChapterReaderSettings],
+    [isSelected, setChapterReaderSettings, theme],
   );
 
   return (

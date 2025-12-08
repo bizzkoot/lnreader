@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { version } from '../../../package.json';
 import { newer } from '@utils/compareVersion';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -12,8 +12,6 @@ interface GithubUpdate {
 const LAST_UPDATE_CHECK_KEY = 'LAST_UPDATE_CHECK';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
- 
-
 export const useGithubUpdateChecker = (): GithubUpdate => {
   // Target repo for update checks — change owner/repo here if needed
   const latestReleaseUrl =
@@ -22,20 +20,17 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
   const [checking, setChecking] = useState(true);
   const [latestRelease, setLatestRelease] = useState<any>();
 
-  const shouldCheckForUpdate = (): boolean => {
+  const checkForRelease = useCallback(async () => {
     const lastCheckTime = MMKVStorage.getNumber(LAST_UPDATE_CHECK_KEY);
     if (!lastCheckTime) {
-      return true;
+      setChecking(false);
+      return;
     }
 
     const now = Date.now();
     const timeSinceLastCheck = now - lastCheckTime;
 
-    return timeSinceLastCheck >= ONE_DAY_MS;
-  };
-
-  const checkForRelease = async () => {
-    if (!shouldCheckForUpdate()) {
+    if (timeSinceLastCheck < ONE_DAY_MS) {
       setChecking(false);
       return;
     }
@@ -55,25 +50,28 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
         return;
       }
 
-      // Pick the most appropriate .apk asset (robust selection) or fall back to the
-      // first asset's browser_download_url if none match.
+      // Extract SHA256 from release body if available
+      const sha256Regex = /SHA256:\s*([a-fA-F0-9]{64})/i;
+      const sha256Match = data.body?.match(sha256Regex);
+      const expectedSha256 = sha256Match ? sha256Match[1] : undefined;
 
       const release = {
         tag_name: data.tag_name,
         body: data.body,
         downloadUrl:
-        pickApkAsset(data.assets) || data.assets?.[0]?.browser_download_url,
+          pickApkAsset(data.assets) || data.assets?.[0]?.browser_download_url,
+        sha256: expectedSha256,
       };
 
       MMKVStorage.set(LAST_UPDATE_CHECK_KEY, Date.now());
 
       setLatestRelease(release);
       setChecking(false);
-    } catch (error) {
+    } catch {
       // Silently fail in offline mode or on network errors
       setChecking(false);
     }
-  };
+  }, [latestReleaseUrl]);
 
   const isNewVersion = (versionTag: string) => {
     const currentVersion = `${version}`;
@@ -86,7 +84,7 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
 
   useEffect(() => {
     checkForRelease();
-  }, []);
+  }, [checkForRelease]);
 
   if (!checking && latestRelease?.tag_name) {
     return {

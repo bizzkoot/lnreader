@@ -41,9 +41,16 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
 
   const handleDownload = useCallback(async () => {
     try {
-      setState({ status: 'downloading', progress: { totalBytesWritten: 0, totalBytesExpectedToWrite: 0, percentage: 0 } });
+      setState({
+        status: 'downloading',
+        progress: {
+          totalBytesWritten: 0,
+          totalBytesExpectedToWrite: 0,
+          percentage: 0,
+        },
+      });
 
-      await downloadAndInstallApk(newVersion.downloadUrl, (progress) => {
+      await downloadAndInstallApk(newVersion.downloadUrl, progress => {
         setState({ status: 'downloading', progress });
       });
 
@@ -51,7 +58,8 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
       // Dialog stays visible briefly then closes after install intent is launched
       setTimeout(() => setVisible(false), 1000);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Download failed';
+      const message =
+        error instanceof Error ? error.message : 'Download failed';
       setState({ status: 'error', message });
     }
   }, [newVersion.downloadUrl]);
@@ -81,8 +89,11 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
               color={theme.primary}
               style={styles.progressBar}
             />
-            <Text style={[styles.progressDetail, { color: theme.onSurfaceVariant }]}>
-              {formatBytes(state.progress.totalBytesWritten)} / {formatBytes(state.progress.totalBytesExpectedToWrite)}
+            <Text
+              style={[styles.progressDetail, { color: theme.onSurfaceVariant }]}
+            >
+              {formatBytes(state.progress.totalBytesWritten)} /{' '}
+              {formatBytes(state.progress.totalBytesExpectedToWrite)}
             </Text>
           </View>
         );
@@ -91,7 +102,12 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
         return (
           <View style={styles.progressContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.progressText, { color: theme.onSurface, marginTop: 16 }]}>
+            <Text
+              style={[
+                styles.progressText,
+                { color: theme.onSurface },
+              ]}
+            >
               {getString('common.installing')}...
             </Text>
           </View>
@@ -103,7 +119,12 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
             <Text style={[styles.errorText, { color: theme.error }]}>
               {state.message}
             </Text>
-            <Text style={[styles.progressDetail, { color: theme.onSurfaceVariant, marginTop: 8 }]}>
+            <Text
+              style={[
+                styles.progressDetail,
+                { color: theme.onSurfaceVariant },
+              ]}
+            >
               Try downloading from GitHub instead.
             </Text>
           </View>
@@ -111,7 +132,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
 
       default:
         return (
-          <ScrollView style={{ height: modalHeight }}>
+          <ScrollView style={[styles.scrollView, { height: modalHeight }]}>
             <Text style={[styles.body, { color: theme.onSurfaceVariant }]}>
               {newVersion.body.split('\n').join('\n\n')}
             </Text>
@@ -128,10 +149,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
     if (state.status === 'error') {
       return (
         <View style={styles.buttonCtn}>
-          <Button
-            title={getString('common.cancel')}
-            onPress={handleDismiss}
-          />
+          <Button title={getString('common.cancel')} onPress={handleDismiss} />
           <Button
             title={getString('common.viewOnGithub')}
             onPress={handleViewOnGithub}
@@ -142,10 +160,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
 
     return (
       <View style={styles.buttonCtn}>
-        <Button
-          title={getString('common.later')}
-          onPress={handleDismiss}
-        />
+        <Button title={getString('common.later')} onPress={handleDismiss} />
         <Button
           title={getString('common.viewOnGithub')}
           onPress={handleViewOnGithub}
@@ -161,10 +176,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
 
   return (
     <Portal>
-      <Modal
-        visible={visible}
-        onDismiss={handleDismiss}
-      >
+      <Modal visible={visible} onDismiss={handleDismiss}>
         <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
           {`${getString('common.newUpdateAvailable')} ${newVersion.tag_name}`}
         </Text>
@@ -213,6 +225,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 16,
+  },
+  scrollView: {
+    height: 200, // Default height that will be overridden
   },
   progressBar: {
     width: '100%',

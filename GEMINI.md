@@ -4,9 +4,10 @@
 LNReader is a React Native application for reading light novels.
 
 ## Current Task
-Enhance App Update UI/UX (Completed).
-- **Goal**: Improve the update experience by offering both in-app download and GitHub release viewing.
-- **Approach**: Hybrid model using `expo-file-system` for download and `expo-intent-launcher` for installation, plus corrected GitHub links.
+Dependency Update Audit (Completed).
+- **Goal**: Audit the recent dependency update (React Native 0.82.1, ESLint 9, Jest 30, Prettier 3) for issues.
+- **Result**: All checks passed (TypeScript, ESLint, Jest 94/94, security audit).
+- **Fix Applied**: Updated Husky prepare script from `husky install` to `husky` for v9 compatibility.
 
 ## Key Files
 - `src/screens/more/About.tsx`: "Check for Updates" and "What's New" logic.
@@ -19,3 +20,4 @@ Enhance App Update UI/UX (Completed).
 - Uses `expo-file-system/legacy` for compatibility with v19.
 - Added "Check for Updates" button to About screen.
 - Fixed upstream vs fork link issues (Discord/Sources -> Upstream, Repo -> Fork).
+

@@ -65,26 +65,26 @@ const AccessibilityTab: React.FC = () => {
     if (!isDraggingRate && tts?.rate) {
       sendTTSSettingsToReader({ ...tts, rate: tts.rate });
     }
-  }, [tts?.rate, isDraggingRate]);
+  }, [tts?.rate, isDraggingRate, tts]);
 
   useEffect(() => {
     if (!isDraggingPitch) {
       setLocalPitch(tts?.pitch || 1);
     }
-  }, [tts?.pitch, isDraggingPitch]);
+  }, [tts?.pitch, isDraggingPitch, tts]);
 
   // Send TTS settings to Reader/webview when pitch changes
   useEffect(() => {
     if (!isDraggingPitch && tts?.pitch) {
       sendTTSSettingsToReader({ ...tts, pitch: tts.pitch });
     }
-  }, [tts?.pitch, isDraggingPitch]);
+  }, [tts?.pitch, isDraggingPitch, tts]);
   // Send TTS settings to Reader/webview when voice changes
   useEffect(() => {
     if (tts?.voice) {
       sendTTSSettingsToReader({ ...tts, voice: tts.voice });
     }
-  }, [tts?.voice]);
+  }, [tts?.voice, tts]);
 
   const {
     value: voiceModalVisible,
@@ -256,8 +256,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoResume === 'always'
                     ? 'Always resume'
                     : ttsAutoResume === 'never'
-                      ? 'Never resume'
-                      : 'Ask every time'
+                    ? 'Never resume'
+                    : 'Ask every time'
                 }
                 onPress={showAutoResumeModal}
                 theme={theme}
@@ -272,7 +272,9 @@ const AccessibilityTab: React.FC = () => {
               {/* Voice Rate Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
+                  <Text
+                    style={[styles.sliderLabel, { color: theme.onSurface }]}
+                  >
                     Voice speed
                   </Text>
                   <Text style={[styles.sliderValue, { color: theme.primary }]}>
@@ -285,10 +287,19 @@ const AccessibilityTab: React.FC = () => {
                     onPress={() => {
                       const newValue = Math.max(0.1, localRate - 0.1);
                       setLocalRate(newValue);
-                      setChapterReaderSettings({ tts: { ...tts, rate: newValue } });
+                      setChapterReaderSettings({
+                        tts: { ...tts, rate: newValue },
+                      });
                     }}
                   >
-                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>−</Text>
+                    <Text
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
+                    >
+                      −
+                    </Text>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -303,7 +314,9 @@ const AccessibilityTab: React.FC = () => {
                     onValueChange={setLocalRate}
                     onSlidingComplete={value => {
                       setIsDraggingRate(false);
-                      setChapterReaderSettings({ tts: { ...tts, rate: value } });
+                      setChapterReaderSettings({
+                        tts: { ...tts, rate: value },
+                      });
                     }}
                   />
                   <Pressable
@@ -311,23 +324,55 @@ const AccessibilityTab: React.FC = () => {
                     onPress={() => {
                       const newValue = Math.min(3, localRate + 0.1);
                       setLocalRate(newValue);
-                      setChapterReaderSettings({ tts: { ...tts, rate: newValue } });
+                      setChapterReaderSettings({
+                        tts: { ...tts, rate: newValue },
+                      });
                     }}
                   >
-                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>+</Text>
+                    <Text
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
+                    >
+                      +
+                    </Text>
                   </Pressable>
                 </View>
                 <View style={styles.sliderMarkers}>
-                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Slow</Text>
-                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Normal</Text>
-                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Fast</Text>
+                  <Text
+                    style={[
+                      styles.sliderMarkerText,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    Slow
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sliderMarkerText,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    Normal
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sliderMarkerText,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    Fast
+                  </Text>
                 </View>
               </View>
 
               {/* Voice Pitch Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
+                  <Text
+                    style={[styles.sliderLabel, { color: theme.onSurface }]}
+                  >
                     Voice pitch
                   </Text>
                   <Text style={[styles.sliderValue, { color: theme.primary }]}>
@@ -340,10 +385,19 @@ const AccessibilityTab: React.FC = () => {
                     onPress={() => {
                       const newValue = Math.max(0.1, localPitch - 0.1);
                       setLocalPitch(newValue);
-                      setChapterReaderSettings({ tts: { ...tts, pitch: newValue } });
+                      setChapterReaderSettings({
+                        tts: { ...tts, pitch: newValue },
+                      });
                     }}
                   >
-                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>−</Text>
+                    <Text
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
+                    >
+                      −
+                    </Text>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -358,7 +412,9 @@ const AccessibilityTab: React.FC = () => {
                     onValueChange={setLocalPitch}
                     onSlidingComplete={value => {
                       setIsDraggingPitch(false);
-                      setChapterReaderSettings({ tts: { ...tts, pitch: value } });
+                      setChapterReaderSettings({
+                        tts: { ...tts, pitch: value },
+                      });
                     }}
                   />
                   <Pressable
@@ -366,16 +422,46 @@ const AccessibilityTab: React.FC = () => {
                     onPress={() => {
                       const newValue = Math.min(2, localPitch + 0.1);
                       setLocalPitch(newValue);
-                      setChapterReaderSettings({ tts: { ...tts, pitch: newValue } });
+                      setChapterReaderSettings({
+                        tts: { ...tts, pitch: newValue },
+                      });
                     }}
                   >
-                    <Text style={[styles.sliderButtonText, { color: theme.primary }]}>+</Text>
+                    <Text
+                      style={[
+                        styles.sliderButtonText,
+                        { color: theme.primary },
+                      ]}
+                    >
+                      +
+                    </Text>
                   </Pressable>
                 </View>
                 <View style={styles.sliderMarkers}>
-                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Low</Text>
-                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>Normal</Text>
-                  <Text style={[styles.sliderMarkerText, { color: theme.onSurfaceVariant }]}>High</Text>
+                  <Text
+                    style={[
+                      styles.sliderMarkerText,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    Low
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sliderMarkerText,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    Normal
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sliderMarkerText,
+                      { color: theme.onSurfaceVariant },
+                    ]}
+                  >
+                    High
+                  </Text>
                 </View>
               </View>
 
@@ -410,8 +496,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsScrollPrompt === 'always-ask'
                     ? 'Ask me if I want to change TTS position'
                     : ttsScrollPrompt === 'auto-change'
-                      ? 'Automatically update TTS position'
-                      : 'Never change TTS position'
+                    ? 'Automatically update TTS position'
+                    : 'Never change TTS position'
                 }
                 onPress={showScrollPromptModal}
                 theme={theme}
@@ -427,17 +513,19 @@ const AccessibilityTab: React.FC = () => {
                 theme={theme}
               />
 
-              <List.SubHeader theme={theme}>TTS Chapter Navigation</List.SubHeader>
+              <List.SubHeader theme={theme}>
+                TTS Chapter Navigation
+              </List.SubHeader>
               <List.Item
                 title="Continue to next chapter"
                 description={
                   ttsContinueToNextChapter === 'none'
                     ? 'No (stop at end of chapter)'
                     : ttsContinueToNextChapter === '5'
-                      ? 'Up to 5 chapters'
-                      : ttsContinueToNextChapter === '10'
-                        ? 'Up to 10 chapters'
-                        : 'Continuously (until stopped)'
+                    ? 'Up to 5 chapters'
+                    : ttsContinueToNextChapter === '10'
+                    ? 'Up to 10 chapters'
+                    : 'Continuously (until stopped)'
                 }
                 onPress={showContinueNextChapterModal}
                 theme={theme}
@@ -448,12 +536,12 @@ const AccessibilityTab: React.FC = () => {
                   ttsForwardChapterReset === 'none'
                     ? 'Disabled'
                     : ttsForwardChapterReset === 'reset-next'
-                      ? 'Reset next chapter'
-                      : ttsForwardChapterReset === 'reset-until-5'
-                        ? 'Reset next 5 chapters'
-                        : ttsForwardChapterReset === 'reset-until-10'
-                          ? 'Reset next 10 chapters'
-                          : 'Reset ALL future chapters (Destructive)'
+                    ? 'Reset next chapter'
+                    : ttsForwardChapterReset === 'reset-until-5'
+                    ? 'Reset next 5 chapters'
+                    : ttsForwardChapterReset === 'reset-until-10'
+                    ? 'Reset next 10 chapters'
+                    : 'Reset ALL future chapters (Destructive)'
                 }
                 onPress={showTtsResetModeModal}
                 theme={theme}
@@ -466,8 +554,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoDownload === 'disabled'
                     ? 'Disabled (use app setting)'
                     : ttsAutoDownload === '5'
-                      ? 'When 5 chapters remain'
-                      : 'When 10 chapters remain'
+                    ? 'When 5 chapters remain'
+                    : 'When 10 chapters remain'
                 }
                 onPress={showTtsAutoDownloadModal}
                 theme={theme}
@@ -547,7 +635,11 @@ const AccessibilityTab: React.FC = () => {
           currentValue={ttsContinueToNextChapter}
           onSelect={value =>
             setChapterGeneralSettings({
-              ttsContinueToNextChapter: value as 'none' | '5' | '10' | 'continuous',
+              ttsContinueToNextChapter: value as
+                | 'none'
+                | '5'
+                | '10'
+                | 'continuous',
             })
           }
           options={[
@@ -625,7 +717,10 @@ const AccessibilityTab: React.FC = () => {
             { label: 'Reset next chapter only', value: 'reset-next' },
             { label: 'Reset next 5 chapters', value: 'reset-until-5' },
             { label: 'Reset next 10 chapters', value: 'reset-until-10' },
-            { label: 'Reset ALL future chapters (Warning)', value: 'reset-all' },
+            {
+              label: 'Reset ALL future chapters (Warning)',
+              value: 'reset-all',
+            },
           ]}
         />
       </Portal>

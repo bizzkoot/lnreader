@@ -34,7 +34,12 @@ const Native = {
 };
 
 async function simulateRefill(currentQueue, currentIndex) {
-  console.log('Simulator starting — currentQueue length:', currentQueue.length, 'currentIndex:', currentIndex);
+  console.log(
+    'Simulator starting — currentQueue length:',
+    currentQueue.length,
+    'currentIndex:',
+    currentIndex,
+  );
 
   async function refillQueue() {
     if (currentIndex >= currentQueue.length) {
@@ -51,26 +56,40 @@ async function simulateRefill(currentQueue, currentIndex) {
 
     const remainingCount = currentQueue.length - currentIndex;
     const nextBatchSize = Math.min(BATCH_SIZE, remainingCount);
-    const nextTexts = currentQueue.slice(currentIndex, currentIndex + nextBatchSize);
-    const nextIds = new Array(nextBatchSize).fill(0).map((_, i) => `uid_${currentIndex + i}`);
+    const nextTexts = currentQueue.slice(
+      currentIndex,
+      currentIndex + nextBatchSize,
+    );
+    const nextIds = new Array(nextBatchSize)
+      .fill(0)
+      .map((_, i) => `uid_${currentIndex + i}`);
 
     const maxAddAttempts = 3;
     for (let attempt = 1; attempt <= maxAddAttempts; attempt++) {
       try {
-        console.log(`Simulator: addToBatch attempt ${attempt} for ${nextBatchSize} items`);
+        console.log(
+          `Simulator: addToBatch attempt ${attempt} for ${nextBatchSize} items`,
+        );
         await Native.addToBatch(nextTexts, nextIds);
         console.log('Simulator: addToBatch succeeded');
         currentIndex += nextBatchSize;
         return true;
       } catch (err) {
-        console.warn(`Simulator: addToBatch failed attempt ${attempt}:`, err.message);
-        if (attempt < maxAddAttempts) await new Promise(r => setTimeout(r, 150 * attempt));
+        console.warn(
+          `Simulator: addToBatch failed attempt ${attempt}:`,
+          err.message,
+        );
+        if (attempt < maxAddAttempts)
+          await new Promise(r => setTimeout(r, 150 * attempt));
       }
     }
 
     // After retries: check queue size and try fallback
     const queueSizeAfter = await Native.getQueueSize();
-    console.log('Simulator: queueSizeAfter failed add attempts:', queueSizeAfter);
+    console.log(
+      'Simulator: queueSizeAfter failed add attempts:',
+      queueSizeAfter,
+    );
     if (queueSizeAfter === 0) {
       console.log('Simulator: queue empty — using speakBatch fallback');
       await Native.speakBatch(nextTexts, nextIds);
@@ -79,7 +98,9 @@ async function simulateRefill(currentQueue, currentIndex) {
       return true;
     }
 
-    console.error('Simulator: refill failed after retries and fallback conditions');
+    console.error(
+      'Simulator: refill failed after retries and fallback conditions',
+    );
     return false;
   }
 
@@ -89,11 +110,19 @@ async function simulateRefill(currentQueue, currentIndex) {
     if (!ok) break;
     console.log('Simulator: currentIndex now', currentIndex);
     // artificially consume some native queue to simulate speaking
-    Native._queueSize = Math.max(0, Native._queueSize - Math.floor(Math.random() * 7 + 1));
+    Native._queueSize = Math.max(
+      0,
+      Native._queueSize - Math.floor(Math.random() * 7 + 1),
+    );
     await new Promise(r => setTimeout(r, 120));
   }
 
-  console.log('Simulator finished — index:', currentIndex, 'queue length:', currentQueue.length);
+  console.log(
+    'Simulator finished — index:',
+    currentIndex,
+    'queue length:',
+    currentQueue.length,
+  );
 }
 
 async function run() {
