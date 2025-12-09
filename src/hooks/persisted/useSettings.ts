@@ -29,6 +29,12 @@ export interface AppSettings {
   showLabelsInNav: boolean;
   useFabForContinueReading: boolean;
   disableLoadingAnimations: boolean;
+  /**
+   * UI Scale factor for app-wide text and icon sizing
+   * - Range: 0.8 (smaller) to 1.5 (larger)
+   * - Default: 1.0 (normal)
+   */
+  uiScale: number;
 
   /**
    * Library settings
@@ -189,6 +195,7 @@ const initialAppSettings: AppSettings = {
   showLabelsInNav: true,
   useFabForContinueReading: false,
   disableLoadingAnimations: false,
+  uiScale: 1.0,
 
   /**
    * Library settings

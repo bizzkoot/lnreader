@@ -48,7 +48,6 @@
     "@legendapp/list": "^2.0.16",
     "@react-native-community/slider": "^5.1.1",
     "@react-native-cookies/cookies": "^6.2.1",
-    "@react-native-documents/picker": "^10.1.7",
     "@react-native-google-signin/google-signin": "^16.0.0",
     "@react-native-vector-icons/common": "^12.4.0",
     "@react-native-vector-icons/material-design-icons": "^12.4.0",

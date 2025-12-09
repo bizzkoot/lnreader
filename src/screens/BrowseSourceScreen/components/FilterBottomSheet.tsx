@@ -264,8 +264,8 @@ const FilterItem: React.FC<FilterItemProps> = ({
                     value.include?.includes(val.value)
                       ? true
                       : value.exclude?.includes(val.value)
-                      ? 'indeterminate'
-                      : false
+                        ? 'indeterminate'
+                        : false
                   }
                   onPress={() => {
                     if (value.exclude?.includes(val.value)) {

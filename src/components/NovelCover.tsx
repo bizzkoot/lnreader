@@ -38,20 +38,17 @@ interface DownloadBadgeProps {
   theme: ThemeColors;
 }
 
-type CoverItemDB =
-  | DBNovelInfo & {
-      completeRow?: number;
-    };
+type CoverItemDB = DBNovelInfo & {
+  completeRow?: number;
+};
 
-type CoverItemLibrary =
-  | NovelInfo & {
-      completeRow?: number;
-    };
+type CoverItemLibrary = NovelInfo & {
+  completeRow?: number;
+};
 
-type CoverItemPlugin =
-  | NovelItem & {
-      completeRow?: number;
-    };
+type CoverItemPlugin = NovelItem & {
+  completeRow?: number;
+};
 
 interface INovelCover<TNovel> {
   item: TNovel;

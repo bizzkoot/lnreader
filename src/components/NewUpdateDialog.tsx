@@ -102,12 +102,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
         return (
           <View style={styles.progressContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <Text
-              style={[
-                styles.progressText,
-                { color: theme.onSurface },
-              ]}
-            >
+            <Text style={[styles.progressText, { color: theme.onSurface }]}>
               {getString('common.installing')}...
             </Text>
           </View>
@@ -120,10 +115,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
               {state.message}
             </Text>
             <Text
-              style={[
-                styles.progressDetail,
-                { color: theme.onSurfaceVariant },
-              ]}
+              style={[styles.progressDetail, { color: theme.onSurfaceVariant }]}
             >
               Try downloading from GitHub instead.
             </Text>

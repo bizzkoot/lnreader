@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, StyleSheet, View } from 'react-native';
+import { ScrollView, Text, StyleSheet, View, Pressable } from 'react-native';
+import Slider from '@react-native-community/slider';
 
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
@@ -35,10 +36,15 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     showLabelsInNav,
     hideBackdrop,
     useFabForContinueReading,
+    uiScale = 1.0,
     setAppSettings,
   } = useAppSettings();
 
   const currentMode = themeMode as ThemeMode;
+
+  // UI Scale slider local state
+  const [localUiScale, setLocalUiScale] = useState(uiScale);
+  const [_isDraggingScale, setIsDraggingScale] = useState(false);
 
   /**
    * Accent Color Modal
@@ -227,6 +233,93 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           />
           <List.Divider theme={theme} />
           <List.SubHeader theme={theme}>
+            {getString('common.display')}
+          </List.SubHeader>
+          {/* UI Scale Slider */}
+          <View style={styles.sliderSection}>
+            <View style={styles.sliderLabelRow}>
+              <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
+                UI Scale
+              </Text>
+              <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                {Math.round(localUiScale * 100)}%
+              </Text>
+            </View>
+            <View style={styles.sliderContainer}>
+              <Pressable
+                style={styles.sliderButton}
+                onPress={() => {
+                  const newValue = Math.max(0.8, localUiScale - 0.05);
+                  setLocalUiScale(newValue);
+                  setAppSettings({ uiScale: newValue });
+                }}
+              >
+                <Text
+                  style={[styles.sliderButtonText, { color: theme.primary }]}
+                >
+                  −
+                </Text>
+              </Pressable>
+              <Slider
+                style={styles.slider}
+                value={localUiScale}
+                minimumValue={0.8}
+                maximumValue={1.5}
+                step={0.05}
+                minimumTrackTintColor={theme.primary}
+                maximumTrackTintColor={theme.surfaceVariant}
+                thumbTintColor={theme.primary}
+                onSlidingStart={() => setIsDraggingScale(true)}
+                onValueChange={setLocalUiScale}
+                onSlidingComplete={value => {
+                  setIsDraggingScale(false);
+                  setAppSettings({ uiScale: value });
+                }}
+              />
+              <Pressable
+                style={styles.sliderButton}
+                onPress={() => {
+                  const newValue = Math.min(1.5, localUiScale + 0.05);
+                  setLocalUiScale(newValue);
+                  setAppSettings({ uiScale: newValue });
+                }}
+              >
+                <Text
+                  style={[styles.sliderButtonText, { color: theme.primary }]}
+                >
+                  +
+                </Text>
+              </Pressable>
+            </View>
+            <View style={styles.sliderMarkers}>
+              <Text
+                style={[
+                  styles.sliderMarkerText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                80%
+              </Text>
+              <Text
+                style={[
+                  styles.sliderMarkerText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                100%
+              </Text>
+              <Text
+                style={[
+                  styles.sliderMarkerText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                150%
+              </Text>
+            </View>
+          </View>
+          <List.Divider theme={theme} />
+          <List.SubHeader theme={theme}>
             {getString('appearanceScreen.novelInfo')}
           </List.SubHeader>
           <SettingSwitch
@@ -310,5 +403,56 @@ const styles = StyleSheet.create({
   segmentedControlContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  // UI Scale slider styles
+  sliderSection: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  sliderLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sliderLabel: {
+    fontSize: 16,
+  },
+  sliderValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slider: {
+    flex: 1,
+    height: 48,
+  },
+  sliderButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+  },
+  sliderButtonText: {
+    fontSize: 24,
+    fontWeight: '500',
+    lineHeight: 28,
+  },
+  sliderMarkers: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 48,
+    marginTop: 4,
+  },
+  sliderMarkerText: {
+    fontSize: 12,
   },
 });

@@ -30,7 +30,7 @@ export default function PageNavigationBottomSheet({
 
   const renderItem = ({ item, index }: LegendListRenderItemProps<string>) => {
     const isSelected = index === pageIndex;
-    
+
     const pageItemContainerStyle = {
       backgroundColor: isSelected
         ? theme.isDark

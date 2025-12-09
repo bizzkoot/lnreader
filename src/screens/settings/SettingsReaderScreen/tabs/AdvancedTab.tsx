@@ -142,7 +142,10 @@ if (title) {
           <Pressable
             style={[
               styles.tab,
-              activeCodeTab === 'css' && [styles.activeTab, { borderBottomColor: theme.primary }],
+              activeCodeTab === 'css' && [
+                styles.activeTab,
+                { borderBottomColor: theme.primary },
+              ],
             ]}
             onPress={() => setActiveCodeTab('css')}
             android_ripple={{ color: theme.rippleColor }}
@@ -174,7 +177,10 @@ if (title) {
           <Pressable
             style={[
               styles.tab,
-              activeCodeTab === 'js' && [styles.activeTab, { borderBottomColor: theme.primary }],
+              activeCodeTab === 'js' && [
+                styles.activeTab,
+                { borderBottomColor: theme.primary },
+              ],
             ]}
             onPress={() => setActiveCodeTab('js')}
             android_ripple={{ color: theme.rippleColor }}
@@ -198,7 +204,6 @@ if (title) {
                 },
                 activeCodeTab === 'js' && styles.activeTabLabel,
               ]}
-
             >
               JS
             </Text>

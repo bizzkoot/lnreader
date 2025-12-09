@@ -38,8 +38,8 @@ function CustomBottomTabBar({
         typeof options.tabBarLabel === 'string'
           ? options.tabBarLabel
           : typeof options.title === 'string'
-          ? options.title
-          : route.name;
+            ? options.title
+            : route.name;
 
       return label;
     },

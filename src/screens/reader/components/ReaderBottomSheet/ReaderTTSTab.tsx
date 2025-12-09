@@ -365,8 +365,8 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                   ttsAutoDownload === 'disabled'
                     ? 'Disabled (use app setting)'
                     : ttsAutoDownload === '5'
-                    ? 'When 5 chapters remain'
-                    : 'When 10 chapters remain'
+                      ? 'When 5 chapters remain'
+                      : 'When 10 chapters remain'
                 }
                 onPress={showTtsAutoDownloadModal}
                 theme={theme}

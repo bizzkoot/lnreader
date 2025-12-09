@@ -11,13 +11,13 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Create mock database instance
     mockDb = {
       getAllSync: jest.fn(),
       runSync: jest.fn().mockReturnValue({ lastInsertRowId: 1, changes: 0 }),
     } as any;
-    
+
     // Mock __DEV__
     (global as any).__DEV__ = true;
   });
@@ -30,40 +30,51 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
         { name: 'ttsState' },
       ];
       mockDb.getAllSync.mockReturnValue(mockColumns);
-      
+
       // Import and test the internal function
       const { migration003: migration } = require('../003_add_tts_state');
-      
+
       // We need to access the internal function through the migration
       // This is a bit of a hack but necessary for testing
       const migrationCode = migration.migrate.toString();
-      const columnExistsMatch = migrationCode.match(/const columnExists = \(([\s\S]*?)\n/s);
-      
+      const columnExistsMatch = migrationCode.match(
+        /const columnExists = \(([\s\S]*?)\n/s,
+      );
+
       if (columnExistsMatch) {
         const columnExistsCode = columnExistsMatch[1];
-        const columnExists = new Function('db', 'tableName', 'columnName', columnExistsCode);
-        
+        const columnExists = new Function(
+          'db',
+          'tableName',
+          'columnName',
+          columnExistsCode,
+        );
+
         const result = columnExists(mockDb, 'Chapter', 'ttsState');
         expect(result).toBe(true);
       }
     });
 
     it('should return false when column does not exist', () => {
-      const mockColumns = [
-        { name: 'id' },
-        { name: 'name' },
-      ];
+      const mockColumns = [{ name: 'id' }, { name: 'name' }];
       mockDb.getAllSync.mockReturnValue(mockColumns);
-      
+
       const { migration003: migration } = require('../003_add_tts_state');
-      
+
       const migrationCode = migration.migrate.toString();
-      const columnExistsMatch = migrationCode.match(/const columnExists = \(([\s\S]*?)\n/s);
-      
+      const columnExistsMatch = migrationCode.match(
+        /const columnExists = \(([\s\S]*?)\n/s,
+      );
+
       if (columnExistsMatch) {
         const columnExistsCode = columnExistsMatch[1];
-        const columnExists = new Function('db', 'tableName', 'columnName', columnExistsCode);
-        
+        const columnExists = new Function(
+          'db',
+          'tableName',
+          'columnName',
+          columnExistsCode,
+        );
+
         const result = columnExists(mockDb, 'Chapter', 'ttsState');
         expect(result).toBe(false);
       }
@@ -73,16 +84,23 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
       mockDb.getAllSync.mockImplementation(() => {
         throw new Error('PRAGMA failed');
       });
-      
+
       const { migration003: migration } = require('../003_add_tts_state');
-      
+
       const migrationCode = migration.migrate.toString();
-      const columnExistsMatch = migrationCode.match(/const columnExists = \(([\s\S]*?)\n/s);
-      
+      const columnExistsMatch = migrationCode.match(
+        /const columnExists = \(([\s\S]*?)\n/s,
+      );
+
       if (columnExistsMatch) {
         const columnExistsCode = columnExistsMatch[1];
-        const columnExists = new Function('db', 'tableName', 'columnName', columnExistsCode);
-        
+        const columnExists = new Function(
+          'db',
+          'tableName',
+          'columnName',
+          columnExistsCode,
+        );
+
         const result = columnExists(mockDb, 'Chapter', 'ttsState');
         expect(result).toBe(false);
       }
@@ -91,16 +109,13 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
 
   describe('addColumnSafely', () => {
     it('should add column when it does not exist', () => {
-      mockDb.getAllSync.mockReturnValue([
-        { name: 'id' },
-        { name: 'name' },
-      ]);
+      mockDb.getAllSync.mockReturnValue([{ name: 'id' }, { name: 'name' }]);
       mockDb.runSync.mockReturnValue({ lastInsertRowId: 1, changes: 0 });
-      
+
       migration003.migrate(mockDb);
-      
+
       expect(mockDb.runSync).toHaveBeenCalledWith(
-        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN ttsState TEXT/s)
+        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN ttsState TEXT/s),
       );
     });
 
@@ -111,33 +126,30 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
         { name: 'ttsState' },
       ]);
       mockDb.runSync.mockReturnValue({ lastInsertRowId: 1, changes: 0 });
-      
+
       migration003.migrate(mockDb);
-      
+
       expect(mockDb.runSync).not.toHaveBeenCalledWith(
-        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN ttsState TEXT/s)
+        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN ttsState TEXT/s),
       );
     });
 
     it('should handle ALTER TABLE failure gracefully', () => {
-      mockDb.getAllSync.mockReturnValue([
-        { name: 'id' },
-        { name: 'name' },
-      ]);
+      mockDb.getAllSync.mockReturnValue([{ name: 'id' }, { name: 'name' }]);
       mockDb.runSync.mockImplementation(() => {
         throw new Error('Table does not exist');
       });
-      
+
       // Mock console.warn
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
+
       migration003.migrate(mockDb);
-      
+
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         'Failed to add column ttsState to Chapter table:',
-        expect.any(Error)
+        expect.any(Error),
       );
-      
+
       consoleWarnSpy.mockRestore();
     });
   });
@@ -148,7 +160,9 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
     });
 
     it('should have correct description', () => {
-      expect(migration003.description).toBe('Add ttsState column to Chapter table');
+      expect(migration003.description).toBe(
+        'Add ttsState column to Chapter table',
+      );
     });
 
     it('should have migrate function', () => {
@@ -158,12 +172,9 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
 
   describe('integration', () => {
     it('should complete migration successfully', () => {
-      mockDb.getAllSync.mockReturnValue([
-        { name: 'id' },
-        { name: 'name' },
-      ]);
+      mockDb.getAllSync.mockReturnValue([{ name: 'id' }, { name: 'name' }]);
       mockDb.runSync.mockReturnValue({ lastInsertRowId: 1, changes: 0 });
-      
+
       expect(() => migration003.migrate(mockDb)).not.toThrow();
     });
 
@@ -172,8 +183,12 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
       const multiColumnMigration = {
         ...migration003,
         migrate: (db: SQLiteDatabase) => {
-          const addColumnSafely = (columnName: string, columnDefinition: string) => {
-            const mockColumns = mockDb.getAllSync(`PRAGMA table_info(Chapter)`) || [];
+          const addColumnSafely = (
+            columnName: string,
+            columnDefinition: string,
+          ) => {
+            const mockColumns =
+              mockDb.getAllSync(`PRAGMA table_info(Chapter)`) || [];
             if (!mockColumns.some((col: any) => col.name === columnName)) {
               db.runSync(`
                 ALTER TABLE Chapter 
@@ -186,17 +201,19 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
           addColumnSafely('anotherColumn', 'INTEGER');
         },
       };
-      
+
       multiColumnMigration.migrate(mockDb);
-      
+
       expect(mockDb.runSync).toHaveBeenCalledTimes(2);
       expect(mockDb.runSync).toHaveBeenNthCalledWith(
         1,
-        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN ttsState TEXT/s)
+        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN ttsState TEXT/s),
       );
       expect(mockDb.runSync).toHaveBeenNthCalledWith(
         2,
-        expect.stringMatching(/ALTER TABLE Chapter.*ADD COLUMN anotherColumn INTEGER/s)
+        expect.stringMatching(
+          /ALTER TABLE Chapter.*ADD COLUMN anotherColumn INTEGER/s,
+        ),
       );
     });
   });

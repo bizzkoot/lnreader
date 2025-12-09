@@ -256,8 +256,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoResume === 'always'
                     ? 'Always resume'
                     : ttsAutoResume === 'never'
-                    ? 'Never resume'
-                    : 'Ask every time'
+                      ? 'Never resume'
+                      : 'Ask every time'
                 }
                 onPress={showAutoResumeModal}
                 theme={theme}
@@ -496,8 +496,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsScrollPrompt === 'always-ask'
                     ? 'Ask me if I want to change TTS position'
                     : ttsScrollPrompt === 'auto-change'
-                    ? 'Automatically update TTS position'
-                    : 'Never change TTS position'
+                      ? 'Automatically update TTS position'
+                      : 'Never change TTS position'
                 }
                 onPress={showScrollPromptModal}
                 theme={theme}
@@ -522,10 +522,10 @@ const AccessibilityTab: React.FC = () => {
                   ttsContinueToNextChapter === 'none'
                     ? 'No (stop at end of chapter)'
                     : ttsContinueToNextChapter === '5'
-                    ? 'Up to 5 chapters'
-                    : ttsContinueToNextChapter === '10'
-                    ? 'Up to 10 chapters'
-                    : 'Continuously (until stopped)'
+                      ? 'Up to 5 chapters'
+                      : ttsContinueToNextChapter === '10'
+                        ? 'Up to 10 chapters'
+                        : 'Continuously (until stopped)'
                 }
                 onPress={showContinueNextChapterModal}
                 theme={theme}
@@ -536,12 +536,12 @@ const AccessibilityTab: React.FC = () => {
                   ttsForwardChapterReset === 'none'
                     ? 'Disabled'
                     : ttsForwardChapterReset === 'reset-next'
-                    ? 'Reset next chapter'
-                    : ttsForwardChapterReset === 'reset-until-5'
-                    ? 'Reset next 5 chapters'
-                    : ttsForwardChapterReset === 'reset-until-10'
-                    ? 'Reset next 10 chapters'
-                    : 'Reset ALL future chapters (Destructive)'
+                      ? 'Reset next chapter'
+                      : ttsForwardChapterReset === 'reset-until-5'
+                        ? 'Reset next 5 chapters'
+                        : ttsForwardChapterReset === 'reset-until-10'
+                          ? 'Reset next 10 chapters'
+                          : 'Reset ALL future chapters (Destructive)'
                 }
                 onPress={showTtsResetModeModal}
                 theme={theme}
@@ -554,8 +554,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoDownload === 'disabled'
                     ? 'Disabled (use app setting)'
                     : ttsAutoDownload === '5'
-                    ? 'When 5 chapters remain'
-                    : 'When 10 chapters remain'
+                      ? 'When 5 chapters remain'
+                      : 'When 10 chapters remain'
                 }
                 onPress={showTtsAutoDownloadModal}
                 theme={theme}

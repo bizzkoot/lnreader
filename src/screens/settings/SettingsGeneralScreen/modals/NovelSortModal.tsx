@@ -41,8 +41,8 @@ const NovelSortModal: React.FC<NovelSortModalProps> = ({
               sortOrder === item.ASC
                 ? 'asc'
                 : sortOrder === item.DESC
-                ? 'desc'
-                : undefined
+                  ? 'desc'
+                  : undefined
             }
             onPress={() =>
               setLibrarySettings({

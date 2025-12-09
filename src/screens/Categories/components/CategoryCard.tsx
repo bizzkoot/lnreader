@@ -73,12 +73,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               {category.name}
             </Text>
             {category.id === 2 && (
-              <Badge
-                style={[
-                  styles.badge,
-                  { backgroundColor: theme.primary },
-                ]}
-              >
+              <Badge style={[styles.badge, { backgroundColor: theme.primary }]}>
                 System
               </Badge>
             )}

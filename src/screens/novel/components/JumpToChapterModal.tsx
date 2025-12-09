@@ -215,8 +215,8 @@ const JumpToChapterModal = ({
                 borderColor: error
                   ? theme.error
                   : inputFocused
-                  ? theme.primary
-                  : theme.outline,
+                    ? theme.primary
+                    : theme.outline,
                 borderWidth: borderWidth,
                 margin: margin,
               },
