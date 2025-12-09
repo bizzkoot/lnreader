@@ -18,7 +18,7 @@
     "format": "prettier --write \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
     "format:check": "prettier --check \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
     "type-check": "tsc --noEmit",
-    "test": "jest --passWithNoTests",
+    "test": "jest --passWithNoTests && node ./scripts/tts_wake_cycle_test.js",
     "test:tts-refill": "node ./scripts/tts_refill_simulator.js",
     "test:tts-wake-cycle": "node ./scripts/tts_wake_cycle_test.js",
     "clean:full": "rm -rf node_modules/ ./android/build/ ./android/app/build/ ./android/app/.cxx && pnpm i && cd android/ && ./gradlew clean && cd .. && pnpm run dev:start -- --reset-cache",

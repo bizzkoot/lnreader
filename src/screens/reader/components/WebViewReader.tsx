@@ -167,7 +167,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     },
     // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
     // when progress is saved (which would update savedParagraphIndex)
-    [chapter.id, savedParagraphIndex],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapter.id],
   );
 
   // NEW: Create a stable chapter object that doesn't update on progress changes
@@ -179,7 +180,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // The key is that this object reference (and its stringified version)
       // won't change unless chapter.id changes
     }),
-    [chapter],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapter.id],
   );
 
   const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
