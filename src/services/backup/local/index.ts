@@ -1,8 +1,8 @@
 import { showToast } from '@utils/showToast';
-import dayjs from 'dayjs';
+// import dayjs from 'dayjs';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import { Share, Platform } from 'react-native';
+import { Share } from 'react-native';
 
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
 import NativeZipArchive from '@specs/NativeZipArchive';
