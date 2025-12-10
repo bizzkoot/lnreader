@@ -5,7 +5,8 @@ import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 import { Button, Modal } from '@components/index';
 
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { getString } from '@strings/translations';
 import { getCategoriesWithCount } from '@database/queries/CategoryQueries';
@@ -34,6 +35,33 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
   const { navigate } = useNavigation<NavigationProp<RootStackParamList>>();
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [categories = [], setCategories] = useState<CCategory[]>();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        divider: { height: 1, width: '90%', marginLeft: '5%' },
+        btnContainer: {
+          flexDirection: 'row',
+          marginTop: scaleDimension(20, uiScale),
+        },
+        checkboxView: {
+          marginBottom: scaleDimension(5, uiScale),
+        },
+        flex: {
+          flex: 1,
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(20, uiScale),
+        },
+        modelOption: {
+          fontSize: scaleDimension(15, uiScale),
+          marginVertical: scaleDimension(10, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const getCategories = useCallback(async () => {
     const res = getCategoriesWithCount(novelIds);
@@ -125,25 +153,3 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
 };
 
 export default SetCategoryModal;
-
-const styles = StyleSheet.create({
-  divider: { height: 1, width: '90%', marginLeft: '5%' },
-  btnContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  checkboxView: {
-    marginBottom: 5,
-  },
-  flex: {
-    flex: 1,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  modelOption: {
-    fontSize: 15,
-    marginVertical: 10,
-  },
-});

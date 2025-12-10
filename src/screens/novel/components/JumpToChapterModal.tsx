@@ -9,7 +9,8 @@ import { getString } from '@strings/translations';
 import { Button, Modal, SwitchItem } from '@components';
 
 import { Portal, Text } from 'react-native-paper';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { NovelScreenProps } from '@navigators/types';
 import {
@@ -45,6 +46,48 @@ const JumpToChapterModal = ({
 
   const inputRef = useRef<RNTextInput>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        dateCtn: {
+          fontSize: scaleDimension(12, uiScale),
+          marginTop: scaleDimension(2, uiScale),
+        },
+        errorText: {
+          paddingTop: scaleDimension(12, uiScale),
+        },
+        flashlist: {
+          borderBottomWidth: 1,
+          borderTopWidth: 1,
+          height: scaleDimension(300, uiScale),
+          marginTop: scaleDimension(8, uiScale),
+        },
+        listContentCtn: {
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        listElementContainer: {
+          paddingVertical: scaleDimension(12, uiScale),
+        },
+        modalFooterCtn: {
+          flexDirection: 'row-reverse',
+          paddingTop: scaleDimension(8, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+        textInput: {
+          borderRadius: scaleDimension(4, uiScale),
+          borderStyle: 'solid',
+          fontSize: scaleDimension(16, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(10, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   useEffect(() => {
     if (modalVisible && novel?.id) {
@@ -247,7 +290,7 @@ const JumpToChapterModal = ({
           <View style={[styles.flashlist, { borderColor: theme.outline }]}>
             <LegendList
               recycleItems
-              estimatedItemSize={70}
+              estimatedItemSize={scaleDimension(70, uiScale)}
               data={result}
               extraData={openChapter}
               renderItem={renderItem}
@@ -266,40 +309,3 @@ const JumpToChapterModal = ({
 };
 
 export default JumpToChapterModal;
-
-const styles = StyleSheet.create({
-  dateCtn: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  errorText: {
-    paddingTop: 12,
-  },
-  flashlist: {
-    borderBottomWidth: 1,
-    borderTopWidth: 1,
-    height: 300,
-    marginTop: 8,
-  },
-  listContentCtn: {
-    paddingVertical: 8,
-  },
-  listElementContainer: {
-    paddingVertical: 12,
-  },
-  modalFooterCtn: {
-    flexDirection: 'row-reverse',
-    paddingTop: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  textInput: {
-    borderRadius: 4,
-    borderStyle: 'solid',
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-});

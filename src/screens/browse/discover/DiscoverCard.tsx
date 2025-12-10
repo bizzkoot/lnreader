@@ -11,6 +11,8 @@ import { getString } from '@strings/translations';
 import { Button } from '@components';
 
 import { ThemeColors } from '@theme/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface Props {
   trackerName: string;
@@ -25,6 +27,34 @@ const DiscoverCard: React.FC<Props> = ({
   trackerName,
   onPress,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          padding: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(12, uiScale),
+        },
+        details: {
+          marginLeft: scaleDimension(16, uiScale),
+        },
+        flexRow: {
+          alignItems: 'center',
+          flexDirection: 'row',
+        },
+        icon: {
+          borderRadius: scaleDimension(4, uiScale),
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Pressable
       style={styles.container}
@@ -49,25 +79,3 @@ const DiscoverCard: React.FC<Props> = ({
 };
 
 export default DiscoverCard;
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingVertical: 12,
-  },
-  details: {
-    marginLeft: 16,
-  },
-  flexRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  icon: {
-    borderRadius: 4,
-    height: 40,
-    width: 40,
-  },
-});
