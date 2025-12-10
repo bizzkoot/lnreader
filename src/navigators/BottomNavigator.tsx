@@ -13,11 +13,13 @@ import { BottomNavigatorParamList } from './types';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { MaterialDesignIconName } from '@type/icon';
 import { BottomTabBar } from '@components';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 const Tab = createBottomTabNavigator<BottomNavigatorParamList>();
 
 const BottomNavigator = () => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
 
   const {
     showHistoryTab = true,
@@ -54,9 +56,9 @@ const BottomNavigator = () => {
           iconName = 'circle';
       }
 
-      return <Icon name={iconName} color={color} size={24} />;
+      return <Icon name={iconName} color={color} size={iconSize.md} />;
     },
-    [],
+    [iconSize.md],
   );
 
   return (

@@ -3,21 +3,24 @@ console.log('Testing TTS screen wake fix...');
 
 // Check if fixes are present in core.js
 const fs = require('fs');
-const content = fs.readFileSync('android/app/src/main/assets/js/core.js', 'utf8');
+const content = fs.readFileSync(
+  'android/app/src/main/assets/js/core.js',
+  'utf8',
+);
 
 const fixes = [
   {
     name: 'highlightParagraph fix',
-    pattern: /Auto-scroll reset after highlight/
+    pattern: /Auto-scroll reset after highlight/,
   },
   {
     name: 'changeParagraphPosition fix',
-    pattern: /Auto-scroll reset after position change/
+    pattern: /Auto-scroll reset after position change/,
   },
   {
     name: 'restoreState fix',
-    pattern: /Auto-scroll reset after restore state/
-  }
+    pattern: /Auto-scroll reset after restore state/,
+  },
 ];
 
 console.log('\nChecking for fixes in core.js:');
@@ -30,16 +33,19 @@ fixes.forEach(fix => {
 });
 
 // Check WebViewReader fixes
-const webViewContent = fs.readFileSync('src/screens/reader/components/WebViewReader.tsx', 'utf8');
+const webViewContent = fs.readFileSync(
+  'src/screens/reader/components/WebViewReader.tsx',
+  'utf8',
+);
 const webViewFixes = [
   {
     name: 'Screen wake sync fix 1',
-    pattern: /window\.tts\.isAutoScrolling = false;/
+    pattern: /window\.tts\.isAutoScrolling = false;/,
   },
   {
     name: 'Screen wake sync fix 2',
-    pattern: /window\.tts\.isAutoScrolling = false;/g
-  }
+    pattern: /window\.tts\.isAutoScrolling = false;/g,
+  },
 ];
 
 console.log('\nChecking for fixes in WebViewReader.tsx:');

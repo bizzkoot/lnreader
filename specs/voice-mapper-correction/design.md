@@ -1,19 +1,26 @@
 # Design: Voice Mapper Correction
+
 ## ADRs (Architectural Decision Records)
+
 ### ADR-001: Replace Google-Only Mapping with Multi-Platform Structure
+
 Status: Proposed | Context: Current mapping only covers Google TTS with fabricated identifiers | Decision: Use authoritative web-speech-recommended-voices data structure | Rationale: Ensures compatibility with actual browser voices and broad platform support
 Requirements: REQ-VMAP-001,002 | Confidence: 95% | Alternatives: Keep current structure, Use platform-specific mappers
 
 ### ADR-002: Adopt Repository-Driven Voice Data
+
 Status: Proposed | Context: Voice data changes frequently as browsers update | Decision: Structure mapping to align with web-speech-recommended-voices JSON format | Rationale: Future-proof mapping and easier maintenance
 Requirements: REQ-VMAP-002, NFR-VMAP-MAINT-001 | Confidence: 90% | Alternatives: Hard-coded mapping, Runtime voice detection only
 
 ### ADR-003: Hierarchical Voice Fallback Strategy
+
 Status: Proposed | Context: Not all voices available on all platforms | Decision: Implement region → quality → gender fallback chain | Rationale: Provides consistent experience across devices
 Requirements: AC-VMAP-002-03, AC-VMAP-004-03 | Confidence: 85% | Alternatives: No fallback, Random selection, Platform default only
 
 ## Components
+
 ### Modified: VoiceMapping Interface → Fulfills: AC-VMAP-003-01
+
 Changes: Add platform, quality, and language fields for better classification
 
 ```typescript
@@ -49,7 +56,9 @@ export interface VoiceMapping {
 ```
 
 ### New: VoiceDatabase → Responsibility: Centralized voice management from authoritative source
+
 Interface (EARS Behavioral Contracts):
+
 ```typescript
 interface VoiceDatabase {
   // WHEN database loads, SHALL initialize with web-speech-recommended-voices data
@@ -67,7 +76,9 @@ interface VoiceDatabase {
 ```
 
 ### Modified: VoiceMapperService → Responsibility: Map browser voices to normalized voice data
+
 Interface (EARS Behavioral Contracts):
+
 ```typescript
 interface VoiceMapperService {
   // WHEN browser voices enumerated, SHALL map to normalized voice data
@@ -82,14 +93,16 @@ interface VoiceMapperService {
 ```
 
 ## API Matrix (EARS Behavioral Specifications)
-| Method | EARS Contract | Performance | Platform | Test Strategy |
-|--------|---------------|-------------|----------|---------------|
-| getVoiceById() | WHEN valid ID provided, SHALL return VoiceMapping within 5ms | <5ms | Cross-platform | Unit+Mock |
-| mapBrowserVoices() | WHEN voices array passed, SHALL return normalized list within 50ms | <50ms | All browsers | Integration |
-| findBestMatch() | WHERE criteria matches multiple voices, SHALL return highest quality option | <10ms | Cross-platform | Unit+Property |
-| getVoicesByLanguage() | WHEN language code valid, SHALL return regional voices within 10ms | <10ms | All locales | Unit+EdgeCase |
+
+| Method                | EARS Contract                                                               | Performance | Platform       | Test Strategy |
+| --------------------- | --------------------------------------------------------------------------- | ----------- | -------------- | ------------- |
+| getVoiceById()        | WHEN valid ID provided, SHALL return VoiceMapping within 5ms                | <5ms        | Cross-platform | Unit+Mock     |
+| mapBrowserVoices()    | WHEN voices array passed, SHALL return normalized list within 50ms          | <50ms       | All browsers   | Integration   |
+| findBestMatch()       | WHERE criteria matches multiple voices, SHALL return highest quality option | <10ms       | Cross-platform | Unit+Property |
+| getVoicesByLanguage() | WHEN language code valid, SHALL return regional voices within 10ms          | <10ms       | All locales    | Unit+EdgeCase |
 
 ## Data Flow + Traceability
+
 1. VoiceDatabase.load() → REQ-VMAP-001 (Correct Identifiers)
 2. Browser Voice Detection → REQ-VMAP-002 (Multi-Platform Support)
 3. Voice Mapping Normalization → REQ-VMAP-003 (Accurate Metadata)
@@ -97,6 +110,7 @@ interface VoiceMapperService {
 5. Fallback Selection → AC-VMAP-002-03 (Graceful Degradation)
 
 ## Voice Mapping Structure
+
 ```typescript
 export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
   // Microsoft Edge (Natural Neural Voices) - Extract base names, avoid duplicates
@@ -111,7 +125,9 @@ export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
     gender: 'female',
     quality: 'veryHigh',
     style: 'Natural',
-    getDisplayDisplayName: function() { return this.displayName; }
+    getDisplayDisplayName: function () {
+      return this.displayName;
+    },
   },
 
   // Apple Voices - Using exact names from repository
@@ -126,7 +142,9 @@ export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
     gender: 'female',
     quality: 'high',
     style: 'Clear',
-    getDisplayDisplayName: function() { return this.displayName; }
+    getDisplayDisplayName: function () {
+      return this.displayName;
+    },
   },
 
   // Google Voices - Extract base names, avoid duplicates
@@ -142,7 +160,9 @@ export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
     quality: 'high',
     style: 'Natural',
     nativeIds: ['en-US-Standard-A'],
-    getDisplayDisplayName: function() { return this.displayName; }
+    getDisplayDisplayName: function () {
+      return this.displayName;
+    },
   },
 
   // UK English Examples - All use ENGLISH, different regions
@@ -157,7 +177,9 @@ export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
     gender: 'female',
     quality: 'veryHigh',
     style: 'Warm',
-    getDisplayDisplayName: function() { return this.displayName; }
+    getDisplayDisplayName: function () {
+      return this.displayName;
+    },
   },
 
   // Australian English Examples - All use ENGLISH
@@ -172,7 +194,9 @@ export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
     gender: 'female',
     quality: 'veryHigh',
     style: 'Natural',
-    getDisplayDisplayName: function() { return this.displayName; }
+    getDisplayDisplayName: function () {
+      return this.displayName;
+    },
   },
 
   // European English Examples - Use ENGLISH (EU)
@@ -187,8 +211,10 @@ export const AUTHORITATIVE_VOICE_MAP: Record<string, VoiceMapping> = {
     gender: 'female',
     quality: 'high',
     style: 'Professional',
-    getDisplayDisplayName: function() { return this.displayName; }
-  }
+    getDisplayDisplayName: function () {
+      return this.displayName;
+    },
+  },
 };
 
 // Helper function to generate display names
@@ -196,13 +222,14 @@ export const generateDisplayName = (
   languageName: string,
   region: string,
   name: string,
-  quality: string
+  quality: string,
 ): string => {
   return `${languageName} (${region}) ${name} - ${quality}`;
 };
 ```
 
 ## Quality Gates
+
 - ADRs: >90% confidence to requirements
 - Interfaces: trace to acceptance criteria with EARS contracts
 - Data Structure: aligns with web-speech-recommended-voices format

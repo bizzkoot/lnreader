@@ -10,6 +10,7 @@ import {
 import { NovelItem } from '@plugins/types';
 import { NovelInfo } from '../database/types';
 import { useDeviceOrientation } from '@hooks';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 export type NovelListRenderItem = ListRenderItem<NovelInfo | NovelItem>;
 
@@ -22,10 +23,24 @@ interface NovelListProps extends FlatListProps<NovelInfo | NovelItem> {
   data: Array<listDataItem>;
 }
 
-const NovelList: React.FC<NovelListProps> = props => {
+const getStyles = (
+  padding: ReturnType<typeof useScaledDimensions>['padding'],
+) =>
+  StyleSheet.create({
+    flatListCont: {
+      flexGrow: 1,
+      paddingBottom: padding.xl,
+    },
+    listView: {
+      paddingHorizontal: padding.sm,
+    },
+  });
+
+const NovelListComponent: React.FC<NovelListProps> = props => {
   const { displayMode = DisplayModes.Comfortable, novelsPerRow = 3 } =
     useLibrarySettings();
   const orientation = useDeviceOrientation();
+  const { padding } = useScaledDimensions();
 
   const isListView = displayMode === DisplayModes.List;
 
@@ -65,6 +80,8 @@ const NovelList: React.FC<NovelListProps> = props => {
     extendedNovelList = [...props.data, ...extension];
   }
 
+  const styles = getStyles(padding);
+
   return (
     <FlatList
       contentContainerStyle={[
@@ -80,14 +97,4 @@ const NovelList: React.FC<NovelListProps> = props => {
   );
 };
 
-export default NovelList;
-
-const styles = StyleSheet.create({
-  flatListCont: {
-    flexGrow: 1,
-    paddingBottom: 56,
-  },
-  listView: {
-    paddingHorizontal: 4,
-  },
-});
+export default NovelListComponent;

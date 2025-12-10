@@ -14,6 +14,7 @@ describe('TTSExitDialog', () => {
         jest.doMock('react-native', () => ({
           StyleSheet: { create: jest.fn(s => s) },
           View: 'View',
+          Platform: { select: (objs: any) => objs.ios || objs.default },
         }));
         jest.doMock('react-native-paper', () => ({
           Dialog: { Title: 'Dialog.Title', Content: 'Dialog.Content' },
@@ -37,6 +38,7 @@ describe('TTSExitDialog', () => {
         jest.doMock('react-native', () => ({
           StyleSheet: { create: jest.fn(s => s) },
           View: 'View',
+          Platform: { select: (objs: any) => objs.ios || objs.default },
         }));
         jest.doMock('react-native-paper', () => ({
           Dialog: { Title: 'Dialog.Title', Content: 'Dialog.Content' },

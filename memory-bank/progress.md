@@ -20,8 +20,6 @@
 
 ## Doing
 
-
-
 ## Next
 
 - Consider implementing SSL pinning when dependencies are stable

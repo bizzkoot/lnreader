@@ -32,7 +32,7 @@ jest.mock('react-native', () => ({
 jest.mock('react-native-webview', () => {
   const React = require('react');
   const { View } = require('react-native');
-  return React.forwardRef((props, ref) => {
+  return React.forwardRef((props: any, ref: any) => {
     if (ref && typeof ref === 'object') {
       ref.current = {
         injectJavaScript: jest.fn(),
@@ -231,26 +231,6 @@ describe('WebViewReader Event Handlers', () => {
 
   const renderComponent = () => {
     return render(<WebViewReader onPress={jest.fn()} />);
-  };
-
-  /**
-   * Helper to simulate playing a sequence of paragraphs.
-   * This sets up internal refs by simulating start events.
-   */
-  const simulatePlayback = (
-    currentIdx: number,
-    queueStart = 0,
-    queueLength = 5,
-  ) => {
-    // We can't easily set refs directly, so we use onSpeechStart to set currentParagraphIndexRef
-    // But onSpeechStart also triggers injection.
-    if (listeners['onSpeechStart']) {
-      listeners['onSpeechStart']({
-        utteranceId: `chapter_10_utterance_${currentIdx}`,
-      });
-    }
-    // Note: We can't easily mock ttsQueueRef without exposing it or mocking a setter
-    // For now, we assume implicit queue behavior or rely on fallback
   };
 
   /**

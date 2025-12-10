@@ -6,7 +6,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { useAppSettings } from '@hooks/persisted';
-import { scaleFont } from '@theme/fonts';
+import { scaleDimension } from '@theme/scaling';
 
 export interface AppTextProps extends RNTextProps {
   /**
@@ -55,9 +55,10 @@ export const Text: React.FC<AppTextProps> = ({
     const baseFontSize = size ?? flatStyle?.fontSize ?? 14;
     const baseLineHeight = flatStyle?.lineHeight;
 
-    const scaledFontSize = scaleFont(baseFontSize, uiScale);
+    // Apply app scale
+    const scaledFontSize = scaleDimension(baseFontSize, uiScale);
     const scaledLineHeight = baseLineHeight
-      ? scaleFont(baseLineHeight, uiScale)
+      ? scaleDimension(baseLineHeight, uiScale)
       : undefined;
 
     return [
@@ -70,7 +71,7 @@ export const Text: React.FC<AppTextProps> = ({
   }, [style, size, uiScale, disableScale]);
 
   return (
-    <RNText style={scaledStyle} {...props}>
+    <RNText style={scaledStyle} allowFontScaling={false} {...props}>
       {children}
     </RNText>
   );

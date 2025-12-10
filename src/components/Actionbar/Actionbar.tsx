@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { MaterialDesignIconName } from '@type/icon';
 import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 type Action = {
   icon: MaterialDesignIconName;
@@ -23,18 +24,36 @@ interface ActionbarProps {
   viewStyle?: StyleProp<ViewStyle>;
 }
 
+const getStyles = (borderRadius: number) =>
+  StyleSheet.create({
+    actionbarContainer: {
+      alignItems: 'center',
+      borderTopLeftRadius: borderRadius,
+      borderTopRightRadius: borderRadius,
+      bottom: 0,
+      elevation: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      position: 'absolute',
+      width: Dimensions.get('window').width,
+    },
+  });
+
 export const Actionbar: React.FC<ActionbarProps> = ({
   active,
   actions,
   viewStyle,
 }) => {
   const theme = useTheme();
+  const { iconSize, borderRadius } = useScaledDimensions();
 
   const { bottom } = useSafeAreaInsets();
 
   if (!active) {
     return null;
   }
+  const styles = getStyles(borderRadius.lg);
+
   return (
     <Animated.View
       entering={SlideInDown.duration(150)}
@@ -43,7 +62,7 @@ export const Actionbar: React.FC<ActionbarProps> = ({
         styles.actionbarContainer,
         {
           backgroundColor: theme.surface2,
-          minHeight: 80 + bottom,
+          minHeight: iconSize.lg + bottom,
           paddingBottom: bottom,
         },
         viewStyle,
@@ -53,7 +72,7 @@ export const Actionbar: React.FC<ActionbarProps> = ({
         <Pressable
           key={id}
           android_ripple={{
-            radius: 50,
+            radius: iconSize.lg,
             color: theme.rippleColor,
             borderless: true,
           }}
@@ -62,24 +81,10 @@ export const Actionbar: React.FC<ActionbarProps> = ({
           <MaterialCommunityIcons
             name={icon}
             color={theme.onSurface}
-            size={24}
+            size={iconSize.md}
           />
         </Pressable>
       ))}
     </Animated.View>
   );
 };
-
-const styles = StyleSheet.create({
-  actionbarContainer: {
-    alignItems: 'center',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    bottom: 0,
-    elevation: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    position: 'absolute',
-    width: Dimensions.get('window').width,
-  },
-});

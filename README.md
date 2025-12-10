@@ -42,7 +42,6 @@
   <em>Android 7.0 or higher.</em>
 </p>
 
-
 **Table of Contents**
 
 - [Screenshots](#screenshots)
@@ -55,8 +54,6 @@
 - [Building & Contributing](#building--contributing)
 - [License](#license)
 
-
-
 <h2 align="center">Screenshots</h2>
 
 <p align="center">
@@ -67,17 +64,17 @@
 
 ### TTS Feature Highlights
 
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 🎯 **Draggable Button** | TTS controls remember position across sessions | ✅ Implemented |
-| 🔊 **Background Playback** | Continue listening with screen off or app in background | ✅ Android 14+ Compatible |
-| 📖 **Auto-scroll Sync** | Text follows audio playback in real-time | ✅ Enhanced |
-| 🎵 **Voice Management** | Human-readable voice names and model sanitization | ✅ Improved |
-| 🔤 **Highlight Paragraph** | Visually highlights the active paragraph while reading | ✅ Implemented |
-| 📥 **Auto Chapter Download** | Auto-download next chapters when queue gets low to avoid gaps | ✅ Implemented |
-| 🎚️ **Speed & Pitch Controls** | Fine-grained voice speed and pitch settings | ✅ Available |
-| ⚡ **Auto Resume** | Automatically resume playback after interruptions | ✅ Added |
-| 🔄 **Direct Updates** | Bottom panel updates instantly with new settings | ✅ Optimized |
+| Feature                       | Description                                                   | Status                    |
+| ----------------------------- | ------------------------------------------------------------- | ------------------------- |
+| 🎯 **Draggable Button**       | TTS controls remember position across sessions                | ✅ Implemented            |
+| 🔊 **Background Playback**    | Continue listening with screen off or app in background       | ✅ Android 14+ Compatible |
+| 📖 **Auto-scroll Sync**       | Text follows audio playback in real-time                      | ✅ Enhanced               |
+| 🎵 **Voice Management**       | Human-readable voice names and model sanitization             | ✅ Improved               |
+| 🔤 **Highlight Paragraph**    | Visually highlights the active paragraph while reading        | ✅ Implemented            |
+| 📥 **Auto Chapter Download**  | Auto-download next chapters when queue gets low to avoid gaps | ✅ Implemented            |
+| 🎚️ **Speed & Pitch Controls** | Fine-grained voice speed and pitch settings                   | ✅ Available              |
+| ⚡ **Auto Resume**            | Automatically resume playback after interruptions             | ✅ Added                  |
+| 🔄 **Direct Updates**         | Bottom panel updates instantly with new settings              | ✅ Optimized              |
 
 ## TTS Feature Demo
 
@@ -99,9 +96,9 @@
 
 <div align="center">
 
-| <div align="center"><img src="./.github/readme-images/TTS/TTS-Bottom Pabel Setting.jpg" alt="TTS Bottom Panel Settings" width="220"><br><strong>Bottom Panel Settings</strong><br>Customize TTS controls and behavior.</div> | <div align="center"><img src="./.github/readme-images/TTS/TTS-Sanitize Voice Model.jpg" alt="TTS Voice Model Settings" width="220"><br><strong>Voice Model Management</strong><br>Sanitize and organize voice options with human-readable names.</div> | <div align="center"><img src="./.github/readme-images/TTS/Auto-scrolling_During TTS.gif" alt="Auto-scrolling During TTS" width="220"><br><strong>Auto-scrolling</strong><br>Text follows TTS playback automatically for an immersive reading experience.</div> |
-|---|---|---|
-| <div align="center"><img src="./.github/readme-images/TTS/Auto-Chapter-Download.gif" alt="Auto Chapter Download" width="220"><br><strong>Auto Chapter Download</strong><br>Seamless chapter fetching during reading to avoid interruptions.</div> | <div align="center"><img src="./.github/readme-images/TTS/TTS-Settings.gif" alt="TTS Settings Interface" width="220"><br><strong>TTS Settings Interface</strong><br>Comprehensive settings panel with auto-resume, scroll sync, and more.</div> |  |
+| <div align="center"><img src="./.github/readme-images/TTS/TTS-Bottom Pabel Setting.jpg" alt="TTS Bottom Panel Settings" width="220"><br><strong>Bottom Panel Settings</strong><br>Customize TTS controls and behavior.</div>                      | <div align="center"><img src="./.github/readme-images/TTS/TTS-Sanitize Voice Model.jpg" alt="TTS Voice Model Settings" width="220"><br><strong>Voice Model Management</strong><br>Sanitize and organize voice options with human-readable names.</div> | <div align="center"><img src="./.github/readme-images/TTS/Auto-scrolling_During TTS.gif" alt="Auto-scrolling During TTS" width="220"><br><strong>Auto-scrolling</strong><br>Text follows TTS playback automatically for an immersive reading experience.</div> |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <div align="center"><img src="./.github/readme-images/TTS/Auto-Chapter-Download.gif" alt="Auto Chapter Download" width="220"><br><strong>Auto Chapter Download</strong><br>Seamless chapter fetching during reading to avoid interruptions.</div> | <div align="center"><img src="./.github/readme-images/TTS/TTS-Settings.gif" alt="TTS Settings Interface" width="220"><br><strong>TTS Settings Interface</strong><br>Comprehensive settings panel with auto-resume, scroll sync, and more.</div>        |                                                                                                                                                                                                                                                                |
 
 </div>
 
@@ -109,15 +106,14 @@
 
 ### TTS Feature Highlights
 
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 🎯 **Draggable Button** | TTS controls remember position across sessions | ✅ Implemented |
+| Feature                    | Description                                             | Status                    |
+| -------------------------- | ------------------------------------------------------- | ------------------------- |
+| 🎯 **Draggable Button**    | TTS controls remember position across sessions          | ✅ Implemented            |
 | 🔊 **Background Playback** | Continue listening with screen off or app in background | ✅ Android 14+ Compatible |
-| 📖 **Auto-scroll Sync** | Text follows audio playback in real-time | ✅ Enhanced |
-| 🎵 **Voice Management** | Human-readable voice names and model sanitization | ✅ Improved |
-| ⚡ **Auto Resume** | Automatically resume playback after interruptions | ✅ Added |
-| 🔄 **Direct Updates** | Bottom panel updates instantly with new settings | ✅ Optimized |
-
+| 📖 **Auto-scroll Sync**    | Text follows audio playback in real-time                | ✅ Enhanced               |
+| 🎵 **Voice Management**    | Human-readable voice names and model sanitization       | ✅ Improved               |
+| ⚡ **Auto Resume**         | Automatically resume playback after interruptions       | ✅ Added                  |
+| 🔄 **Direct Updates**      | Bottom panel updates instantly with new settings        | ✅ Optimized              |
 
 ## Architecture
 
@@ -168,7 +164,7 @@ flowchart LR
 
 ## Building & Contributing
 
- - See `CONTRIBUTING.md` for setup, build, and contributor guidelines.
+- See `CONTRIBUTING.md` for setup, build, and contributor guidelines.
 
 ### Quick Start
 
@@ -195,4 +191,3 @@ Thanks to the original LNReader authors and contributors for the project this
 fork builds on: [LNReader upstream](https://github.com/LNReader/lnreader)
 
 Repository for this fork: [bizzkoot/lnreader](https://github.com/bizzkoot/lnreader)
-

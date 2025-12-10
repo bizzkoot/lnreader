@@ -3,6 +3,7 @@
 ## Quick Start for APK Download Security
 
 ### 1. Install Dependencies
+
 ```bash
 pnpm add react-native-ssl-pinning
 pnpm add react-native-sha256
@@ -10,12 +11,14 @@ pnpm add -D @types/react-native-ssl-pinning
 ```
 
 ### 2. Get GitHub Certificate Hash
+
 ```bash
 # Run this command to get GitHub's certificate hash
 openssl s_client -connect github.com:443 < /dev/null 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
 ```
 
 ### 3. Create Secure Download Service
+
 ```typescript
 // src/services/secureDownloadService.ts
 import { fetch } from 'react-native-ssl-pinning';
@@ -27,16 +30,16 @@ export const secureDownload = async (url: string, expectedSha256?: string) => {
   try {
     const response = await fetch(url, {
       sslPinning: {
-        certs: [GITHUB_CERT_HASH]
-      }
+        certs: [GITHUB_CERT_HASH],
+      },
     });
-    
+
     if (!response.ok) {
       throw new Error(`Download failed: ${response.status}`);
     }
-    
+
     const blob = await response.blob();
-    
+
     // Verify file integrity if SHA256 provided
     if (expectedSha256) {
       const reader = new FileReader();
@@ -49,7 +52,7 @@ export const secureDownload = async (url: string, expectedSha256?: string) => {
       };
       reader.readAsArrayBuffer(blob);
     }
-    
+
     return blob;
   } catch (error) {
     console.error('Secure download failed:', error);
@@ -59,11 +62,15 @@ export const secureDownload = async (url: string, expectedSha256?: string) => {
 ```
 
 ### 4. Update Download Service
+
 ```typescript
 // src/services/updates/downloadUpdate.ts (Modified)
 import { secureDownload } from '@services/secureDownloadService';
 
-export const downloadUpdate = async (downloadUrl: string, expectedSha256?: string) => {
+export const downloadUpdate = async (
+  downloadUrl: string,
+  expectedSha256?: string,
+) => {
   try {
     const blob = await secureDownload(downloadUrl, expectedSha256);
     const filePath = `${Dirs.DocumentDir}/update.apk`;
@@ -76,11 +83,14 @@ export const downloadUpdate = async (downloadUrl: string, expectedSha256?: strin
 ```
 
 ### 5. Test the Implementation
+
 ```typescript
 // Test in development
 const testSecureDownload = async () => {
   try {
-    const result = await secureDownload('https://github.com/bizzkoot/lnreader/releases/latest');
+    const result = await secureDownload(
+      'https://github.com/bizzkoot/lnreader/releases/latest',
+    );
     console.log('Secure download successful:', result);
   } catch (error) {
     console.error('Secure download failed:', error);

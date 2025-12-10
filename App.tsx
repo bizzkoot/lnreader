@@ -3,8 +3,15 @@ import { enableFreeze } from 'react-native-screens';
 
 enableFreeze(true);
 
+// Disable font scaling globally to prevent double scaling with system font settings
+(Text as any).defaultProps = (Text as any).defaultProps || {};
+(Text as any).defaultProps.allowFontScaling = false;
+(TextInput as any).defaultProps = (TextInput as any).defaultProps || {};
+(TextInput as any).defaultProps.allowFontScaling = false;
+
 import React, { useEffect, useMemo } from 'react';
-import { StatusBar, StyleSheet } from 'react-native';
+import { Text, TextInput, StatusBar, StyleSheet } from 'react-native';
+
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LottieSplashScreen from 'react-native-lottie-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

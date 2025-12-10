@@ -27,10 +27,12 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: The `extractParagraphs()` function in RN uses a simplified regex-based HTML parser, while `core.js` uses DOM traversal via `getReadableElements()`. These two methods may produce different paragraph counts.
 
 **Affected Files**:
+
 - [htmlParagraphExtractor.ts](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/utils/htmlParagraphExtractor.ts)
 - [core.js](file:///Users/muhammadfaiz/Custom%20APP/LNreader/android/app/src/main/assets/js/core.js) - `getReadableElements()`
 
 **Scenario**:
+
 1. Chapter HTML contains nested `<div>` elements with text
 2. Background TTS extracts 50 paragraphs using regex
 3. WebView DOM traversal finds 48 readable elements
@@ -38,7 +40,8 @@ This document identifies potential issues, missing connections, and edge cases i
 5. Screen wakes → attempts to sync to paragraph 49
 6. WebView only has 48 elements → **sync fails or highlights wrong element**
 
-**Current Mitigation**: ✅ **Resolved** - 
+**Current Mitigation**: ✅ **Resolved** -
+
 1. `validateAndClampParagraphIndex()` helper in `ttsHelpers.ts` clamps indices to valid range `[0, totalParagraphs - 1]`.
 2. Paragraph count logging added in WebView `onLoadEnd` for debugging.
 3. Validation applied in background TTS start and screen-wake TTS resume paths.
@@ -54,6 +57,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Code Location**: [WebViewReader.tsx:675-751](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L675-751)
 
 **Scenario**:
+
 1. TTS plays chapter 1, paragraph 50
 2. User triggers chapter navigation
 3. `onSpeechDone` fires for old chapter's paragraph
@@ -71,6 +75,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: The previous regex pattern skipped containers that had nested block elements, causing significant text loss (e.g., "Half Chapter" playback).
 
 **Example HTML**:
+
 ```html
 <div class="chapter-content">
   This is a narrator's note
@@ -79,6 +84,7 @@ This document identifies potential issues, missing connections, and edge cases i
 ```
 
 **Current Mitigation**: ✅ **Resolved** - `htmlParagraphExtractor.ts` rewritten to use a "Flattening Strategy".
+
 1. Replaces all block tags (`<p>`, `<div>`, etc.) with `|||` delimiters.
 2. Strips inline tags.
 3. Splits by delimiter.
@@ -101,6 +107,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: When screen wakes, `wakeTransitionInProgressRef` is set to `true` to block events. However, there's a window between `AppState.change` firing and the ref being set where events may slip through.
 
 **Timeline**:
+
 1. `t=0ms`: Screen wakes, `AppState.change` fires
 2. `t=0-5ms`: Native TTS fires `onSpeechStart` for next paragraph
 3. `t=5ms`: Handler runs, updates `currentParagraphIndexRef`
@@ -118,6 +125,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: When TTS settings change (voice/rate/pitch), the code stops then restarts TTS. If user rapidly changes settings, multiple restart cycles may conflict.
 
 **Scenario**:
+
 1. User drags speed slider from 1.0 → 1.5
 2. Restart #1 begins: `TTSHighlight.stop()` called
 3. User continues dragging to 2.0 (before restart completes)
@@ -135,6 +143,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: Background playback uses `addToBatch` to queue paragraphs. If the queue message arrives after the first paragraph finishes, there's nothing to add to.
 
 **Scenario**:
+
 1. First paragraph speaks (2 seconds)
 2. WebView analyzes DOM and sends `tts-queue` message (takes 500ms due to JS parsing)
 3. First paragraph finishes at t=2000ms
@@ -150,6 +159,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: After multiple screen off/on cycles, the TTS queue state becomes fragmented, causing paragraph repetition and skipping when user interacts with the screen.
 
 **Scenario**:
+
 1. TTS playing at paragraph 30
 2. Screen off → screen on (wake #1): captures index 30, creates queue starting at 30
 3. TTS advances to paragraph 35
@@ -161,11 +171,13 @@ This document identifies potential issues, missing connections, and edge cases i
 
 **Root Cause**: Each wake cycle creates a new `speakBatch` session, but `ttsQueueRef` wasn't being properly cleared. Old queue state fragments accumulated across wake cycles. When user tapped screen, WebView sent `tts-queue` messages that could overwrite the current session's queue with stale data.
 
-**Code Location**: 
+**Code Location**:
+
 - [WebViewReader.tsx:1050-1300](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L1050-1300) - Wake handling
 - [WebViewReader.tsx:1967-2020](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L1967-2020) - `tts-queue` handler
 
 **Resolution**: ✅ **Resolved** via multiple fixes:
+
 1. **Queue cleared on wake start**: `ttsQueueRef.current = null` on wake transition start
 2. **Session tracking**: `ttsSessionRef` incremented on each wake to detect stale operations
 3. **Wake resume grace period**: 500ms grace period (`wakeResumeGracePeriodRef`) ignores WebView queue messages immediately after wake resume
@@ -176,7 +188,6 @@ This document identifies potential issues, missing connections, and edge cases i
 
 **Test Script**: `pnpm test:tts-wake-cycle` - Simulates multiple wake cycles and validates queue state management.
 
-
 ---
 
 ### Case 3.5: Wake State Stale Event Injection ✅ RESOLVED
@@ -184,6 +195,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: When the screen wakes, the native side pauses TTS and injects JS to sync the WebView. However, due to race conditions or previous queued operations, the WebView might emit 'speak' or 'onWordRange' events during this sensitive transition, causing the state to jump back to an old paragraph or interrupt the sync process.
 
 **Scenario**:
+
 1. TTS playing at paragraph 100.
 2. Screen wakes. Native pauses TTS.
 3. Native starts sync process (`wakeTransitionInProgressRef = true`).
@@ -191,7 +203,8 @@ This document identifies potential issues, missing connections, and edge cases i
 5. Native receives 'speak', ignores the wake flag, and effectively "resumes" from 99.
 6. Sync process completes but TTS is already mistakenly playing from 99.
 
-**Current Mitigation**: ✅ **Resolved** - 
+**Current Mitigation**: ✅ **Resolved** -
+
 1. **Block 'speak' requests**: `onMessage` handler explicitly checks `wakeTransitionInProgressRef` and drops 'speak' requests during wake transition.
 2. **Block 'onWordRange'**: `onWordRange` listener checks `wakeTransitionInProgressRef` and drops events.
 3. **Chapter-Aware IDs**: Interactive `speak` calls now generate `chapter_N_utterance_N` IDs, allowing `onSpeechStart` to validate the chapter ID.
@@ -209,6 +222,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Code Location**: [WebViewReader.tsx:118-131](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L118-131)
 
 **Scenario**:
+
 1. TTS reaches paragraph 50, saves to MMKV
 2. App killed before database write completes
 3. App restarts: MMKV = 50, DB = 30
@@ -223,6 +237,7 @@ This document identifies potential issues, missing connections, and edge cases i
 **Description**: Multiple refs are used to survive re-renders (`nextChapterRef`, `navigateChapterRef`, etc.). If `useEffect` cleanup runs before refs update, handlers may use stale values.
 
 **Pattern**:
+
 ```tsx
 useEffect(() => {
   nextChapterRef.current = nextChapter;
@@ -242,6 +257,7 @@ If `nextChapter` changes to `null` but `onQueueEmpty` fires immediately before r
 **Code Location**: [WebViewReader.tsx:560-589](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/WebViewReader.tsx#L560-589)
 
 **Complex Path**:
+
 1. User sees dialog "Resume from paragraph 50?"
 2. Before pressing Resume, scroll-based save updates MMKV to 10
 3. User presses Resume
@@ -256,6 +272,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: If user presses Android back button while `TTSScrollSyncDialog` is visible, dialog dismisses without calling either handler. TTS state is undefined.
 
 **Current Mitigation**: ✅ **Resolved** - All TTS dialogs now handle Android back button via `useBackHandler` hook:
+
 - `TTSScrollSyncDialog`: Calls `onKeepCurrent()` (safe default) before dismissing.
 - `TTSManualModeDialog`: Calls `onContinueFollowing()` (safe default) before dismissing.
 - `TTSResumeDialog`: Calls `onDismiss()` to cleanly close the dialog.
@@ -267,6 +284,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: `TTSManualModeDialog` can trigger while TTS is "playing" but user scrolled significantly. If screen turns off before user responds, dialog state is lost.
 
 **Scenario**:
+
 1. User scrolls back while TTS plays
 2. Dialog appears: "Stop TTS or Continue Following?"
 3. Screen turns off
@@ -282,6 +300,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: When screen is off and TTS advances 2+ chapters, `isWebViewSyncedRef` tracks only current chapter mismatch. DOM content is multiple versions behind.
 
 **Scenario**:
+
 1. Screen off at Chapter 1, paragraph 50
 2. TTS finishes chapters 1, 2, 3 in background
 3. Screen wakes at Chapter 4, paragraph 10
@@ -335,7 +354,8 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 **Scenario**: User selected "en-US-Wavenet-A" (cloud voice), not available offline. Fallback selects local "en-US-voice-5" which sounds completely different.
 
-**Current Mitigation**: ✅ **Resolved** - 
+**Current Mitigation**: ✅ **Resolved** -
+
 1. `onVoiceFallback(originalVoice, fallbackVoice)` callback added to `TTSListener` interface.
 2. `TTSHighlightModule.kt` emits JavaScript event `onVoiceFallback` with voice names.
 3. `TTSHighlight.ts` supports `onVoiceFallback` event listener.
@@ -350,6 +370,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: If next chapter has no readable elements, the system may enter an infinite loop trying to extract paragraphs.
 
 **Scenario**:
+
 1. Novel has "Intermission" chapter with only an image
 2. TTS finishes current chapter, navigates to Intermission
 3. `extractParagraphs()` returns `[]`
@@ -367,7 +388,8 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 **Description**: When at the last chapter, `nextChapterRef.current` is `null`. The logic handles this, but TTS remains in a "finished" state that confuses resume logic.
 
-**Current Mitigation**: ✅ **Resolved** - 
+**Current Mitigation**: ✅ **Resolved** -
+
 1. `onQueueEmpty` handler checks if `nextChapterRef.current === null` when chapter ends.
 2. Toast notification "Novel reading complete!" shown to user.
 3. `isTTSReadingRef.current = false` set explicitly to clean up TTS state.
@@ -379,6 +401,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: `chaptersAutoPlayedRef` resets when user navigates manually, but not when user pauses and resumes within the same session.
 
 **Scenario**:
+
 1. User sets limit to 5 chapters
 2. Chapters 1, 2, 3, 4, 5 auto-play
 3. At chapter 6 start: counter = 5, limit reached, TTS stops
@@ -395,10 +418,12 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 **Description**: `TTSForegroundService.onInit()` sets `isTtsInitialized = true` only on success. Subsequent calls with `!isTtsInitialized` return `false` but callers may not handle this.
 
-**Code Location**: 
+**Code Location**:
+
 - [TTSForegroundService.kt:78-114](file:///Users/muhammadfaiz/Custom%20APP/LNreader/android/app/src/main/java/com/rajarsheechatterjee/LNReader/TTSForegroundService.kt#L78-114)
 
-**Current Mitigation**: ✅ **Resolved** - 
+**Current Mitigation**: ✅ **Resolved** -
+
 1. Existing retry logic in `TTSAudioManager.ts` (`speakBatch`) handles transient failures.
 2. `WebViewReader.tsx` now shows toast "TTS failed to start. Please try again." on `speakBatch` catch.
 3. Settings restart path shows "TTS failed to restart. Please try again." on failure.
@@ -409,7 +434,8 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 **Description**: `injectJavaScript` calls don't check return values. If WebView has crashed or is in a bad state, silent failures occur.
 
-**Current Mitigation**: ✅ **Resolved** - 
+**Current Mitigation**: ✅ **Resolved** -
+
 1. `safeInjectJS()` helper function added to `ttsHelpers.ts`.
 2. Wraps `injectJavaScript` calls in try-catch to prevent silent failures.
 3. Logs errors in development mode (`__DEV__`) for debugging.
@@ -436,6 +462,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Affected Section**: [TTS_DESIGN.md - Playback Loop (Background)](file:///Users/muhammadfaiz/Custom%20APP/LNreader/docs/TTS/TTS_DESIGN.md#L91-99)
 
 **Missing**:
+
 - `REFILL_THRESHOLD` constant (currently 10)
 - `MIN_BATCH_SIZE` constant (currently 20)
 - Race condition documentation between refill and queue empty
@@ -459,6 +486,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Resolution**: Implemented `TTSExitDialog` and `BackHandler` interception in `WebViewReader.tsx`.
 
 **Enhanced UX Logic** (2025-12-07):
+
 1. **TTS is ACTIVELY playing** → Skips dialog, uses TTS position directly, exits immediately
    - Rationale: User is clearly engaged with TTS; saving their TTS position is the expected behavior
 2. **TTS is STOPPED AND positions differ by >5 paragraphs** → Shows dialog with:
@@ -469,9 +497,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 3. **TTS is STOPPED AND positions are within 5 paragraphs** → Exits immediately with TTS position
    - Rationale: Small gaps are likely due to auto-scroll; no need to prompt
 
-
 ---
-
 
 ---
 
@@ -482,6 +508,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: When user reads Chapter N+1 to 50%, then returns to Chapter N and chooses "Start Here" or "Reset Future", the progress of Chapter N+1 should be reset.
 
 **Scenario**:
+
 1. Chapter 3 read to 35%
 2. Chapter 4 read to 56%
 3. User enters Chapter 3 -> Starts TTS -> Selects "Start Here"
@@ -497,6 +524,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: When user reads Chapter N-1 to 35%, then enters Chapter N and chooses "Start Here", Chapter N-1 should be marked as completed.
 
 **Scenario**:
+
 1. Chapter 3 read to 35%
 2. Chapter 4 read to 56%
 3. User enters Chapter 4 -> Starts TTS -> Selects "Start Here"
@@ -512,6 +540,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: What happens if no prompt for confirmation? e.g., resume or no prior TTS state.
 
 **Scenario**:
+
 1. Chapter 3 read to 35%
 2. User enters Chapter 3 -> Starts TTS
 3. No confirmation dialog (implicit start)
@@ -526,6 +555,7 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 **Description**: Users may switch between manual reading and TTS. If a user manually reads Chapter A, then opens Chapter B and starts TTS, the system should strictly enforce cleanup of Chapter A to keep the reading list valid.
 
 **Scenario**:
+
 1. User manually scrolls **Chapter 1** to 50% (active progress).
 2. User opens **Chapter 2**.
 3. User presses "Start TTS".
@@ -536,8 +566,8 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 ## Summary Priority Matrix
 
-| Issue                        | Severity | Likelihood | Impact         | Recommended Action              | Resolution Status                                             |
-| ---------------------------- | -------- | ---------- | -------------- | ------------------------------- | ------------------------------------------------------------- |
+| Issue                        | Severity | Likelihood | Impact         | Recommended Action              | Resolution Status                                              |
+| ---------------------------- | -------- | ---------- | -------------- | ------------------------------- | -------------------------------------------------------------- |
 | 2.1 Container DIV Extraction | High     | Medium     | Index mismatch | Improve regex or add validation | ✅ **Resolved** - New "Flattening Strategy" handles nesting    |
 | 3.1 Wake Transition Race     | High     | Low        | Sync failure   | Add mutex or defer events       | ✅ **Resolved** - `wakeTransitionInProgressRef` blocks events  |
 | 6.1 Multi-Chapter Background | Medium   | Medium     | Lost progress  | Queue chapter saves             | ✅ **Resolved** - `pendingScreenWakeSyncRef` + navigation      |
@@ -550,23 +580,23 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 | 8.2 Novel Finished           | Low      | Low        | Confusing UX   | Add notification                | ✅ **Resolved** - Toast + state cleanup                        |
 | 9.2 WebView Injection        | Medium   | Low        | Silent failure | Add error handling              | ✅ **Resolved** - `safeInjectJS()` helper with try-catch       |
 
-| 10.3 Exit Confirmation     | Medium   | Low        | User annoyance | Add BackHandler dialog          | ✅ **Resolved** - `TTSExitDialog` prompts on back press        |
-| 11.1 Future Progress Reset | Medium   | Medium     | UI mismatch    | Set `unread=1`                  | ✅ **Resolved** - `resetFutureChaptersProgress` modified       |
-| 11.2 Past Progress Compl.  | Medium   | Medium     | Confusing state| Set `progress=100`              | ✅ **Resolved** - `markChaptersBeforePositionRead` modified    |
-| 11.3 Implicit Handling     | Low      | Low        | None           | Document behavior               | ✅ **Resolved** - Verified no side effects                     |
-| 11.4 General Conflict      | Medium   | High       | Messy List     | Check `getLastReadChapter`      | ✅ **Resolved** - Expanded conflict logic                      |
+| 10.3 Exit Confirmation | Medium | Low | User annoyance | Add BackHandler dialog | ✅ **Resolved** - `TTSExitDialog` prompts on back press |
+| 11.1 Future Progress Reset | Medium | Medium | UI mismatch | Set `unread=1` | ✅ **Resolved** - `resetFutureChaptersProgress` modified |
+| 11.2 Past Progress Compl. | Medium | Medium | Confusing state| Set `progress=100` | ✅ **Resolved** - `markChaptersBeforePositionRead` modified |
+| 11.3 Implicit Handling | Low | Low | None | Document behavior | ✅ **Resolved** - Verified no side effects |
+| 11.4 General Conflict | Medium | High | Messy List | Check `getLastReadChapter` | ✅ **Resolved** - Expanded conflict logic |
 
 ### Overall Resolution Summary
 
-| Status               | Count  | Percentage |
-| -------------------- | ------ | ---------- |
+| Status                | Count  | Percentage |
+| --------------------- | ------ | ---------- |
 | ✅ Resolved           | 24     | 92%        |
 | ⚠️ Partially Resolved | 0      | 0%         |
 | ❌ Not Resolved       | 2      | 8%         |
 | ✅ Resolved           | 28     | 93%        |
 | ⚠️ Partially Resolved | 0      | 0%         |
 | ❌ Not Resolved       | 2      | 7%         |
-| **Total**            | **30** | **100%**   |
+| **Total**             | **30** | **100%**   |
 
 ### Key Mitigations Implemented
 
@@ -593,7 +623,6 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 11. **TTS Failure Notifications**: Toast messages shown when TTS fails to start or restart, improving user feedback.
 
 12. **WebView Injection Safety**: `safeInjectJS()` wrapper prevents silent failures when WebView is in a bad state.
-
 
 ### Remaining Concerns
 

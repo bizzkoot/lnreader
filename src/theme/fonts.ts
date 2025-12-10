@@ -1,4 +1,5 @@
 import { MD3Theme, configureFonts, MD3TypescaleKey } from 'react-native-paper';
+import { scaleDimension } from './scaling';
 
 /**
  * MD3 Typography Scale configuration.
@@ -44,11 +45,6 @@ export const getScaledFonts = (scale: number = 1.0): MD3Theme['fonts'] => {
     config: {},
   };
 
-  // Optional: We could neutralize system font scale here if "App Controlled" is desired.
-  // const fontScale = PixelRatio.getFontScale();
-  // const effectiveScale = scale / fontScale;
-  // For now, we respect system scale + app scale, but start from smaller base.
-
   // Apply scale to all typescale variants
   for (const key of Object.keys(baseTypescale) as MD3TypescaleKey[]) {
     const base = baseTypescale[key];
@@ -56,12 +52,27 @@ export const getScaledFonts = (scale: number = 1.0): MD3Theme['fonts'] => {
       fontFamily: 'System',
       fontWeight: '400' as const,
       letterSpacing: 0,
-      fontSize: Math.round(base.fontSize * scale),
-      lineHeight: Math.round(base.lineHeight * scale),
+      fontSize: scaleDimension(base.fontSize, scale),
+      lineHeight: scaleDimension(base.lineHeight, scale),
     };
   }
 
-  return configureFonts(scaledConfig);
+  const configuredFonts = configureFonts(scaledConfig);
+
+  // Disable font scaling for all text variants to prevent double scaling
+  // with system font settings
+  Object.keys(configuredFonts).forEach(key => {
+    if (
+      configuredFonts[key as keyof MD3Theme['fonts']] &&
+      typeof configuredFonts[key as keyof MD3Theme['fonts']] === 'object'
+    ) {
+      (
+        configuredFonts[key as keyof MD3Theme['fonts']] as any
+      ).allowFontScaling = false;
+    }
+  });
+
+  return configuredFonts;
 };
 
 /**
@@ -83,5 +94,5 @@ export const defaultFontSizes = {
  * @returns Scaled font size
  */
 export const scaleFont = (size: number, scale: number): number => {
-  return Math.round(size * scale);
+  return scaleDimension(size, scale);
 };

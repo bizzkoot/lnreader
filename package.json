@@ -59,7 +59,7 @@
     "@react-navigation/stack": "^7.6.7",
     "@shopify/flash-list": "2.0.2",
     "cheerio": "1.0.0-rc.12",
-    "color": "^5.0.3",
+    "color": "^4.2.3",
     "dayjs": "^1.11.19",
     "expo": "^54.0.25",
     "expo-clipboard": "~8.0.7",

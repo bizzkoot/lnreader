@@ -35,7 +35,6 @@ Compatibility with Microsoft WSL2 is not guaranteed, but should work withoud maj
 2.  **Enter the Development Shell:**
 
     If you have `pnpm` installed, use the defined scripts:
-
     - **For Physical Device Only (default):**
       ```bash
       pnpm run nix:shell
@@ -46,7 +45,6 @@ Compatibility with Microsoft WSL2 is not guaranteed, but should work withoud maj
       ```
 
     If you do not have `pnpm` installed, execute the commands manually:
-
     - **For Physical Device Only (default):**
       ```bash
       nix develop --extra-experimental-features nix-command --extra-experimental-features flakes

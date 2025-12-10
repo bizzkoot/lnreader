@@ -15,15 +15,19 @@
 }
 
 #TTS-Controller button {
-  background: color-mix(in srgb,
-      var(--readerSettings-theme) 85%,
-      var(--readerSettings-textColor) 15%);
+  background: color-mix(
+    in srgb,
+    var(--readerSettings-theme) 85%,
+    var(--readerSettings-textColor) 15%
+  );
   outline: none;
   border-width: 1px;
   border-style: solid;
-  border-color: color-mix(in srgb,
-      var(--readerSettings-textColor) 30%,
-      var(--readerSettings-theme) 70%);
+  border-color: color-mix(
+    in srgb,
+    var(--readerSettings-textColor) 30%,
+    var(--readerSettings-theme) 70%
+  );
   display: flex;
   justify-items: center;
   align-items: center;

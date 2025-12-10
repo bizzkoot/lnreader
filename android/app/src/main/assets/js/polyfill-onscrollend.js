@@ -1,4 +1,3 @@
-/* eslint-disable eslint-comments/no-unlimited-disable */
 /* eslint-disable */
 'use strict';
 (() => {
@@ -8,7 +7,9 @@
     return (
       (i[o] = function (...e) {
         return (
-          s || t.apply(this, e), (t = t.bind(this)), r.apply(this, [t, ...e])
+          s || t.apply(this, e),
+          (t = t.bind(this)),
+          r.apply(this, [t, ...e])
         );
       }),
       !0
@@ -26,17 +27,17 @@
           n = i.get(c);
         if (!n) {
           let d;
-          (n = {
+          ((n = {
             scrollFn: () => {
-              clearTimeout(d),
+              (clearTimeout(d),
                 (d = setTimeout(() => {
                   l();
-                }, 100));
+                }, 100)));
             },
             handlers: [l],
           }),
             e.apply(c, ['scroll', n.scrollFn, !1]),
-            i.set(c, n);
+            i.set(c, n));
         }
       },
       t = function (e, u, l) {
@@ -60,18 +61,18 @@
           n.handlers.length === 0 && i.delete(c);
         }
       };
-    (a = s), (w = t);
+    ((a = s), (w = t));
     let i = new WeakMap(),
       o = null,
       r = null;
-    f(window, 'addEventListener', s, !0),
+    (f(window, 'addEventListener', s, !0),
       f(window, 'removeEventListener', t, !0),
       Object.defineProperty(window, 'onscrollend', {
         set: e => {
-          (typeof e != 'function' || o) &&
+          ((typeof e != 'function' || o) &&
             t.call(window, window.removeEventListener, 'scrollend', o),
             (o = e),
-            e && s.call(window, window.addEventListener, 'scrollend', e);
+            e && s.call(window, window.addEventListener, 'scrollend', e));
         },
         get: () => o,
       }),
@@ -79,13 +80,13 @@
       f(document, 'removeEventListener', t, !0),
       Object.defineProperty(document, 'onscrollend', {
         set: e => {
-          (typeof e != 'function' || r) &&
+          ((typeof e != 'function' || r) &&
             t.call(document, document.removeEventListener, 'scrollend', r),
             (r = e),
-            e && s.call(document, document.addEventListener, 'scrollend', e);
+            e && s.call(document, document.addEventListener, 'scrollend', e));
         },
         get: () => r,
-      });
+      }));
   }
   var a, w;
 })();

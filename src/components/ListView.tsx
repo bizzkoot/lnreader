@@ -1,8 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, Pressable, Image } from 'react-native';
 
-import { coverPlaceholderColor } from '../theme/colors';
-
 import color from 'color';
 import { ThemeColors } from '@theme/types';
 import { NovelItem } from '@plugins/types';
@@ -17,6 +15,7 @@ interface ListViewProps {
   onPress: () => void;
   isSelected?: boolean;
   onLongPress?: () => void;
+  scaledStyles: any;
 }
 
 const ListView = ({
@@ -28,6 +27,7 @@ const ListView = ({
   onPress,
   isSelected,
   onLongPress,
+  scaledStyles,
 }: ListViewProps) => {
   const fadedImage = { opacity: inLibraryBadge ? 0.5 : 1 };
   return (
@@ -35,6 +35,7 @@ const ListView = ({
       android_ripple={{ color: theme.rippleColor }}
       style={[
         styles.listView,
+        scaledStyles.listViewPadding,
         isSelected && {
           backgroundColor: color(theme.primary).alpha(0.12).string(),
         },
@@ -46,7 +47,7 @@ const ListView = ({
         source={{
           uri: item.cover,
         }}
-        style={[styles.extensionIcon, fadedImage]}
+        style={[scaledStyles.extensionIcon, fadedImage]}
       />
       <Text
         style={[{ color: theme.onSurface }, styles.novelName]}
@@ -71,24 +72,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
-  extensionIcon: {
-    backgroundColor: coverPlaceholderColor,
-    borderRadius: 4,
-    height: 40,
-    width: 40,
-  },
   listView: {
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   novelName: {
     flex: 1,
     flexWrap: 'wrap',
-    fontSize: 15,
-    marginLeft: 16,
-    paddingRight: 8,
   },
 });

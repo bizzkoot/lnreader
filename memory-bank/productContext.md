@@ -20,13 +20,9 @@ Provide a high-level overview of the project.
 
 LNReader is a free and open source light novel reader for Android, inspired by Tachiyomi. It provides advanced TTS features with text highlighting, background playback, and chapter management.
 
-
-
 ## Architecture
 
 React Native (v0.82.1) mobile app with SQLite database, Expo modules, and native TTS service. Uses feature-first architecture with separated concerns for database, services, components, and utilities.
-
-
 
 ## Technologies
 
@@ -37,8 +33,6 @@ React Native (v0.82.1) mobile app with SQLite database, Expo modules, and native
 - React Native Paper
 - MMKV
 - WebView
-
-
 
 ## Libraries and Dependencies
 
@@ -51,4 +45,3 @@ React Native (v0.82.1) mobile app with SQLite database, Expo modules, and native
 - SQLite (expo-sqlite)
 - React Native Gesture Handler
 - React Native Reanimated
-
