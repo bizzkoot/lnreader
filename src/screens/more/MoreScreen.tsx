@@ -1,18 +1,23 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, View, Pressable, Text, ScrollView } from 'react-native';
 import { getString } from '@strings/translations';
 
 import { List, SafeAreaView } from '@components';
 
 import { MoreHeader } from './components/MoreHeader';
-import { useLibrarySettings, useTheme } from '@hooks/persisted';
+import { useLibrarySettings, useTheme, useAppSettings } from '@hooks/persisted';
 import { MoreStackScreenProps } from '@navigators/types';
 import Switch from '@components/Switch/Switch';
 import { useMMKVObject } from 'react-native-mmkv';
 import ServiceManager, { BackgroundTask } from '@services/ServiceManager';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+
   const [taskQueue] = useMMKVObject<BackgroundTask[]>(
     ServiceManager.manager.STORE_KEY,
   );
@@ -21,6 +26,22 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
     downloadedOnlyMode = false,
     setLibrarySettings,
   } = useLibrarySettings();
+
+  const dynamicStyles = useMemo(
+    () => ({
+      description: {
+        fontSize: scaleDimension(12, uiScale),
+        lineHeight: scaleDimension(20, uiScale),
+      },
+      pressable: {
+        paddingHorizontal: scaleDimension(16, uiScale),
+        paddingVertical: scaleDimension(14, uiScale),
+      },
+      fontSize16: { fontSize: scaleDimension(16, uiScale) },
+      marginLeft16: { marginLeft: scaleDimension(16, uiScale) },
+    }),
+    [uiScale],
+  );
 
   const enableDownloadedOnlyMode = () =>
     setLibrarySettings({ downloadedOnlyMode: !downloadedOnlyMode });
@@ -57,25 +78,25 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
         <List.Section>
           <Pressable
             android_ripple={{ color: theme.rippleColor }}
-            style={styles.pressable}
+            style={[styles.pressable, dynamicStyles.pressable]}
             onPress={enableDownloadedOnlyMode}
           >
             <View style={styles.row}>
               <List.Icon theme={theme} icon="cloud-off-outline" />
-              <View style={styles.marginLeft16}>
+              <View style={dynamicStyles.marginLeft16}>
                 <Text
                   style={[
                     {
                       color: theme.onSurface,
                     },
-                    styles.fontSize16,
+                    dynamicStyles.fontSize16,
                   ]}
                 >
                   {getString('moreScreen.downloadOnly')}
                 </Text>
                 <Text
                   style={[
-                    styles.description,
+                    dynamicStyles.description,
                     { color: theme.onSurfaceVariant },
                   ]}
                 >
@@ -86,30 +107,30 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
             <Switch
               value={downloadedOnlyMode}
               onValueChange={enableDownloadedOnlyMode}
-              size={24}
+              size={iconSize.md}
             />
           </Pressable>
           <Pressable
             android_ripple={{ color: theme.rippleColor }}
-            style={styles.pressable}
+            style={[styles.pressable, dynamicStyles.pressable]}
             onPress={enableIncognitoMode}
           >
             <View style={styles.row}>
               <List.Icon theme={theme} icon="glasses" />
-              <View style={styles.marginLeft16}>
+              <View style={dynamicStyles.marginLeft16}>
                 <Text
                   style={[
                     {
                       color: theme.onSurface,
                     },
-                    styles.fontSize16,
+                    dynamicStyles.fontSize16,
                   ]}
                 >
                   {getString('moreScreen.incognitoMode')}
                 </Text>
                 <Text
                   style={[
-                    styles.description,
+                    dynamicStyles.description,
                     { color: theme.onSurfaceVariant },
                   ]}
                 >
@@ -120,7 +141,7 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
             <Switch
               value={incognitoMode}
               onValueChange={enableIncognitoMode}
-              size={24}
+              size={iconSize.md}
             />
           </Pressable>
           <List.Divider theme={theme} />
@@ -202,18 +223,10 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
 export default MoreScreen;
 
 const styles = StyleSheet.create({
-  description: {
-    fontSize: 12,
-    lineHeight: 20,
-  },
+  row: { flexDirection: 'row' },
   pressable: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  row: { flexDirection: 'row' },
-  fontSize16: { fontSize: 16 },
-  marginLeft16: { marginLeft: 16 },
 });

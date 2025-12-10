@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '../../theme/types';
 import Color from 'color';
 import { MaterialDesignIconName } from '@type/icon';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 // --- Dynamic style helpers ---
 
@@ -36,24 +37,46 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   theme,
   color,
   onPress,
-}) => (
-  <View style={styles.toggleButtonContainer}>
-    <Pressable
-      android_ripple={{ color: theme.rippleColor }}
+}) => {
+  const { iconSize, padding, borderRadius, margin } = useScaledDimensions();
+
+  const dynamicStyles = useMemo(
+    () => ({
+      toggleButtonContainer: {
+        borderRadius: borderRadius.sm + 2,
+        marginHorizontal: margin.sm - 2,
+      },
+      toggleButtonPressable: {
+        padding: padding.sm,
+      },
+    }),
+    [borderRadius.sm, margin.sm, padding.sm],
+  );
+
+  return (
+    <View
       style={[
-        styles.toggleButtonPressable,
-        getToggleButtonPressableStyle(selected, theme),
+        styles.toggleButtonContainer,
+        dynamicStyles.toggleButtonContainer,
       ]}
-      onPress={onPress}
     >
-      <MaterialCommunityIcons
-        name={icon}
-        color={selected ? theme.primary : color ? color : theme.onSurface}
-        size={24}
-      />
-    </Pressable>
-  </View>
-);
+      <Pressable
+        android_ripple={{ color: theme.rippleColor }}
+        style={[
+          dynamicStyles.toggleButtonPressable,
+          getToggleButtonPressableStyle(selected, theme),
+        ]}
+        onPress={onPress}
+      >
+        <MaterialCommunityIcons
+          name={icon}
+          color={selected ? theme.primary : color ? color : theme.onSurface}
+          size={iconSize.md}
+        />
+      </Pressable>
+    </View>
+  );
+};
 
 interface ToggleColorButtonProps {
   selected: boolean;
@@ -67,46 +90,63 @@ export const ToggleColorButton: React.FC<ToggleColorButtonProps> = ({
   backgroundColor,
   textColor,
   onPress,
-}) => (
-  <View style={styles.toggleColorButtonContainer}>
-    <Pressable
-      android_ripple={{ color: textColor }}
+}) => {
+  const { iconSize, padding, margin } = useScaledDimensions();
+
+  const buttonSize = iconSize.md + padding.md;
+
+  const dynamicStyles = useMemo(
+    () => ({
+      toggleColorButtonContainer: {
+        borderRadius: buttonSize,
+        marginHorizontal: margin.sm - 2,
+        height: buttonSize,
+        width: buttonSize,
+      },
+      toggleColorButtonPressable: {
+        padding: padding.sm + 2,
+      },
+    }),
+    [buttonSize, margin.sm, padding.sm],
+  );
+
+  return (
+    <View
       style={[
-        styles.toggleColorButtonPressable,
-        getToggleColorButtonPressableStyle(backgroundColor),
+        styles.toggleColorButtonContainer,
+        dynamicStyles.toggleColorButtonContainer,
       ]}
-      onPress={onPress}
     >
-      <MaterialCommunityIcons
-        name={selected ? 'check' : 'format-color-text'}
-        color={textColor}
-        size={24}
-      />
-    </Pressable>
-  </View>
-);
+      <Pressable
+        android_ripple={{ color: textColor }}
+        style={[
+          styles.toggleColorButtonPressable,
+          dynamicStyles.toggleColorButtonPressable,
+          getToggleColorButtonPressableStyle(backgroundColor),
+        ]}
+        onPress={onPress}
+      >
+        <MaterialCommunityIcons
+          name={selected ? 'check' : 'format-color-text'}
+          color={textColor}
+          size={iconSize.md}
+        />
+      </Pressable>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   toggleButtonContainer: {
-    borderRadius: 6,
     overflow: 'hidden',
-    marginHorizontal: 6,
-  },
-  toggleButtonPressable: {
-    padding: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleColorButtonContainer: {
-    borderRadius: 50,
     overflow: 'hidden',
-    marginHorizontal: 6,
-    height: 44,
-    width: 44,
   },
   toggleColorButtonPressable: {
     flex: 1,
-    padding: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
