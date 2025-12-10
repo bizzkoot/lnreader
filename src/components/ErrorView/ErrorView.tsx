@@ -2,6 +2,7 @@ import { ThemeColors } from '@theme/types';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconButton } from 'react-native-paper';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface ErrorAction {
   name: string;
@@ -23,37 +24,41 @@ const getRipple = (theme: ThemeColors) => ({
 });
 const getActionTextColor = (theme: ThemeColors) => ({ color: theme.outline });
 
-export const ErrorView = ({ errorName, actions, theme }: ErrorViewProps) => (
-  <View style={styles.emptyViewContainer}>
-    <Text style={[styles.emptyViewIcon, getOutlineColor(theme)]}>
-      {/* {icons[Math.floor(Math.random() * 5)]} */}
-      ಥ_ಥ
-    </Text>
-    <Text style={[styles.emptyViewText, getOutlineColor(theme)]}>
-      {errorName}
-    </Text>
-    <View style={styles.actionsRow}>
-      {actions.map(action => (
-        <View key={action.name} style={styles.actionContainer}>
-          <Pressable
-            android_ripple={getRipple(theme)}
-            onPress={action.onPress}
-            style={styles.actionPressable}
-          >
-            <IconButton
-              icon={action.icon}
-              size={24}
-              style={styles.iconButton}
-            />
-            <Text style={[styles.actionText, getActionTextColor(theme)]}>
-              {action.name}
-            </Text>
-          </Pressable>
-        </View>
-      ))}
+export const ErrorView = ({ errorName, actions, theme }: ErrorViewProps) => {
+  const { iconSize } = useScaledDimensions();
+
+  return (
+    <View style={styles.emptyViewContainer}>
+      <Text style={[styles.emptyViewIcon, getOutlineColor(theme)]}>
+        {/* {icons[Math.floor(Math.random() * 5)]} */}
+        ಥ_ಥ
+      </Text>
+      <Text style={[styles.emptyViewText, getOutlineColor(theme)]}>
+        {errorName}
+      </Text>
+      <View style={styles.actionsRow}>
+        {actions.map(action => (
+          <View key={action.name} style={styles.actionContainer}>
+            <Pressable
+              android_ripple={getRipple(theme)}
+              onPress={action.onPress}
+              style={styles.actionPressable}
+            >
+              <IconButton
+                icon={action.icon}
+                size={iconSize.md}
+                style={styles.iconButton}
+              />
+              <Text style={[styles.actionText, getActionTextColor(theme)]}>
+                {action.name}
+              </Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   emptyViewContainer: {

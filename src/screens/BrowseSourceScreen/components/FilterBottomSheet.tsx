@@ -26,6 +26,7 @@ import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Switch from '@components/Switch/Switch';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 const insertOrRemoveIntoArray = (array: string[], val: string): string[] =>
   array.indexOf(val) > -1 ? array.filter(ele => ele !== val) : [...array, val];
@@ -47,6 +48,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
   selectedFilters,
   setSelectedFilters,
 }) => {
+  const { iconSize } = useScaledDimensions();
   const {
     value: isVisible,
     toggle: toggleCard,
@@ -170,7 +172,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           <MaterialCommunityIcons
             name={isVisible ? 'chevron-up' : 'chevron-down'}
             color={theme.onSurface}
-            size={24}
+            size={iconSize.md}
           />
         </Pressable>
         {isVisible
@@ -250,7 +252,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           <MaterialCommunityIcons
             name={isVisible ? 'chevron-up' : 'chevron-down'}
             color={theme.onSurface}
-            size={24}
+            size={iconSize.md}
           />
         </Pressable>
         {isVisible

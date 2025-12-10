@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { ThemeColors } from '@theme/types';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface NovelSummaryProps {
   summary: string;
@@ -16,6 +17,7 @@ const NovelSummary: React.FC<NovelSummaryProps> = ({
   isExpanded,
   theme,
 }) => {
+  const { iconSize } = useScaledDimensions();
   const textColor = theme.onSurfaceVariant;
 
   const [expanded, setExpanded] = useState(isExpanded);
@@ -57,7 +59,7 @@ const NovelSummary: React.FC<NovelSummaryProps> = ({
           <MaterialCommunityIcons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             color={theme.onBackground}
-            size={24}
+            size={iconSize.md}
             style={[{ backgroundColor: theme.background }, styles.icon]}
           />
         </View>

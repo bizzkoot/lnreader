@@ -4,6 +4,7 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 import { useTheme } from '@hooks/persisted';
 import { getErrorMessage } from '@utils/error';
 import { MaterialDesignIconName } from '@type/icon';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface ErrorScreenProps {
   error: any;
@@ -16,6 +17,7 @@ interface ErrorScreenProps {
 
 const ErrorScreen: React.FC<ErrorScreenProps> = ({ error, actions }) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
 
   return (
     <View style={styles.container}>
@@ -34,7 +36,7 @@ const ErrorScreen: React.FC<ErrorScreenProps> = ({ error, actions }) => {
               >
                 <MaterialCommunityIcons
                   name={action.iconName}
-                  size={24}
+                  size={iconSize.md}
                   color={theme.outline}
                 />
                 <Text style={{ color: theme.outline }}>{action.title}</Text>
