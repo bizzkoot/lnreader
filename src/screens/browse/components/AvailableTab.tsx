@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo, useState, memo } from 'react';
 import { View, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { usePlugins } from '@hooks/persisted';
+import { usePlugins, useAppSettings } from '@hooks/persisted';
 import { PluginItem } from '@plugins/types';
+import { scaleDimension } from '@theme/scaling';
 import { coverPlaceholderColor } from '@theme/colors';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
@@ -31,6 +32,8 @@ const AvailablePluginCard = ({
   theme,
   installPlugin,
 }: AvailablePluginCardProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
   const ratio = useSharedValue(1);
   const imageStyles = useAnimatedStyle(() => ({
     height: ratio.value * 40,
@@ -118,6 +121,8 @@ const AvailablePluginCard = ({
 
 export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
   const navigation = useNavigation<MoreStackScreenProps['navigation']>();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
 
   const [refreshing, setRefreshing] = useState(false);
   const { filteredAvailablePlugins, refreshPlugins, installPlugin } =
@@ -218,46 +223,47 @@ export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
   );
 });
 
-const styles = StyleSheet.create({
-  margintTop100: { marginTop: 100 },
-  addition: {
-    fontSize: 12,
-    lineHeight: 20,
-  },
-  buttonGroup: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-  },
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  details: {
-    marginLeft: 16,
-  },
-  icon: {
-    backgroundColor: coverPlaceholderColor,
-    borderRadius: 4,
-    height: 40,
-    width: 40,
-  },
-  listHeader: {
-    fontSize: 14,
-    fontWeight: '500',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  name: {
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  center: { alignItems: 'center' },
-  flex: { flex: 1 },
-});
+const createStyles = (theme: ThemeColors, uiScale: number) =>
+  StyleSheet.create({
+    margintTop100: { marginTop: 100 },
+    addition: {
+      fontSize: scaleDimension(12, uiScale),
+      lineHeight: 20,
+    },
+    buttonGroup: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      paddingHorizontal: 8,
+    },
+    container: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    details: {
+      marginLeft: 16,
+    },
+    icon: {
+      backgroundColor: coverPlaceholderColor,
+      borderRadius: 4,
+      height: 40,
+      width: 40,
+    },
+    listHeader: {
+      fontSize: scaleDimension(14, uiScale),
+      fontWeight: '500',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+    name: {
+      fontWeight: '500',
+      lineHeight: 20,
+    },
+    row: {
+      flexDirection: 'row',
+    },
+    center: { alignItems: 'center' },
+    flex: { flex: 1 },
+  });

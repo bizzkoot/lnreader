@@ -49,6 +49,8 @@ import useImport from '@hooks/persisted/useImport';
 import { ThemeColors } from '@theme/types';
 import { useLibraryContext } from '@components/Context/LibraryContext';
 
+import { scaleDimension } from '@theme/scaling';
+
 type State = NavigationState<{
   key: string;
   title: string;
@@ -73,7 +75,10 @@ type TabViewLabelProps = {
 const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
   const { searchText, setSearchText, clearSearchbar } = useSearch();
   const theme = useTheme();
-  const styles = createStyles(theme);
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
+
   const { left: leftInset, right: rightInset } = useSafeAreaInsets();
   const {
     library,
@@ -484,8 +489,37 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
 
 export default React.memo(LibraryScreen);
 
-function createStyles(theme: ThemeColors) {
-  return StyleSheet.create({
+const createStyles = (theme: ThemeColors, uiScale: number) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    contentContainer: {
+      flex: 1,
+    },
+    emptyViewContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    emptyViewText: {
+      marginTop: 20,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      color: theme.onSurface,
+      fontSize: scaleDimension(15, uiScale),
+    },
+    searchbarContainer: {
+      paddingBottom: 8,
+    },
+    tabBarItem: {
+      width: 100,
+    },
+    tabLabel: {
+      color: theme.onSurface,
+      fontSize: scaleDimension(12, uiScale),
+      textTransform: 'capitalize',
+    },
     badgeCtn: {
       borderRadius: 50,
       marginLeft: 2,
@@ -503,7 +537,7 @@ function createStyles(theme: ThemeColors) {
       right: 0,
     },
     fontWeight500: {
-      fontWeight: 500,
+      fontWeight: '500',
     },
     globalSearchBtn: {
       margin: 16,
@@ -521,4 +555,3 @@ function createStyles(theme: ThemeColors) {
       width: 'auto',
     },
   });
-}

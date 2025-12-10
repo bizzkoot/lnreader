@@ -1,4 +1,4 @@
-import React, { memo, Suspense, useEffect } from 'react';
+import React, { memo, Suspense, useEffect, useMemo } from 'react';
 import dayjs from 'dayjs';
 import { RefreshControl, SectionList, StyleSheet, Text } from 'react-native';
 
@@ -10,9 +10,10 @@ import {
 } from '@components';
 
 import { useSearch } from '@hooks';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 import UpdatesSkeletonLoading from './components/UpdatesSkeletonLoading';
 import UpdateNovelCard from './components/UpdateNovelCard';
 import { deleteChapter } from '@database/queries/ChapterQueries';
@@ -24,6 +25,8 @@ import { useUpdateContext } from '@components/Context/UpdateContext';
 
 const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
   const {
     updatesOverview,
     getUpdates,
@@ -156,27 +159,33 @@ export default memo(UpdatesScreen);
 const LastUpdateTime: React.FC<{
   lastUpdateTime: Date | number | string;
   theme: ThemeColors;
-}> = ({ lastUpdateTime, theme }) => (
-  <Text style={[styles.lastUpdateTime, { color: theme.onSurface }]}>
-    {`${getString('updatesScreen.lastUpdatedAt')} ${dayjs(
-      lastUpdateTime,
-    ).fromNow()}`}
-  </Text>
-);
+}> = ({ lastUpdateTime, theme }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
-const styles = StyleSheet.create({
-  dateHeader: {
-    paddingBottom: 2,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  lastUpdateTime: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  listContainer: {
-    flexGrow: 1,
-  },
-});
+  return (
+    <Text style={[styles.lastUpdateTime, { color: theme.onSurface }]}>
+      {`${getString('updatesScreen.lastUpdatedAt')} ${dayjs(
+        lastUpdateTime,
+      ).fromNow()}`}
+    </Text>
+  );
+};
+
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    dateHeader: {
+      paddingBottom: 2,
+      paddingHorizontal: 16,
+      paddingTop: 8,
+    },
+    lastUpdateTime: {
+      fontSize: scaleDimension(12, uiScale),
+      fontStyle: 'italic',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+    listContainer: {
+      flexGrow: 1,
+    },
+  });

@@ -15,6 +15,8 @@ import { PluginItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
 import { IconButtonV2 } from '@components';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface PluginListItemSkeletonProps {
   item: PluginItem;
@@ -23,6 +25,8 @@ interface PluginListItemSkeletonProps {
 
 export const PluginListItemSkeleton = memo(
   ({ item, theme }: PluginListItemSkeletonProps) => {
+    const { uiScale = 1.0 } = useAppSettings();
+
     const containerStyle = useMemo(
       () => [styles.container, { backgroundColor: theme.surface }],
       [theme.surface],
@@ -36,8 +40,12 @@ export const PluginListItemSkeleton = memo(
       [theme.onSurface],
     );
     const additionStyle = useMemo(
-      () => [{ color: theme.onSurfaceVariant }, styles.addition],
-      [theme.onSurfaceVariant],
+      () => [
+        { color: theme.onSurfaceVariant },
+        styles.addition,
+        { fontSize: scaleDimension(12, uiScale) },
+      ],
+      [theme.onSurfaceVariant, uiScale],
     );
 
     const CogButton = useCallback(

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 
 import {
@@ -26,9 +26,13 @@ import { Row } from '@components/Common';
 import { overlay } from 'react-native-paper';
 import { translateNovelStatus } from '@utils/translateEnum';
 
+import { scaleDimension } from '@theme/scaling';
+
 const StatsScreen = () => {
   const theme = useTheme();
   const { goBack } = useNavigation();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<LibraryStats>({});
@@ -154,6 +158,8 @@ export const StatsCard: React.FC<{ label: string; value?: number }> = ({
   value = 0,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
   if (!label) {
     return null;
@@ -176,35 +182,36 @@ export const StatsCard: React.FC<{ label: string; value?: number }> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  contentCtn: {
-    paddingBottom: 40,
-  },
-  genreRow: {
-    flexWrap: 'wrap',
-  },
-  header: {
-    fontWeight: 'bold',
-    paddingVertical: 16,
-  },
-  screenCtn: {
-    paddingHorizontal: 16,
-  },
-  statsCardCtn: {
-    alignItems: 'center',
-    borderRadius: 12,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    margin: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  statsRow: {
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  statsVal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    contentCtn: {
+      paddingBottom: 40,
+    },
+    genreRow: {
+      flexWrap: 'wrap',
+    },
+    header: {
+      fontWeight: 'bold',
+      paddingVertical: 16,
+    },
+    screenCtn: {
+      paddingHorizontal: 16,
+    },
+    statsCardCtn: {
+      alignItems: 'center',
+      borderRadius: 12,
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
+      justifyContent: 'center',
+      margin: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 12,
+    },
+    statsRow: {
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    statsVal: {
+      fontSize: scaleDimension(16, uiScale),
+      fontWeight: 'bold',
+    },
+  });

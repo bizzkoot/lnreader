@@ -3,7 +3,11 @@ import { Text, StyleSheet } from 'react-native';
 import { Portal } from 'react-native-paper';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 
-import { useBrowseSettings, usePlugins } from '@hooks/persisted';
+import {
+  useBrowseSettings,
+  usePlugins,
+  useAppSettings,
+} from '@hooks/persisted';
 import { PluginItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
@@ -14,6 +18,7 @@ import { getPlugin } from '@plugins/pluginManager';
 import DiscoverCard from '../discover/DiscoverCard';
 import SourceSettingsModal from './Modals/SourceSettings';
 import { DeferredPluginListItem } from './DeferredPluginListItem';
+import { scaleDimension } from '@theme/scaling';
 
 interface InstalledTabProps {
   navigation: BrowseScreenProps['navigation'];
@@ -32,6 +37,21 @@ export const InstalledTab = memo(
     const { showMyAnimeList, showAniList } = useBrowseSettings();
     const settingsModal = useBoolean();
     const [selectedPluginId, setSelectedPluginId] = useState<string>('');
+
+    const { uiScale = 1.0 } = useAppSettings();
+
+    const styles = useMemo(
+      () =>
+        StyleSheet.create({
+          listHeader: {
+            fontSize: scaleDimension(14, uiScale),
+            fontWeight: '500',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+          },
+        }),
+      [uiScale],
+    );
 
     const pluginSettings = selectedPluginId
       ? getPlugin(selectedPluginId)?.pluginSettings
@@ -206,12 +226,3 @@ export const InstalledTab = memo(
     );
   },
 );
-
-const styles = StyleSheet.create({
-  listHeader: {
-    fontSize: 14,
-    fontWeight: '500',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-});

@@ -2,9 +2,10 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, Image, View, Text, StyleSheet } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
-import { usePlugins } from '@hooks/persisted';
+import { usePlugins, useAppSettings } from '@hooks/persisted';
 import { PluginItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { BrowseScreenProps } from '@navigators/types';
 import { Button, IconButtonV2 } from '@components';
@@ -33,6 +34,8 @@ export const PluginListItem = memo(
     const { uninstallPlugin, updatePlugin, togglePinPlugin, isPinned } =
       usePlugins();
 
+    const { uiScale = 1.0 } = useAppSettings();
+
     const isPluginPinned = isPinned(item.id);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -53,8 +56,12 @@ export const PluginListItem = memo(
       [theme.onSurface],
     );
     const additionStyle = useMemo(
-      () => [{ color: theme.onSurfaceVariant }, styles.addition],
-      [theme.onSurfaceVariant],
+      () => [
+        { color: theme.onSurfaceVariant },
+        styles.addition,
+        { fontSize: scaleDimension(12, uiScale) },
+      ],
+      [theme.onSurfaceVariant, uiScale],
     );
 
     const handleWebviewPress = useCallback(
