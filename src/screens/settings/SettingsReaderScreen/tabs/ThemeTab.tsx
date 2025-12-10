@@ -1,7 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
+import {
+  useAppSettings,
+  useChapterReaderSettings,
+  useTheme,
+} from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { List, ColorPreferenceItem, Button } from '@components/index';
 import { useBoolean } from '@hooks';
@@ -15,6 +20,37 @@ const ThemeTab: React.FC = () => {
   const readerSettings = useChapterReaderSettings();
   const readerBackgroundModal = useBoolean();
   const readerTextColorModal = useBoolean();
+
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: 24,
+        },
+        section: {
+          marginVertical: 8,
+        },
+        label: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        buttonContainer: {
+          marginVertical: 8,
+          marginHorizontal: 16,
+        },
+        button: {
+          marginVertical: 8,
+        },
+        bottomSpacing: {
+          height: 24,
+        },
+      }),
+    [uiScale],
+  );
 
   const labelStyle = [styles.label, { color: theme.onSurface }];
 
@@ -121,28 +157,3 @@ const ThemeTab: React.FC = () => {
 };
 
 export default ThemeTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  section: {
-    marginVertical: 8,
-  },
-  label: {
-    fontSize: 16,
-  },
-  buttonContainer: {
-    marginVertical: 8,
-    marginHorizontal: 16,
-  },
-  button: {
-    marginVertical: 8,
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-});

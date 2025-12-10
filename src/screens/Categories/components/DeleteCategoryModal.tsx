@@ -6,7 +6,8 @@ import { Button, Modal } from '@components/index';
 
 import { Category } from '@database/types';
 import { deleteCategoryById } from '@database/queries/CategoryQueries';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { getString } from '@strings/translations';
 
@@ -24,6 +25,26 @@ const DeleteCategoryModal: React.FC<DeleteCategoryModalProps> = ({
   onSuccess,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        btnContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: 24,
+        },
+        modalDesc: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 16,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
@@ -51,15 +72,3 @@ const DeleteCategoryModal: React.FC<DeleteCategoryModalProps> = ({
 };
 
 export default DeleteCategoryModal;
-
-const styles = StyleSheet.create({
-  btnContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  modalDesc: {},
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-});

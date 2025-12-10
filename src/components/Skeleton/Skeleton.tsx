@@ -39,6 +39,10 @@ function useSetupLoadingAnimations() {
   return [LGC, backgroundColor] as const;
 }
 
+const gradientStyle = {
+  width: '60%' as const,
+};
+
 function createLGC(
   highlightColor: string,
   style: StyleProp<ViewStyle>,
@@ -56,11 +60,11 @@ function createLGC(
         locations={[0, 0.3, 0.7, 1]}
         style={[
           style,
+          gradientStyle,
           {
             height: scaleDimension(40, scale),
             position: 'absolute' as const,
             transform: [{ translateX: '-100%' }],
-            width: '60%',
           },
         ]}
         colors={['transparent', highlightColor, highlightColor, 'transparent']}

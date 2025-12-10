@@ -1,7 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
+import {
+  useAppSettings,
+  useChapterReaderSettings,
+  useTheme,
+} from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import ReaderTextSize from '../ReaderTextSize';
 import ReaderValueChange from '@screens/reader/components/ReaderBottomSheet/ReaderValueChange';
@@ -16,6 +21,30 @@ const DisplayTab: React.FC = () => {
   const theme = useTheme();
   const readerSettings = useChapterReaderSettings();
   const readerFontPickerModal = useBoolean();
+
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: 24,
+        },
+        content: {
+          paddingTop: 8,
+        },
+        label: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        bottomSpacing: {
+          height: 24,
+        },
+      }),
+    [uiScale],
+  );
 
   const labelStyle = [styles.label, { color: theme.onSurface }];
 
@@ -71,21 +100,3 @@ const DisplayTab: React.FC = () => {
 };
 
 export default DisplayTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  content: {
-    paddingTop: 8,
-  },
-  label: {
-    fontSize: 16,
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-});

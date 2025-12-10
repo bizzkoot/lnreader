@@ -8,7 +8,9 @@ import {
   useTheme,
   useChapterGeneralSettings,
   useChapterReaderSettings,
+  useAppSettings,
 } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { List, Button } from '@components/index';
 import SettingSwitch from '../../components/SettingSwitch';
@@ -154,6 +156,90 @@ const AccessibilityTab: React.FC = () => {
       ]);
     });
   }, []);
+
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: 24,
+        },
+        section: {
+          marginVertical: 8,
+        },
+        ttsHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingRight: 16,
+        },
+        sliderSection: {
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+        },
+        sliderLabelRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        sliderLabel: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        sliderValue: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          minWidth: 48,
+          textAlign: 'right',
+        },
+        sliderContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        },
+        slider: {
+          flex: 1,
+          height: 48,
+        },
+        sliderButton: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+        },
+        sliderButtonText: {
+          fontSize: scaleDimension(24, uiScale),
+          fontWeight: '500',
+          lineHeight: 28,
+        },
+        sliderMarkers: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 48,
+          marginTop: 4,
+        },
+        sliderMarkerText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+        resetButtonContainer: {
+          paddingHorizontal: 16,
+          marginTop: 16,
+        },
+        resetButton: {
+          marginVertical: 8,
+        },
+        bottomSpacing: {
+          height: 24,
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <>
@@ -729,81 +815,3 @@ const AccessibilityTab: React.FC = () => {
 };
 
 export default AccessibilityTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  section: {
-    marginVertical: 8,
-  },
-  ttsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: 16,
-  },
-  sliderSection: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  sliderLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sliderLabel: {
-    fontSize: 16,
-  },
-  sliderValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 48,
-    textAlign: 'right',
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  slider: {
-    flex: 1,
-    height: 48,
-  },
-  sliderButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
-  },
-  sliderButtonText: {
-    fontSize: 24,
-    fontWeight: '500',
-    lineHeight: 28,
-  },
-  sliderMarkers: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 48,
-    marginTop: 4,
-  },
-  sliderMarkerText: {
-    fontSize: 12,
-  },
-  resetButtonContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  resetButton: {
-    alignSelf: 'flex-start',
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-});

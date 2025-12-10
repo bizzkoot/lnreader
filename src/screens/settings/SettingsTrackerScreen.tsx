@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import {
   Portal,
@@ -8,7 +8,13 @@ import {
   List as PaperList,
 } from 'react-native-paper';
 
-import { getTracker, useTheme, useTracker } from '@hooks/persisted';
+import {
+  getTracker,
+  useAppSettings,
+  useTheme,
+  useTracker,
+} from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { Appbar, List, Modal, SafeAreaView } from '@components';
 import { TrackerSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
@@ -47,6 +53,50 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
   const theme = useTheme();
   const { isTrackerAuthenticated, setTracker, removeTracker, getTrackerAuth } =
     useTracker();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        flex1: {
+          flex: 1,
+        },
+        screenPadding: {
+          paddingVertical: 8,
+        },
+        modalText: {
+          fontSize: scaleDimension(18, uiScale),
+        },
+        modalButtonRow: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        },
+        modalButton: {
+          marginTop: 30,
+        },
+        modalButtonLabel: {
+          letterSpacing: 0,
+          textTransform: 'none',
+        },
+        logoContainer: {
+          paddingLeft: 16,
+          justifyContent: 'center',
+        },
+        trackerLogo: {
+          width: 32,
+          height: 32,
+          resizeMode: 'contain',
+          borderRadius: 4,
+        },
+        listItem: {
+          paddingVertical: 12,
+        },
+        iconStyle: {
+          margin: 0,
+        },
+      }),
+    [uiScale],
+  );
 
   // Tracker Modal for logout confirmation
   const [logoutTrackerName, setLogoutTrackerName] = useState<string>('');
@@ -257,27 +307,8 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
 
 export default TrackerScreen;
 
+// Styles are now inside the component using useMemo
 const styles = StyleSheet.create({
-  flex1: {
-    flex: 1,
-  },
-  screenPadding: {
-    paddingVertical: 8,
-  },
-  modalText: {
-    fontSize: 18,
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  modalButton: {
-    marginTop: 30,
-  },
-  modalButtonLabel: {
-    letterSpacing: 0,
-    textTransform: 'none',
-  },
   logoContainer: {
     paddingLeft: 16,
     justifyContent: 'center',
@@ -287,11 +318,5 @@ const styles = StyleSheet.create({
     height: 32,
     resizeMode: 'contain',
     borderRadius: 4,
-  },
-  listItem: {
-    paddingVertical: 12,
-  },
-  iconStyle: {
-    margin: 0,
   },
 });

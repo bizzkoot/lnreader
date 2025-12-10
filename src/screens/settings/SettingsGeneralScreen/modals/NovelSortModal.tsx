@@ -7,11 +7,13 @@ import {
   LibrarySortOrder,
   librarySortOrderList,
 } from '@screens/library/constants/constants';
+
 import { ThemeColors } from '@theme/types';
 import { SortItem } from '@components/Checkbox/Checkbox';
-import { useLibrarySettings } from '@hooks/persisted';
+import { useLibrarySettings, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { Modal } from '@components';
+import { scaleDimension } from '@theme/scaling';
 
 interface NovelSortModalProps {
   novelSortModalVisible: boolean;
@@ -26,6 +28,29 @@ const NovelSortModal: React.FC<NovelSortModalProps> = ({
 }) => {
   const { sortOrder = LibrarySortOrder.DateAdded_DESC, setLibrarySettings } =
     useLibrarySettings();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        modalDescription: {
+          fontSize: scaleDimension(16, uiScale),
+          marginBottom: 16,
+          paddingHorizontal: 24,
+        },
+        modalHeader: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 10,
+          paddingHorizontal: 24,
+        },
+        slider: {
+          height: 40,
+          width: '100%',
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={novelSortModalVisible} onDismiss={hideNovelSortModal}>
@@ -57,20 +82,3 @@ const NovelSortModal: React.FC<NovelSortModalProps> = ({
 };
 
 export default NovelSortModal;
-
-const styles = StyleSheet.create({
-  modalDescription: {
-    fontSize: 16,
-    marginBottom: 16,
-    paddingHorizontal: 24,
-  },
-  modalHeader: {
-    fontSize: 24,
-    marginBottom: 10,
-    paddingHorizontal: 24,
-  },
-  slider: {
-    height: 40,
-    width: '100%',
-  },
-});

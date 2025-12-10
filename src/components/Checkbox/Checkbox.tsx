@@ -10,8 +10,10 @@ import {
 import { Checkbox as PaperCheckbox } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
-import { ThemeColors } from '../../theme/types';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
+import { ThemeColors } from '../../theme/types';
 
 interface CheckboxProps {
   label: string;
@@ -91,6 +93,7 @@ interface SortItemProps {
 }
 export const SortItem = ({ label, status, onPress, theme }: SortItemProps) => {
   const { iconSize, padding } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
 
   const dynamicStyles = useMemo(
     () => ({
@@ -128,7 +131,14 @@ export const SortItem = ({ label, status, onPress, theme }: SortItemProps) => {
           style={[styles.icon, dynamicStyles.icon]}
         />
       ) : null}
-      <Text style={{ color: theme.onSurface }}>{label}</Text>
+      <Text
+        style={{
+          color: theme.onSurface,
+          fontSize: scaleDimension(16, uiScale),
+        }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 };

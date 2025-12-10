@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { Portal, Text, TextInput } from 'react-native-paper';
 
-import { useTheme, useUserAgent } from '@hooks/persisted';
+import { useAppSettings, useTheme, useUserAgent } from '@hooks/persisted';
 import { showToast } from '@utils/showToast';
 
 import { deleteCachedNovels } from '@hooks/persisted/useNovel';
@@ -13,6 +13,7 @@ import {
   deleteReadChaptersFromDb,
   clearUpdates,
 } from '@database/queries/ChapterQueries';
+import { scaleDimension } from '@theme/scaling';
 
 import { Appbar, Button, List, Modal, SafeAreaView } from '@components';
 import { AdvancedSettingsScreenProps } from '@navigators/types';
@@ -31,7 +32,35 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   };
 
   const { userAgent, setUserAgent } = useUserAgent();
+  const { uiScale = 1.0 } = useAppSettings();
   const [userAgentInput, setUserAgentInput] = useState(userAgent);
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        button: {
+          flex: 1,
+          marginHorizontal: 8,
+          marginTop: 16,
+        },
+        buttonGroup: {
+          flexDirection: 'row-reverse',
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 16,
+        },
+        textInput: {
+          borderRadius: 14,
+          fontSize: scaleDimension(12, uiScale),
+          height: 120,
+          marginBottom: 8,
+          marginTop: 16,
+        },
+      }),
+    [uiScale],
+  );
+
   /**
    * Confirm Clear Database Dialog
    */
@@ -199,25 +228,3 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
 };
 
 export default AdvancedSettings;
-
-const styles = StyleSheet.create({
-  button: {
-    flex: 1,
-    marginHorizontal: 8,
-    marginTop: 16,
-  },
-  buttonGroup: {
-    flexDirection: 'row-reverse',
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  textInput: {
-    borderRadius: 14,
-    fontSize: 12,
-    height: 120,
-    marginBottom: 8,
-    marginTop: 16,
-  },
-});

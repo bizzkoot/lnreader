@@ -19,6 +19,7 @@ import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -144,6 +145,83 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
       setThemeMode(selectedTheme.isDark ? 'dark' : 'light');
     }
   };
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        flex1: {
+          flex: 1,
+        },
+        scrollContent: {
+          paddingBottom: 40,
+        },
+        themeSectionText: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        themePickerRow: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          flexDirection: 'row',
+        },
+        segmentedControlContainer: {
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        },
+        // UI Scale slider styles
+        sliderSection: {
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+        },
+        sliderLabelRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        sliderLabel: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        sliderValue: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          minWidth: 48,
+          textAlign: 'right',
+        },
+        sliderContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        },
+        slider: {
+          flex: 1,
+          height: 48,
+        },
+        sliderButton: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+        },
+        sliderButtonText: {
+          fontSize: scaleDimension(24, uiScale),
+          fontWeight: '500',
+          lineHeight: 28,
+        },
+        sliderMarkers: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 48,
+          marginTop: 4,
+        },
+        sliderMarkerText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <SafeAreaView excludeTop>
@@ -383,76 +461,3 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
 };
 
 export default AppearanceSettings;
-
-const styles = StyleSheet.create({
-  flex1: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  themeSectionText: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  themePickerRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-  },
-  segmentedControlContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  // UI Scale slider styles
-  sliderSection: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  sliderLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sliderLabel: {
-    fontSize: 16,
-  },
-  sliderValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 48,
-    textAlign: 'right',
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  slider: {
-    flex: 1,
-    height: 48,
-  },
-  sliderButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
-  },
-  sliderButtonText: {
-    fontSize: 24,
-    fontWeight: '500',
-    lineHeight: 28,
-  },
-  sliderMarkers: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 48,
-    marginTop: 4,
-  },
-  sliderMarkerText: {
-    fontSize: 12,
-  },
-});

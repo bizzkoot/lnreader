@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { Portal, Modal, Text, RadioButton } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface TTSScrollBehaviorModalProps {
   visible: boolean;
@@ -22,6 +24,39 @@ const TTSScrollBehaviorModal: React.FC<TTSScrollBehaviorModalProps> = ({
   currentValue,
   onSelect,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          margin: 20,
+          borderRadius: 28,
+          padding: 24,
+        },
+        title: {
+          fontSize: scaleDimension(20, uiScale),
+          fontWeight: 'bold',
+          marginBottom: 16,
+        },
+        optionsContainer: {
+          gap: 8,
+        },
+        optionRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 12,
+        },
+        optionLabel: {
+          fontSize: scaleDimension(16, uiScale),
+          flex: 1,
+          marginRight: 16,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal
@@ -68,30 +103,3 @@ const TTSScrollBehaviorModal: React.FC<TTSScrollBehaviorModalProps> = ({
 };
 
 export default TTSScrollBehaviorModal;
-
-const styles = StyleSheet.create({
-  container: {
-    margin: 20,
-    borderRadius: 28,
-    padding: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  optionsContainer: {
-    gap: 8,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  optionLabel: {
-    fontSize: 16,
-    flex: 1,
-    marginRight: 16,
-  },
-});

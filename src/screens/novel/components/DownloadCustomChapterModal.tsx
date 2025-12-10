@@ -7,6 +7,8 @@ import { ChapterInfo, NovelInfo } from '@database/types';
 import { getString } from '@strings/translations';
 import { Modal } from '@components';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface DownloadCustomChapterModalProps {
   theme: ThemeColors;
@@ -49,6 +51,25 @@ const DownloadCustomChapterModal = ({
     }
   };
 
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        errorText: {
+          color: '#FF0033',
+          paddingTop: 8,
+        },
+        modalTitle: {
+          fontSize: scaleDimension(16, uiScale),
+          marginBottom: 16,
+        },
+        row: { flexDirection: 'row', justifyContent: 'center' },
+        marginHorizontal: { marginHorizontal: 4 },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={modalVisible} onDismiss={onDismiss}>
@@ -72,7 +93,10 @@ const DownloadCustomChapterModal = ({
           />
           <TextInput
             value={text.toString()}
-            style={[{ color: theme.onSurface }, styles.marginHorizontal]}
+            style={[
+              { color: theme.onSurface, fontSize: scaleDimension(14, uiScale) },
+              styles.marginHorizontal,
+            ]}
             keyboardType="numeric"
             onChangeText={onChangeText}
             onSubmitEditing={onSubmit}
@@ -105,16 +129,3 @@ const DownloadCustomChapterModal = ({
 };
 
 export default DownloadCustomChapterModal;
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: '#FF0033',
-    paddingTop: 8,
-  },
-  modalTitle: {
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  row: { flexDirection: 'row', justifyContent: 'center' },
-  marginHorizontal: { marginHorizontal: 4 },
-});
