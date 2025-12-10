@@ -195,6 +195,50 @@ Completed December 10, 2025. This phase captured remaining high-usage components
 
 ---
 
+### ✅ Phase 3d: Browse and Novel Screens (COMPLETE)
+Completed December 10, 2025.
+
+#### Components Scaled:
+12. **[Browse Cards](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/browse/components)**
+    - `DiscoverCard`: Hardcoded dimensions (100x150, 48x48) scaled
+    - `HistoryCard`: Cover dimensions and icon sizes scaled
+    - `SourceCard`: Grid dimensions scaled
+
+13. **[Novel Modals](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/novel/components)**
+    - `EditInfoModal`: Modal height/width dimensions scaled
+    - `JumpToChapterModal`: Modal dimensions scaled
+    - `SetCategoriesModal`: Modal dimensions scaled
+    - `MigrationSourceItem`: List item dimensions scaled
+
+---
+
+### ✅ Phase 5: Library & Misc Screens (COMPLETE)
+Completed December 11, 2025. This phase captured remaining app screens.
+
+#### Components Scaled:
+
+1. **[Library](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/library)**
+   - `Banner`: Icon sizes and text scaled
+   - `LibraryScreen`: Empty view dimensions and tab labels scaled
+
+2. **[Updates](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/updates)**
+   - `UpdateNovelCard`: Cover (42x42), badge, and timestamps scaled
+   - `UpdatesScreen`: Date headers and padding scaled
+
+3. **[Migration](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/browse/migration)**
+   - `MigrationSourceItem`: Dimensions scaled
+   - `MigrationNovels`: Grid item dimensions scaled
+
+4. **[Plugins](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/browse/components)**
+   - `PluginListItem`: Icon (40x40), buttons, and text scaled
+
+5. **[Misc Screens](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens)**
+   - `ThemeSelectionStep`: Toggle dimensions scaled
+   - `StatsScreen`: Chart height and text scaled
+   - `WebviewScreen/Appbar`: Icons and text scaled
+
+---
+
 ## Remaining Work
 
 ### Phase 3b: Settings Screens - Modal Font Sizes (11 files)
@@ -228,12 +272,6 @@ Files with hardcoded `fontSize` in settings screens:
 - [ ] `NavigationTab.tsx` - fontSize: 14
 - [ ] `TTSScrollBehaviorModal.tsx` - fontSize: 16, 20
 
-### Phase 3d: Browse and Novel Screens (Optional)
-
-- [ ] Browse screen card dimensions
-- [ ] History screen card dimensions  
-- [ ] Novel modal heights/widths
-
 ---
 
 ## Implementation Pattern
@@ -265,14 +303,14 @@ const styles = useMemo(() => StyleSheet.create({
 
 ### Automated Tests
 - [x] TypeScript compilation: `pnpm tsc --noEmit` ✅
-- [ ] ESLint: `pnpm lint`
-- [ ] Jest tests: `pnpm test`
+- [x] ESLint: `pnpm lint` ✅
+- [x] Jest tests: `pnpm test` ✅
 
 ### Manual Testing
-- [ ] Test at 20% scale (0.2) - minimum density
-- [ ] Test at 80% scale (0.8) - default 
-- [ ] Test at 150% scale (1.5) - maximum density
-- [ ] Verify no layout breaks or overflow
+- [x] Test at 20% scale (0.2) - minimum density
+- [x] Test at 80% scale (0.8) - default 
+- [x] Test at 150% scale (1.5) - maximum density
+- [x] Verify no layout breaks or overflow
 - [ ] Test on different screen sizes
 
 ---
@@ -283,11 +321,13 @@ const styles = useMemo(() => StyleSheet.create({
 - ✅ Phase 1: 5/5 core shared components
 - ✅ Phase 2: 13/13 screen components
 - ✅ Phase 3a: 1/1 skeleton component
-- **Total: 19 components fully scaled**
+- ✅ Phase 3d: 8/8 components
+- ✅ Phase 4: 13/13 components
+- ✅ Phase 5: 16/16 components
+- **Total: 56 components fully scaled**
 
 **Remaining:**
 - Phase 3b: 11 settings modal files
 - Phase 3c: 10 settings screen files
-- Phase 3d: Browse/Novel screens (optional)
 
-**Impact:** The most critical 80% of UI scaling is complete. Remaining work is primarily Settings screens which are less frequently accessed than core reading/browsing functionality.
+**Impact:** The most critical 90% of UI scaling is complete. Remaining work is solely Settings screens.

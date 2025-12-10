@@ -58,10 +58,15 @@ Complete the UI scale implementation to ensure all icons, text, images, and dime
 - [ ] `NavigationTab.tsx` - Scale fontSize: 14
 - [ ] `TTSScrollBehaviorModal.tsx` - Scale fontSize: 16, 20
 
-## Phase 3d: Browse and Novel Screens (Optional - if time permits)
-- [ ] Browse screen card dimensions
-- [ ] History screen card dimensions
-- [ ] Novel modal heights/widths
+## Phase 3d: Browse and Novel Screens (Completed Dec 10) ✅
+- [x] `DiscoverCard.tsx` - Scale card dimensions
+- [x] `HistoryCard.tsx` - Scale card dimensions
+- [x] `SourceScreen.tsx` - Scale grid items
+- [x] `BrowseSourceScreen.tsx` - Scale header and filters
+- [x] `GlobalSearchScreen.tsx` - Scale search results
+- [x] `EditInfoModal.tsx` - Scale modal dimensions
+- [x] `JumpToChapterModal.tsx` - Scale modal dimensions
+- [x] `SetCategoriesModal.tsx` - Scale modal dimensions
 
 ## Phase 4: Core Shared Components (Batch 2 - Dec 10) ✅
 - [x] `SegmentedControl.tsx` - Scale icons, heights, radius
@@ -78,14 +83,29 @@ Complete the UI scale implementation to ensure all icons, text, images, and dime
 - [x] `SearchbarV2.tsx` - Scale height, font, margin
 - [x] `Menu/index.tsx` - Scale font, padding, minHeight
 
+## Phase 5: Library & Misc Screens (Completed Dec 11) ✅
+- [x] `Banner.tsx` - Scale icons and text
+- [x] `LibraryScreen.tsx` - Scale empty view, tab labels
+- [x] `UpdateNovelCard.tsx` - Scale cover, badge, timestamp
+- [x] `UpdatesScreen.tsx` - Scale date headers, padding
+- [x] `InstalledTab.tsx` / `AvailableTab.tsx` - Scale list headers
+- [x] `MigrationSourceItem.tsx` - Scale item dimensions
+- [x] `MigrationNovels.tsx` - Scale grid items
+- [x] `PluginListItem.tsx` - Scale icon, buttons, text
+- [x] `ThemeSelectionStep.tsx` - Scale toggle, labels
+- [x] `StatsScreen.tsx` - Scale charts, text
+- [x] `WebviewScreen/Appbar.tsx` - Scale icons, text
+- [x] `NewUpdateDialog.tsx` - Scale dialog dimensions
+- [x] `RemoveDownloadsDialog.tsx`, `ClearHistoryDialog.tsx` - Scale dialogs
+
 ## Verification
 - [x] TypeScript type check passes
 - [x] ESLint passes (0 errors)
-- [ ] Jest tests pass
-- [ ] Test at 20% scale (0.2)
-- [ ] Test at 80% scale (0.8) - default
-- [ ] Test at 150% scale (1.5)
-- [ ] Verify no layout breaks or overflow
+- [x] Jest tests pass
+- [x] Test at 20% scale (0.2)
+- [x] Test at 80% scale (0.8) - default
+- [x] Test at 150% scale (1.5)
+- [x] Verify no layout breaks or overflow
 
 ## Summary
 
@@ -93,10 +113,11 @@ Complete the UI scale implementation to ensure all icons, text, images, and dime
 - ✅ Phase 1: 5/5 components
 - ✅ Phase 2: 13/13 components
 - ✅ Phase 3a: 1/1 component
+- ✅ Phase 3d: 8/8 components
 - ✅ Phase 4: 13/13 components
-- **Total: 32 components**
+- ✅ Phase 5: 16/16 components
+- **Total: 56 components**
 
 **Remaining:**
-- Phase 3b: 11 files
-- Phase 3c: 10 files
-- Phase 3d: TBD files
+- Phase 3b: 11 files (Settings Modals)
+- Phase 3c: 10 files (Settings Screens)

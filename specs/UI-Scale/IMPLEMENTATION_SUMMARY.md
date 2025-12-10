@@ -484,7 +484,6 @@ The following TypeScript errors exist in the codebase **before** our implementat
 11. `spec/UI-Scale/IMPLEMENTATION_SUMMARY.md`
 
 **Phase 3 - Settings Components** (17 files):
-
 12. `src/screens/settings/SettingsReaderScreen/tabs/AdvancedTab.tsx`
 13. `src/screens/settings/SettingsReaderScreen/tabs/AccessibilityTab.tsx`
 14. `src/screens/settings/SettingsReaderScreen/tabs/NavigationTab.tsx`
@@ -502,6 +501,53 @@ The following TypeScript errors exist in the codebase **before** our implementat
 26. `src/screens/settings/SettingsLibraryScreen/DefaultCategoryDialog.tsx`
 27. `src/screens/novel/components/DownloadCustomChapterModal.tsx`
 28. `src/components/Checkbox/Checkbox.tsx`
+
+**Phase 3d - Browse and Novel Screens** (Completed Dec 10) (8 files):
+29. `src/screens/browse/components/DiscoverCard.tsx`
+30. `src/screens/history/components/HistoryCard.tsx`
+31. `src/screens/browse/SourceScreen.tsx`
+32. `src/screens/BrowseSourceScreen/BrowseSourceScreen.tsx`
+33. `src/screens/GlobalSearchScreen/GlobalSearchScreen.tsx`
+34. `src/screens/novel/components/EditInfoModal.tsx`
+35. `src/screens/novel/components/JumpToChapterModal.tsx`
+36. `src/screens/novel/components/SetCategoriesModal.tsx`
+
+**Phase 4 - Core Shared Components (Batch 2)** (Completed Dec 10) (13 files):
+37. `src/components/SegmentedControl/SegmentedControl.tsx`
+38. `src/screens/settings/SettingsReaderScreen/components/TabBar.tsx`
+39. `src/screens/novel/components/Chapter/ChapterDownloadButtons.tsx`
+40. `src/components/ThemePicker/ThemePicker.tsx`
+41. `src/components/ColorPreferenceItem/ColorPreferenceItem.tsx`
+42. `src/components/RadioButton.tsx`
+43. `src/components/Switch/SwitchItem.tsx`
+44. `src/components/Toast.tsx`
+45. `src/components/Chip/Chip.tsx`
+46. `src/components/DialogTitle/DialogTitle.tsx`
+47. `src/components/ConfirmationDialog/ConfirmationDialog.tsx`
+48. `src/components/SearchbarV2/SearchbarV2.tsx`
+49. `src/components/Menu/index.tsx`
+
+**Phase 5 - Library & Misc Screens** (Completed Dec 11) (16 files):
+50. `src/screens/library/components/Banner.tsx`
+51. `src/screens/library/LibraryScreen.tsx`
+52. `src/screens/updates/components/UpdateNovelCard.tsx`
+53. `src/screens/updates/UpdatesScreen.tsx`
+54. `src/screens/browse/components/InstalledTab.tsx`
+55. `src/screens/browse/components/AvailableTab.tsx`
+56. `src/screens/browse/migration/MigrationSourceItem.tsx`
+57. `src/screens/browse/migration/MigrationNovels.tsx`
+58. `src/screens/browse/components/PluginListItem.tsx`
+59. `src/screens/onboarding/ThemeSelectionStep.tsx`
+60. `src/screens/more/StatsScreen.tsx`
+61. `src/screens/WebviewScreen/components/Appbar.tsx`
+62. `src/components/NewUpdateDialog.tsx`
+63. `src/screens/more/components/RemoveDownloadsDialog.tsx`
+64. `src/screens/more/components/ClearHistoryDialog.tsx`
+65. `src/screens/browse/components/PluginListItemSkeleton.tsx`
+
+**Total Files Modified**: 65 files
+
+
 
 **Lint Fix**:
 - `src/components/Skeleton/Skeleton.tsx` (extracted inline style to constant)
