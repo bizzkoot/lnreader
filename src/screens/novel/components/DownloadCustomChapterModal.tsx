@@ -6,6 +6,7 @@ import { ThemeColors } from '@theme/types';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { getString } from '@strings/translations';
 import { Modal } from '@components';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface DownloadCustomChapterModalProps {
   theme: ThemeColors;
@@ -24,6 +25,7 @@ const DownloadCustomChapterModal = ({
   chapters,
   downloadChapters,
 }: DownloadCustomChapterModalProps) => {
+  const { iconSize } = useScaledDimensions();
   const [text, setText] = useState(0);
 
   const onDismiss = () => {
@@ -57,14 +59,14 @@ const DownloadCustomChapterModal = ({
           <IconButton
             icon="chevron-double-left"
             animated
-            size={24}
+            size={iconSize.md}
             iconColor={theme.primary}
             onPress={() => text > 9 && setText(prevState => prevState - 10)}
           />
           <IconButton
             icon="chevron-left"
             animated
-            size={24}
+            size={iconSize.md}
             iconColor={theme.primary}
             onPress={() => text > 0 && setText(prevState => prevState - 1)}
           />
@@ -78,14 +80,14 @@ const DownloadCustomChapterModal = ({
           <IconButton
             icon="chevron-right"
             animated
-            size={24}
+            size={iconSize.md}
             iconColor={theme.primary}
             onPress={() => setText(prevState => prevState + 1)}
           />
           <IconButton
             icon="chevron-double-right"
             animated
-            size={24}
+            size={iconSize.md}
             iconColor={theme.primary}
             onPress={() => setText(prevState => prevState + 10)}
           />

@@ -12,6 +12,7 @@ import { NovelScreenProps } from '@navigators/types';
 import { useTrackedNovel, useTracker } from '@hooks/persisted';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { MaterialDesignIconName } from '@type/icon';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 const NButton = ({
   onPress,
@@ -28,6 +29,7 @@ const NButton = ({
   color?: string;
   theme: ThemeColors;
 }) => {
+  const { iconSize } = useScaledDimensions();
   return (
     <Animated.View
       entering={ZoomIn.duration(150)}
@@ -44,7 +46,7 @@ const NButton = ({
         <MaterialCommunityIcons
           name={icon}
           color={color ?? theme.outline}
-          size={24}
+          size={iconSize.md}
         />
         <Text style={[styles.buttonLabel, { color: color ?? theme.outline }]}>
           {label}

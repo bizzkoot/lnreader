@@ -9,6 +9,7 @@ import { TTSVoice } from '@services/TTSHighlight';
 import { LegendList } from '@legendapp/list';
 import { Modal } from '@components';
 import { StyleSheet } from 'react-native';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface VoicePickerModalProps {
   visible: boolean;
@@ -24,6 +25,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   onVoiceSelect,
 }) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
   const [searchedVoices, setSearchedVoices] = useState<TTSVoice[]>([]);
   const [searchText, setSearchText] = useState('');
   const { setChapterReaderSettings, tts } = useChapterReaderSettings();
@@ -79,7 +81,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
           estimatedItemSize={64}
           ListEmptyComponent={
             <ActivityIndicator
-              size={24}
+              size={iconSize.md}
               style={styles.marginTop}
               color={theme.primary}
             />

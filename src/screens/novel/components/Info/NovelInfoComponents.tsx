@@ -17,6 +17,7 @@ import { coverPlaceholderColor } from '../../../../theme/colors';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface CoverImageProps {
   children: React.ReactNode;
@@ -166,35 +167,39 @@ const FollowButton = ({
   theme: ThemeColors;
   onPress: () => void;
   followed: boolean;
-}) => (
-  <View style={styles.followButtonContainer}>
-    <Pressable
-      android_ripple={{
-        color: color(theme.primary).alpha(0.12).string(),
-        borderless: false,
-      }}
-      onPress={onPress}
-      style={styles.followButtonPressable}
-    >
-      <IconButton
-        icon={followed ? 'heart' : 'heart-outline'}
-        iconColor={followed ? theme.primary : theme.outline}
-        size={24}
-        style={styles.iconButton}
-      />
-      <Text
-        style={[
-          { color: followed ? theme.primary : theme.outline },
-          styles.followButtonText,
-        ]}
+}) => {
+  const { iconSize } = useScaledDimensions();
+
+  return (
+    <View style={styles.followButtonContainer}>
+      <Pressable
+        android_ripple={{
+          color: color(theme.primary).alpha(0.12).string(),
+          borderless: false,
+        }}
+        onPress={onPress}
+        style={styles.followButtonPressable}
       >
-        {followed
-          ? getString('novelScreen.inLibaray')
-          : getString('novelScreen.addToLibaray')}
-      </Text>
-    </Pressable>
-  </View>
-);
+        <IconButton
+          icon={followed ? 'heart' : 'heart-outline'}
+          iconColor={followed ? theme.primary : theme.outline}
+          size={iconSize.md}
+          style={styles.iconButton}
+        />
+        <Text
+          style={[
+            { color: followed ? theme.primary : theme.outline },
+            styles.followButtonText,
+          ]}
+        >
+          {followed
+            ? getString('novelScreen.inLibaray')
+            : getString('novelScreen.addToLibaray')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+};
 
 const TrackerButton = ({
   theme,
@@ -204,35 +209,39 @@ const TrackerButton = ({
   theme: ThemeColors;
   onPress: () => void;
   isTracked: boolean;
-}) => (
-  <View style={styles.followButtonContainer}>
-    <Pressable
-      android_ripple={{
-        color: theme.rippleColor,
-        borderless: false,
-      }}
-      onPress={onPress}
-      style={styles.followButtonPressable}
-    >
-      <IconButton
-        icon={isTracked ? 'check' : 'sync'}
-        iconColor={isTracked ? theme.primary : theme.outline}
-        size={24}
-        style={styles.iconButton}
-      />
-      <Text
-        style={[
-          { color: isTracked ? theme.primary : theme.outline },
-          styles.followButtonText,
-        ]}
+}) => {
+  const { iconSize } = useScaledDimensions();
+
+  return (
+    <View style={styles.followButtonContainer}>
+      <Pressable
+        android_ripple={{
+          color: theme.rippleColor,
+          borderless: false,
+        }}
+        onPress={onPress}
+        style={styles.followButtonPressable}
       >
-        {isTracked
-          ? getString('novelScreen.tracked')
-          : getString('novelScreen.tracking')}
-      </Text>
-    </Pressable>
-  </View>
-);
+        <IconButton
+          icon={isTracked ? 'check' : 'sync'}
+          iconColor={isTracked ? theme.primary : theme.outline}
+          size={iconSize.md}
+          style={styles.iconButton}
+        />
+        <Text
+          style={[
+            { color: isTracked ? theme.primary : theme.outline },
+            styles.followButtonText,
+          ]}
+        >
+          {isTracked
+            ? getString('novelScreen.tracked')
+            : getString('novelScreen.tracking')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+};
 
 const NovelGenres = ({
   theme,

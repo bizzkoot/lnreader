@@ -15,6 +15,7 @@ import GlobalSearchSkeletonLoading from '@screens/browse/loadingAnimation/Global
 import { interpolateColor } from 'react-native-reanimated';
 import { useLibraryContext } from '@components/Context/LibraryContext';
 import NovelCover from '@components/NovelCover';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface GlobalSearchResultsListProps {
   searchResults: GlobalSearchResult[];
@@ -45,6 +46,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
   item,
 }) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
   const navigation = useNavigation<StackNavigationProp<any>>();
   const [inActivity, setInActivity] = useState<Record<string, boolean>>({});
   const { novelInLibrary, switchNovelToLibrary } = useLibraryContext();
@@ -95,7 +97,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
             </View>
             <MaterialCommunityIcons
               name="arrow-right"
-              size={24}
+              size={iconSize.md}
               color={theme.onSurface}
             />
           </Pressable>
@@ -165,6 +167,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
     ),
     [
       errorColor,
+      iconSize.md,
       imageRequestInit,
       inActivity,
       item.error,

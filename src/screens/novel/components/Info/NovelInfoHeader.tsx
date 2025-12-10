@@ -33,6 +33,7 @@ import { NovelStatus, PluginItem } from '@plugins/types';
 import { translateNovelStatus } from '@utils/translateEnum';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { AVAILABLE_PLUGINS } from '@hooks/persisted/usePlugins';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 import {
   NovelMetaSkeleton,
@@ -91,6 +92,7 @@ const NovelInfoHeader = ({
   trackerSheetRef,
 }: NovelInfoHeaderProps) => {
   const { hideBackdrop = false } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const { followNovel } = useNovelContext();
 
   const pluginName = useMemo(
@@ -244,7 +246,7 @@ const NovelInfoHeader = ({
               <IconButton
                 icon="filter-variant"
                 iconColor={filter ? filterColor(theme.isDark) : theme.onSurface}
-                size={24}
+                size={iconSize.md}
                 onPress={() => novelBottomSheetRef.current?.present()}
               />
             </Pressable>

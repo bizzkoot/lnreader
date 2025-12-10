@@ -11,6 +11,7 @@ import { SearchResult } from '@services/Trackers';
 import { TrackSearchDialogProps } from './types';
 import { showToast } from '@utils/showToast';
 import { getErrorMessage } from '@utils/error';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
   tracker,
@@ -20,6 +21,7 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
   novelName,
 }) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchText, setSearchText] = useState(novelName);
@@ -90,7 +92,7 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
               <MaterialCommunityIcons
                 name="check-circle"
                 color={theme.primary}
-                size={24}
+                size={iconSize.md}
                 style={styles.checkIcon}
               />
             )}
@@ -108,7 +110,7 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
         </TouchableRipple>
       );
     },
-    [handleSelectNovel, selectedNovel, theme],
+    [handleSelectNovel, selectedNovel, theme, iconSize.md],
   );
 
   return (
