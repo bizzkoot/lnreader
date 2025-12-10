@@ -1,5 +1,5 @@
-import { useTheme } from '@hooks/persisted';
-import React, { useEffect, useRef, useState } from 'react';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Pressable, StyleSheet, View, Dimensions } from 'react-native';
 import { Portal } from 'react-native-paper';
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
   FadeOutUp,
   useAnimatedStyle,
 } from 'react-native-reanimated';
+import { scaleDimension } from '@theme/scaling';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({
   children,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const anchorRef = useRef<View>(null);
   const [anchorLayout, setAnchorLayout] = useState({
     x: 0,
@@ -48,14 +50,56 @@ const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({
     backgroundColor: theme.isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.1)',
   };
 
+  const scaledValues = useMemo(
+    () => ({
+      menuOffset: scaleDimension(8, uiScale),
+      menuPadding: scaleDimension(16, uiScale),
+      menuMinWidth: scaleDimension(200, uiScale),
+      menuMaxPadding: scaleDimension(32, uiScale),
+      menuMaxWidth: scaleDimension(220, uiScale),
+    }),
+    [uiScale],
+  );
+
   const menuAnimatedStyle = useAnimatedStyle(() => ({
     shadowColor: theme.isDark ? '#000' : theme.shadow,
     position: 'absolute' as const,
-    left: Math.max(16, Math.min(anchorLayout.x, screenWidth - 220)),
-    top: anchorLayout.y + anchorLayout.height + 8,
-    width: Math.min(200, screenWidth - 32),
+    left: Math.max(
+      scaledValues.menuPadding,
+      Math.min(anchorLayout.x, screenWidth - scaledValues.menuMaxWidth),
+    ),
+    top: anchorLayout.y + anchorLayout.height + scaledValues.menuOffset,
+    width: Math.min(
+      scaledValues.menuMinWidth,
+      screenWidth - scaledValues.menuMaxPadding,
+    ),
     zIndex: 1001,
   }));
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        menuContainer: {
+          borderRadius: scaleDimension(8, uiScale),
+          elevation: 8,
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.25,
+          shadowRadius: 6,
+          overflow: 'hidden',
+        },
+        backdrop: {
+          position: 'absolute' as const,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        },
+      }),
+    [uiScale],
+  );
 
   // Create entering animations
   const backdropEntering = FadeIn.duration(150);
@@ -141,6 +185,24 @@ const MenuItem: React.FC<MenuItemProps> = ({
   titleStyle,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        menuItem: {
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(12, uiScale),
+          minHeight: scaleDimension(48, uiScale),
+          justifyContent: 'center',
+        },
+        menuItemText: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '400',
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <Pressable
@@ -164,36 +226,5 @@ const MenuItem: React.FC<MenuItemProps> = ({
 };
 
 Menu.Item = MenuItem;
-
-const styles = StyleSheet.create({
-  menuContainer: {
-    borderRadius: 8,
-    elevation: 8,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    overflow: 'hidden',
-  },
-  backdrop: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  menuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  menuItemText: {
-    fontSize: 16,
-    fontWeight: '400',
-  },
-});
 
 export default Menu;

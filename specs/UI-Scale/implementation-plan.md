@@ -137,6 +137,64 @@ All 13 screen components with hardcoded icon sizes now scaled.
 
 ---
 
+### ✅ Phase 4: Core Shared Components (Batch 2) (COMPLETE)
+
+Completed December 10, 2025. This phase captured remaining high-usage components.
+
+#### Components Scaled:
+
+1. **[SegmentedControl.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/SegmentedControl/SegmentedControl.tsx)**
+   - Icons: 18px → scaled
+   - Container height: 48px → scaled
+   - Border radius: 24px → scaled
+   - Font size: 14px → scaled
+
+2. **[TabBar.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/settings/SettingsReaderScreen/components/TabBar.tsx)**
+   - Icon: 20px → scaled
+   - Min height: 48px → scaled
+
+3. **[ChapterDownloadButtons.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/novel/components/Chapter/ChapterDownloadButtons.tsx)**
+   - Icons: 25px → scaled
+   - Box dimensions: 40x40px → scaled
+
+4. **[ThemePicker.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/ThemePicker/ThemePicker.tsx)**
+   - Complex component with 20+ scaled dimensions
+   - Card size: 95x140px → scaled
+   - Check icon: 15px → scaled
+
+5. **[ColorPreferenceItem.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/ColorPreferenceItem/ColorPreferenceItem.tsx)**
+   - Preview size: 24x24px → scaled
+
+6. **[RadioButton.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/RadioButton.tsx)**
+   - Font size: 16px → scaled
+
+7. **[SwitchItem.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Switch/SwitchItem.tsx)**
+   - Font sizes: 12/16px → scaled
+
+8. **[Toast.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Toast.tsx)**
+   - Position and padding scaled
+
+9. **[Chip.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Chip/Chip.tsx)**
+   - Height: 32px → scaled
+   - Font size: 12px → scaled
+
+10. **[DialogTitle.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/DialogTitle/DialogTitle.tsx)**
+    - Font size: 24px → scaled
+
+11. **[ConfirmationDialog.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/ConfirmationDialog/ConfirmationDialog.tsx)**
+    - Font size: 16px → scaled
+    - Border radius: 28px → scaled
+
+12. **[SearchbarV2.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/SearchbarV2/SearchbarV2.tsx)**
+    - Min height: 56px → scaled
+    - Font size: 16px → scaled
+
+13. **[Menu/index.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Menu/index.tsx)**
+    - Font size: 16px → scaled
+    - Min height: 48px → scaled
+
+---
+
 ## Remaining Work
 
 ### Phase 3b: Settings Screens - Modal Font Sizes (11 files)

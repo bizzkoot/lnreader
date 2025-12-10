@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '@theme/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 export interface Tab {
   id: string;
@@ -22,6 +24,31 @@ const TabBar: React.FC<TabBarProps> = ({
   onTabChange,
   theme,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const iconSize = useMemo(() => scaleDimension(20, uiScale), [uiScale]);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flexDirection: 'row',
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(0, 0, 0, 0.12)',
+        },
+        tab: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: scaleDimension(14, uiScale),
+          paddingHorizontal: scaleDimension(8, uiScale),
+          minHeight: scaleDimension(48, uiScale),
+          borderBottomWidth: 2,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
       {tabs.map(tab => {
@@ -41,7 +68,7 @@ const TabBar: React.FC<TabBarProps> = ({
           >
             <MaterialCommunityIcons
               name={tab.icon}
-              size={20}
+              size={iconSize}
               color={isActive ? theme.primary : theme.onSurfaceVariant}
             />
           </Pressable>
@@ -52,20 +79,3 @@ const TabBar: React.FC<TabBarProps> = ({
 };
 
 export default TabBar;
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.12)',
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    minHeight: 48,
-    borderBottomWidth: 2,
-  },
-});

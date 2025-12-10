@@ -58,14 +58,29 @@ Complete the UI scale implementation to ensure all icons, text, images, and dime
 - [ ] `NavigationTab.tsx` - Scale fontSize: 14
 - [ ] `TTSScrollBehaviorModal.tsx` - Scale fontSize: 16, 20
 
-### Phase 3d: Browse and Novel Screens (Optional - if time permits)
+## Phase 3d: Browse and Novel Screens (Optional - if time permits)
 - [ ] Browse screen card dimensions
 - [ ] History screen card dimensions
 - [ ] Novel modal heights/widths
 
+## Phase 4: Core Shared Components (Batch 2 - Dec 10) ✅
+- [x] `SegmentedControl.tsx` - Scale icons, heights, radius
+- [x] `TabBar.tsx` (Reader Settings) - Scale icons, padding
+- [x] `ChapterDownloadButtons.tsx` - Scale icons, size, padding
+- [x] `ThemePicker.tsx` - Scale card, icon, internal dimensions
+- [x] `ColorPreferenceItem.tsx` - Scale size, padding
+- [x] `RadioButton.tsx` - Scale font, padding
+- [x] `SwitchItem.tsx` - Scale font, padding
+- [x] `Toast.tsx` - Scale font, padding, position
+- [x] `Chip.tsx` - Scale height, radius, padding
+- [x] `DialogTitle.tsx` - Scale font, margin
+- [x] `ConfirmationDialog.tsx` - Scale radius, padding, font
+- [x] `SearchbarV2.tsx` - Scale height, font, margin
+- [x] `Menu/index.tsx` - Scale font, padding, minHeight
+
 ## Verification
 - [x] TypeScript type check passes
-- [ ] ESLint passes
+- [x] ESLint passes (0 errors)
 - [ ] Jest tests pass
 - [ ] Test at 20% scale (0.2)
 - [ ] Test at 80% scale (0.8) - default
@@ -78,7 +93,8 @@ Complete the UI scale implementation to ensure all icons, text, images, and dime
 - ✅ Phase 1: 5/5 components
 - ✅ Phase 2: 13/13 components
 - ✅ Phase 3a: 1/1 component
-- **Total: 19 components**
+- ✅ Phase 4: 13/13 components
+- **Total: 32 components**
 
 **Remaining:**
 - Phase 3b: 11 files

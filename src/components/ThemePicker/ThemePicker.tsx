@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { overlay } from 'react-native-paper';
 import color from 'color';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '@theme/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface ThemePickerProps {
   theme: ThemeColors;
@@ -17,209 +19,222 @@ export const ThemePicker = ({
   currentTheme,
   onPress,
   horizontal = false,
-}: ThemePickerProps) => (
-  <View style={[styles.container, horizontal && styles.horizontalContainer]}>
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.background,
-          borderColor:
-            currentTheme.id === theme.id
-              ? theme.primary
-              : currentTheme.background,
+}: ThemePickerProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingBottom: scaleDimension(8, uiScale),
+          width: '33%',
         },
-      ]}
-    >
-      <Pressable style={styles.flex1} onPress={onPress}>
-        {currentTheme.id === theme.id ? (
-          <MaterialCommunityIcons
-            name="check"
-            color={theme.onPrimary}
-            size={15}
-            style={[styles.checkIcon, { backgroundColor: theme.primary }]}
-          />
-        ) : null}
-        <View
-          style={[
-            styles.topBar,
-            {
-              backgroundColor: overlay(2, theme.surface),
-            },
-          ]}
-        >
-          <View
-            style={[styles.topBarAccent, { backgroundColor: theme.onSurface }]}
-          />
-        </View>
-        <View style={styles.content}>
+        horizontalContainer: {
+          width: undefined,
+          marginHorizontal: scaleDimension(4, uiScale),
+        },
+        card: {
+          borderWidth: scaleDimension(3.6, uiScale),
+          width: scaleDimension(95, uiScale),
+          height: scaleDimension(140, uiScale),
+          borderRadius: scaleDimension(16, uiScale),
+          overflow: 'hidden',
+          // Shadow for iOS
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          // Elevation for Android
+          elevation: 2,
+        },
+        flex1: {
+          flex: 1,
+        },
+        checkIcon: {
+          position: 'absolute',
+          top: scaleDimension(5, uiScale),
+          right: scaleDimension(5, uiScale),
+          borderRadius: 50,
+          padding: scaleDimension(1.6, uiScale),
+          zIndex: 1,
+        },
+        topBar: {
+          height: scaleDimension(20, uiScale),
+          justifyContent: 'center',
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+        },
+        topBarAccent: {
+          width: scaleDimension(44, uiScale),
+          height: scaleDimension(10, uiScale),
+          marginLeft: scaleDimension(8, uiScale),
+          borderRadius: 50,
+        },
+        content: {
+          padding: scaleDimension(8, uiScale),
+        },
+        titleBar: {
+          height: scaleDimension(18, uiScale),
+          borderRadius: scaleDimension(4, uiScale),
+        },
+        row: {
+          paddingVertical: scaleDimension(4, uiScale),
+          flexDirection: 'row',
+        },
+        rowAccent: {
+          height: scaleDimension(10, uiScale),
+          width: scaleDimension(44, uiScale),
+          borderRadius: 50,
+        },
+        rowAccentSmall: {
+          height: scaleDimension(10, uiScale),
+          width: scaleDimension(16, uiScale),
+          marginLeft: scaleDimension(4, uiScale),
+          borderRadius: 50,
+        },
+        rowAccentShort: {
+          height: scaleDimension(10, uiScale),
+          width: scaleDimension(24, uiScale),
+          borderRadius: 50,
+        },
+        bottomBar: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: scaleDimension(24, uiScale),
+          justifyContent: 'center',
+        },
+        bottomBarContent: {
+          flex: 1,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexDirection: 'row',
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+        dot: {
+          height: scaleDimension(12, uiScale),
+          width: scaleDimension(12, uiScale),
+          borderRadius: 50,
+        },
+        opacityDot: {
+          opacity: 0.54,
+        },
+        themeName: {
+          fontSize: scaleDimension(12, uiScale),
+          paddingVertical: scaleDimension(4, uiScale),
+        },
+        marginLeft: { marginLeft: scaleDimension(4, uiScale) },
+      }),
+    [uiScale],
+  );
+
+  const iconSize = useMemo(() => scaleDimension(15, uiScale), [uiScale]);
+
+  return (
+    <View style={[styles.container, horizontal && styles.horizontalContainer]}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.background,
+            borderColor:
+              currentTheme.id === theme.id
+                ? theme.primary
+                : currentTheme.background,
+          },
+        ]}
+      >
+        <Pressable style={styles.flex1} onPress={onPress}>
+          {currentTheme.id === theme.id ? (
+            <MaterialCommunityIcons
+              name="check"
+              color={theme.onPrimary}
+              size={iconSize}
+              style={[styles.checkIcon, { backgroundColor: theme.primary }]}
+            />
+          ) : null}
           <View
             style={[
-              styles.titleBar,
-              { backgroundColor: theme.onSurfaceVariant },
+              styles.topBar,
+              {
+                backgroundColor: overlay(2, theme.surface),
+              },
             ]}
-          />
-          <View style={styles.row}>
-            <View
-              style={[styles.rowAccent, { backgroundColor: theme.onSurface }]}
-            />
+          >
             <View
               style={[
-                styles.rowAccentSmall,
-                { backgroundColor: theme.primary },
-              ]}
-            />
-          </View>
-          <View style={styles.row}>
-            <View
-              style={[
-                styles.rowAccentShort,
-                { backgroundColor: theme.onSurfaceVariant },
-              ]}
-            />
-            <View
-              style={[
-                styles.rowAccentShort,
-                styles.marginLeft,
-                { backgroundColor: theme.onSurfaceVariant },
-              ]}
-            />
-          </View>
-        </View>
-        <View
-          style={[
-            styles.bottomBar,
-            {
-              backgroundColor: color(theme.primary).alpha(0.08).string(),
-            },
-          ]}
-        >
-          <View style={styles.bottomBarContent}>
-            <View
-              style={[
-                styles.dot,
-                styles.opacityDot,
-                { backgroundColor: theme.onSurface },
-              ]}
-            />
-            <View style={[styles.dot, { backgroundColor: theme.primary }]} />
-            <View
-              style={[
-                styles.dot,
-                styles.opacityDot,
+                styles.topBarAccent,
                 { backgroundColor: theme.onSurface },
               ]}
             />
           </View>
-        </View>
-      </Pressable>
+          <View style={styles.content}>
+            <View
+              style={[
+                styles.titleBar,
+                { backgroundColor: theme.onSurfaceVariant },
+              ]}
+            />
+            <View style={styles.row}>
+              <View
+                style={[styles.rowAccent, { backgroundColor: theme.onSurface }]}
+              />
+              <View
+                style={[
+                  styles.rowAccentSmall,
+                  { backgroundColor: theme.primary },
+                ]}
+              />
+            </View>
+            <View style={styles.row}>
+              <View
+                style={[
+                  styles.rowAccentShort,
+                  { backgroundColor: theme.onSurfaceVariant },
+                ]}
+              />
+              <View
+                style={[
+                  styles.rowAccentShort,
+                  styles.marginLeft,
+                  { backgroundColor: theme.onSurfaceVariant },
+                ]}
+              />
+            </View>
+          </View>
+          <View
+            style={[
+              styles.bottomBar,
+              {
+                backgroundColor: color(theme.primary).alpha(0.08).string(),
+              },
+            ]}
+          >
+            <View style={styles.bottomBarContent}>
+              <View
+                style={[
+                  styles.dot,
+                  styles.opacityDot,
+                  { backgroundColor: theme.onSurface },
+                ]}
+              />
+              <View style={[styles.dot, { backgroundColor: theme.primary }]} />
+              <View
+                style={[
+                  styles.dot,
+                  styles.opacityDot,
+                  { backgroundColor: theme.onSurface },
+                ]}
+              />
+            </View>
+          </View>
+        </Pressable>
+      </View>
+      <Text style={[styles.themeName, { color: currentTheme.onSurface }]}>
+        {theme.name}
+      </Text>
     </View>
-    <Text style={[styles.themeName, { color: currentTheme.onSurface }]}>
-      {theme.name}
-    </Text>
-  </View>
-);
-
-const styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 8,
-    width: '33%',
-  },
-  horizontalContainer: {
-    width: undefined,
-    marginHorizontal: 4,
-  },
-  card: {
-    borderWidth: 3.6,
-    width: 95,
-    height: 140,
-    borderRadius: 16,
-    overflow: 'hidden',
-    // Shadow for iOS
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    // Elevation for Android
-    elevation: 2,
-  },
-  flex1: {
-    flex: 1,
-  },
-  checkIcon: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    borderRadius: 50,
-    padding: 1.6,
-    zIndex: 1,
-  },
-  topBar: {
-    height: 20,
-    justifyContent: 'center',
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-  },
-  topBarAccent: {
-    width: 44,
-    height: 10,
-    marginLeft: 8,
-    borderRadius: 50,
-  },
-  content: {
-    padding: 8,
-  },
-  titleBar: {
-    height: 18,
-    borderRadius: 4,
-  },
-  row: {
-    paddingVertical: 4,
-    flexDirection: 'row',
-  },
-  rowAccent: {
-    height: 10,
-    width: 44,
-    borderRadius: 50,
-  },
-  rowAccentSmall: {
-    height: 10,
-    width: 16,
-    marginLeft: 4,
-    borderRadius: 50,
-  },
-  rowAccentShort: {
-    height: 10,
-    width: 24,
-    borderRadius: 50,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-    justifyContent: 'center',
-  },
-  bottomBarContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-  },
-  dot: {
-    height: 12,
-    width: 12,
-    borderRadius: 50,
-  },
-  opacityDot: {
-    opacity: 0.54,
-  },
-  themeName: {
-    fontSize: 12,
-    paddingVertical: 4,
-  },
-  marginLeft: { marginLeft: 4 },
-});
+  );
+};
