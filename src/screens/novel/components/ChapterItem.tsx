@@ -1,5 +1,4 @@
-/* eslint-disable react-native/no-inline-styles */
-import React, { memo, ReactNode } from 'react';
+import React, { memo, ReactNode, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import color from 'color';
 import {
@@ -10,6 +9,8 @@ import { ThemeColors } from '@theme/types';
 import { ChapterInfo } from '@database/types';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { getString } from '@strings/translations';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface ChapterItemProps {
   isDownloading?: boolean;
@@ -50,8 +51,50 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
 }) => {
   const { id, name, unread, releaseTime, bookmark, chapterNumber, progress } =
     chapter;
+  const { uiScale = 1.0 } = useAppSettings();
 
   isBookmarked ??= bookmark;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        chapterCardContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          height: scaleDimension(64, uiScale),
+          justifyContent: 'space-between',
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        row: {
+          alignItems: 'center',
+          flex: 1,
+          flexDirection: 'row',
+        },
+        text: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+        unreadIcon: {
+          marginRight: scaleDimension(4, uiScale),
+        },
+        contentContainer: {
+          flex: 1,
+        },
+        chapterNameRow: {
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        infoRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        chapterNameText: {
+          flex: 1,
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View key={'chapterItem' + id}>
@@ -75,11 +118,11 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
         <View style={styles.row}>
           {left}
           {isBookmarked ? <ChapterBookmarkButton theme={theme} /> : null}
-          <View style={{ flex: 1 }}>
+          <View style={styles.contentContainer}>
             {isUpdateCard ? (
               <Text
                 style={{
-                  fontSize: 14,
+                  fontSize: scaleDimension(14, uiScale),
                   color: unread ? theme.onSurface : theme.outline,
                 }}
                 numberOfLines={1}
@@ -87,32 +130,28 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                 {novelName}
               </Text>
             ) : null}
-            <View
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
+            <View style={styles.chapterNameRow}>
               {unread ? (
                 <MaterialCommunityIcons
                   name="circle"
                   color={theme.primary}
-                  size={8}
+                  size={scaleDimension(8, uiScale)}
                   style={styles.unreadIcon}
                 />
               ) : null}
 
               <Text
-                style={{
-                  fontSize: isUpdateCard ? 12 : 14,
-                  color: !unread
-                    ? theme.outline
-                    : bookmark
-                      ? theme.primary
-                      : theme.onSurface,
-                  flex: 1,
-                }}
+                style={[
+                  {
+                    fontSize: scaleDimension(isUpdateCard ? 12 : 14, uiScale),
+                    color: !unread
+                      ? theme.outline
+                      : bookmark
+                        ? theme.primary
+                        : theme.onSurface,
+                  },
+                  styles.chapterNameText,
+                ]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
@@ -123,12 +162,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                     })}
               </Text>
             </View>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}
-            >
+            <View style={styles.infoRow}>
               {releaseTime && !isUpdateCard ? (
                 <Text
                   style={[
@@ -138,7 +172,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                         : bookmark
                           ? theme.primary
                           : theme.onSurfaceVariant,
-                      marginTop: 4,
+                      marginTop: scaleDimension(4, uiScale),
                     },
                     styles.text,
                   ]}
@@ -149,12 +183,18 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
               ) : null}
               {!isUpdateCard && progress && progress > 0 && chapter.unread ? (
                 <Text
-                  style={{
-                    color: theme.outline,
-                    marginLeft: chapter.releaseTime ? 5 : 0,
-                    fontSize: 12,
-                    marginTop: 4,
-                  }}
+                  style={[
+                    {
+                      color: theme.outline,
+                    },
+                    styles.text,
+                    {
+                      marginTop: scaleDimension(4, uiScale),
+                      marginLeft: chapter.releaseTime
+                        ? scaleDimension(5, uiScale)
+                        : 0,
+                    },
+                  ]}
                   numberOfLines={1}
                 >
                   {chapter.releaseTime ? '•  ' : null}
@@ -181,25 +221,3 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
 };
 
 export default memo(ChapterItem);
-
-const styles = StyleSheet.create({
-  chapterCardContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    height: 64,
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  row: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-  },
-  text: {
-    fontSize: 12,
-  },
-  unreadIcon: {
-    marginRight: 4,
-  },
-});

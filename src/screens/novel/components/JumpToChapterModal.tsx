@@ -164,7 +164,13 @@ const JumpToChapterModal = ({
         onPress={() => executeFunction(item)}
         style={styles.listElementContainer}
       >
-        <Text numberOfLines={1} style={{ color: theme.onSurface }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            color: theme.onSurface,
+            fontSize: scaleDimension(14, uiScale),
+          }}
+        >
           {item.name}
         </Text>
         {item?.releaseTime ? (
@@ -267,7 +273,12 @@ const JumpToChapterModal = ({
             ]}
           />
           {!!error && (
-            <Text style={[styles.errorText, { color: errorColor }]}>
+            <Text
+              style={[
+                styles.errorText,
+                { color: errorColor, fontSize: scaleDimension(12, uiScale) },
+              ]}
+            >
               {error}
             </Text>
           )}

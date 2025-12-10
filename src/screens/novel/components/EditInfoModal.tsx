@@ -123,7 +123,12 @@ const EditInfoModal = ({
           {getString('novelScreen.edit.info')}
         </Text>
         <View style={styles.statusRow}>
-          <Text style={{ color: theme.onSurfaceVariant }}>
+          <Text
+            style={{
+              color: theme.onSurfaceVariant,
+              fontSize: scaleDimension(14, uiScale),
+            }}
+          >
             {getString('novelScreen.edit.status')}
           </Text>
           <ScrollView
@@ -154,6 +159,7 @@ const EditInfoModal = ({
                         novelInfo.status === item
                           ? theme.primary
                           : theme.onSurfaceVariant,
+                      fontSize: scaleDimension(12, uiScale),
                     }}
                   >
                     {translateNovelStatus(item)}

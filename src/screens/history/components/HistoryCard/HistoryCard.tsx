@@ -62,6 +62,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
         },
         novelName: {
           marginBottom: scaleDimension(4, uiScale),
+          fontWeight: '500',
         },
       }),
     [uiScale],
@@ -107,11 +108,23 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
         <View style={styles.detailsContainer}>
           <Text
             numberOfLines={2}
-            style={[{ color: theme.onSurface }, styles.novelName]}
+            style={[
+              {
+                color: theme.onSurface,
+                fontSize: scaleDimension(14, uiScale),
+              },
+              styles.novelName,
+            ]}
           >
             {history.novelName}
           </Text>
-          <Text style={{ color: theme.onSurfaceVariant }}>
+          <Text
+            style={{
+              color: theme.onSurfaceVariant,
+              fontSize: scaleDimension(12, uiScale),
+              marginTop: scaleDimension(4, uiScale),
+            }}
+          >
             {`${getString('historyScreen.chapter')} ${
               history.chapterNumber
             } • ${dayjs(history.readTime).format('LT').toUpperCase()}` +

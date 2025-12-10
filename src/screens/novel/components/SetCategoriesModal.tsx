@@ -104,7 +104,12 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
             />
           )}
           ListEmptyComponent={
-            <Text style={{ color: theme.onSurfaceVariant }}>
+            <Text
+              style={{
+                color: theme.onSurfaceVariant,
+                fontSize: scaleDimension(14, uiScale),
+              }}
+            >
               {getString('categories.setModalEmptyMsg')}
             </Text>
           }

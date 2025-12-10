@@ -64,7 +64,14 @@ const DiscoverCard: React.FC<Props> = ({
       <View style={styles.flexRow}>
         <Image source={icon} style={styles.icon} />
         <View style={styles.details}>
-          <Text style={{ color: theme.onSurface }}>{trackerName}</Text>
+          <Text
+            style={{
+              color: theme.onSurface,
+              fontSize: scaleDimension(14, uiScale),
+            }}
+          >
+            {trackerName}
+          </Text>
         </View>
       </View>
       <View style={styles.flexRow}>

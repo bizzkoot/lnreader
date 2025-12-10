@@ -9,6 +9,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { Button, LoadingScreenV2 } from '@components/index';
+import { scaleDimension } from '@theme/scaling';
 import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
@@ -32,11 +33,14 @@ const ChapterDrawer = () => {
   const { chapters, novelSettings, pages, setPageIndex } = useNovelContext();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { defaultChapterSort } = useAppSettings();
+  const { defaultChapterSort, uiScale = 1.0 } = useAppSettings();
   const listRef = useRef<LegendListRef | null>(null);
   // ChapterInfo is used via the hooks
 
-  const styles = createStylesheet(theme, insets);
+  const styles = useMemo(
+    () => createStylesheet(theme, insets, uiScale),
+    [theme, insets, uiScale],
+  );
 
   const { sort = defaultChapterSort } = novelSettings;
   const listAscending = sort === 'ORDER BY position ASC';
@@ -174,7 +178,7 @@ const ChapterDrawer = () => {
               },
             })
           }
-          estimatedItemSize={60}
+          estimatedItemSize={scaleDimension(60, uiScale)}
           initialScrollIndex={scrollToIndex.current}
         />
       )}
@@ -196,56 +200,60 @@ const ChapterDrawer = () => {
   );
 };
 
-const createStylesheet = (theme: ThemeColors, insets: EdgeInsets) => {
+const createStylesheet = (
+  theme: ThemeColors,
+  insets: EdgeInsets,
+  uiScale: number,
+) => {
   return StyleSheet.create({
     button: {
-      marginBottom: 12,
-      marginHorizontal: 16,
-      marginTop: 4,
+      marginBottom: scaleDimension(12, uiScale),
+      marginHorizontal: scaleDimension(16, uiScale),
+      marginTop: scaleDimension(4, uiScale),
     },
     chapterCtn: {
       flex: 1,
       justifyContent: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 10,
+      paddingHorizontal: scaleDimension(20, uiScale),
+      paddingVertical: scaleDimension(10, uiScale),
     },
     chapterNameCtn: {
       color: theme.onSurface,
-      fontSize: 12,
-      marginBottom: 2,
+      fontSize: scaleDimension(12, uiScale),
+      marginBottom: scaleDimension(2, uiScale),
     },
     drawer: {
       backgroundColor: theme.surface,
       flex: 1,
-      paddingTop: 48,
+      paddingTop: scaleDimension(48, uiScale),
     },
     drawerElementContainer: {
-      borderRadius: 50,
-      margin: 4,
-      marginLeft: 16,
-      marginRight: 16,
-      minHeight: 48,
+      borderRadius: scaleDimension(50, uiScale),
+      margin: scaleDimension(4, uiScale),
+      marginLeft: scaleDimension(16, uiScale),
+      marginRight: scaleDimension(16, uiScale),
+      minHeight: scaleDimension(48, uiScale),
       overflow: 'hidden',
     },
     footer: {
       borderTopColor: theme.outline,
       borderTopWidth: 1,
-      marginTop: 4,
+      marginTop: scaleDimension(4, uiScale),
       paddingBottom: insets.bottom,
-      paddingTop: 8,
+      paddingTop: scaleDimension(8, uiScale),
     },
     headerCtn: {
       borderBottomColor: theme.outline,
       borderBottomWidth: 1,
       color: theme.onSurface,
-      fontSize: 16,
+      fontSize: scaleDimension(16, uiScale),
       fontWeight: '500',
-      marginBottom: 4,
-      padding: 16,
+      marginBottom: scaleDimension(4, uiScale),
+      padding: scaleDimension(16, uiScale),
     },
     releaseDateCtn: {
       color: theme.onSurfaceVariant,
-      fontSize: 10,
+      fontSize: scaleDimension(10, uiScale),
     },
   });
 };

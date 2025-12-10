@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
@@ -8,6 +8,7 @@ import {
   useTheme,
   useChapterGeneralSettings,
   useChapterReaderSettings,
+  useAppSettings,
 } from '@hooks/persisted';
 import { List, Button } from '@components/index';
 import { useBoolean } from '@hooks';
@@ -16,9 +17,11 @@ import VoicePickerModal from '@screens/settings/SettingsReaderScreen/Modals/Voic
 import TTSScrollBehaviorModal from '@screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal';
 import Switch from '@components/Switch/Switch';
 import { useChapterContext } from '../../ChapterContext';
+import { scaleDimension } from '@theme/scaling';
 
 const ReaderTTSTab: React.FC = React.memo(() => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const { webViewRef } = useChapterContext();
   const {
     TTSEnable = false,
@@ -28,6 +31,91 @@ const ReaderTTSTab: React.FC = React.memo(() => {
     ttsAutoDownloadAmount = '10',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: scaleDimension(24, uiScale),
+        },
+        section: {
+          marginVertical: scaleDimension(4, uiScale),
+        },
+        switchItem: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(12, uiScale),
+        },
+        switchLabel: {
+          fontSize: scaleDimension(16, uiScale),
+          flex: 1,
+          marginRight: scaleDimension(12, uiScale),
+        },
+        ttsHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingRight: scaleDimension(16, uiScale),
+        },
+        sliderSection: {
+          paddingVertical: scaleDimension(8, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+        sliderLabelRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: scaleDimension(8, uiScale),
+        },
+        sliderLabel: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        sliderValue: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          minWidth: scaleDimension(48, uiScale),
+          textAlign: 'right',
+        },
+        sliderContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: scaleDimension(8, uiScale),
+        },
+        slider: {
+          flex: 1,
+          height: scaleDimension(40, uiScale),
+        },
+        sliderButton: {
+          width: scaleDimension(36, uiScale),
+          height: scaleDimension(36, uiScale),
+          borderRadius: scaleDimension(18, uiScale),
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+        },
+        sliderButtonText: {
+          fontSize: scaleDimension(20, uiScale),
+          fontWeight: '500',
+          lineHeight: scaleDimension(24, uiScale),
+        },
+        resetButtonContainer: {
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        resetButton: {
+          alignSelf: 'flex-start',
+        },
+        bottomSpacing: {
+          height: scaleDimension(24, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const { tts, setChapterReaderSettings } = useChapterReaderSettings();
   const [voices, setVoices] = useState<TTSVoice[]>([]);
@@ -435,84 +523,3 @@ const ReaderTTSTab: React.FC = React.memo(() => {
 });
 
 export default ReaderTTSTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  section: {
-    marginVertical: 4,
-  },
-  switchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  switchLabel: {
-    fontSize: 16,
-    flex: 1,
-    marginRight: 12,
-  },
-  ttsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: 16,
-  },
-  sliderSection: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  sliderLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sliderLabel: {
-    fontSize: 16,
-  },
-  sliderValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 48,
-    textAlign: 'right',
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  slider: {
-    flex: 1,
-    height: 40,
-  },
-  sliderButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
-  },
-  sliderButtonText: {
-    fontSize: 20,
-    fontWeight: '500',
-    lineHeight: 24,
-  },
-  resetButtonContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  resetButton: {
-    alignSelf: 'flex-start',
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-});

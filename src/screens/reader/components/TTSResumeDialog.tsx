@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
 import { useBackHandler } from '@hooks/index';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface TTSResumeDialogProps {
   visible: boolean;
@@ -22,6 +24,29 @@ const TTSResumeDialog: React.FC<TTSResumeDialogProps> = ({
   onRestartChapter,
   onDismiss,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: scaleDimension(28, uiScale),
+          shadowColor: 'transparent',
+        },
+        content: {
+          fontSize: scaleDimension(16, uiScale),
+          letterSpacing: 0,
+          marginBottom: scaleDimension(8, uiScale),
+        },
+        buttonCtn: {
+          flexDirection: 'column',
+          padding: scaleDimension(16, uiScale),
+          gap: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   // FIX Case 5.2: Handle Android back button press
   // When back is pressed while dialog visible, just dismiss (user can re-open TTS later)
   useBackHandler(() => {
@@ -83,20 +108,3 @@ const TTSResumeDialog: React.FC<TTSResumeDialogProps> = ({
 };
 
 export default TTSResumeDialog;
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 28,
-    shadowColor: 'transparent',
-  },
-  content: {
-    fontSize: 16,
-    letterSpacing: 0,
-    marginBottom: 8,
-  },
-  buttonCtn: {
-    flexDirection: 'column',
-    padding: 16,
-    gap: 12,
-  },
-});
