@@ -1,8 +1,10 @@
 import { ThemeColors } from '@theme/types';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { scaleDimension } from '@theme/scaling';
 
 interface ErrorAction {
   name: string;
@@ -26,6 +28,49 @@ const getActionTextColor = (theme: ThemeColors) => ({ color: theme.outline });
 
 export const ErrorView = ({ errorName, actions, theme }: ErrorViewProps) => {
   const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        emptyViewContainer: {
+          alignItems: 'center',
+          flex: 1,
+          justifyContent: 'center',
+        },
+        emptyViewIcon: {
+          fontSize: scaleDimension(45, uiScale),
+        },
+        emptyViewText: {
+          fontWeight: 'bold',
+          marginTop: scaleDimension(10, uiScale),
+          paddingHorizontal: scaleDimension(30, uiScale),
+          textAlign: 'center',
+        },
+        actionsRow: {
+          flexDirection: 'row',
+        },
+        actionContainer: {
+          borderRadius: scaleDimension(4, uiScale),
+          overflow: 'hidden',
+          margin: scaleDimension(16, uiScale),
+        },
+        actionPressable: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingBottom: scaleDimension(8, uiScale),
+          paddingHorizontal: scaleDimension(20, uiScale),
+          minWidth: scaleDimension(100, uiScale),
+        },
+        iconButton: {
+          margin: 0,
+        },
+        actionText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View style={styles.emptyViewContainer}>
@@ -59,41 +104,3 @@ export const ErrorView = ({ errorName, actions, theme }: ErrorViewProps) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  emptyViewContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  emptyViewIcon: {
-    fontSize: 45,
-  },
-  emptyViewText: {
-    fontWeight: 'bold',
-    marginTop: 10,
-    paddingHorizontal: 30,
-    textAlign: 'center',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-  },
-  actionContainer: {
-    borderRadius: 4,
-    overflow: 'hidden',
-    margin: 16,
-  },
-  actionPressable: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 8,
-    paddingHorizontal: 20,
-    minWidth: 100,
-  },
-  iconButton: {
-    margin: 0,
-  },
-  actionText: {
-    fontSize: 12,
-  },
-});

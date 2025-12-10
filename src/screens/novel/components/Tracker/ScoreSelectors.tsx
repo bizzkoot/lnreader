@@ -49,6 +49,21 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
   );
   const [error, setError] = useState<string | undefined>();
 
+  const styles = StyleSheet.create({
+    errorText: {
+      fontSize: 12,
+      marginTop: 4,
+    },
+    input: {
+      fontSize: 13,
+      lineHeight: 20,
+    },
+    helperText: {
+      fontSize: 14,
+      marginBottom: 8,
+    },
+  });
+
   useEffect(() => {
     setScoreText(trackItem.score === 0 ? '' : trackItem.score.toString());
     setError(undefined);
@@ -100,7 +115,7 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
           },
         }}
         underlineColor={theme.outline}
-        style={styles.textInput}
+        style={styles.input}
       />
       {error && (
         <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
@@ -140,26 +155,3 @@ export const AniListScoreSelector: React.FC<AniListScoreSelectorProps> = ({
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  guideText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  guideTitle: {
-    fontSize: 14,
-    fontWeight: 500,
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  textInput: {
-    backgroundColor: 'transparent',
-  },
-});

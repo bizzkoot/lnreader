@@ -6,6 +6,7 @@ import { Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Animated from 'react-native-reanimated';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted';
 
 interface CustomBottomTabBarProps extends BottomTabBarProps {
   theme: ThemeColors;
@@ -30,10 +31,11 @@ function CustomBottomTabBar({
 }: CustomBottomTabBarProps) {
   const scaledDimensions = useScaledDimensions();
   const { padding, margin, iconSize, borderRadius } = scaledDimensions;
+  const { uiScale = 1.0 } = useAppSettings();
 
   const styles = useMemo(
-    () => getStyles(padding, margin, iconSize, borderRadius),
-    [padding, margin, iconSize, borderRadius],
+    () => getStyles(padding, margin, iconSize, borderRadius, uiScale),
+    [padding, margin, iconSize, borderRadius, uiScale],
   );
   const getLabelText = useCallback(
     (route: any) => {
@@ -148,6 +150,7 @@ const getStyles = (
   margin: ReturnType<typeof useScaledDimensions>['margin'],
   iconSize: ReturnType<typeof useScaledDimensions>['iconSize'],
   borderRadius: ReturnType<typeof useScaledDimensions>['borderRadius'],
+  uiScale: number,
 ) =>
   StyleSheet.create({
     container: {
@@ -172,7 +175,8 @@ const getStyles = (
       borderRadius: borderRadius.lg + 8,
     },
     label: {
-      height: padding.md,
+      fontSize: Math.round(12 * uiScale),
+      lineHeight: Math.round(16 * uiScale),
       textAlign: 'center',
     },
   });

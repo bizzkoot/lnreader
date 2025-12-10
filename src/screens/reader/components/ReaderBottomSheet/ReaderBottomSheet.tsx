@@ -20,6 +20,8 @@ import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
 import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
 import { getString } from '@strings/translations';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { scaleDimension } from '@theme/scaling';
 
 import ReaderSheetPreferenceItem from './ReaderSheetPreferenceItem';
 import TextSizeSlider from './TextSizeSlider';
@@ -71,6 +73,7 @@ const ReaderTab: React.FC = React.memo(() => (
 
 const GeneralTab: React.FC = React.memo(() => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const { setChapterGeneralSettings, ...settings } =
     useChapterGeneralSettings();
 
@@ -119,7 +122,7 @@ const GeneralTab: React.FC = React.memo(() => {
       extraData={[settings]}
       keyExtractor={(item: { key: string; label: string }) => item.key}
       renderItem={renderItem}
-      estimatedItemSize={60}
+      estimatedItemSize={scaleDimension(60, uiScale)}
     />
   );
 });

@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { IconButton } from 'react-native-paper';
 
-import { useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getAniListScoreFormatting } from './constants';
 import { AddTrackingCardProps, TrackedItemCardProps } from './types';
 
@@ -11,6 +12,119 @@ export const AddTrackingCard: React.FC<AddTrackingCardProps> = ({
   icon,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const borderColor = 'rgba(0, 0, 0, 0.12)';
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        addCardContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          margin: scaleDimension(16, uiScale),
+        },
+        trackerIcon: {
+          height: scaleDimension(50, uiScale),
+          width: scaleDimension(50, uiScale),
+        },
+        addCardPressableContainer: {
+          borderRadius: scaleDimension(4, uiScale),
+          flex: 1,
+          flexDirection: 'row',
+          marginHorizontal: scaleDimension(16, uiScale),
+          overflow: 'hidden',
+        },
+        rippleContainer: {
+          alignItems: 'center',
+          flex: 1,
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        addTrackingText: {
+          fontSize: scaleDimension(16, uiScale),
+          textAlignVertical: 'center',
+        },
+        cardContainer: {
+          borderRadius: scaleDimension(8, uiScale),
+          margin: scaleDimension(8, uiScale),
+        },
+        flex1: {
+          flex: 1,
+        },
+        listItem: {
+          flex: 1,
+          textAlign: 'center',
+          textAlignVertical: 'center',
+        },
+        listItemContainer: {
+          alignItems: 'center',
+          borderTopRightRadius: scaleDimension(4, uiScale),
+          flex: 1,
+          flexDirection: 'row',
+        },
+        listItemLeft: {
+          borderBottomLeftRadius: scaleDimension(4, uiScale),
+          borderRightWidth: 1,
+          flex: 1,
+        },
+        listItemRight: {
+          borderBottomRightRadius: scaleDimension(4, uiScale),
+          borderLeftWidth: 1,
+          flex: 1,
+        },
+        titleContainer: {
+          alignItems: 'center',
+          borderBottomWidth: 1,
+          flexDirection: 'row',
+          padding: scaleDimension(4, uiScale),
+        },
+        trackedItemRow: {
+          flexDirection: 'row',
+          height: scaleDimension(50, uiScale),
+        },
+        trackerIconSmall: {
+          borderRadius: scaleDimension(8, uiScale),
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+        trackedItemCard: {
+          margin: scaleDimension(16, uiScale),
+          marginHorizontal: scaleDimension(16, uiScale),
+        },
+        trackerInfo: {
+          flex: 1,
+        },
+        trackerHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: scaleDimension(8, uiScale),
+        },
+        trackerDetails: {
+          gap: scaleDimension(8, uiScale),
+        },
+        trackerDetailItem: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingVertical: scaleDimension(8, uiScale),
+          borderBottomWidth: 1,
+          borderBottomColor: borderColor,
+        },
+        detailLabel: {
+          fontSize: scaleDimension(14, uiScale),
+        },
+        detailValue: {
+          fontSize: scaleDimension(14, uiScale),
+        },
+        trackerActions: {
+          flexDirection: 'row',
+          borderLeftWidth: 1,
+          borderLeftColor: borderColor,
+        },
+        actionButton: {
+          padding: scaleDimension(4, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View style={styles.addCardContainer}>
@@ -44,7 +158,102 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
   icon,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const borderColor = 'rgba(0, 0, 0, 0.12)';
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        trackedItemCard: {
+          margin: scaleDimension(16, uiScale),
+          marginHorizontal: scaleDimension(16, uiScale),
+        },
+        trackerInfo: {
+          flex: 1,
+        },
+        trackerHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: scaleDimension(8, uiScale),
+        },
+        trackerIcon: {
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+        trackerName: {
+          fontSize: scaleDimension(16, uiScale),
+          marginLeft: scaleDimension(8, uiScale),
+        },
+        trackerDetails: {
+          gap: scaleDimension(8, uiScale),
+        },
+        trackerDetailItem: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingVertical: scaleDimension(8, uiScale),
+          borderBottomWidth: 1,
+          borderBottomColor: borderColor,
+        },
+        detailLabel: {
+          fontSize: scaleDimension(14, uiScale),
+        },
+        detailValue: {
+          fontSize: scaleDimension(14, uiScale),
+        },
+        trackerActions: {
+          flexDirection: 'row',
+          borderLeftWidth: 1,
+          borderLeftColor: borderColor,
+        },
+        actionButton: {
+          padding: scaleDimension(4, uiScale),
+        },
+        cardContainer: {
+          borderRadius: scaleDimension(8, uiScale),
+          margin: scaleDimension(8, uiScale),
+        },
+        flex1: {
+          flex: 1,
+        },
+        listItem: {
+          flex: 1,
+          textAlign: 'center',
+          textAlignVertical: 'center',
+        },
+        listItemContainer: {
+          alignItems: 'center',
+          borderTopRightRadius: scaleDimension(4, uiScale),
+          flex: 1,
+          flexDirection: 'row',
+        },
+        listItemLeft: {
+          borderBottomLeftRadius: scaleDimension(4, uiScale),
+          borderRightWidth: 1,
+          flex: 1,
+        },
+        listItemRight: {
+          borderBottomRightRadius: scaleDimension(4, uiScale),
+          borderLeftWidth: 1,
+          flex: 1,
+        },
+        titleContainer: {
+          alignItems: 'center',
+          borderBottomWidth: 1,
+          flexDirection: 'row',
+          padding: scaleDimension(4, uiScale),
+        },
+        trackedItemRow: {
+          flexDirection: 'row',
+          height: scaleDimension(50, uiScale),
+        },
+        trackerIconSmall: {
+          borderRadius: scaleDimension(8, uiScale),
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const renderScore = useCallback(() => {
     if (trackItem.score === 0) {
@@ -76,8 +285,13 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
 
   return (
     <View style={[{ backgroundColor: theme.surface }, styles.cardContainer]}>
-      <View style={[styles.titleContainer, { borderBottomColor: borderColor }]}>
-        <Image source={icon} style={styles.trackerIcon} />
+      <View
+        style={[
+          styles.titleContainer,
+          { borderBottomColor: 'rgba(0, 0, 0, 0.12)' },
+        ]}
+      >
+        <Image source={icon} style={styles.trackerIconSmall} />
         <View style={styles.listItemContainer}>
           <Text
             style={[{ color: theme.onSurfaceVariant }, styles.listItem]}
@@ -95,7 +309,10 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
       </View>
       <View style={styles.trackedItemRow}>
         <Pressable
-          style={[{ borderRightColor: borderColor }, styles.listItemLeft]}
+          style={[
+            { borderRightColor: 'rgba(0, 0, 0, 0.12)' },
+            styles.listItemLeft,
+          ]}
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetStatus}
         >
@@ -113,7 +330,10 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
           </Text>
         </Pressable>
         <Pressable
-          style={[{ borderLeftColor: borderColor }, styles.listItemRight]}
+          style={[
+            { borderLeftColor: 'rgba(0, 0, 0, 0.12)' },
+            styles.listItemRight,
+          ]}
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetScore}
         >
@@ -125,69 +345,3 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  addCardContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    margin: 16,
-  },
-  addCardPressableContainer: {
-    borderRadius: 4,
-    flex: 1,
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    overflow: 'hidden',
-  },
-  addTrackingText: {
-    textAlignVertical: 'center',
-  },
-  cardContainer: {
-    borderRadius: 8,
-    margin: 8,
-  },
-  flex1: {
-    flex: 1,
-  },
-  listItem: {
-    flex: 1,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-  },
-  listItemContainer: {
-    alignItems: 'center',
-    borderTopRightRadius: 4,
-    flex: 1,
-    flexDirection: 'row',
-  },
-  listItemLeft: {
-    borderBottomLeftRadius: 4,
-    borderRightWidth: 1,
-    flex: 1,
-  },
-  listItemRight: {
-    borderBottomRightRadius: 4,
-    borderLeftWidth: 1,
-    flex: 1,
-  },
-  rippleContainer: {
-    alignItems: 'center',
-    flex: 1,
-    paddingVertical: 8,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    padding: 4,
-  },
-  trackedItemRow: {
-    flexDirection: 'row',
-    height: 50,
-  },
-  trackerIcon: {
-    borderRadius: 8,
-    height: 40,
-    width: 40,
-  },
-});

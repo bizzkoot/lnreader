@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { useTheme } from '@hooks/persisted';
 import { getErrorMessage } from '@utils/error';
 import { MaterialDesignIconName } from '@type/icon';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { scaleDimension } from '@theme/scaling';
 
 interface ErrorScreenProps {
   error: any;
@@ -18,6 +20,44 @@ interface ErrorScreenProps {
 const ErrorScreen: React.FC<ErrorScreenProps> = ({ error, actions }) => {
   const theme = useTheme();
   const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        actionsCtn: {
+          flexDirection: 'row',
+          marginTop: scaleDimension(20, uiScale),
+        },
+        buttonCtn: {
+          alignItems: 'center',
+          flex: 1,
+          justifyContent: 'center',
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        buttonWrapper: {
+          borderRadius: scaleDimension(50, uiScale),
+          flexDirection: 'row',
+          flex: 1 / 3,
+          marginHorizontal: scaleDimension(4, uiScale),
+          overflow: 'hidden',
+        },
+        container: {
+          alignItems: 'center',
+          flex: 1,
+          justifyContent: 'center',
+        },
+        error: {
+          marginTop: scaleDimension(16, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+          textAlign: 'center',
+        },
+        icon: {
+          fontSize: scaleDimension(44, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View style={styles.container}>
@@ -50,36 +90,3 @@ const ErrorScreen: React.FC<ErrorScreenProps> = ({ error, actions }) => {
 };
 
 export default ErrorScreen;
-
-const styles = StyleSheet.create({
-  actionsCtn: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  buttonCtn: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  buttonWrapper: {
-    borderRadius: 50,
-    flexDirection: 'row',
-    flex: 1 / 3,
-    marginHorizontal: 4,
-    overflow: 'hidden',
-  },
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  error: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-    textAlign: 'center',
-  },
-  icon: {
-    fontSize: 44,
-  },
-});

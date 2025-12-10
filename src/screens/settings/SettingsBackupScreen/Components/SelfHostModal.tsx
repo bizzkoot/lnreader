@@ -1,11 +1,13 @@
 import { list } from '@api/remote';
 import { Button, EmptyView, Modal } from '@components';
+import { useAppSettings } from '@hooks/persisted';
 import { useSelfHost } from '@hooks/persisted/useSelfHost';
 import ServiceManager from '@services/ServiceManager';
 import { getString } from '@strings/translations';
+import { scaleDimension } from '@theme/scaling';
 import { ThemeColors } from '@theme/types';
 import { fetchTimeout } from '@utils/fetch/fetch';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { Portal, TextInput } from 'react-native-paper';
@@ -23,16 +25,25 @@ interface SelfHostModalProps {
   closeModal: () => void;
 }
 
+interface SelfHostStyles {
+  footerContainer: object;
+  backupList: object;
+  btnOutline: object;
+  error: object;
+}
+
 function CreateBackup({
   host,
   theme,
   setBackupModal,
   closeModal,
+  styles,
 }: {
   host: string;
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
   closeModal: () => void;
+  styles: SelfHostStyles;
 }) {
   const [backupName, setBackupName] = useState('');
 
@@ -76,11 +87,13 @@ function RestoreBackup({
   theme,
   setBackupModal,
   closeModal,
+  styles,
 }: {
   host: string;
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
   closeModal: () => void;
+  styles: SelfHostStyles;
 }) {
   const [backupList, setBackupList] = useState<string[]>([]);
   useEffect(() => {
@@ -141,6 +154,7 @@ function SetHost({
   setHost,
   theme,
   setBackupModal,
+  styles,
 }: {
   host: string;
   setHost: (
@@ -151,6 +165,7 @@ function SetHost({
   ) => void;
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
+  styles: SelfHostStyles;
 }) {
   const [error, setError] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -201,9 +216,11 @@ function SetHost({
 function Connected({
   theme,
   setBackupModal,
+  styles,
 }: {
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
+  styles: SelfHostStyles;
 }) {
   return (
     <>
@@ -233,6 +250,50 @@ export default function SelfHostModal({
 }: SelfHostModalProps) {
   const [backupModal, setBackupModal] = useState(BackupModal.SET_HOST);
   const { host, setHost } = useSelfHost();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        avatar: {
+          borderRadius: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+        backupList: {
+          flexGrow: 1,
+          paddingBottom: scaleDimension(8, uiScale),
+          paddingHorizontal: scaleDimension(4, uiScale),
+        },
+        btnOutline: {
+          borderWidth: 1,
+          marginVertical: scaleDimension(4, uiScale),
+        },
+        error: {
+          fontSize: scaleDimension(16, uiScale),
+          marginTop: scaleDimension(8, uiScale),
+        },
+        footerContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: scaleDimension(24, uiScale),
+        },
+        loadingContent: {
+          borderRadius: scaleDimension(16, uiScale),
+          width: '100%',
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+        },
+        titleContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginBottom: scaleDimension(16, uiScale),
+          textAlignVertical: 'center',
+        },
+      }),
+    [uiScale],
+  );
 
   const renderModal = () => {
     switch (backupModal) {
@@ -243,10 +304,17 @@ export default function SelfHostModal({
             setHost={setHost}
             theme={theme}
             setBackupModal={setBackupModal}
+            styles={styles}
           />
         );
       case BackupModal.CONNECTED:
-        return <Connected theme={theme} setBackupModal={setBackupModal} />;
+        return (
+          <Connected
+            theme={theme}
+            setBackupModal={setBackupModal}
+            styles={styles}
+          />
+        );
       case BackupModal.CREATE_BACKUP:
         return (
           <CreateBackup
@@ -254,6 +322,7 @@ export default function SelfHostModal({
             closeModal={closeModal}
             setBackupModal={setBackupModal}
             theme={theme}
+            styles={styles}
           />
         );
       case BackupModal.RESTORE_BACKUP:
@@ -263,6 +332,7 @@ export default function SelfHostModal({
             closeModal={closeModal}
             setBackupModal={setBackupModal}
             theme={theme}
+            styles={styles}
           />
         );
     }
@@ -283,42 +353,3 @@ export default function SelfHostModal({
     </Portal>
   );
 }
-
-const styles = StyleSheet.create({
-  avatar: {
-    borderRadius: 40,
-    height: 40,
-    width: 40,
-  },
-  backupList: {
-    flexGrow: 1,
-    paddingBottom: 8,
-    paddingHorizontal: 4,
-  },
-  btnOutline: {
-    borderWidth: 1,
-    marginVertical: 4,
-  },
-  error: {
-    fontSize: 16,
-    marginTop: 8,
-  },
-  footerContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  loadingContent: {
-    borderRadius: 16,
-    width: '100%',
-  },
-  modalTitle: {
-    fontSize: 24,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    textAlignVertical: 'center',
-  },
-});

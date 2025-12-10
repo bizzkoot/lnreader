@@ -34,6 +34,7 @@ import { translateNovelStatus } from '@utils/translateEnum';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { AVAILABLE_PLUGINS } from '@hooks/persisted/usePlugins';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 import {
   NovelMetaSkeleton,
@@ -91,9 +92,39 @@ const NovelInfoHeader = ({
   totalChapters,
   trackerSheetRef,
 }: NovelInfoHeaderProps) => {
-  const { hideBackdrop = false } = useAppSettings();
+  const { hideBackdrop = false, uiScale = 1.0 } = useAppSettings();
   const { iconSize } = useScaledDimensions();
   const { followNovel } = useNovelContext();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        bottomsheet: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingRight: scaleDimension(12, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        bottomsheetContainer: {
+          gap: scaleDimension(12, uiScale),
+        },
+        chapters: {
+          fontSize: scaleDimension(14, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+        flex: { flex: 1 },
+        marginRight: { marginRight: scaleDimension(4, uiScale) },
+        novelDetails: {
+          flex: 1,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          paddingBottom: scaleDimension(16, uiScale),
+          paddingLeft: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const pluginName = useMemo(
     () =>
@@ -258,29 +289,3 @@ const NovelInfoHeader = ({
 };
 
 export default memo(NovelInfoHeader);
-
-const styles = StyleSheet.create({
-  bottomsheet: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingRight: 12,
-    paddingVertical: 8,
-  },
-  bottomsheetContainer: {
-    gap: 12,
-  },
-  chapters: {
-    fontSize: 14,
-    paddingHorizontal: 16,
-  },
-  flex: { flex: 1 },
-  marginRight: { marginRight: 4 },
-  novelDetails: {
-    flex: 1,
-    flexDirection: 'column',
-    justifyContent: 'center',
-    paddingBottom: 16,
-    paddingLeft: 12,
-  },
-});

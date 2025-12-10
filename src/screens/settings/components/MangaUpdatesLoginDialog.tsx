@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TextInput } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { Modal } from '@components';
-import { useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface MangaUpdatesLoginDialogProps {
   visible: boolean;
@@ -16,11 +17,52 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
   onSubmit,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          padding: scaleDimension(8, uiScale),
+        },
+        title: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(24, uiScale),
+          fontWeight: '500',
+        },
+        input: {
+          height: scaleDimension(48, uiScale),
+          borderWidth: 1,
+          borderRadius: scaleDimension(4, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+          fontSize: scaleDimension(16, uiScale),
+        },
+        errorText: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+          marginTop: scaleDimension(-8, uiScale),
+        },
+        buttonRow: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          marginTop: scaleDimension(8, uiScale),
+        },
+        button: {
+          marginLeft: scaleDimension(8, uiScale),
+        },
+        buttonLabel: {
+          letterSpacing: 0,
+          textTransform: 'none',
+        },
+      }),
+    [uiScale],
+  );
 
   const handleSubmit = async () => {
     if (!username.trim() || !password.trim()) {
@@ -125,39 +167,3 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
 };
 
 export default MangaUpdatesLoginDialog;
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 24,
-    fontWeight: '500',
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  errorText: {
-    fontSize: 14,
-    marginBottom: 16,
-    marginTop: -8,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 8,
-  },
-  button: {
-    marginLeft: 8,
-  },
-  buttonLabel: {
-    letterSpacing: 0,
-    textTransform: 'none',
-  },
-});

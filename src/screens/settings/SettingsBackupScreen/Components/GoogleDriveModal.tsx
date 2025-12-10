@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemeColors } from '@theme/types';
 import { StyleSheet, Text, View, Image } from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
@@ -12,7 +12,8 @@ import { exists, getBackups, makeDir } from '@api/drive';
 import { DriveFile } from '@api/drive/types';
 import dayjs from 'dayjs';
 import ServiceManager from '@services/ServiceManager';
-
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 enum BackupModal {
   UNAUTHORIZED,
   AUTHORIZED,
@@ -24,10 +25,12 @@ function Authorized({
   theme,
   setBackupModal,
   setUser,
+  styles,
 }: {
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
   setUser: (user?: User) => void;
+  styles: GoogleDriveStyles;
 }) {
   const signOut = () => {
     GoogleSignin.signOut().then(() => {
@@ -60,10 +63,12 @@ function UnAuthorized({
   theme,
   setBackupModal,
   setUser,
+  styles,
 }: {
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
   setUser: (user?: User | null) => void;
+  styles: GoogleDriveStyles;
 }) {
   const signIn = () => {
     GoogleSignin.hasPlayServices()
@@ -90,10 +95,12 @@ function CreateBackup({
   theme,
   setBackupModal,
   closeModal,
+  styles,
 }: {
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
   closeModal: () => void;
+  styles: GoogleDriveStyles;
 }) {
   const [backupName, setBackupName] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -152,10 +159,12 @@ function RestoreBackup({
   theme,
   setBackupModal,
   closeModal,
+  styles,
 }: {
   theme: ThemeColors;
   setBackupModal: (backupModal: BackupModal) => void;
   closeModal: () => void;
+  styles: GoogleDriveStyles;
 }) {
   const [backupList, setBackupList] = useState<DriveFile[]>([]);
   useEffect(() => {
@@ -219,6 +228,18 @@ interface GoogleDriveModalProps {
   closeModal: () => void;
 }
 
+interface GoogleDriveStyles {
+  avatar: object;
+  backupList: object;
+  btnOutline: object;
+  error: object;
+  footerContainer: object;
+  loadingContent: object;
+  modalTitle: object;
+  titleContainer: object;
+  fontSize: object;
+}
+
 export default function GoogleDriveModal({
   visible,
   theme,
@@ -226,6 +247,52 @@ export default function GoogleDriveModal({
 }: GoogleDriveModalProps) {
   const [backupModal, setBackupModal] = useState(BackupModal.UNAUTHORIZED);
   const [user, setUser] = useState<User | null | undefined>(null);
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        avatar: {
+          borderRadius: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+        backupList: {
+          flexGrow: 1,
+          paddingBottom: scaleDimension(8, uiScale),
+          paddingHorizontal: scaleDimension(4, uiScale),
+        },
+        btnOutline: {
+          borderWidth: 1,
+          marginVertical: scaleDimension(4, uiScale),
+        },
+        error: {
+          fontSize: scaleDimension(16, uiScale),
+          marginTop: scaleDimension(8, uiScale),
+        },
+        footerContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: scaleDimension(24, uiScale),
+        },
+        loadingContent: {
+          borderRadius: scaleDimension(16, uiScale),
+          width: '100%',
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+        },
+        titleContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginBottom: scaleDimension(16, uiScale),
+          textAlignVertical: 'center',
+        },
+        fontSize: { fontSize: scaleDimension(12, uiScale) },
+      }),
+    [uiScale],
+  );
+
   useEffect(() => {
     GoogleSignin.configure({
       scopes: ['https://www.googleapis.com/auth/drive.file'],
@@ -250,6 +317,7 @@ export default function GoogleDriveModal({
             theme={theme}
             setBackupModal={setBackupModal}
             setUser={setUser}
+            styles={styles}
           />
         );
       case BackupModal.UNAUTHORIZED:
@@ -258,6 +326,7 @@ export default function GoogleDriveModal({
             theme={theme}
             setBackupModal={setBackupModal}
             setUser={setUser}
+            styles={styles}
           />
         );
       case BackupModal.CREATE_BACKUP:
@@ -266,6 +335,7 @@ export default function GoogleDriveModal({
             theme={theme}
             setBackupModal={setBackupModal}
             closeModal={closeModal}
+            styles={styles}
           />
         );
       case BackupModal.RESTORE_BACKUP:
@@ -274,6 +344,7 @@ export default function GoogleDriveModal({
             theme={theme}
             setBackupModal={setBackupModal}
             closeModal={closeModal}
+            styles={styles}
           />
         );
     }
@@ -316,43 +387,3 @@ export default function GoogleDriveModal({
     </Portal>
   );
 }
-
-const styles = StyleSheet.create({
-  avatar: {
-    borderRadius: 40,
-    height: 40,
-    width: 40,
-  },
-  backupList: {
-    flexGrow: 1,
-    paddingBottom: 8,
-    paddingHorizontal: 4,
-  },
-  btnOutline: {
-    borderWidth: 1,
-    marginVertical: 4,
-  },
-  error: {
-    fontSize: 16,
-    marginTop: 8,
-  },
-  footerContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  loadingContent: {
-    borderRadius: 16,
-    width: '100%',
-  },
-  modalTitle: {
-    fontSize: 24,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    textAlignVertical: 'center',
-  },
-  fontSize: { fontSize: 12 },
-});

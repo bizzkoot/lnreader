@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TextInput, Text } from 'react-native-paper';
 import { openDocumentTree } from 'react-native-saf-x';
@@ -7,7 +7,12 @@ import { Button, List, Modal, SwitchItem } from '@components';
 
 import { useBoolean } from '@hooks';
 import { getString } from '@strings/translations';
-import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
+import {
+  useAppSettings,
+  useChapterReaderSettings,
+  useTheme,
+} from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { showToast } from '@utils/showToast';
 
 interface ExportEpubModalProps {
@@ -22,6 +27,7 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
   hideModal,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const {
     epubLocation = '',
     epubUseAppTheme = false,
@@ -29,6 +35,36 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
     epubUseCustomJS = false,
     setChapterReaderSettings,
   } = useChapterReaderSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        infoItem: {
+          paddingHorizontal: 0,
+        },
+        modalFooterCtn: {
+          flexDirection: 'row-reverse',
+          paddingBottom: scaleDimension(20, uiScale),
+          paddingTop: scaleDimension(8, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+        settings: {
+          marginTop: scaleDimension(12, uiScale),
+        },
+        rangeInputs: {
+          flexDirection: 'row',
+          gap: scaleDimension(12, uiScale),
+          marginBottom: scaleDimension(12, uiScale),
+        },
+        rangeInput: {
+          flex: 1,
+        },
+      }),
+    [uiScale],
+  );
 
   const [uri, setUri] = useState(epubLocation);
   const useAppTheme = useBoolean(epubUseAppTheme);
@@ -182,31 +218,3 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
 };
 
 export default ExportEpubModal;
-
-const styles = StyleSheet.create({
-  infoItem: {
-    paddingHorizontal: 0,
-  },
-
-  modalFooterCtn: {
-    flexDirection: 'row-reverse',
-
-    paddingBottom: 20,
-    paddingTop: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  settings: {
-    marginTop: 12,
-  },
-  rangeInputs: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  rangeInput: {
-    flex: 1,
-  },
-});

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Portal, TextInput } from 'react-native-paper';
 import { Modal } from '@components';
 import { ThemeColors } from '../../theme/types';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { scaleDimension } from '@theme/scaling';
 
 interface ColorPickerModalProps {
   visible: boolean;
@@ -24,8 +26,34 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
   visible,
   showAccentColors,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
   const [text, setText] = useState<string>(color);
   const [error, setError] = useState<string | null>();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        errorText: {
+          color: '#FF0033',
+          paddingTop: scaleDimension(8, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+        item: {
+          borderRadius: scaleDimension(4, uiScale),
+          overflow: 'hidden',
+          flex: 1 / 4,
+          height: scaleDimension(40, uiScale),
+          marginHorizontal: scaleDimension(4, uiScale),
+          marginVertical: scaleDimension(4, uiScale),
+        },
+        flex: { flex: 1 },
+        marginBottom: { marginBottom: scaleDimension(8, uiScale) },
+      }),
+    [uiScale],
+  );
 
   const onDismiss = () => {
     closeModal();
@@ -118,25 +146,3 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
 };
 
 export default ColorPickerModal;
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: '#FF0033',
-    paddingTop: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  item: {
-    borderRadius: 4,
-    overflow: 'hidden',
-
-    flex: 1 / 4,
-    height: 40,
-    marginHorizontal: 4,
-    marginVertical: 4,
-  },
-  flex: { flex: 1 },
-  marginBottom: { marginBottom: 8 },
-});

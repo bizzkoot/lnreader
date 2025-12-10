@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import color from 'color';
 import { ThemeColors } from '@theme/types';
-import { Row } from '@components/Common';
 import { borderColor } from '@theme/colors';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface PagePaginationControlProps {
   pages: string[];
@@ -21,7 +22,62 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
   onOpenDrawer,
   theme,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
   const totalPages = pages.length;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingTop: scaleDimension(12, uiScale),
+        },
+        pageButton: {
+          alignItems: 'center',
+          borderRadius: scaleDimension(8, uiScale),
+          borderWidth: 1,
+          height: scaleDimension(40, uiScale),
+          justifyContent: 'center',
+          minWidth: scaleDimension(40, uiScale),
+          paddingHorizontal: scaleDimension(12, uiScale),
+          marginHorizontal: scaleDimension(4, uiScale),
+        },
+        ellipsis: {
+          fontSize: scaleDimension(16, uiScale),
+          marginHorizontal: scaleDimension(4, uiScale),
+        },
+        ellipsisButton: {
+          borderStyle: 'dashed',
+        },
+        currentPage: {
+          backgroundColor: theme.primary,
+        },
+        currentPageText: {
+          color: theme.onPrimary,
+          fontSize: scaleDimension(15, uiScale),
+          maxWidth: scaleDimension(100, uiScale),
+        },
+        pageText: {
+          color: theme.onSurface,
+          fontSize: scaleDimension(15, uiScale),
+          maxWidth: scaleDimension(100, uiScale),
+        },
+        disabledButton: {
+          opacity: 0.5,
+        },
+        iconButton: {
+          margin: 0,
+        },
+        pageNumbersRow: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          gap: scaleDimension(8, uiScale),
+        },
+      }),
+    [uiScale, theme],
+  );
 
   const pageIndices = useMemo(() => {
     const indices: (number | 'ellipsis')[] = [];
@@ -82,8 +138,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
     <View style={styles.container}>
       <Pressable
         style={[
-          styles.button,
-          styles.navButton,
+          styles.pageButton,
           {
             borderColor: borderColor,
             backgroundColor: theme.surface,
@@ -102,14 +157,14 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
         />
       </Pressable>
 
-      <Row style={styles.pageNumbersRow}>
+      <View style={styles.pageNumbersRow}>
         {pageIndices.map((pageIndex, index) => {
           if (pageIndex === 'ellipsis') {
             return (
               <Pressable
                 key={`ellipsis-${index}`}
                 style={[
-                  styles.button,
+                  styles.pageButton,
                   styles.ellipsisButton,
                   {
                     borderColor: borderColor,
@@ -119,7 +174,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                 onPress={onOpenDrawer}
                 android_ripple={{ color: theme.rippleColor }}
               >
-                <Text style={[styles.ellipsisText, { color: theme.onSurface }]}>
+                <Text style={[styles.ellipsis, { color: theme.onSurface }]}>
                   ...
                 </Text>
               </Pressable>
@@ -128,18 +183,16 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
 
           const isActive = pageIndex === currentPageIndex;
           const pageName = pages[pageIndex];
-          const buttonStyle = {
-            borderColor: isActive ? 'transparent' : borderColor,
-            backgroundColor: isActive ? theme.primary : theme.surface,
-          };
-          const textStyle = {
-            color: isActive ? theme.onPrimary : theme.onSurface,
-            fontWeight: isActive ? ('600' as const) : ('400' as const),
-          };
           return (
             <Pressable
               key={`page-${pageIndex}`}
-              style={[styles.button, buttonStyle]}
+              style={[
+                styles.pageButton,
+                isActive && styles.currentPage,
+                {
+                  backgroundColor: isActive ? theme.primary : theme.surface,
+                },
+              ]}
               onPress={() => handlePagePress(pageIndex)}
               android_ripple={{
                 color: isActive
@@ -147,18 +200,26 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                   : theme.rippleColor,
               }}
             >
-              <Text style={[styles.pageText, textStyle]} numberOfLines={1}>
+              <Text
+                style={[
+                  isActive ? styles.currentPageText : styles.pageText,
+                  {
+                    color: isActive ? theme.onPrimary : theme.onSurface,
+                    fontWeight: isActive ? ('600' as const) : ('400' as const),
+                  },
+                ]}
+                numberOfLines={1}
+              >
                 {pageName}
               </Text>
             </Pressable>
           );
         })}
-      </Row>
+      </View>
 
       <Pressable
         style={[
-          styles.button,
-          styles.navButton,
+          styles.pageButton,
           {
             borderColor: borderColor,
             backgroundColor: theme.surface,
@@ -179,52 +240,5 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: 'center',
-    minWidth: 40,
-    paddingHorizontal: 12,
-  },
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  ellipsisButton: {
-    borderStyle: 'dashed',
-  },
-  ellipsisText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  iconButton: {
-    margin: 0,
-  },
-  navButton: {
-    paddingHorizontal: 0,
-  },
-  pageNumbersRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  pageText: {
-    fontSize: 15,
-    letterSpacing: 0.15,
-    maxWidth: 100,
-  },
-});
 
 export default PagePaginationControl;
