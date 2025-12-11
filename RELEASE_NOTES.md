@@ -1,29 +1,22 @@
 ## What's New
 
-### v2.0.7 — 2025-12-07
 
-**Cross‑chapter TTS reliability, wake/resume hardening, and TTS parsing stability — a collection of fixes to make playback robust across chapter transitions, WebView race conditions, queue timing, and parsing edge cases.**
+### v2.0.8 — 2025-12-11
+
+**UI scaling overhaul, improved accessibility, and major codebase modernization.**
 
 ### ✨ Features
-
-- **Cross‑chapter continuity & resume safety** — persist last TTS chapter, add exit/chapter-selection dialogs, and guard resume flow with clamped paragraph indices to avoid out‑of‑range resumes.
-- **Queue & refill hardening** — TTSAudioManager + TTSHighlight now detect JS queue state and avoid premature onQueueEmpty-driven navigation; queue refill logic improved to reduce false-positives.
-- **Safer WebView interactions** — `safeInjectJS` wrapper prevents silent injection failures when the WebView is in a bad state.
-- **DB helpers for chapter progress** — `markChaptersBeforePositionRead` and `resetFutureChaptersProgress` let us mark read chapters and optionally reset progress on upcoming chapters when jumping back.
-- **HTML paragraph extraction improvements** — a stronger flattening strategy with block delimiters and entity decoding reduces lost text and improves TTS parsing accuracy.
-- **UX & settings** — new dialogs and a `ttsForwardChapterReset` reader setting to control how future chapter progress is reset when continuing TTS.
+- **Dynamic UI Scaling:** All major screens and components now support dynamic text and layout scaling for improved accessibility and device compatibility.
+- **AppText Component:** Unified text rendering with the new AppText component, ensuring consistent scaling and style across the app.
+- **Hybrid Update UI/UX:** In-app update flow with verified GitHub APK downloads and robust asset selection.
+- **Settings & Dialogs:** New dialogs and settings for TTS and UI scaling, plus improved user feedback and error handling.
 
 ### 📜 Commits
+- **UI Scaling System:** Complete implementation of dynamic scaling for all major screens, settings, and shared components.
+- **Accessibility:** Replaced all core text elements with AppText for better scaling and accessibility.
+- **Hybrid Update:** Added in-app update UI/UX, robust GitHub release checker, and APK asset selection logic.
+- **Tooling & Modernization:** Upgraded React Native to 0.82.1, improved husky pre-commit hooks, and modernized project tooling.
+- **Documentation:** Updated and expanded UI scaling and TTS documentation, added demo assets and project guidance.
+- **Bug Fixes:** Resolved TypeScript errors, improved backup picker, and fixed various minor issues.
 
-Range: `v2.0.6..HEAD` — 24 commits
-
-Detailed technical summary of commits (condensed):
-
-- **Core TTS reliability:** Fixed cross‑chapter resume logic, clamped paragraph indices for safe resumes, added exit/selection dialogs and `ttsForwardChapterReset` setting to control future‑chapter progress resets on forward navigation.
-- **Queue & refill hardening:** Robust queue detection and refill guards in TTSAudioManager and TTSHighlight to prevent false onQueueEmpty navigation and reduce premature chapter advances.
-- **WebViewReader safety & event filtering:** Blocked 'speak' / 'onWordRange' events during wake/resume transitions, added chapter‑aware utterance IDs, throttled stale‑event logging and guarded against stale events from old chapters.
-- **Parsing & extractor improvements:** Stronger HTML paragraph flattening with block delimiters and entity decoding to avoid lost text and improve TTS paragraph extraction accuracy.
-- **Persistence & DB helpers:** New helpers to mark chapters read before a position and reset future chapters' progress when appropriate.
-- **UX polish & dialogs:** Added safer WebView injection wrapper (`safeInjectJS`), background playback UX fixes, and reader settings to control resume/reset behavior.
-
-If you want the full commit list, I can include the raw commit hashes and links.
+_This release includes 28 commits since v2.0.7. For full commit details, see the [GitHub comparison](https://github.com/bizzkoot/lnreader/compare/v2.0.7...v2.0.8)._
