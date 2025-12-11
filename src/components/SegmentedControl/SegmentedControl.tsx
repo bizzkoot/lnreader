@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '@theme/types';
 import { useAppSettings } from '@hooks/persisted';
@@ -130,9 +131,9 @@ export function SegmentedControl<T extends string = string>({
                   style={styles.icon}
                 />
               )}
-              <Text style={[styles.segmentText, { color: textColor }]}>
+              <AppText style={[styles.segmentText, { color: textColor }]}>
                 {option.label}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         );

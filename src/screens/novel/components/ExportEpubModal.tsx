@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { TextInput, Text } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import { openDocumentTree } from 'react-native-saf-x';
 
 import { Button, List, Modal, SwitchItem } from '@components';
@@ -14,6 +14,7 @@ import {
 } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import { showToast } from '@utils/showToast';
+import AppText from '@components/AppText';
 
 interface ExportEpubModalProps {
   isVisible: boolean;
@@ -131,9 +132,9 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
   return (
     <Modal visible={isVisible} onDismiss={onDismiss}>
       <View>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('novelScreen.exportEpubModal.title')}
-        </Text>
+        </AppText>
         <TextInput
           onChangeText={setUri}
           value={uri}

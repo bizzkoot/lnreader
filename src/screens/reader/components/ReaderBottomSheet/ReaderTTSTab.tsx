@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import AppText from '@components/AppText';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { VoiceQuality, Voice } from 'expo-speech';
@@ -224,7 +225,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
         {/* TTS Enable Toggle */}
         <View style={styles.section}>
           <View style={styles.ttsHeader}>
-            <List.SubHeader theme={theme}>Text to Speech</List.SubHeader>
+            <List.SubHeader theme={theme}>AppText to Speech</List.SubHeader>
             <Switch
               value={TTSEnable}
               onValueChange={() => {
@@ -252,14 +253,16 @@ const ReaderTTSTab: React.FC = React.memo(() => {
               {/* Voice Rate Slider */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text
+                  <AppText
                     style={[styles.sliderLabel, { color: theme.onSurface }]}
                   >
                     Speed
-                  </Text>
-                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                  </AppText>
+                  <AppText
+                    style={[styles.sliderValue, { color: theme.primary }]}
+                  >
                     {localRate.toFixed(1)}x
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.sliderContainer}>
                   <Pressable
@@ -273,14 +276,14 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       postTTSSettingsToWebView({ rate: newValue });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       −
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -312,14 +315,14 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       postTTSSettingsToWebView({ rate: newValue });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       +
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
               </View>
@@ -327,14 +330,16 @@ const ReaderTTSTab: React.FC = React.memo(() => {
               {/* Voice Pitch Slider */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text
+                  <AppText
                     style={[styles.sliderLabel, { color: theme.onSurface }]}
                   >
                     Pitch
-                  </Text>
-                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                  </AppText>
+                  <AppText
+                    style={[styles.sliderValue, { color: theme.primary }]}
+                  >
                     {localPitch.toFixed(1)}x
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.sliderContainer}>
                   <Pressable
@@ -348,14 +353,14 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       postTTSSettingsToWebView({ pitch: newValue });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       −
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -387,14 +392,14 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                       postTTSSettingsToWebView({ pitch: newValue });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       +
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
               </View>
@@ -413,9 +418,11 @@ const ReaderTTSTab: React.FC = React.memo(() => {
             <View style={styles.section}>
               <List.SubHeader theme={theme}>Options</List.SubHeader>
               <View style={styles.switchItem}>
-                <Text style={[styles.switchLabel, { color: theme.onSurface }]}>
+                <AppText
+                  style={[styles.switchLabel, { color: theme.onSurface }]}
+                >
                   Highlight paragraph
-                </Text>
+                </AppText>
                 <Switch
                   value={showParagraphHighlight}
                   onValueChange={() => {
@@ -430,9 +437,11 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                 />
               </View>
               <View style={styles.switchItem}>
-                <Text style={[styles.switchLabel, { color: theme.onSurface }]}>
+                <AppText
+                  style={[styles.switchLabel, { color: theme.onSurface }]}
+                >
                   Background playback
-                </Text>
+                </AppText>
                 <Switch
                   value={ttsBackgroundPlayback}
                   onValueChange={() =>

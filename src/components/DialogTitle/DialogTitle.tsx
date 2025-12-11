@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
@@ -24,8 +25,8 @@ export const DialogTitle: React.FC<DialogTitleProps> = ({ title }) => {
   );
 
   return (
-    <Text style={[styles.dialogTitle, { color: theme.onSurface }]}>
+    <AppText style={[styles.dialogTitle, { color: theme.onSurface }]}>
       {title}
-    </Text>
+    </AppText>
   );
 };

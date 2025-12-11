@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TextStyle, View } from 'react-native';
+import { StyleSheet, TextStyle, View } from 'react-native';
+import AppText from '@components/AppText';
 import React from 'react';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
@@ -18,9 +19,9 @@ const ReaderTextAlignSelector: React.FC<ReaderTextAlignSelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
+      <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
         {getString('readerScreen.bottomSheet.textAlign')}
-      </Text>
+      </AppText>
       <View style={styles.buttonContainer}>
         {textAlignments.map(item => (
           <ToggleButton

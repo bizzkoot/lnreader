@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemeColors } from '@theme/types';
-import { StyleSheet, Text, View, Image } from 'react-native';
+import { StyleSheet, View, Image } from 'react-native';
+import AppText from '@components/AppText';
 import { Portal, TextInput } from 'react-native-paper';
 import { GoogleSignin, User } from '@react-native-google-signin/google-signin';
 import { Button, EmptyView, Modal } from '@components';
@@ -202,12 +203,12 @@ function RestoreBackup({
               });
             }}
           >
-            <Text style={{ color: theme.primary }}>
+            <AppText style={{ color: theme.primary }}>
               {item.name?.replace(/\.backup$/, ' ')}
-            </Text>
-            <Text style={[{ color: theme.secondary }, styles.fontSize]}>
+            </AppText>
+            <AppText style={[{ color: theme.secondary }, styles.fontSize]}>
               {'(' + dayjs(item.createdTime).format('LL') + ')'}
-            </Text>
+            </AppText>
           </Button>
         )}
         ListEmptyComponent={emptyComponent}
@@ -355,9 +356,9 @@ export default function GoogleDriveModal({
       <Modal visible={visible} onDismiss={closeModal}>
         <>
           <View style={styles.titleContainer}>
-            <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+            <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
               {getString('backupScreen.drive.googleDriveBackup')}
-            </Text>
+            </AppText>
             <TouchableOpacity
               onLongPress={() => {
                 if (user?.user.email) {

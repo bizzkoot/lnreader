@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text, Pressable, Image } from 'react-native';
+import { StyleSheet, View, Pressable, Image } from 'react-native';
+import { Text } from '@components/AppText';
 
 import color from 'color';
 import { ThemeColors } from '@theme/types';
@@ -80,5 +81,6 @@ const styles = StyleSheet.create({
   novelName: {
     flex: 1,
     flexWrap: 'wrap',
+    fontSize: 16,
   },
 });

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
-  Text,
   View,
   Pressable,
   ImageBackground,
@@ -20,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface CoverImageProps {
   children: React.ReactNode;
@@ -215,14 +215,14 @@ const NovelTitle = ({
   );
 
   return (
-    <Text
+    <AppText
       onLongPress={onLongPress}
       onPress={onPress}
       style={[{ color: theme.onBackground }, styles.novelTitle]}
       numberOfLines={4}
     >
       {children}
-    </Text>
+    </AppText>
   );
 };
 
@@ -247,12 +247,12 @@ const NovelInfo = ({
   );
 
   return (
-    <Text
+    <AppText
       style={[{ color: theme.onSurfaceVariant }, styles.novelInfo]}
       numberOfLines={1}
     >
       {children}
-    </Text>
+    </AppText>
   );
 };
 
@@ -307,7 +307,7 @@ const FollowButton = ({
           size={iconSize.md}
           style={styles.iconButton}
         />
-        <Text
+        <AppText
           style={[
             { color: followed ? theme.primary : theme.outline },
             styles.followButtonText,
@@ -316,7 +316,7 @@ const FollowButton = ({
           {followed
             ? getString('novelScreen.inLibaray')
             : getString('novelScreen.addToLibaray')}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );
@@ -373,7 +373,7 @@ const TrackerButton = ({
           size={iconSize.md}
           style={styles.iconButton}
         />
-        <Text
+        <AppText
           style={[
             { color: isTracked ? theme.primary : theme.outline },
             styles.followButtonText,
@@ -382,7 +382,7 @@ const TrackerButton = ({
           {isTracked
             ? getString('novelScreen.tracked')
             : getString('novelScreen.tracking')}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

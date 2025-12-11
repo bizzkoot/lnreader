@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
-import { Portal, Modal, Text, RadioButton } from 'react-native-paper';
+import { Portal, Modal, RadioButton } from 'react-native-paper';
+import AppText from '@components/AppText';
 import { ThemeColors } from '@theme/types';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
@@ -67,7 +68,9 @@ const TTSScrollBehaviorModal: React.FC<TTSScrollBehaviorModalProps> = ({
           { backgroundColor: theme.overlay3 },
         ]}
       >
-        <Text style={[styles.title, { color: theme.onSurface }]}>{title}</Text>
+        <AppText style={[styles.title, { color: theme.onSurface }]}>
+          {title}
+        </AppText>
         <View style={styles.optionsContainer}>
           <RadioButton.Group
             onValueChange={value => {
@@ -85,9 +88,11 @@ const TTSScrollBehaviorModal: React.FC<TTSScrollBehaviorModalProps> = ({
                   onDismiss();
                 }}
               >
-                <Text style={[styles.optionLabel, { color: theme.onSurface }]}>
+                <AppText
+                  style={[styles.optionLabel, { color: theme.onSurface }]}
+                >
                   {option.label}
-                </Text>
+                </AppText>
                 <RadioButton
                   value={option.value}
                   color={theme.primary}

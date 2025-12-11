@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { Button, Modal, SwitchItem } from '@components/index';
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { scaleDimension } from '@theme/scaling';
 import { Storage } from '@plugins/helpers/storage';
+import AppText from '@components/AppText';
 
 interface PluginSetting {
   value: string;
@@ -112,22 +113,22 @@ const SourceSettingsModal: React.FC<SourceSettingsModal> = ({
   if (!pluginSettings || Object.keys(pluginSettings).length === 0) {
     return (
       <Modal visible={visible} onDismiss={onDismiss}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {title}
-        </Text>
-        <Text style={{ color: theme.onSurfaceVariant }}>
+        </AppText>
+        <AppText style={{ color: theme.onSurfaceVariant }}>
           {description || 'No settings available.'}
-        </Text>
+        </AppText>
       </Modal>
     );
   }
 
   return (
     <Modal visible={visible} onDismiss={onDismiss}>
-      <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+      <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
         {title}
-      </Text>
-      <Text style={{ color: theme.onSurfaceVariant }}>{description}</Text>
+      </AppText>
+      <AppText style={{ color: theme.onSurfaceVariant }}>{description}</AppText>
       {Object.entries(pluginSettings).map(([key, setting]) => {
         if (setting?.type === 'Switch') {
           return (

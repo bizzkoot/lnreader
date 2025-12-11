@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { TextInput, TouchableRipple } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
@@ -13,6 +13,7 @@ import { showToast } from '@utils/showToast';
 import { getErrorMessage } from '@utils/error';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
   tracker,
@@ -152,12 +153,12 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
               source={{ uri: item.coverImage }}
               style={styles.coverImage}
             />
-            <Text
+            <AppText
               style={[styles.resultText, { color: theme.onSurface }]}
               numberOfLines={3}
             >
               {item.title}
-            </Text>
+            </AppText>
           </>
         </TouchableRipple>
       );

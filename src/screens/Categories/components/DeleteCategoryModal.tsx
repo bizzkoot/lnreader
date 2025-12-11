@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Portal } from 'react-native-paper';
+import AppText from '@components/AppText';
 
 import { Button, Modal } from '@components/index';
 
@@ -48,13 +49,13 @@ const DeleteCategoryModal: React.FC<DeleteCategoryModalProps> = ({
   return (
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('categories.deleteModal.header')}
-        </Text>
-        <Text style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
+        </AppText>
+        <AppText style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
           {getString('categories.deleteModal.desc')}
           {` "${category.name}"?`}
-        </Text>
+        </AppText>
         <View style={styles.btnContainer}>
           <Button
             title={getString('common.ok')}

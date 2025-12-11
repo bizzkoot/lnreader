@@ -1,5 +1,4 @@
 import { useTheme, useAppSettings } from '@hooks/persisted';
-import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image, StyleSheet, View } from 'react-native';
 import { Button } from '@components';
@@ -8,6 +7,7 @@ import { useState } from 'react';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { getString } from '@strings/translations';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 enum OnboardingStep {
   PICK_THEME,
@@ -44,15 +44,16 @@ export default function OnboardingScreen() {
         tintColor={theme.primary}
         style={styles(uiScale).logo}
       />
-      <Text
-        variant="headlineLarge"
+      <AppText
         style={[{ color: theme.onBackground }, styles(uiScale).headline]}
       >
         {getString('onboardingScreen.welcome')}
-      </Text>
-      <Text style={[{ color: theme.onBackground }, styles(uiScale).helpText]}>
+      </AppText>
+      <AppText
+        style={[{ color: theme.onBackground }, styles(uiScale).helpText]}
+      >
         {renderHelptext()}
-      </Text>
+      </AppText>
       <View
         style={[
           { backgroundColor: theme.surfaceVariant },

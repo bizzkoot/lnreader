@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, FlatList, Text, FlatListProps } from 'react-native';
+import { StyleSheet, View, FlatList, FlatListProps } from 'react-native';
 import { useTheme } from '@hooks/persisted';
 
 import ListView from '../../components/ListView';
 import { Appbar } from '@components';
+import AppText from '@components/AppText';
 import { SourceNovelsScreenProps } from '@navigators/types';
 import { NovelInfo } from '@database/types';
 import { getString } from '@strings/translations';
@@ -51,7 +52,7 @@ const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
         keyExtractor={item => 'migrateFrom' + item.id}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurfaceVariant,
@@ -60,7 +61,7 @@ const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
             ]}
           >
             {getString('browseScreen.noSource')}
-          </Text>
+          </AppText>
         }
       />
     </View>

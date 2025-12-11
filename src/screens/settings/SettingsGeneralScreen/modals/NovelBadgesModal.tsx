@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
@@ -46,9 +47,9 @@ const NovelBadgesModal: React.FC<NovelBadgesModalProps> = ({
   return (
     <Portal>
       <Modal visible={novelBadgesModalVisible} onDismiss={hideNovelBadgesModal}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {getString('libraryScreen.bottomSheet.display.badges')}
-        </Text>
+        </AppText>
         <Checkbox
           label={getString('libraryScreen.bottomSheet.display.downloadBadges')}
           status={showDownloadBadges}

@@ -3,10 +3,10 @@ import {
   Pressable,
   StyleProp,
   StyleSheet,
-  Text,
   TextStyle,
   ViewStyle,
 } from 'react-native';
+import AppText from '@components/AppText';
 import { RadioButton as PaperRadioButton } from 'react-native-paper';
 import { ThemeColors } from '../../theme/types';
 
@@ -39,9 +39,9 @@ export const RadioButton: React.FC<Props> = ({
       color={theme.primary}
       uncheckedColor={theme.onSurfaceVariant}
     />
-    <Text style={[styles.label, labelStyle, { color: theme.onSurface }]}>
+    <AppText style={[styles.label, labelStyle, { color: theme.onSurface }]}>
       {label}
-    </Text>
+    </AppText>
   </Pressable>
 );
 

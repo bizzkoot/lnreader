@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   StyleSheet,
-  Text,
   View,
   Image,
   Pressable,
@@ -13,6 +12,7 @@ import { Button } from '@components';
 import { ThemeColors } from '@theme/types';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface Props {
   trackerName: string;
@@ -64,14 +64,14 @@ const DiscoverCard: React.FC<Props> = ({
       <View style={styles.flexRow}>
         <Image source={icon} style={styles.icon} />
         <View style={styles.details}>
-          <Text
+          <AppText
             style={{
               color: theme.onSurface,
               fontSize: scaleDimension(14, uiScale),
             }}
           >
             {trackerName}
-          </Text>
+          </AppText>
         </View>
       </View>
       <View style={styles.flexRow}>

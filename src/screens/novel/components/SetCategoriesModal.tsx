@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { Divider, Portal } from 'react-native-paper';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 
@@ -15,6 +15,7 @@ import { CCategory, Category } from '@database/types';
 import { Checkbox } from '@components/Checkbox/Checkbox';
 import { xor } from 'lodash-es';
 import { RootStackParamList } from '@navigators/types';
+import AppText from '@components/AppText';
 
 interface SetCategoryModalProps {
   novelIds: number[];
@@ -84,9 +85,9 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
           setSelectedCategories([]);
         }}
       >
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('categories.setCategories')}
-        </Text>
+        </AppText>
         <FlatList
           data={categories}
           renderItem={({ item }) => (
@@ -104,14 +105,14 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
             />
           )}
           ListEmptyComponent={
-            <Text
+            <AppText
               style={{
                 color: theme.onSurfaceVariant,
                 fontSize: scaleDimension(14, uiScale),
               }}
             >
               {getString('categories.setModalEmptyMsg')}
-            </Text>
+            </AppText>
           }
         />
         <Divider

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
-  Text,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +18,7 @@ import {
 } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { Button, ConfirmationDialog } from '@components/index';
+import AppText from '@components/AppText';
 import { showToast } from '@utils/showToast';
 import { useBoolean } from '@hooks';
 import { scaleDimension } from '@theme/scaling';
@@ -253,7 +253,7 @@ if (title) {
               }
               style={styles.tabIcon}
             />
-            <Text
+            <AppText
               style={[
                 styles.tabLabel,
                 {
@@ -266,7 +266,7 @@ if (title) {
               ]}
             >
               CSS
-            </Text>
+            </AppText>
           </Pressable>
 
           <Pressable
@@ -288,7 +288,7 @@ if (title) {
               }
               style={styles.tabIcon}
             />
-            <Text
+            <AppText
               style={[
                 styles.tabLabel,
                 {
@@ -301,7 +301,7 @@ if (title) {
               ]}
             >
               JS
-            </Text>
+            </AppText>
           </Pressable>
         </View>
 
@@ -341,13 +341,13 @@ if (title) {
             color={theme.onSecondaryContainer}
             style={styles.hintIcon}
           />
-          <Text
+          <AppText
             style={[styles.hintText, { color: theme.onSecondaryContainer }]}
           >
             {activeCodeTab === 'css'
               ? getString('readerSettings.cssHint')
               : getString('readerSettings.jsHint')}
-          </Text>
+          </AppText>
         </View>
 
         {/* Action Buttons */}

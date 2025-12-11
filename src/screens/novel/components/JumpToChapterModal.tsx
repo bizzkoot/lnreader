@@ -8,7 +8,7 @@ import {
 import { getString } from '@strings/translations';
 import { Button, Modal, SwitchItem } from '@components';
 
-import { Portal, Text } from 'react-native-paper';
+import { Portal } from 'react-native-paper';
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import { ChapterInfo, NovelInfo } from '@database/types';
@@ -20,6 +20,7 @@ import {
 } from '@legendapp/list';
 import { getNovelChapters } from '@database/queries/ChapterQueries';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 
 interface JumpToChapterModalProps {
   hideModal: () => void;
@@ -166,7 +167,7 @@ const JumpToChapterModal = ({
         onPress={() => executeFunction(item)}
         style={styles.listElementContainer}
       >
-        <Text
+        <AppText
           numberOfLines={1}
           style={{
             color: theme.onSurface,
@@ -174,14 +175,14 @@ const JumpToChapterModal = ({
           }}
         >
           {item.name}
-        </Text>
+        </AppText>
         {item?.releaseTime ? (
-          <Text
+          <AppText
             numberOfLines={1}
             style={[{ color: theme.onSurfaceVariant }, styles.dateCtn]}
           >
             {item.releaseTime}
-          </Text>
+          </AppText>
         ) : null}
       </Pressable>
     );
@@ -247,9 +248,9 @@ const JumpToChapterModal = ({
     <Portal>
       <Modal visible={modalVisible} onDismiss={onDismiss}>
         <View>
-          <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+          <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
             {getString('novelScreen.jumpToChapterModal.jumpToChapter')}
-          </Text>
+          </AppText>
           <RNTextInput
             ref={inputRef}
             placeholder={placeholder}
@@ -275,14 +276,14 @@ const JumpToChapterModal = ({
             ]}
           />
           {!!error && (
-            <Text
+            <AppText
               style={[
                 styles.errorText,
                 { color: errorColor, fontSize: scaleDimension(12, uiScale) },
               ]}
             >
               {error}
-            </Text>
+            </AppText>
           )}
           <SwitchItem
             label={getString('novelScreen.jumpToChapterModal.openChapter')}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { ThemeColors } from '../../theme/types';
 import { useAppSettings } from '@hooks/persisted';
@@ -49,10 +50,12 @@ const ColorPreferenceItem: React.FC<ColorPreferenceItemProps> = ({
       onPress={onPress}
     >
       <View>
-        <Text style={[styles.label, { color: theme.onSurface }]}>{label}</Text>
-        <Text style={{ color: theme.onSurfaceVariant }}>
+        <AppText style={[styles.label, { color: theme.onSurface }]}>
+          {label}
+        </AppText>
+        <AppText style={{ color: theme.onSurfaceVariant }}>
           {description?.toUpperCase?.()}
-        </Text>
+        </AppText>
       </View>
       <View style={[{ backgroundColor: description }, styles.colorPreview]} />
     </Pressable>

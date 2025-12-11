@@ -1,6 +1,7 @@
 import { ThemeColors } from '@theme/types';
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
 import { IconButton } from 'react-native-paper';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { useAppSettings } from '@hooks/persisted/useSettings';

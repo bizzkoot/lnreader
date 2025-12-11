@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, Image } from 'react-native';
+import { Pressable, StyleSheet, View, Image } from 'react-native';
 
 import { ThemeColors } from '@theme/types';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface Props {
   novel: {
@@ -34,31 +35,37 @@ const DiscoverNovelCard: React.FC<Props> = ({
           style={getCoverStyle(uiScale)}
         />
         <View style={styles.infoContainer}>
-          <Text
+          <AppText
             style={[getTitleStyle(uiScale), { color: theme.onSurface }]}
             numberOfLines={2}
           >
             {novel.novelName}
-          </Text>
-          <Text style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
+          </AppText>
+          <AppText style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
             Score:{' '}
-            <Text style={{ color: theme.onSurfaceVariant }}>{novel.score}</Text>
-          </Text>
+            <AppText style={{ color: theme.onSurfaceVariant }}>
+              {novel.score}
+            </AppText>
+          </AppText>
           {novel?.info?.[1] ? (
-            <Text style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
+            <AppText
+              style={[getSmallStyle(uiScale), { color: theme.onSurface }]}
+            >
               Type:{' '}
-              <Text style={{ color: theme.onSurfaceVariant }}>
+              <AppText style={{ color: theme.onSurfaceVariant }}>
                 {novel.info[1]}
-              </Text>
-            </Text>
+              </AppText>
+            </AppText>
           ) : null}
           {novel?.info?.[2] ? (
-            <Text style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
+            <AppText
+              style={[getSmallStyle(uiScale), { color: theme.onSurface }]}
+            >
               Published:{' '}
-              <Text style={{ color: theme.onSurfaceVariant }}>
+              <AppText style={{ color: theme.onSurfaceVariant }}>
                 {novel.info[2]}
-              </Text>
-            </Text>
+              </AppText>
+            </AppText>
           ) : null}
         </View>
       </Pressable>

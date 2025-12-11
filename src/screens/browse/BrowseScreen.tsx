@@ -3,13 +3,16 @@ import React, { useEffect, useMemo } from 'react';
 import { TabView, TabBar } from 'react-native-tab-view';
 
 import { useSearch } from '@hooks';
-import { usePlugins, useTheme } from '@hooks/persisted';
+import { usePlugins, useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 
 import { EmptyView, SafeAreaView, SearchbarV2 } from '@components';
 import { BrowseScreenProps } from '@navigators/types';
 import { AvailableTab } from './components/AvailableTab';
 import { InstalledTab } from './components/InstalledTab';
+
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const routes = [
   { key: 'installedRoute', title: getString('browseScreen.installed') },
@@ -20,6 +23,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
   const theme = useTheme();
   const { searchText, setSearchText, clearSearchbar } = useSearch();
   const { languagesFilter } = usePlugins();
+  const { uiScale = 1.0 } = useAppSettings();
 
   const searchbarActions = useMemo(
     () =>
@@ -93,6 +97,18 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
         renderTabBar={props => (
           <TabBar
             {...props}
+            // @ts-ignore
+            renderLabel={({ route, color }) => (
+              <AppText
+                style={{
+                  color,
+                  fontFamily: 'pt-sans-bold',
+                  fontSize: scaleDimension(14, uiScale),
+                }}
+              >
+                {route.title}
+              </AppText>
+            )}
             indicatorStyle={{ backgroundColor: theme.primary, height: 3 }}
             style={{
               backgroundColor: theme.surface,

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TextInput } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Button } from 'react-native-paper';
+import AppText from '@components/AppText';
 import { Modal } from '@components';
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
@@ -95,9 +96,9 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
   return (
     <Modal visible={visible} onDismiss={handleCancel}>
       <View style={styles.container}>
-        <Text style={[styles.title, { color: theme.onSurface }]}>
+        <AppText style={[styles.title, { color: theme.onSurface }]}>
           Login to MangaUpdates
-        </Text>
+        </AppText>
 
         <TextInput
           style={[
@@ -137,9 +138,9 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
         />
 
         {error ? (
-          <Text style={[styles.errorText, { color: theme.error }]}>
+          <AppText style={[styles.errorText, { color: theme.error }]}>
             {error}
-          </Text>
+          </AppText>
         ) : null}
 
         <View style={styles.buttonRow}>

@@ -1,9 +1,10 @@
 import React, { FC } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 
 import { IconButtonV2 } from '@components';
+import AppText from '@components/AppText';
 
 import { Repository } from '@database/types';
 import { useBoolean } from '@hooks/index';
@@ -93,14 +94,14 @@ const RepositoryCard: FC<RepositoryCardProps> = ({
           padding={0}
           theme={theme}
         />
-        <Text
+        <AppText
           style={[styles.name, { color: theme.onSurface }]}
           onPress={showRepositoryModal}
         >
           {`${repository.url.split('/')?.[3]}/${
             repository.url.split('/')?.[4]
           }`}
-        </Text>
+        </AppText>
       </View>
       <View style={styles.buttonsCtn}>
         <IconButtonV2

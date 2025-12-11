@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Pressable, Text } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
+import { Text } from '@components/AppText';
 import { BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import color from 'color';
@@ -142,7 +143,9 @@ const createStyles = (uiScale: number) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
     },
-    pageText: {},
+    pageText: {
+      fontSize: scaleDimension(16, uiScale),
+    },
     selectedIndicator: {
       borderRadius: 2,
       height: scaleDimension(20, uiScale),

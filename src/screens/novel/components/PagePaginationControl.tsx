@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import color from 'color';
 import { ThemeColors } from '@theme/types';
@@ -7,6 +7,7 @@ import { borderColor } from '@theme/colors';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 
 interface PagePaginationControlProps {
   pages: string[];
@@ -176,9 +177,9 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                 onPress={onOpenDrawer}
                 android_ripple={{ color: theme.rippleColor }}
               >
-                <Text style={[styles.ellipsis, { color: theme.onSurface }]}>
+                <AppText style={[styles.ellipsis, { color: theme.onSurface }]}>
                   ...
-                </Text>
+                </AppText>
               </Pressable>
             );
           }
@@ -202,7 +203,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                   : theme.rippleColor,
               }}
             >
-              <Text
+              <AppText
                 style={[
                   isActive ? styles.currentPageText : styles.pageText,
                   {
@@ -213,7 +214,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
                 numberOfLines={1}
               >
                 {pageName}
-              </Text>
+              </AppText>
             </Pressable>
           );
         })}

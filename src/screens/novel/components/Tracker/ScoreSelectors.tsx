@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { TextInput } from 'react-native-paper';
 
 import { RadioButton, RadioButtonGroup } from '@components/RadioButton';
@@ -14,6 +14,7 @@ import {
   ScoreSelectorProps,
 } from './types';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 export const MyAnimeListScoreSelector: React.FC<ScoreSelectorProps> = ({
   trackItem,
@@ -102,9 +103,9 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
 
   return (
     <View>
-      <Text style={[styles.helperText, { color: theme.onSurfaceVariant }]}>
+      <AppText style={[styles.helperText, { color: theme.onSurfaceVariant }]}>
         Enter a score between 0 and 10 (decimals allowed, e.g., 7.5)
-      </Text>
+      </AppText>
       <TextInput
         value={scoreText}
         onChangeText={handleChangeText}
@@ -124,7 +125,9 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
         style={styles.input}
       />
       {error && (
-        <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+        <AppText style={[styles.errorText, { color: theme.error }]}>
+          {error}
+        </AppText>
       )}
     </View>
   );

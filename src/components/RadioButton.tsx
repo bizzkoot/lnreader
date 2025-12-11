@@ -1,6 +1,7 @@
 import { ThemeColors } from '@theme/types';
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
 import { RadioButton as MaterialRadioButton } from 'react-native-paper';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';

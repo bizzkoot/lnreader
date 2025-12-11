@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useTheme, useAppSettings } from '@hooks/persisted';
@@ -27,6 +27,7 @@ import { overlay } from 'react-native-paper';
 import { translateNovelStatus } from '@utils/translateEnum';
 
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const StatsScreen = () => {
   const theme = useTheme();
@@ -93,9 +94,9 @@ const StatsScreen = () => {
         style={styles.screenCtn}
         contentContainerStyle={styles.contentCtn}
       >
-        <Text style={[styles.header, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('generalSettings')}
-        </Text>
+        </AppText>
         <Row style={styles.statsRow}>
           <StatsCard
             label={getString('statsScreen.titlesInLibrary')}
@@ -126,17 +127,17 @@ const StatsScreen = () => {
             value={stats.sourcesCount}
           />
         </Row>
-        <Text style={[styles.header, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('statsScreen.genreDistribution')}
-        </Text>
+        </AppText>
         <Row style={[styles.statsRow, styles.genreRow]}>
           {Object.entries(stats.genres || {}).map(item => (
             <StatsCard key={item[0]} label={item[0]} value={item[1]} />
           ))}
         </Row>
-        <Text style={[styles.header, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('statsScreen.statusDistribution')}
-        </Text>
+        </AppText>
         <Row style={[styles.statsRow, styles.genreRow]}>
           {Object.entries(stats.status || {}).map(item => (
             <StatsCard
@@ -176,8 +177,10 @@ export const StatsCard: React.FC<{ label: string; value?: number }> = ({
         },
       ]}
     >
-      <Text style={[styles.statsVal, { color: theme.primary }]}>{value}</Text>
-      <Text style={{ color: theme.onSurface }}> {label}</Text>
+      <AppText style={[styles.statsVal, { color: theme.primary }]}>
+        {value}
+      </AppText>
+      <AppText style={{ color: theme.onSurface }}> {label}</AppText>
     </View>
   );
 };

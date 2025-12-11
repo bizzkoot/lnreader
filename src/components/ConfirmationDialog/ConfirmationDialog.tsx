@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { getString } from '@strings/translations';
 
@@ -62,9 +63,9 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         <Dialog.Title style={{ color: theme.onSurface }}>{title}</Dialog.Title>
         {message ? (
           <Dialog.Content>
-            <Text style={[styles.content, { color: theme.onSurface }]}>
+            <AppText style={[styles.content, { color: theme.onSurface }]}>
               {message}
-            </Text>
+            </AppText>
           </Dialog.Content>
         ) : null}
         <View style={styles.buttonCtn}>

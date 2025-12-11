@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text } from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 

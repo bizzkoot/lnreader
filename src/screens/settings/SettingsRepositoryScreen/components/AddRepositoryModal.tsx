@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
 
 import { Button, Modal } from '@components/index';
+import AppText from '@components/AppText';
 
 import { Repository } from '@database/types';
 import { useAppSettings, useTheme } from '@hooks/persisted';
@@ -45,9 +46,9 @@ const AddRepositoryModal: React.FC<AddRepositoryModalProps> = ({
   return (
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {repository ? 'Edit repository' : 'Add repository'}
-        </Text>
+        </AppText>
         <TextInput
           autoFocus
           defaultValue={repositoryUrl}

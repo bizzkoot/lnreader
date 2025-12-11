@@ -8,11 +8,11 @@ import React, {
 import {
   StyleProp,
   StyleSheet,
-  Text,
   TextStyle,
   useWindowDimensions,
   View,
 } from 'react-native';
+import AppText from '@components/AppText';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import {
   NavigationState,
@@ -266,7 +266,9 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
     ({ route, color }: TabViewLabelProps) => {
       return (
         <Row>
-          <Text style={[{ color }, styles.fontWeight500]}>{route.title}</Text>
+          <AppText style={[{ color }, styles.fontWeight500]}>
+            {route.title}
+          </AppText>
           {showNumberOfNovels ? (
             <View
               style={[
@@ -274,11 +276,11 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
                 { backgroundColor: theme.surfaceVariant },
               ]}
             >
-              <Text
+              <AppText
                 style={[styles.badgetText, { color: theme.onSurfaceVariant }]}
               >
                 {route?.novelIds.length}
-              </Text>
+              </AppText>
             </View>
           ) : null}
         </Row>

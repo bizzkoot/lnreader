@@ -8,7 +8,8 @@ import { scaleDimension } from '@theme/scaling';
 import { ThemeColors } from '@theme/types';
 import { fetchTimeout } from '@utils/fetch/fetch';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 import { FlatList } from 'react-native-gesture-handler';
 import { Portal, TextInput } from 'react-native-paper';
 
@@ -132,9 +133,9 @@ function RestoreBackup({
               });
             }}
           >
-            <Text style={{ color: theme.primary }}>
+            <AppText style={{ color: theme.primary }}>
               {item.replace(/\.backup$/, ' ')}
-            </Text>
+            </AppText>
           </Button>
         )}
         ListEmptyComponent={emptyComponent}
@@ -182,7 +183,9 @@ function SetHost({
         disabled={fetching}
       />
       {error ? (
-        <Text style={[styles.error, { color: theme.error }]}>{error}</Text>
+        <AppText style={[styles.error, { color: theme.error }]}>
+          {error}
+        </AppText>
       ) : null}
       <View style={styles.footerContainer}>
         <Button
@@ -343,9 +346,9 @@ export default function SelfHostModal({
       <Modal visible={visible} onDismiss={closeModal}>
         <>
           <View style={styles.titleContainer}>
-            <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+            <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
               {getString('backupScreen.remote.backup')}
-            </Text>
+            </AppText>
           </View>
           {renderModal()}
         </>

@@ -10,6 +10,7 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -210,7 +211,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
       onPress={onPress}
       android_ripple={{ color: theme.rippleColor, foreground: true }}
     >
-      <Animated.Text
+      <AppText
         style={[
           styles.menuItemText,
           {
@@ -220,7 +221,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
         ]}
       >
         {title}
-      </Animated.Text>
+      </AppText>
     </Pressable>
   );
 };

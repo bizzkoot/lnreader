@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
@@ -20,6 +19,7 @@ import { NovelStatus } from '@plugins/types';
 import { translateNovelStatus } from '@utils/translateEnum';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface EditInfoModalProps {
   theme: ThemeColors;
@@ -119,18 +119,18 @@ const EditInfoModal = ({
   return (
     <Portal>
       <Modal visible={modalVisible} onDismiss={hideModal}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('novelScreen.edit.info')}
-        </Text>
+        </AppText>
         <View style={styles.statusRow}>
-          <Text
+          <AppText
             style={{
               color: theme.onSurfaceVariant,
               fontSize: scaleDimension(14, uiScale),
             }}
           >
             {getString('novelScreen.edit.status')}
-          </Text>
+          </AppText>
           <ScrollView
             style={styles.statusScrollView}
             horizontal
@@ -153,7 +153,7 @@ const EditInfoModal = ({
                   }}
                   onPress={() => setNovelInfo({ ...novel, status: item })}
                 >
-                  <Text
+                  <AppText
                     style={{
                       color:
                         novelInfo.status === item
@@ -163,7 +163,7 @@ const EditInfoModal = ({
                     }}
                   >
                     {translateNovelStatus(item)}
-                  </Text>
+                  </AppText>
                 </Pressable>
               </View>
             ))}
@@ -259,14 +259,14 @@ const EditInfoModal = ({
                   { backgroundColor: theme.secondaryContainer },
                 ]}
               >
-                <Text
+                <AppText
                   style={[
                     styles.genreChipText,
                     { color: theme.onSecondaryContainer },
                   ]}
                 >
                   {item}
-                </Text>
+                </AppText>
                 <MaterialCommunityIcons
                   name="close"
                   size={scaleDimension(18, uiScale)}

@@ -1,11 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { BottomSheetFlatList, BottomSheetModal } from '@gorhom/bottom-sheet';
@@ -28,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Switch from '@components/Switch/Switch';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const insertOrRemoveIntoArray = (array: string[], val: string): string[] =>
   array.indexOf(val) > -1 ? array.filter(ele => ele !== val) : [...array, val];
@@ -117,7 +112,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           style={[styles.flex, { width: screenWidth - 48 }]}
           mode="outlined"
           label={
-            <Text
+            <AppText
               style={[
                 {
                   color: theme.onSurface,
@@ -126,7 +121,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
               ]}
             >
               {` ${filter.label} `}
-            </Text>
+            </AppText>
           }
           defaultValue={value}
           theme={{ colors: { background: 'transparent' } }}
@@ -164,7 +159,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
               <TextInput
                 mode="outlined"
                 label={
-                  <Text
+                  <AppText
                     style={[
                       {
                         color: isVisible ? theme.primary : theme.onSurface,
@@ -173,7 +168,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
                     ]}
                   >
                     {` ${filter.label} `}
-                  </Text>
+                  </AppText>
                 }
                 value={label}
                 editable={false}
@@ -217,9 +212,9 @@ const FilterItem: React.FC<FilterItemProps> = ({
           onPress={toggleCard}
           android_ripple={{ color: theme.rippleColor }}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }]}>
             {filter.label}
-          </Text>
+          </AppText>
           <MaterialCommunityIcons
             name={isVisible ? 'chevron-up' : 'chevron-down'}
             color={theme.onSurface}
@@ -268,9 +263,9 @@ const FilterItem: React.FC<FilterItemProps> = ({
       >
         <View style={styles.switchContainer}>
           <View style={styles.switchLabelContainer}>
-            <Text style={[{ color: theme.onSurface }, styles.switchLabel]}>
+            <AppText style={[{ color: theme.onSurface }, styles.switchLabel]}>
               {filter.label}
-            </Text>
+            </AppText>
           </View>
           <Switch
             value={value}
@@ -297,9 +292,9 @@ const FilterItem: React.FC<FilterItemProps> = ({
           onPress={toggleCard}
           android_ripple={{ color: theme.rippleColor }}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }]}>
             {filter.label}
-          </Text>
+          </AppText>
           <MaterialCommunityIcons
             name={isVisible ? 'chevron-up' : 'chevron-down'}
             color={theme.onSurface}

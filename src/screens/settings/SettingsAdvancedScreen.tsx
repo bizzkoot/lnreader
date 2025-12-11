@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-import { Portal, Text, TextInput } from 'react-native-paper';
+import { Portal, TextInput } from 'react-native-paper';
+import AppText from '@components/AppText';
 
 import { useAppSettings, useTheme, useUserAgent } from '@hooks/persisted';
 import { showToast } from '@utils/showToast';
@@ -188,10 +189,12 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
         />
 
         <Modal visible={userAgentModalVisible} onDismiss={hideUserAgentModal}>
-          <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+          <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
             {getString('advancedSettingsScreen.userAgent')}
-          </Text>
-          <Text style={{ color: theme.onSurfaceVariant }}>{userAgent}</Text>
+          </AppText>
+          <AppText style={{ color: theme.onSurfaceVariant }}>
+            {userAgent}
+          </AppText>
           <TextInput
             multiline
             mode="outlined"

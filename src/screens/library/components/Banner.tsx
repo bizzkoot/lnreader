@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '../../../theme/types';
@@ -56,7 +57,9 @@ export const Banner: React.FC<Props> = ({
           style={styles.icon}
         />
       ) : null}
-      <Text style={[{ color: textColor }, styles.bannerText]}>{label}</Text>
+      <AppText style={[{ color: textColor }, styles.bannerText]}>
+        {label}
+      </AppText>
     </View>
   );
 };

@@ -2,12 +2,12 @@ import React, { memo, useMemo } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   useWindowDimensions,
   Pressable,
   Image,
 } from 'react-native';
 
+import AppText from '@components/AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 import ListView from './ListView';
 
@@ -295,7 +295,7 @@ const ComfortableTitle = ({
   width?: number;
   scaledStyles: any;
 }) => (
-  <Text
+  <AppText
     numberOfLines={2}
     style={[
       styles.title,
@@ -303,11 +303,12 @@ const ComfortableTitle = ({
       {
         color: theme.onSurface,
         maxWidth: width,
+        fontSize: scaledStyles.titleFontSize,
       },
     ]}
   >
     {novelName}
-  </Text>
+  </AppText>
 );
 
 const CompactTitle = ({
@@ -322,12 +323,17 @@ const CompactTitle = ({
       colors={['transparent', 'rgba(0,0,0,0.7)']}
       style={scaledStyles.linearGradient}
     >
-      <Text
+      <AppText
         numberOfLines={2}
-        style={[styles.title, styles.compactTitle, scaledStyles.titlePadding]}
+        style={[
+          styles.title,
+          styles.compactTitle,
+          scaledStyles.titlePadding,
+          { fontSize: scaledStyles.titleFontSize },
+        ]}
       >
         {novelName}
-      </Text>
+      </AppText>
     </LinearGradient>
   </View>
 );
@@ -339,7 +345,7 @@ const InLibraryBadge = ({
   theme: ThemeColors;
   scaledStyles: any;
 }) => (
-  <Text
+  <AppText
     style={[
       scaledStyles.inLibraryBadge,
       {
@@ -350,7 +356,7 @@ const InLibraryBadge = ({
     ]}
   >
     {getString('novelScreen.inLibaray')}
-  </Text>
+  </AppText>
 );
 
 const InActivityBadge = ({
@@ -397,7 +403,7 @@ const UnreadBadge: React.FC<UnreadBadgeProps> = ({
   theme,
   scaledStyles,
 }: UnreadBadgeProps) => (
-  <Text
+  <AppText
     style={[
       scaledStyles.unreadBadge,
       !chaptersDownloaded && scaledStyles.LeftBorderRadius,
@@ -405,11 +411,13 @@ const UnreadBadge: React.FC<UnreadBadgeProps> = ({
       {
         backgroundColor: theme.primary,
         color: theme.onPrimary,
+        fontSize: scaledStyles.badgeFontSize,
+        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
     {chaptersUnread}
-  </Text>
+  </AppText>
 );
 
 const DownloadBadge: React.FC<DownloadBadgeProps> = ({
@@ -419,7 +427,7 @@ const DownloadBadge: React.FC<DownloadBadgeProps> = ({
   theme,
   scaledStyles,
 }: DownloadBadgeProps) => (
-  <Text
+  <AppText
     style={[
       scaledStyles.downloadBadge,
       !chaptersUnread && scaledStyles.RightBorderRadius,
@@ -427,11 +435,13 @@ const DownloadBadge: React.FC<DownloadBadgeProps> = ({
       {
         backgroundColor: theme.tertiary,
         color: theme.onTertiary,
+        fontSize: scaledStyles.badgeFontSize,
+        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
     {chaptersDownloaded}
-  </Text>
+  </AppText>
 );
 
 const styles = StyleSheet.create({
@@ -532,6 +542,7 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
   titlePadding: {
     padding: scaled.padding.sm,
   },
+  titleFontSize: scaled.iconSize.sm - 2, // 14 at scale 1.0
   titleBorderRadius: {
     borderRadius: scaled.borderRadius.sm,
   },
@@ -541,4 +552,5 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
     paddingHorizontal: scaled.padding.xs,
     paddingTop: scaled.padding.xs / 2,
   },
+  badgeFontSize: scaled.iconSize.sm - 4,
 });

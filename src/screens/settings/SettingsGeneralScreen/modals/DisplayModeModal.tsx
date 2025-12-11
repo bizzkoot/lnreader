@@ -3,7 +3,8 @@ import {
   displayModesList,
 } from '@screens/library/constants/constants';
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
@@ -45,9 +46,9 @@ const DisplayModeModal: React.FC<DisplayModeModalProps> = ({
   return (
     <Portal>
       <Modal visible={displayModalVisible} onDismiss={hideDisplayModal}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {getString('generalSettingsScreen.displayMode')}
-        </Text>
+        </AppText>
         {displayModesList.map(mode => (
           <RadioButton
             key={mode.value}

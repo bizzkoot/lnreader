@@ -2,7 +2,8 @@ import { Button, Modal } from '@components';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 import { TextInput } from 'react-native-paper';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
@@ -49,9 +50,9 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({
 
   return (
     <Modal visible={visible} onDismiss={closeModal}>
-      <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+      <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
         {title}
-      </Text>
+      </AppText>
       <TextInput
         value={ipv4}
         placeholder={'xxx.xxx.xxx.xxx'}

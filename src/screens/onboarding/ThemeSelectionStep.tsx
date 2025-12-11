@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Pressable, StyleSheet, ScrollView } from 'react-native';
 import {
   useMMKVBoolean,
   useMMKVNumber,
@@ -13,6 +13,7 @@ import { useTheme, useAppSettings } from '@hooks/persisted';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { getString } from '@strings/translations';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -33,9 +34,9 @@ const AmoledToggle: React.FC<AmoledToggleProps> = ({ theme }) => {
 
   return (
     <View style={styles.amoledContainer}>
-      <Text style={[styles.amoledLabel, { color: theme.onSurface }]}>
+      <AppText style={[styles.amoledLabel, { color: theme.onSurface }]}>
         {getString('appearanceScreen.pureBlackDarkMode')}
-      </Text>
+      </AppText>
       <Pressable
         onPress={() => setAmoledBlack(!isAmoledBlack)}
         style={[

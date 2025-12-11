@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import color from 'color';
 
 import * as Clipboard from 'expo-clipboard';
@@ -8,6 +8,7 @@ import { IconButton } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { showToast } from '@utils/showToast';
+import AppText from '@components/AppText';
 
 import {
   CoverImage,
@@ -268,11 +269,11 @@ const NovelInfoHeader = ({
               }}
             >
               <View style={styles.flex}>
-                <Text style={[{ color: theme.onSurface }, styles.chapters]}>
+                <AppText style={[{ color: theme.onSurface }, styles.chapters]}>
                   {!fetching || totalChapters !== undefined
                     ? `${totalChapters} ${getString('novelScreen.chapters')}`
                     : getString('common.loading')}
-                </Text>
+                </AppText>
               </View>
               <IconButton
                 icon="filter-variant"

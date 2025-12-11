@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { NovelInfo } from '@database/types';
@@ -14,6 +14,7 @@ import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { MaterialDesignIconName } from '@type/icon';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const NButton = ({
   onPress,
@@ -51,9 +52,11 @@ const NButton = ({
           color={color ?? theme.outline}
           size={iconSize.md}
         />
-        <Text style={[styles.buttonLabel, { color: color ?? theme.outline }]}>
+        <AppText
+          style={[styles.buttonLabel, { color: color ?? theme.outline }]}
+        >
           {label}
-        </Text>
+        </AppText>
       </Pressable>
     </Animated.View>
   );

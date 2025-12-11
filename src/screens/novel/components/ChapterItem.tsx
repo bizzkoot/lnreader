@@ -1,5 +1,5 @@
 import React, { memo, ReactNode, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import color from 'color';
 import {
   ChapterBookmarkButton,
@@ -11,6 +11,7 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 import { getString } from '@strings/translations';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface ChapterItemProps {
   isDownloading?: boolean;
@@ -120,7 +121,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
           {isBookmarked ? <ChapterBookmarkButton theme={theme} /> : null}
           <View style={styles.contentContainer}>
             {isUpdateCard ? (
-              <Text
+              <AppText
                 style={{
                   fontSize: scaleDimension(14, uiScale),
                   color: unread ? theme.onSurface : theme.outline,
@@ -128,7 +129,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                 numberOfLines={1}
               >
                 {novelName}
-              </Text>
+              </AppText>
             ) : null}
             <View style={styles.chapterNameRow}>
               {unread ? (
@@ -140,7 +141,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                 />
               ) : null}
 
-              <Text
+              <AppText
                 style={[
                   {
                     fontSize: scaleDimension(isUpdateCard ? 12 : 14, uiScale),
@@ -160,11 +161,11 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                   : getString('novelScreen.chapterChapnum', {
                       num: chapterNumber,
                     })}
-              </Text>
+              </AppText>
             </View>
             <View style={styles.infoRow}>
               {releaseTime && !isUpdateCard ? (
-                <Text
+                <AppText
                   style={[
                     {
                       color: !unread
@@ -179,10 +180,10 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                   numberOfLines={1}
                 >
                   {releaseTime}
-                </Text>
+                </AppText>
               ) : null}
               {!isUpdateCard && progress && progress > 0 && chapter.unread ? (
-                <Text
+                <AppText
                   style={[
                     {
                       color: theme.outline,
@@ -199,7 +200,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                 >
                   {chapter.releaseTime ? '•  ' : null}
                   {getString('novelScreen.progress', { progress })}
-                </Text>
+                </AppText>
               ) : null}
             </View>
           </View>

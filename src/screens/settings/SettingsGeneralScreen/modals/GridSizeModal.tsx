@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
@@ -57,16 +58,16 @@ const GridSizeModal: React.FC<GridSizeModalProps> = ({
   return (
     <Portal>
       <Modal visible={gridSizeModalVisible} onDismiss={hideGridSizeModal}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {getString('generalSettingsScreen.gridSize')}
-        </Text>
-        <Text
+        </AppText>
+        <AppText
           style={[styles.modalDescription, { color: theme.onSurfaceVariant }]}
         >
           {getString('generalSettingsScreen.gridSizeDesc', {
             num: novelsPerRow,
           })}
-        </Text>
+        </AppText>
         {Object.keys(gridSizes).map(item => {
           const it = Number(item);
           return (

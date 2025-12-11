@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, FlatListProps } from 'react-native';
+import { View, FlatList, StyleSheet, FlatListProps } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
+import AppText from '@components/AppText';
 import { usePlugins, useTheme, useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 
@@ -103,13 +104,13 @@ const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
   }) => (
     <>
       <View style={styles.padding}>
-        <Text style={{ color: theme.onSurface }}>{item.name}</Text>
-        <Text style={[{ color: theme.onSurfaceVariant }, styles.fontSize]}>
+        <AppText style={{ color: theme.onSurface }}>{item.name}</AppText>
+        <AppText style={[{ color: theme.onSurfaceVariant }, styles.fontSize]}>
           {item.lang}
-        </Text>
+        </AppText>
       </View>
       {item.error ? (
-        <Text style={[styles.error, colorError]}>{item.error}</Text>
+        <AppText style={[styles.error, colorError]}>{item.error}</AppText>
       ) : item.loading ? (
         <GlobalSearchSkeletonLoading theme={theme} />
       ) : (

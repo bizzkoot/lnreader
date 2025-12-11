@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { SelectableChip } from '@components/index';
 import { getString } from '@strings/translations';
@@ -41,9 +42,9 @@ const ReaderFontPicker = () => {
 
   return (
     <View style={styles.row}>
-      <Text style={[{ color: theme.onSurfaceVariant }, styles.title]}>
+      <AppText style={[{ color: theme.onSurfaceVariant }, styles.title]}>
         {getString('readerScreen.bottomSheet.fontStyle')}
-      </Text>
+      </AppText>
       <FlatList
         data={readerFonts}
         renderItem={FontChipItem}

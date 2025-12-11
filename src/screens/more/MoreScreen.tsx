@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, View, Pressable, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView } from 'react-native';
 import { getString } from '@strings/translations';
 
 import { List, SafeAreaView } from '@components';
+import AppText from '@components/AppText';
 
 import { MoreHeader } from './components/MoreHeader';
 import { useLibrarySettings, useTheme, useAppSettings } from '@hooks/persisted';
@@ -84,7 +85,7 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
             <View style={styles.row}>
               <List.Icon theme={theme} icon="cloud-off-outline" />
               <View style={dynamicStyles.marginLeft16}>
-                <Text
+                <AppText
                   style={[
                     {
                       color: theme.onSurface,
@@ -93,15 +94,15 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
                   ]}
                 >
                   {getString('moreScreen.downloadOnly')}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={[
                     dynamicStyles.description,
                     { color: theme.onSurfaceVariant },
                   ]}
                 >
                   {getString('moreScreen.downloadOnlyDesc')}
-                </Text>
+                </AppText>
               </View>
             </View>
             <Switch
@@ -118,7 +119,7 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
             <View style={styles.row}>
               <List.Icon theme={theme} icon="glasses" />
               <View style={dynamicStyles.marginLeft16}>
-                <Text
+                <AppText
                   style={[
                     {
                       color: theme.onSurface,
@@ -127,15 +128,15 @@ const MoreScreen = ({ navigation }: MoreStackScreenProps) => {
                   ]}
                 >
                   {getString('moreScreen.incognitoMode')}
-                </Text>
-                <Text
+                </AppText>
+                <AppText
                   style={[
                     dynamicStyles.description,
                     { color: theme.onSurfaceVariant },
                   ]}
                 >
                   {getString('moreScreen.incognitoModeDesc')}
-                </Text>
+                </AppText>
               </View>
             </View>
             <Switch

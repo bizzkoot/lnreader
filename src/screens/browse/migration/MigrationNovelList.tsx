@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, FlatList, Text, View, FlatListProps } from 'react-native';
+import { StyleSheet, FlatList, View, FlatListProps } from 'react-native';
 import { Portal } from 'react-native-paper';
+import AppText from '@components/AppText';
 import GlobalSearchNovelCover from '../globalsearch/GlobalSearchNovelCover';
 
 import { showToast } from '@utils/showToast';
@@ -101,7 +102,7 @@ const MigrationNovelList = ({
         keyExtractor={(item, index) => index + item.path}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurfaceVariant,
@@ -110,12 +111,12 @@ const MigrationNovelList = ({
             ]}
           >
             {getString('sourceScreen.noResultsFound')}
-          </Text>
+          </AppText>
         }
       />
       <Portal>
         <Modal visible={migrateNovelDialog} onDismiss={hideMigrateNovelDialog}>
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurface,
@@ -126,7 +127,7 @@ const MigrationNovelList = ({
             {getString('browseScreen.migration.dialogMessage', {
               url: selectedNovel.name,
             })}
-          </Text>
+          </AppText>
           <View style={styles.row}>
             <Button
               onPress={hideMigrateNovelDialog}

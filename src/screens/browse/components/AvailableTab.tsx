@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, memo } from 'react';
-import { View, Text, StyleSheet, RefreshControl } from 'react-native';
+import { View, StyleSheet, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { usePlugins, useAppSettings } from '@hooks/persisted';
 import { PluginItem } from '@plugins/types';
@@ -18,6 +18,7 @@ import Animated, {
 import { getLocaleLanguageName } from '@utils/constants/languages';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 interface AvailableTabProps {
   searchText: string;
   theme: ThemeColors;
@@ -50,9 +51,9 @@ const AvailablePluginCard = ({
   return (
     <View>
       {plugin.header ? (
-        <Text style={[styles.listHeader, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.listHeader, { color: theme.onSurfaceVariant }]}>
           {getLocaleLanguageName(plugin.lang)}
-        </Text>
+        </AppText>
       ) : null}
       <Animated.View
         style={[
@@ -71,7 +72,7 @@ const AvailablePluginCard = ({
             ]}
           />
           <Animated.View style={styles.details}>
-            <Animated.Text
+            <AppText
               numberOfLines={1}
               style={[
                 {
@@ -82,8 +83,8 @@ const AvailablePluginCard = ({
               ]}
             >
               {plugin.name}
-            </Animated.Text>
-            <Animated.Text
+            </AppText>
+            <AppText
               numberOfLines={1}
               style={[
                 { color: theme.onSurfaceVariant },
@@ -92,7 +93,7 @@ const AvailablePluginCard = ({
               ]}
             >
               {`${getLocaleLanguageName(plugin.lang)} - ${plugin.version}`}
-            </Animated.Text>
+            </AppText>
           </Animated.View>
         </Animated.View>
         <IconButtonV2

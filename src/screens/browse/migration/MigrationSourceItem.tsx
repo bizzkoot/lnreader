@@ -1,10 +1,11 @@
 import { PluginItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { TouchableRipple } from 'react-native-paper';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface MigrationSourceCardProps {
   item: PluginItem;
@@ -59,7 +60,7 @@ const MigrationSourceCard = ({
       <>
         <Image source={{ uri: iconUrl }} style={styles.sourceIcon} />
         <View style={styles.sourceDetailsContainer}>
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurface,
@@ -68,8 +69,8 @@ const MigrationSourceCard = ({
             ]}
           >
             {name} {` (${noOfNovels || 0})`}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={[
               {
                 color: theme.onSurfaceVariant,
@@ -78,7 +79,7 @@ const MigrationSourceCard = ({
             ]}
           >
             {lang}
-          </Text>
+          </AppText>
         </View>
       </>
     </TouchableRipple>

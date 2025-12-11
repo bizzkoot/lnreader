@@ -1,6 +1,7 @@
 import React, { memo, Suspense, useEffect, useMemo } from 'react';
 import dayjs from 'dayjs';
-import { RefreshControl, SectionList, StyleSheet, Text } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import {
   EmptyView,
@@ -82,9 +83,9 @@ const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
           }
           contentContainerStyle={styles.listContainer}
           renderSectionHeader={({ section: { date } }) => (
-            <Text style={[styles.dateHeader, { color: theme.onSurface }]}>
+            <AppText style={[styles.dateHeader, { color: theme.onSurface }]}>
               {dayjs(date).calendar()}
-            </Text>
+            </AppText>
           )}
           sections={updatesOverview
             .filter(v =>
@@ -164,11 +165,11 @@ const LastUpdateTime: React.FC<{
   const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
   return (
-    <Text style={[styles.lastUpdateTime, { color: theme.onSurface }]}>
+    <AppText style={[styles.lastUpdateTime, { color: theme.onSurface }]}>
       {`${getString('updatesScreen.lastUpdatedAt')} ${dayjs(
         lastUpdateTime,
       ).fromNow()}`}
-    </Text>
+    </AppText>
   );
 };
 

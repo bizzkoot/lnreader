@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput } from 'react-native';
+import { StyleSheet, View, TextInput } from 'react-native';
 
 import { Button, IconButton, Portal } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
@@ -9,6 +9,7 @@ import { Modal } from '@components';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface DownloadCustomChapterModalProps {
   theme: ThemeColors;
@@ -73,9 +74,9 @@ const DownloadCustomChapterModal = ({
   return (
     <Portal>
       <Modal visible={modalVisible} onDismiss={onDismiss}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('novelScreen.download.customAmount')}
-        </Text>
+        </AppText>
         <View style={styles.row}>
           <IconButton
             icon="chevron-double-left"

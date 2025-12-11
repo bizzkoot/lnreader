@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text, Image, Pressable } from 'react-native';
+import { StyleSheet, View, Image, Pressable } from 'react-native';
 import { coverPlaceholderColor } from '@theme/colors';
 import { ThemeColors } from '@theme/types';
 import { NovelItem } from '@plugins/types';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface GlobalSearchNovelCoverProps {
   novel: NovelItem;
@@ -72,12 +73,12 @@ const GlobalSearchNovelCover = ({
           style={[styles.novelCover, { opacity }]}
           progressiveRenderingEnabled={true}
         />
-        <Text
+        <AppText
           numberOfLines={2}
           style={[styles.title, { color: theme.onSurface }]}
         >
           {name}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

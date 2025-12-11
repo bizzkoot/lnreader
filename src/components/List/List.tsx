@@ -3,10 +3,10 @@ import {
   Pressable,
   StyleProp,
   StyleSheet,
-  Text,
   View,
   ViewStyle,
 } from 'react-native';
+import AppText from '@components/AppText';
 import MaterialIcon from '@react-native-vector-icons/material-design-icons';
 
 import { List as PaperList, Divider as PaperDivider } from 'react-native-paper';
@@ -63,6 +63,10 @@ const Item: React.FC<ListItemProps> = ({
         fontSize: scaleDimension(12, uiScale),
         lineHeight: scaleDimension(20, uiScale),
       },
+      title: {
+        fontSize: scaleDimension(16, uiScale),
+      },
+      iconSize: scaleDimension(24, uiScale),
     }),
     [uiScale],
   );
@@ -70,33 +74,40 @@ const Item: React.FC<ListItemProps> = ({
   const left = useCallback(() => {
     if (icon) {
       return (
-        <PaperList.Icon
-          color={theme.primary}
-          icon={icon}
-          style={dynamicStyles.iconCtn}
-        />
+        <View style={dynamicStyles.iconCtn}>
+          <MaterialIcon
+            color={theme.primary}
+            name={icon as any}
+            size={dynamicStyles.iconSize}
+          />
+        </View>
       );
     }
-  }, [icon, theme.primary, dynamicStyles.iconCtn]);
+  }, [icon, theme.primary, dynamicStyles.iconCtn, dynamicStyles.iconSize]);
 
   const rightIcon = useCallback(() => {
     if (right) {
       return (
-        <PaperList.Icon
-          color={theme.primary}
-          icon={right}
-          style={dynamicStyles.iconCtn}
-        />
+        <View style={dynamicStyles.iconCtn}>
+          <MaterialIcon
+            color={theme.primary}
+            name={right as any}
+            size={dynamicStyles.iconSize}
+          />
+        </View>
       );
     }
-  }, [right, theme.primary, dynamicStyles.iconCtn]);
+  }, [right, theme.primary, dynamicStyles.iconCtn, dynamicStyles.iconSize]);
 
   return (
     <PaperList.Item
       title={title}
-      titleStyle={{
-        color: disabled ? theme.onSurfaceDisabled : theme.onSurface,
-      }}
+      titleStyle={[
+        dynamicStyles.title,
+        {
+          color: disabled ? theme.onSurfaceDisabled : theme.onSurface,
+        },
+      ]}
       description={description}
       descriptionStyle={[
         dynamicStyles.description,
@@ -151,16 +162,26 @@ const InfoItem = ({
         color={theme.onSurfaceVariant}
         name={'information-outline'}
       />
-      <Text style={[dynamicStyles.infoMsg, { color: theme.onSurfaceVariant }]}>
+      <AppText
+        style={[dynamicStyles.infoMsg, { color: theme.onSurfaceVariant }]}
+      >
         {title}
-      </Text>
+      </AppText>
     </View>
   );
 };
 
-const Icon = ({ icon, theme }: { icon: string; theme: ThemeColors }) => (
-  <PaperList.Icon color={theme.primary} icon={icon} style={styles.margin0} />
-);
+const Icon = ({ icon, theme }: { icon: string; theme: ThemeColors }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  return (
+    <MaterialIcon
+      color={theme.primary}
+      name={icon as any}
+      size={scaleDimension(24, uiScale)}
+      style={styles.margin0}
+    />
+  );
+};
 
 interface ColorItemProps {
   title: string;
@@ -197,10 +218,12 @@ const ColorItem = ({ title, description, theme, onPress }: ColorItemProps) => {
       onPress={onPress}
     >
       <View>
-        <Text style={[{ color: theme.onSurface }, dynamicStyles.fontSize16]}>
+        <AppText style={[{ color: theme.onSurface }, dynamicStyles.fontSize16]}>
           {title}
-        </Text>
-        <Text style={{ color: theme.onSurfaceVariant }}>{description}</Text>
+        </AppText>
+        <AppText style={{ color: theme.onSurfaceVariant }}>
+          {description}
+        </AppText>
       </View>
       <View
         style={[

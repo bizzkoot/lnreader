@@ -1,5 +1,6 @@
-import { StyleSheet, Text, TextStyle, View } from 'react-native';
+import { StyleSheet, TextStyle, View } from 'react-native';
 import React, { useMemo } from 'react';
+import AppText from '@components/AppText';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
 import { IconButtonV2 } from '@components';
@@ -68,9 +69,9 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
+      <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
         {label}
-      </Text>
+      </AppText>
       <View style={styles.buttonContainer}>
         <IconButtonV2
           name="minus"
@@ -84,9 +85,9 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
           }
           theme={theme}
         />
-        <Text style={[styles.value, { color: theme.onSurface }]}>
+        <AppText style={[styles.value, { color: theme.onSurface }]}>
           {`${((settings[valueKey] * 10) / 10).toFixed(decimals)}${unit}`}
-        </Text>
+        </AppText>
         <IconButtonV2
           name="plus"
           color={theme.primary}

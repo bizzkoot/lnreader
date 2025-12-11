@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from '@components/AppText';
 import { overlay } from 'react-native-paper';
 import color from 'color';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';

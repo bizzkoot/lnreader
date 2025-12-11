@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useMemo } from 'react';
-import { StyleSheet, View, Text, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '@components/AppText';
 import color from 'color';
 
 import { TabView, SceneMap, TabBar, TabViewProps } from 'react-native-tab-view';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { useNavigation } from '@react-navigation/native';
 import dayjs from 'dayjs';
@@ -106,7 +107,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           />
         </Pressable>
         <View style={styles.detailsContainer}>
-          <Text
+          <AppText
             numberOfLines={2}
             style={[
               {
@@ -117,8 +118,8 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
             ]}
           >
             {history.novelName}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={{
               color: theme.onSurfaceVariant,
               fontSize: scaleDimension(12, uiScale),
@@ -133,7 +134,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
                   ? ' • ' + history.progress + '%'
                   : ''
               }`}
-          </Text>
+          </AppText>
         </View>
       </View>
       <View style={styles.buttonContainer}>

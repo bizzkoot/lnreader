@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
@@ -83,11 +84,11 @@ const AutoDownloadModal: React.FC<AutoDownloadModalProps> = ({
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {type === 'remaining'
             ? getString('generalSettingsScreen.autoDownloadOnRemaining')
             : getString('generalSettingsScreen.autoDownloadAmount')}
-        </Text>
+        </AppText>
         <View style={styles.optionsContainer}>
           {options.map(option => (
             <RadioButton

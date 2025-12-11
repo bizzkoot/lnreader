@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, memo } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Portal } from 'react-native-paper';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 
@@ -19,6 +19,7 @@ import DiscoverCard from '../discover/DiscoverCard';
 import SourceSettingsModal from './Modals/SourceSettings';
 import { DeferredPluginListItem } from './DeferredPluginListItem';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface InstalledTabProps {
   navigation: BrowseScreenProps['navigation'];
@@ -134,11 +135,11 @@ export const InstalledTab = memo(
             {/* Discover Section */}
             {showMyAnimeList || showAniList ? (
               <>
-                <Text
+                <AppText
                   style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
                 >
                   {getString('browseScreen.discover')}
-                </Text>
+                </AppText>
                 {showAniList ? (
                   <DiscoverCard
                     theme={theme}
@@ -161,11 +162,11 @@ export const InstalledTab = memo(
             {/* Pinned Plugins Section */}
             {!searchText && pinnedPluginsList.length > 0 ? (
               <>
-                <Text
+                <AppText
                   style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
                 >
                   {getString('browseScreen.pinnedPlugins')}
-                </Text>
+                </AppText>
                 {pinnedPluginsList.map(plugin => (
                   <DeferredPluginListItem
                     key={plugin.id}
@@ -185,11 +186,11 @@ export const InstalledTab = memo(
             lastUsedPlugin &&
             !pinnedPlugins.includes(lastUsedPlugin.id) ? (
               <>
-                <Text
+                <AppText
                   style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
                 >
                   {getString('browseScreen.lastUsed')}
-                </Text>
+                </AppText>
                 <DeferredPluginListItem
                   item={lastUsedPlugin}
                   theme={theme}
@@ -202,13 +203,13 @@ export const InstalledTab = memo(
             ) : null}
 
             {/* All Installed Plugins Section */}
-            <Text
+            <AppText
               style={[styles.listHeader, { color: theme.onSurfaceVariant }]}
             >
               {searchText
                 ? getString('browseScreen.searchResults')
                 : getString('browseScreen.installedPlugins')}
-            </Text>
+            </AppText>
 
             <Portal>
               <SourceSettingsModal

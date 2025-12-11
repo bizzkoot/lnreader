@@ -1,6 +1,7 @@
 import { useTheme } from '@hooks/persisted';
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
 import { useAppSettings } from '@hooks/persisted/useSettings';
 import { scaleDimension } from '@theme/scaling';
 

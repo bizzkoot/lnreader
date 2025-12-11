@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, Pressable, Alert } from 'react-native';
+import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { Voice, VoiceQuality } from 'expo-speech';
@@ -13,6 +13,7 @@ import {
 import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { List, Button } from '@components/index';
+import AppText from '@components/AppText';
 import SettingSwitch from '../../components/SettingSwitch';
 import Switch from '@components/Switch/Switch';
 import { useBoolean } from '@hooks';
@@ -358,14 +359,16 @@ const AccessibilityTab: React.FC = () => {
               {/* Voice Rate Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text
+                  <AppText
                     style={[styles.sliderLabel, { color: theme.onSurface }]}
                   >
                     Voice speed
-                  </Text>
-                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                  </AppText>
+                  <AppText
+                    style={[styles.sliderValue, { color: theme.primary }]}
+                  >
                     {localRate.toFixed(1)}x
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.sliderContainer}>
                   <Pressable
@@ -378,14 +381,14 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       −
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -415,55 +418,57 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       +
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
                 <View style={styles.sliderMarkers}>
-                  <Text
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Slow
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Normal
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Fast
-                  </Text>
+                  </AppText>
                 </View>
               </View>
 
               {/* Voice Pitch Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text
+                  <AppText
                     style={[styles.sliderLabel, { color: theme.onSurface }]}
                   >
                     Voice pitch
-                  </Text>
-                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                  </AppText>
+                  <AppText
+                    style={[styles.sliderValue, { color: theme.primary }]}
+                  >
                     {localPitch.toFixed(1)}x
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.sliderContainer}>
                   <Pressable
@@ -476,14 +481,14 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       −
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -513,41 +518,41 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       +
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
                 <View style={styles.sliderMarkers}>
-                  <Text
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Low
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Normal
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     High
-                  </Text>
+                  </AppText>
                 </View>
               </View>
 

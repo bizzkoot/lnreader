@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text, StatusBar } from 'react-native';
+import { StyleSheet, View, StatusBar } from 'react-native';
+import { Text } from '@components/AppText';
 import ErrorBoundary from 'react-native-error-boundary';
 
 import { Button, List } from '@components';

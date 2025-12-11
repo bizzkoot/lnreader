@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { IconButton } from 'react-native-paper';
 
 import { useAppSettings, useTheme } from '@hooks/persisted';
@@ -7,6 +7,7 @@ import { scaleDimension } from '@theme/scaling';
 import { getAniListScoreFormatting } from './constants';
 import { AddTrackingCardProps, TrackedItemCardProps } from './types';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 
 export const AddTrackingCard: React.FC<AddTrackingCardProps> = ({
   onPress,
@@ -139,9 +140,9 @@ export const AddTrackingCard: React.FC<AddTrackingCardProps> = ({
           }}
           onPress={onPress}
         >
-          <Text style={[{ color: theme.primary }, styles.addTrackingText]}>
+          <AppText style={[{ color: theme.primary }, styles.addTrackingText]}>
             Add Tracking
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </View>
@@ -295,12 +296,12 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
       >
         <Image source={icon} style={styles.trackerIconSmall} />
         <View style={styles.listItemContainer}>
-          <Text
+          <AppText
             style={[{ color: theme.onSurfaceVariant }, styles.listItem]}
             numberOfLines={2}
           >
             {trackItem.title}
-          </Text>
+          </AppText>
           <IconButton
             icon="close"
             iconColor={theme.onSurfaceVariant}
@@ -318,18 +319,18 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetStatus}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }, styles.listItem]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }, styles.listItem]}>
             {getStatus(trackItem.status)}
-          </Text>
+          </AppText>
         </Pressable>
         <Pressable
           style={styles.flex1}
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetChapters}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }, styles.listItem]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }, styles.listItem]}>
             {renderChapters()}
-          </Text>
+          </AppText>
         </Pressable>
         <Pressable
           style={[
@@ -339,9 +340,9 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetScore}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }, styles.listItem]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }, styles.listItem]}>
             {renderScore()}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </View>

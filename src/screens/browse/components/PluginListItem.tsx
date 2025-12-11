@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
-import { Pressable, Image, View, Text, StyleSheet } from 'react-native';
+import { Pressable, Image, View, StyleSheet } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { usePlugins, useAppSettings } from '@hooks/persisted';
@@ -13,6 +13,7 @@ import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { showToast } from '@utils/showToast';
 import { UseBooleanReturnType } from '@hooks';
 import ConfirmationDialog from '@components/ConfirmationDialog/ConfirmationDialog';
+import AppText from '@components/AppText';
 
 interface PluginListItemProps {
   item: PluginItem;
@@ -181,12 +182,12 @@ export const PluginListItem = memo(
             <View style={[styles.center, styles.row]}>
               <Image source={{ uri: item.iconUrl }} style={iconStyle} />
               <View style={styles.details}>
-                <Text numberOfLines={1} style={nameStyle}>
+                <AppText numberOfLines={1} style={nameStyle}>
                   {item.name}
-                </Text>
-                <Text numberOfLines={1} style={additionStyle}>
+                </AppText>
+                <AppText numberOfLines={1} style={additionStyle}>
                   {`${item.lang} - ${item.version}`}
-                </Text>
+                </AppText>
               </View>
             </View>
             <View style={styles.flex} />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
+import AppText from '@components/AppText';
 
 import { Button, Modal } from '@components/index';
 
@@ -63,13 +64,13 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
   return (
     <Portal>
       <Modal visible={visible} onDismiss={close}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString(
             isEditMode
               ? 'categories.editCategories'
               : 'categories.addCategories',
           )}
-        </Text>
+        </AppText>
         <TextInput
           autoFocus
           defaultValue={categoryName}

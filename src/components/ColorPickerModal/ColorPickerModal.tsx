@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
 
 import { Portal, TextInput } from 'react-native-paper';
 import { Modal } from '@components';

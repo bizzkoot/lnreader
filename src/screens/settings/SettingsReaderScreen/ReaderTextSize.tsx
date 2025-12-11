@@ -1,8 +1,9 @@
-import { StyleSheet, Text, TextStyle, View } from 'react-native';
+import { StyleSheet, TextStyle, View } from 'react-native';
 import React, { useMemo } from 'react';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
 import { IconButtonV2 } from '@components/index';
+import AppText from '@components/AppText';
 import { getString } from '@strings/translations';
 import { useAppSettings } from '@hooks/persisted/useSettings';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
@@ -41,9 +42,9 @@ const ReaderTextSize: React.FC<ReaderTextSizeProps> = ({ labelStyle }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
+      <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
         {getString('readerScreen.bottomSheet.textSize')}
-      </Text>
+      </AppText>
       <View style={styles.buttonContainer}>
         <IconButtonV2
           name="minus"
@@ -53,9 +54,9 @@ const ReaderTextSize: React.FC<ReaderTextSizeProps> = ({ labelStyle }) => {
           onPress={() => setChapterReaderSettings({ textSize: textSize - 1 })}
           theme={theme}
         />
-        <Text style={[styles.value, { color: theme.onSurface }]}>
+        <AppText style={[styles.value, { color: theme.onSurface }]}>
           {textSize}
-        </Text>
+        </AppText>
         <IconButtonV2
           name="plus"
           color={theme.primary}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
 
 import { ThemeColors } from '../../theme/types';
 import { Button } from 'react-native-paper';

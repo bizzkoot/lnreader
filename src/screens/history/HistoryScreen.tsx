@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, SectionList, Text } from 'react-native';
+import { StyleSheet, SectionList } from 'react-native';
+import AppText from '@components/AppText';
 import dayjs from 'dayjs';
 import { Portal } from 'react-native-paper';
 
@@ -124,9 +125,9 @@ const HistoryScreen = ({ navigation }: HistoryScreenProps) => {
             sections={groupHistoryByDate(searchText ? searchResults : history)}
             keyExtractor={(item, index) => 'history' + index}
             renderSectionHeader={({ section: { date } }) => (
-              <Text style={[styles.dateHeader, { color: theme.onSurface }]}>
+              <AppText style={[styles.dateHeader, { color: theme.onSurface }]}>
                 {dayjs(date).calendar()}
-              </Text>
+              </AppText>
             )}
             renderItem={({ item }) => (
               <HistoryCard

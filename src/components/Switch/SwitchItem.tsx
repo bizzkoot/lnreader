@@ -3,10 +3,10 @@ import {
   Pressable,
   StyleSheet,
   View,
-  Text,
   ViewStyle,
   StyleProp,
 } from 'react-native';
+import AppText from '@components/AppText';
 import Switch from './Switch';
 import { ThemeColors } from '../../theme/types';
 import { useAppSettings } from '@hooks/persisted';
@@ -67,11 +67,15 @@ const SwitchItem: React.FC<SwitchItemProps> = ({
       onPress={onPress}
     >
       <View style={styles.labelContainer}>
-        <Text style={[{ color: theme.onSurface }, styles.label]}>{label}</Text>
+        <AppText style={[{ color: theme.onSurface }, styles.label]}>
+          {label}
+        </AppText>
         {description ? (
-          <Text style={[styles.description, { color: theme.onSurfaceVariant }]}>
+          <AppText
+            style={[styles.description, { color: theme.onSurfaceVariant }]}
+          >
             {description}
-          </Text>
+          </AppText>
         ) : null}
       </View>
       <Switch

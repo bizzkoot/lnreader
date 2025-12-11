@@ -1,4 +1,4 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import color from 'color';
 
@@ -17,6 +17,7 @@ import { useLibraryContext } from '@components/Context/LibraryContext';
 import NovelCover from '@components/NovelCover';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface GlobalSearchResultsListProps {
   searchResults: GlobalSearchResult[];
@@ -91,14 +92,14 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
             }
           >
             <View>
-              <Text style={[styles.sourceName, { color: theme.onSurface }]}>
+              <AppText style={[styles.sourceName, { color: theme.onSurface }]}>
                 {item.plugin.name}
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 style={[styles.language, { color: theme.onSurfaceVariant }]}
               >
                 {item.plugin.lang}
-              </Text>
+              </AppText>
             </View>
             <MaterialCommunityIcons
               name="arrow-right"
@@ -109,9 +110,9 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
           {item.isLoading ? (
             <GlobalSearchSkeletonLoading theme={theme} />
           ) : item.error ? (
-            <Text style={[styles.error, { color: errorColor }]}>
+            <AppText style={[styles.error, { color: errorColor }]}>
               {item.error}
-            </Text>
+            </AppText>
           ) : (
             <FlatList
               horizontal
@@ -120,9 +121,9 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
               data={item.novels}
               extraData={inActivity.length}
               ListEmptyComponent={
-                <Text style={[styles.listEmpty, { color: noResultsColor }]}>
+                <AppText style={[styles.listEmpty, { color: noResultsColor }]}>
                   {getString('sourceScreen.noResultsFound')}
-                </Text>
+                </AppText>
               }
               renderItem={({ item: novelItem }) => {
                 const inLibrary = novelInLibrary(

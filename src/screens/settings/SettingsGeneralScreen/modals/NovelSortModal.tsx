@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
@@ -54,9 +55,9 @@ const NovelSortModal: React.FC<NovelSortModalProps> = ({
   return (
     <Portal>
       <Modal visible={novelSortModalVisible} onDismiss={hideNovelSortModal}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {getString('generalSettingsScreen.sortOrder')}
-        </Text>
+        </AppText>
         {librarySortOrderList.map(item => (
           <SortItem
             key={item.ASC}

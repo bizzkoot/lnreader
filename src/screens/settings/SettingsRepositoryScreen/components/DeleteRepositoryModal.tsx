@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Portal } from 'react-native-paper';
 
 import { Button, Modal } from '@components/index';
+import AppText from '@components/AppText';
 
 import { Repository } from '@database/types';
 import { deleteRepositoryById } from '@database/queries/RepositoryQueries';
@@ -46,12 +47,12 @@ const DeleteRepositoryModal: React.FC<DeleteRepositoryModalProps> = ({
   return (
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {'Delete repository'}
-        </Text>
-        <Text style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
+        </AppText>
+        <AppText style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
           {`Do you wish to delete repository "${repository.url}"?`}
-        </Text>
+        </AppText>
         <View style={styles.btnContainer}>
           <Button
             title={getString('common.ok')}

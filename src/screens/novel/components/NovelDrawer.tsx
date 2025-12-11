@@ -2,11 +2,11 @@ import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import { ThemeColors } from '@theme/types';
 import color from 'color';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import React, { useMemo } from 'react';
+import AppText from '@components/AppText';
 
 interface NovelDrawerProps {
   theme: ThemeColors;
@@ -79,9 +79,9 @@ export default function NovelDrawer({
         }}
       >
         <View>
-          <Text style={[{ color: theme.onSurfaceVariant }, styles.pageText]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }, styles.pageText]}>
             {item}
-          </Text>
+          </AppText>
         </View>
       </Pressable>
     </View>
@@ -93,14 +93,14 @@ export default function NovelDrawer({
         { backgroundColor: theme.surface, paddingBottom: insets.bottom },
       ]}
     >
-      <Text
+      <AppText
         style={[
           styles.headerCtn,
           { color: theme.onSurface, borderBottomColor: theme.outline },
         ]}
       >
         Novel pages
-      </Text>
+      </AppText>
       <LegendList
         data={pages}
         recycleItems

@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 import { ThemeColors } from '../../../../theme/types';
 import Switch from '@components/Switch/Switch';
 
@@ -23,9 +24,9 @@ const ReaderSheetPreferenceItem: React.FC<ReaderSheetPreferenceItemProps> = ({
       android_ripple={{ color: theme.rippleColor }}
       onPress={onPress}
     >
-      <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
+      <AppText style={[styles.label, { color: theme.onSurfaceVariant }]}>
         {label}
-      </Text>
+      </AppText>
       <Suspense
         fallback={
           <View

@@ -1,11 +1,11 @@
 import {
   StyleProp,
   StyleSheet,
-  Text,
   TextStyle,
   useWindowDimensions,
   View,
 } from 'react-native';
+import AppText from '@components/AppText';
 import React, {
   RefObject,
   useMemo,
@@ -175,7 +175,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   );
 
   const renderLabel = useCallback(({ route, color }: TabViewLabelProps) => {
-    return <Text style={{ color }}>{route.title}</Text>;
+    return <AppText style={{ color }}>{route.title}</AppText>;
   }, []);
 
   return (

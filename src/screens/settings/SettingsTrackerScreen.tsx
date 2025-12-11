@@ -2,11 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import {
   Portal,
-  Text,
   Button,
   Provider,
   List as PaperList,
 } from 'react-native-paper';
+import AppText from '@components/AppText';
 
 import {
   getTracker,
@@ -262,11 +262,11 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
 
           <Portal>
             <Modal visible={visible} onDismiss={hideModal}>
-              <Text style={[{ color: theme.onSurface }, styles.modalText]}>
+              <AppText style={[{ color: theme.onSurface }, styles.modalText]}>
                 {getString('trackingScreen.logOutMessage', {
                   name: logoutTrackerName,
                 })}
-              </Text>
+              </AppText>
               <View style={styles.modalButtonRow}>
                 <Button
                   style={styles.modalButton}

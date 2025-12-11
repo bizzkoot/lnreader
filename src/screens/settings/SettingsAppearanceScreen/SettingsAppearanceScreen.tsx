@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, StyleSheet, View, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import AppText from '@components/AppText';
 import Slider from '@react-native-community/slider';
 
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
@@ -250,9 +251,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           </View>
 
           {/* Light Themes */}
-          <Text style={[{ color: theme.onSurface }, styles.themeSectionText]}>
+          <AppText
+            style={[{ color: theme.onSurface }, styles.themeSectionText]}
+          >
             {getString('appearanceScreen.lightTheme')}
-          </Text>
+          </AppText>
           <ScrollView
             contentContainerStyle={styles.themePickerRow}
             horizontal={true}
@@ -270,9 +273,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           </ScrollView>
 
           {/* Dark Themes */}
-          <Text style={[{ color: theme.onSurface }, styles.themeSectionText]}>
+          <AppText
+            style={[{ color: theme.onSurface }, styles.themeSectionText]}
+          >
             {getString('appearanceScreen.darkTheme')}
-          </Text>
+          </AppText>
           <ScrollView
             contentContainerStyle={styles.themePickerRow}
             horizontal={true}
@@ -316,12 +321,12 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           {/* UI Scale Slider */}
           <View style={styles.sliderSection}>
             <View style={styles.sliderLabelRow}>
-              <Text style={[styles.sliderLabel, { color: theme.onSurface }]}>
+              <AppText style={[styles.sliderLabel, { color: theme.onSurface }]}>
                 UI Scale
-              </Text>
-              <Text style={[styles.sliderValue, { color: theme.primary }]}>
+              </AppText>
+              <AppText style={[styles.sliderValue, { color: theme.primary }]}>
                 {Math.round(localUiScale * 100)}%
-              </Text>
+              </AppText>
             </View>
             <View style={styles.sliderContainer}>
               <Pressable
@@ -332,11 +337,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
                   setAppSettings({ uiScale: newValue });
                 }}
               >
-                <Text
+                <AppText
                   style={[styles.sliderButtonText, { color: theme.primary }]}
                 >
                   −
-                </Text>
+                </AppText>
               </Pressable>
               <Slider
                 style={styles.slider}
@@ -362,38 +367,38 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
                   setAppSettings({ uiScale: newValue });
                 }}
               >
-                <Text
+                <AppText
                   style={[styles.sliderButtonText, { color: theme.primary }]}
                 >
                   +
-                </Text>
+                </AppText>
               </Pressable>
             </View>
             <View style={styles.sliderMarkers}>
-              <Text
+              <AppText
                 style={[
                   styles.sliderMarkerText,
                   { color: theme.onSurfaceVariant },
                 ]}
               >
                 20%
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 style={[
                   styles.sliderMarkerText,
                   { color: theme.onSurfaceVariant },
                 ]}
               >
                 100%
-              </Text>
-              <Text
+              </AppText>
+              <AppText
                 style={[
                   styles.sliderMarkerText,
                   { color: theme.onSurfaceVariant },
                 ]}
               >
                 150%
-              </Text>
+              </AppText>
             </View>
           </View>
           <List.Divider theme={theme} />

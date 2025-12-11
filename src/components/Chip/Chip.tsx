@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { ThemeColors } from '../../theme/types';
 import { overlay } from 'react-native-paper';
@@ -51,7 +52,7 @@ const Chip: React.FC<ChipProps> = ({ label, theme }) => {
         android_ripple={{ color: theme.rippleColor }}
         style={styles.pressable}
       >
-        <Text
+        <AppText
           style={[
             styles.label,
             {
@@ -62,7 +63,7 @@ const Chip: React.FC<ChipProps> = ({ label, theme }) => {
           ]}
         >
           {label}
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

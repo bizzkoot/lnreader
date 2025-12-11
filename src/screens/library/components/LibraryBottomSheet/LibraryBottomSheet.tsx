@@ -2,11 +2,11 @@ import React, { RefObject, useCallback, useMemo, useState } from 'react';
 import {
   StyleProp,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
+import AppText from '@components/AppText';
 import {
   SceneMap,
   TabBar,
@@ -28,7 +28,7 @@ import {
 } from '@screens/library/constants/constants';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 import { overlay } from 'react-native-paper';
-import { BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetView, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { LegendList } from '@legendapp/list';
@@ -122,15 +122,15 @@ const ThirdRoute = ({ uiScale }: { uiScale: number }) => {
   } = useLibrarySettings();
 
   return (
-    <View style={styles(uiScale).flex}>
-      <Text
+    <BottomSheetScrollView style={styles(uiScale).flex}>
+      <AppText
         style={[
           styles(uiScale).sectionHeader,
           { color: theme.onSurfaceVariant },
         ]}
       >
         {getString('libraryScreen.bottomSheet.display.badges')}
-      </Text>
+      </AppText>
       <Checkbox
         label={getString('libraryScreen.bottomSheet.display.downloadBadges')}
         status={showDownloadBadges}
@@ -161,16 +161,17 @@ const ThirdRoute = ({ uiScale }: { uiScale: number }) => {
         }
         theme={theme}
       />
-      <Text
+      <AppText
         style={[
           styles(uiScale).sectionHeader,
           { color: theme.onSurfaceVariant },
         ]}
       >
         {getString('libraryScreen.bottomSheet.display.displayMode')}
-      </Text>
+      </AppText>
       <LegendList
         recycleItems
+        scrollEnabled={false}
         estimatedItemSize={4}
         data={displayModesList}
         extraData={[displayMode]}
@@ -184,7 +185,7 @@ const ThirdRoute = ({ uiScale }: { uiScale: number }) => {
           />
         )}
       />
-    </View>
+    </BottomSheetScrollView>
   );
 };
 
@@ -239,7 +240,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
 
   const renderCommonOptions = useCallback(
     ({ route, color: col }: { route: any; color: string }) => (
-      <Text style={{ color: col }}>{route.title}</Text>
+      <AppText style={{ color: col }}>{route.title}</AppText>
     ),
     [],
   );
