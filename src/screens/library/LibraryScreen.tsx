@@ -513,7 +513,7 @@ const createStyles = (theme: ThemeColors, uiScale: number) =>
       paddingBottom: 8,
     },
     tabBarItem: {
-      width: 100,
+      width: scaleDimension(100, uiScale),
     },
     tabLabel: {
       color: theme.onSurface,
@@ -528,7 +528,7 @@ const createStyles = (theme: ThemeColors, uiScale: number) =>
       position: 'relative',
     },
     badgetText: {
-      fontSize: 12,
+      fontSize: scaleDimension(12, uiScale),
     },
     fab: {
       bottom: 0,
@@ -548,7 +548,7 @@ const createStyles = (theme: ThemeColors, uiScale: number) =>
     },
     tabBarIndicator: {
       backgroundColor: theme.primary,
-      height: 3,
+      height: scaleDimension(3, uiScale),
     },
     tabStyle: {
       minWidth: 100,

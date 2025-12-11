@@ -19,6 +19,7 @@ import {
   LegendListRenderItemProps,
 } from '@legendapp/list';
 import { getNovelChapters } from '@database/queries/ChapterQueries';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface JumpToChapterModalProps {
   hideModal: () => void;
@@ -36,6 +37,7 @@ const JumpToChapterModal = ({
   chapterListRef,
 }: JumpToChapterModalProps) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
   const [mode, setMode] = useState(false);
   const [openChapter, setOpenChapter] = useState(false);
   const [allChapters, setAllChapters] = useState<ChapterInfo[]>([]);
@@ -287,14 +289,14 @@ const JumpToChapterModal = ({
             value={openChapter}
             theme={theme}
             onPress={() => setOpenChapter(!openChapter)}
-            size={20}
+            size={iconSize.sm}
           />
           <SwitchItem
             label={getString('novelScreen.jumpToChapterModal.chapterName')}
             value={mode}
             theme={theme}
             onPress={() => setMode(!mode)}
-            size={20}
+            size={iconSize.sm}
           />
         </View>
         {result.length ? (

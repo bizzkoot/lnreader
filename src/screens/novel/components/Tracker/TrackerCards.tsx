@@ -6,6 +6,7 @@ import { useAppSettings, useTheme } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import { getAniListScoreFormatting } from './constants';
 import { AddTrackingCardProps, TrackedItemCardProps } from './types';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 export const AddTrackingCard: React.FC<AddTrackingCardProps> = ({
   onPress,
@@ -159,6 +160,7 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
 }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const borderColor = 'rgba(0, 0, 0, 0.12)';
 
   const styles = useMemo(
@@ -302,7 +304,7 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
           <IconButton
             icon="close"
             iconColor={theme.onSurfaceVariant}
-            size={21}
+            size={iconSize.sm}
             onPress={onUntrack}
           />
         </View>

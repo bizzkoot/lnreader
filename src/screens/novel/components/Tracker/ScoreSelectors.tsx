@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TextInput } from 'react-native-paper';
 
 import { RadioButton, RadioButtonGroup } from '@components/RadioButton';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import {
   getAniListScoreFormatting,
   getMyAnimeListScoreLabel,
@@ -13,6 +13,7 @@ import {
   ScoreFormat,
   ScoreSelectorProps,
 } from './types';
+import { scaleDimension } from '@theme/scaling';
 
 export const MyAnimeListScoreSelector: React.FC<ScoreSelectorProps> = ({
   trackItem,
@@ -44,25 +45,30 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
   onUpdateScore,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const [scoreText, setScoreText] = useState(
     trackItem.score === 0 ? '' : trackItem.score.toString(),
   );
   const [error, setError] = useState<string | undefined>();
 
-  const styles = StyleSheet.create({
-    errorText: {
-      fontSize: 12,
-      marginTop: 4,
-    },
-    input: {
-      fontSize: 13,
-      lineHeight: 20,
-    },
-    helperText: {
-      fontSize: 14,
-      marginBottom: 8,
-    },
-  });
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        errorText: {
+          fontSize: scaleDimension(12, uiScale),
+          marginTop: 4,
+        },
+        input: {
+          fontSize: scaleDimension(13, uiScale),
+          lineHeight: 20,
+        },
+        helperText: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: 8,
+        },
+      }),
+    [uiScale],
+  );
 
   useEffect(() => {
     setScoreText(trackItem.score === 0 ? '' : trackItem.score.toString());

@@ -17,6 +17,7 @@ import { getString } from '@strings/translations';
 import { IconButtonV2 } from '@components';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface PluginListItemSkeletonProps {
   item: PluginItem;
@@ -26,50 +27,49 @@ interface PluginListItemSkeletonProps {
 export const PluginListItemSkeleton = memo(
   ({ item, theme }: PluginListItemSkeletonProps) => {
     const { uiScale = 1.0 } = useAppSettings();
+    const { iconSize } = useScaledDimensions();
+
+    const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
     const containerStyle = useMemo(
       () => [styles.container, { backgroundColor: theme.surface }],
-      [theme.surface],
+      [theme.surface, styles],
     );
     const iconStyle = useMemo(
       () => [styles.icon, { backgroundColor: theme.surface }],
-      [theme.surface],
+      [theme.surface, styles],
     );
     const nameStyle = useMemo(
       () => [{ color: theme.onSurface }, styles.name],
-      [theme.onSurface],
+      [theme.onSurface, styles],
     );
     const additionStyle = useMemo(
-      () => [
-        { color: theme.onSurfaceVariant },
-        styles.addition,
-        { fontSize: scaleDimension(12, uiScale) },
-      ],
-      [theme.onSurfaceVariant, uiScale],
+      () => [{ color: theme.onSurfaceVariant }, styles.addition],
+      [theme.onSurfaceVariant, styles],
     );
 
     const CogButton = useCallback(
       () => (
         <IconButtonV2
           name="cog-outline"
-          size={22}
+          size={iconSize.sm}
           color={theme.primary}
           theme={theme}
         />
       ),
-      [theme],
+      [theme, iconSize.sm],
     );
 
     const DownloadButton = useCallback(
       () => (
         <IconButtonV2
           name="download-outline"
-          size={22}
+          size={iconSize.sm}
           color={theme.primary}
           theme={theme}
         />
       ),
-      [theme],
+      [theme, iconSize.sm],
     );
 
     const LatestButton = useCallback(() => {
@@ -119,37 +119,38 @@ export const PluginListItemSkeleton = memo(
   },
 );
 
-const styles = StyleSheet.create({
-  addition: {
-    fontSize: 12,
-    lineHeight: 20,
-  },
-  buttonGroup: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  center: { alignItems: 'center' },
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  details: {
-    marginLeft: 16,
-  },
-  flex: { flex: 1 },
-  icon: {
-    borderRadius: 4,
-    height: 40,
-    width: 40,
-  },
-  name: {
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    addition: {
+      fontSize: scaleDimension(12, uiScale),
+      lineHeight: scaleDimension(20, uiScale),
+    },
+    buttonGroup: {
+      alignItems: 'center',
+      flexDirection: 'row',
+    },
+    center: { alignItems: 'center' },
+    container: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    details: {
+      marginLeft: 16,
+    },
+    flex: { flex: 1 },
+    icon: {
+      borderRadius: 4,
+      height: scaleDimension(40, uiScale),
+      width: scaleDimension(40, uiScale),
+    },
+    name: {
+      fontWeight: '500',
+      lineHeight: 20,
+    },
+    row: {
+      flexDirection: 'row',
+    },
+  });

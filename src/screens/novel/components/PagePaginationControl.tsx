@@ -6,6 +6,7 @@ import { ThemeColors } from '@theme/types';
 import { borderColor } from '@theme/colors';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface PagePaginationControlProps {
   pages: string[];
@@ -23,6 +24,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
   theme,
 }) => {
   const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const totalPages = pages.length;
 
   const styles = useMemo(
@@ -152,7 +154,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
         <IconButton
           icon="chevron-left"
           iconColor={canGoPrevious ? theme.onSurface : theme.onSurfaceDisabled}
-          size={20}
+          size={iconSize.sm}
           style={styles.iconButton}
         />
       </Pressable>
@@ -233,7 +235,7 @@ const PagePaginationControl: React.FC<PagePaginationControlProps> = ({
         <IconButton
           icon="chevron-right"
           iconColor={canGoNext ? theme.onSurface : theme.onSurfaceDisabled}
-          size={20}
+          size={iconSize.sm}
           style={styles.iconButton}
         />
       </Pressable>

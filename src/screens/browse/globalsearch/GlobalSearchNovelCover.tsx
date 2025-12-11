@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, Image, Pressable } from 'react-native';
 import { coverPlaceholderColor } from '@theme/colors';
 import { ThemeColors } from '@theme/types';
 import { NovelItem } from '@plugins/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface GlobalSearchNovelCoverProps {
   novel: NovelItem;
@@ -19,11 +21,43 @@ const GlobalSearchNovelCover = ({
   inLibrary,
   onLongPress,
 }: GlobalSearchNovelCoverProps) => {
+  const { uiScale } = useAppSettings();
   const { name, cover } = novel;
 
   const uri = cover;
 
   const opacity = inLibrary ? 0.5 : 1;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: 6,
+          flex: 1,
+          overflow: 'hidden',
+        },
+        novelCover: {
+          backgroundColor: coverPlaceholderColor,
+          borderRadius: 4,
+          height: scaleDimension(150, uiScale),
+          width: scaleDimension(115, uiScale),
+        },
+        pressable: {
+          borderRadius: 4,
+          flex: 1,
+          paddingHorizontal: 5,
+          paddingVertical: 4,
+        },
+        title: {
+          flexWrap: 'wrap',
+          fontFamily: 'pt-sans-bold',
+          fontSize: scaleDimension(14, uiScale),
+          padding: scaleDimension(4, uiScale),
+          width: scaleDimension(115, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View style={styles.container}>
@@ -50,30 +84,3 @@ const GlobalSearchNovelCover = ({
 };
 
 export default GlobalSearchNovelCover;
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 6,
-    flex: 1,
-    overflow: 'hidden',
-  },
-  novelCover: {
-    backgroundColor: coverPlaceholderColor,
-    borderRadius: 4,
-    height: 150,
-    width: 115,
-  },
-  pressable: {
-    borderRadius: 4,
-    flex: 1,
-    paddingHorizontal: 5,
-    paddingVertical: 4,
-  },
-  title: {
-    flexWrap: 'wrap',
-    fontFamily: 'pt-sans-bold',
-    fontSize: 14,
-    padding: 4,
-    width: 115,
-  },
-});

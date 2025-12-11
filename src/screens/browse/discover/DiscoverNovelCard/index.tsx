@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View, Image } from 'react-native';
 
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 
 interface Props {
   novel: {
@@ -12,9 +13,15 @@ interface Props {
   };
   onPress: () => void;
   theme: ThemeColors;
+  uiScale?: number;
 }
 
-const DiscoverNovelCard: React.FC<Props> = ({ novel, onPress, theme }) => {
+const DiscoverNovelCard: React.FC<Props> = ({
+  novel,
+  onPress,
+  theme,
+  uiScale = 1.0,
+}) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.overlay3 }]}>
       <Pressable
@@ -22,20 +29,23 @@ const DiscoverNovelCard: React.FC<Props> = ({ novel, onPress, theme }) => {
         onPress={onPress}
         android_ripple={{ color: theme.rippleColor }}
       >
-        <Image source={{ uri: novel.novelCover }} style={styles.cover} />
+        <Image
+          source={{ uri: novel.novelCover }}
+          style={getCoverStyle(uiScale)}
+        />
         <View style={styles.infoContainer}>
           <Text
-            style={[styles.title, { color: theme.onSurface }]}
+            style={[getTitleStyle(uiScale), { color: theme.onSurface }]}
             numberOfLines={2}
           >
             {novel.novelName}
           </Text>
-          <Text style={[styles.small, { color: theme.onSurface }]}>
+          <Text style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
             Score:{' '}
             <Text style={{ color: theme.onSurfaceVariant }}>{novel.score}</Text>
           </Text>
           {novel?.info?.[1] ? (
-            <Text style={[styles.small, { color: theme.onSurface }]}>
+            <Text style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
               Type:{' '}
               <Text style={{ color: theme.onSurfaceVariant }}>
                 {novel.info[1]}
@@ -43,7 +53,7 @@ const DiscoverNovelCard: React.FC<Props> = ({ novel, onPress, theme }) => {
             </Text>
           ) : null}
           {novel?.info?.[2] ? (
-            <Text style={[styles.small, { color: theme.onSurface }]}>
+            <Text style={[getSmallStyle(uiScale), { color: theme.onSurface }]}>
               Published:{' '}
               <Text style={{ color: theme.onSurfaceVariant }}>
                 {novel.info[2]}
@@ -65,11 +75,6 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 8,
   },
-  cover: {
-    borderBottomLeftRadius: 8,
-    borderTopLeftRadius: 8,
-    width: 100,
-  },
   infoContainer: {
     flex: 1,
     padding: 16,
@@ -78,12 +83,20 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
   },
-  small: {
-    fontSize: 12,
-    marginVertical: 4,
-  },
-  title: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
+});
+
+const getCoverStyle = (uiScale: number) => ({
+  borderBottomLeftRadius: 8,
+  borderTopLeftRadius: 8,
+  width: scaleDimension(100, uiScale),
+});
+
+const getSmallStyle = (uiScale: number) => ({
+  fontSize: scaleDimension(12, uiScale),
+  marginVertical: 4,
+});
+
+const getTitleStyle = (uiScale: number) => ({
+  fontSize: scaleDimension(16, uiScale),
+  marginBottom: 4,
 });

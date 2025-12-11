@@ -1,4 +1,4 @@
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image, StyleSheet, View } from 'react-native';
@@ -7,6 +7,7 @@ import ThemeSelectionStep from './ThemeSelectionStep';
 import { useState } from 'react';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { getString } from '@strings/translations';
+import { scaleDimension } from '@theme/scaling';
 
 enum OnboardingStep {
   PICK_THEME,
@@ -14,6 +15,7 @@ enum OnboardingStep {
 
 export default function OnboardingScreen() {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const [step] = useState<OnboardingStep>(OnboardingStep.PICK_THEME);
 
   const renderStep = () => {
@@ -34,25 +36,27 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={[{ backgroundColor: theme.background }, styles.root]}>
+    <SafeAreaView
+      style={[{ backgroundColor: theme.background }, styles(uiScale).root]}
+    >
       <Image
         source={require('../../../assets/logo.png')}
         tintColor={theme.primary}
-        style={styles.logo}
+        style={styles(uiScale).logo}
       />
       <Text
         variant="headlineLarge"
-        style={[{ color: theme.onBackground }, styles.headline]}
+        style={[{ color: theme.onBackground }, styles(uiScale).headline]}
       >
         {getString('onboardingScreen.welcome')}
       </Text>
-      <Text style={[{ color: theme.onBackground }, styles.helpText]}>
+      <Text style={[{ color: theme.onBackground }, styles(uiScale).helpText]}>
         {renderHelptext()}
       </Text>
       <View
         style={[
           { backgroundColor: theme.surfaceVariant },
-          styles.stepContainer,
+          styles(uiScale).stepContainer,
         ]}
       >
         {renderStep()}
@@ -69,31 +73,32 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    height: '100%',
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    paddingTop: 40,
-  },
-  logo: {
-    width: 90,
-    height: 90,
-  },
-  headline: {
-    fontWeight: 500,
-    paddingBottom: 8,
-  },
-  helpText: {
-    fontWeight: 500,
-    paddingBottom: 8,
-  },
-  stepContainer: {
-    borderRadius: 8,
-    flexBasis: '20%',
-    flexGrow: 1,
-    marginBottom: 16,
-    paddingTop: 16,
-    position: 'relative',
-  },
-});
+const styles = (uiScale: number) =>
+  StyleSheet.create({
+    root: {
+      height: '100%',
+      paddingBottom: 16,
+      paddingHorizontal: 16,
+      paddingTop: 40,
+    },
+    logo: {
+      width: scaleDimension(90, uiScale),
+      height: scaleDimension(90, uiScale),
+    },
+    headline: {
+      fontWeight: 500,
+      paddingBottom: 8,
+    },
+    helpText: {
+      fontWeight: 500,
+      paddingBottom: 8,
+    },
+    stepContainer: {
+      borderRadius: 8,
+      flexBasis: '20%',
+      flexGrow: 1,
+      marginBottom: 16,
+      paddingTop: 16,
+      position: 'relative',
+    },
+  });

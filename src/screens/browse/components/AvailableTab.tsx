@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { getLocaleLanguageName } from '@utils/constants/languages';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 interface AvailableTabProps {
   searchText: string;
   theme: ThemeColors;
@@ -33,6 +34,7 @@ const AvailablePluginCard = ({
   installPlugin,
 }: AvailablePluginCardProps) => {
   const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
   const ratio = useSharedValue(1);
   const imageStyles = useAnimatedStyle(() => ({
@@ -111,7 +113,7 @@ const AvailablePluginCard = ({
                 ratio.value = 1;
               });
           }}
-          size={22}
+          size={iconSize.sm}
           theme={theme}
         />
       </Animated.View>
@@ -248,8 +250,8 @@ const createStyles = (theme: ThemeColors, uiScale: number) =>
     icon: {
       backgroundColor: coverPlaceholderColor,
       borderRadius: 4,
-      height: 40,
-      width: 40,
+      height: scaleDimension(40, uiScale),
+      width: scaleDimension(40, uiScale),
     },
     listHeader: {
       fontSize: scaleDimension(14, uiScale),

@@ -224,8 +224,8 @@ function createStyles(theme: ThemeColors, uiScale: number) {
     },
     cover: {
       borderRadius: 4,
-      height: 40,
-      width: 40,
+      height: scaleDimension(40, uiScale),
+      width: scaleDimension(40, uiScale),
     },
     description: { fontSize: scaleDimension(12, uiScale) },
     novelCover: {

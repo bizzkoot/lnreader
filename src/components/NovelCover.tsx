@@ -369,7 +369,11 @@ const InActivityBadge = ({
       scaledStyles.standardBorderRadius,
     ]}
   >
-    <ActivityIndicator animating={true} size={10} color={theme.onPrimary} />
+    <ActivityIndicator
+      animating={true}
+      size={scaledStyles.activityIndicatorSize}
+      color={theme.onPrimary}
+    />
   </View>
 );
 
@@ -482,6 +486,7 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
     marginHorizontal: scaled.margin.xs,
     padding: scaled.padding.xs + 1,
   },
+  activityIndicatorSize: scaled.iconSize.sm,
   badgePosition: {
     left: scaled.padding.sm + 2,
     top: scaled.padding.sm + 2,

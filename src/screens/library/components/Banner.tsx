@@ -6,6 +6,7 @@ import { ThemeColors } from '../../../theme/types';
 import { MaterialDesignIconName } from '@type/icon';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface Props {
   label: string;
@@ -23,6 +24,7 @@ export const Banner: React.FC<Props> = ({
   textColor = theme.onPrimary,
 }) => {
   const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
 
   const styles = React.useMemo(
     () =>
@@ -50,7 +52,7 @@ export const Banner: React.FC<Props> = ({
         <MaterialCommunityIcons
           name={icon}
           color={textColor}
-          size={18}
+          size={iconSize.sm}
           style={styles.icon}
         />
       ) : null}

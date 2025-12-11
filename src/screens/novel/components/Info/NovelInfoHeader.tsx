@@ -180,7 +180,7 @@ const NovelInfoHeader = ({
               <Row>
                 <MaterialCommunityIcons
                   name="fountain-pen-tip"
-                  size={14}
+                  size={iconSize.sm}
                   color={theme.onSurfaceVariant}
                   style={styles.marginRight}
                 />
@@ -191,7 +191,7 @@ const NovelInfoHeader = ({
               <Row>
                 <MaterialCommunityIcons
                   name="palette-outline"
-                  size={14}
+                  size={iconSize.sm}
                   color={theme.onSurfaceVariant}
                   style={styles.marginRight}
                 />
@@ -203,7 +203,7 @@ const NovelInfoHeader = ({
                 name={getStatusIcon(
                   novel.id !== 'NO_ID' ? novel.status : undefined,
                 )}
-                size={14}
+                size={iconSize.sm}
                 color={theme.onSurfaceVariant}
                 style={styles.marginRight}
               />

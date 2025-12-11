@@ -8,7 +8,7 @@ import MaterialCommunityIcons from '@react-native-vector-icons/material-design-i
 
 import { getPlugin } from '@plugins/pluginManager';
 import { getString } from '@strings/translations';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 
 import { GlobalSearchResult } from '../hooks/useGlobalSearch';
 import GlobalSearchSkeletonLoading from '@screens/browse/loadingAnimation/GlobalSearchSkeletonLoading';
@@ -16,6 +16,7 @@ import { interpolateColor } from 'react-native-reanimated';
 import { useLibraryContext } from '@components/Context/LibraryContext';
 import NovelCover from '@components/NovelCover';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 interface GlobalSearchResultsListProps {
   searchResults: GlobalSearchResult[];
@@ -26,6 +27,8 @@ const GlobalSearchResultsList: React.FC<GlobalSearchResultsListProps> = ({
   searchResults,
   ListEmptyComponent,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
   const keyExtractor = useCallback(
     (item: GlobalSearchResult) => item.plugin.id,
     [],
@@ -47,7 +50,9 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
 }) => {
   const theme = useTheme();
   const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
   const navigation = useNavigation<StackNavigationProp<any>>();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
   const [inActivity, setInActivity] = useState<Record<string, boolean>>({});
   const { novelInLibrary, switchNovelToLibrary } = useLibraryContext();
   const imageRequestInit = getPlugin(item.plugin.id)?.imageRequestInit;
@@ -189,37 +194,38 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
 
 export default GlobalSearchResultsList;
 
-const styles = StyleSheet.create({
-  error: {
-    marginBottom: 16,
-    padding: 16,
-  },
-  language: {
-    fontSize: 12,
-    marginBottom: 8,
-    paddingHorizontal: 16,
-  },
-  listEmpty: {
-    marginBottom: 16,
-    paddingHorizontal: 8,
-  },
-  novelsContainer: {
-    padding: 8,
-  },
-  resultList: {
-    flexGrow: 1,
-    paddingBottom: 60,
-    paddingTop: 8,
-  },
-  sourceHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingRight: 8,
-  },
-  sourceName: {
-    marginBottom: 4,
-    marginTop: 8,
-    paddingHorizontal: 16,
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    error: {
+      marginBottom: 16,
+      padding: 16,
+    },
+    language: {
+      fontSize: scaleDimension(12, uiScale),
+      marginBottom: 8,
+      paddingHorizontal: 16,
+    },
+    listEmpty: {
+      marginBottom: 16,
+      paddingHorizontal: 8,
+    },
+    novelsContainer: {
+      padding: 8,
+    },
+    resultList: {
+      flexGrow: 1,
+      paddingBottom: 60,
+      paddingTop: 8,
+    },
+    sourceHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingRight: 8,
+    },
+    sourceName: {
+      marginBottom: 4,
+      marginTop: 8,
+      paddingHorizontal: 16,
+    },
+  });

@@ -9,6 +9,8 @@ import { ThemeColors } from '@theme/types';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { overlay } from 'react-native-paper';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface PageNavigationBottomSheetProps {
   bottomSheetRef: React.RefObject<BottomSheetModalMethods | null>;
@@ -27,6 +29,8 @@ export default function PageNavigationBottomSheet({
 }: PageNavigationBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { left, right } = insets;
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
   const renderItem = ({ item, index }: LegendListRenderItemProps<string>) => {
     const isSelected = index === pageIndex;
@@ -73,7 +77,13 @@ export default function PageNavigationBottomSheet({
   return (
     <BottomSheet
       bottomSheetRef={bottomSheetRef}
-      snapPoints={[Math.min(400, pages.length * 56 + 100)]}
+      snapPoints={[
+        Math.min(
+          scaleDimension(400, uiScale),
+          pages.length * scaleDimension(56, uiScale) +
+            scaleDimension(100, uiScale),
+        ),
+      ]}
       backgroundStyle={styles.transparent}
     >
       <BottomSheetView
@@ -103,41 +113,42 @@ export default function PageNavigationBottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  contentContainer: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    flex: 1,
-    maxHeight: 400,
-  },
-  listContent: {
-    paddingBottom: 8,
-    paddingTop: 4,
-  },
-  pageItem: {
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 56,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  pageItemContainer: {
-    borderRadius: 0,
-    marginHorizontal: 0,
-    overflow: 'hidden',
-  },
-  pageItemContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  pageText: {},
-  selectedIndicator: {
-    borderRadius: 2,
-    height: 20,
-    width: 3,
-  },
-  transparent: {
-    backgroundColor: 'transparent',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    contentContainer: {
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      flex: 1,
+      maxHeight: scaleDimension(400, uiScale),
+    },
+    listContent: {
+      paddingBottom: scaleDimension(8, uiScale),
+      paddingTop: scaleDimension(4, uiScale),
+    },
+    pageItem: {
+      flex: 1,
+      justifyContent: 'center',
+      minHeight: scaleDimension(56, uiScale),
+      paddingHorizontal: scaleDimension(24, uiScale),
+      paddingVertical: scaleDimension(16, uiScale),
+    },
+    pageItemContainer: {
+      borderRadius: 0,
+      marginHorizontal: 0,
+      overflow: 'hidden',
+    },
+    pageItemContent: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    pageText: {},
+    selectedIndicator: {
+      borderRadius: 2,
+      height: scaleDimension(20, uiScale),
+      width: scaleDimension(3, uiScale),
+    },
+    transparent: {
+      backgroundColor: 'transparent',
+    },
+  });

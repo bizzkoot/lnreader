@@ -15,7 +15,7 @@ import {
 } from 'react-native-tab-view';
 import color from 'color';
 
-import { useLibrarySettings, useTheme } from '@hooks/persisted';
+import { useLibrarySettings, useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { Checkbox, SortItem } from '@components/Checkbox/Checkbox';
 import {
@@ -32,13 +32,14 @@ import { BottomSheetView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { LegendList } from '@legendapp/list';
+import { scaleDimension } from '@theme/scaling';
 
 interface LibraryBottomSheetProps {
   bottomSheetRef: RefObject<BottomSheetModalMethods | null>;
   style?: StyleProp<ViewStyle>;
 }
 
-const FirstRoute = () => {
+const FirstRoute = ({ uiScale }: { uiScale: number }) => {
   const theme = useTheme();
   const {
     filter,
@@ -47,7 +48,7 @@ const FirstRoute = () => {
   } = useLibrarySettings();
 
   return (
-    <View style={styles.flex}>
+    <View style={styles(uiScale).flex}>
       <LegendList
         recycleItems
         estimatedItemSize={4}
@@ -74,13 +75,13 @@ const FirstRoute = () => {
   );
 };
 
-const SecondRoute = () => {
+const SecondRoute = ({ uiScale }: { uiScale: number }) => {
   const theme = useTheme();
   const { sortOrder = LibrarySortOrder.DateAdded_DESC, setLibrarySettings } =
     useLibrarySettings();
 
   return (
-    <View style={styles.flex}>
+    <View style={styles(uiScale).flex}>
       <LegendList
         recycleItems
         data={librarySortOrderList}
@@ -110,7 +111,7 @@ const SecondRoute = () => {
   );
 };
 
-const ThirdRoute = () => {
+const ThirdRoute = ({ uiScale }: { uiScale: number }) => {
   const theme = useTheme();
   const {
     showDownloadBadges = true,
@@ -121,8 +122,13 @@ const ThirdRoute = () => {
   } = useLibrarySettings();
 
   return (
-    <View style={styles.flex}>
-      <Text style={[styles.sectionHeader, { color: theme.onSurfaceVariant }]}>
+    <View style={styles(uiScale).flex}>
+      <Text
+        style={[
+          styles(uiScale).sectionHeader,
+          { color: theme.onSurfaceVariant },
+        ]}
+      >
         {getString('libraryScreen.bottomSheet.display.badges')}
       </Text>
       <Checkbox
@@ -155,7 +161,12 @@ const ThirdRoute = () => {
         }
         theme={theme}
       />
-      <Text style={[styles.sectionHeader, { color: theme.onSurfaceVariant }]}>
+      <Text
+        style={[
+          styles(uiScale).sectionHeader,
+          { color: theme.onSurfaceVariant },
+        ]}
+      >
         {getString('libraryScreen.bottomSheet.display.displayMode')}
       </Text>
       <LegendList
@@ -182,6 +193,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
   style,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
 
   const layout = useWindowDimensions();
 
@@ -196,7 +208,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
             .alpha(0.12)
             .string(),
         },
-        styles.tabBar,
+        styles(uiScale).tabBar,
         style,
       ]}
       inactiveColor={theme.onSurfaceVariant}
@@ -215,11 +227,15 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
     [],
   );
 
-  const renderScene = SceneMap({
-    first: FirstRoute,
-    second: SecondRoute,
-    third: ThirdRoute,
-  });
+  const renderScene = useMemo(
+    () =>
+      SceneMap({
+        first: (props: any) => <FirstRoute {...props} uiScale={uiScale} />,
+        second: (props: any) => <SecondRoute {...props} uiScale={uiScale} />,
+        third: (props: any) => <ThirdRoute {...props} uiScale={uiScale} />,
+      }),
+    [uiScale],
+  );
 
   const renderCommonOptions = useCallback(
     ({ route, color: col }: { route: any; color: string }) => (
@@ -238,10 +254,13 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
   }, [renderCommonOptions]);
 
   return (
-    <BottomSheet bottomSheetRef={bottomSheetRef} snapPoints={[520]}>
+    <BottomSheet
+      bottomSheetRef={bottomSheetRef}
+      snapPoints={[scaleDimension(520, uiScale)]}
+    >
       <BottomSheetView
         style={[
-          styles.bottomSheetCtn,
+          styles(uiScale).bottomSheetCtn,
           { backgroundColor: overlay(2, theme.surface) },
         ]}
       >
@@ -252,7 +271,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
           renderScene={renderScene}
           onIndexChange={setIndex}
           initialLayout={{ width: layout.width }}
-          style={styles.tabView}
+          style={styles(uiScale).tabView}
         />
       </BottomSheetView>
     </BottomSheet>
@@ -261,24 +280,25 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
 
 export default LibraryBottomSheet;
 
-const styles = StyleSheet.create({
-  bottomSheetCtn: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    flex: 1,
-  },
-  sectionHeader: {
-    padding: 16,
-    paddingBottom: 8,
-  },
-  tabBar: {
-    borderBottomWidth: 1,
-    elevation: 0,
-  },
-  tabView: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    height: 520,
-  },
-  flex: { flex: 1 },
-});
+const styles = (uiScale: number) =>
+  StyleSheet.create({
+    bottomSheetCtn: {
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      flex: 1,
+    },
+    sectionHeader: {
+      padding: 16,
+      paddingBottom: 8,
+    },
+    tabBar: {
+      borderBottomWidth: 1,
+      elevation: 0,
+    },
+    tabView: {
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      height: scaleDimension(520, uiScale),
+    },
+    flex: { flex: 1 },
+  });

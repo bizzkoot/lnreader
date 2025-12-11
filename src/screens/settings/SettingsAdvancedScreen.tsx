@@ -53,7 +53,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
         textInput: {
           borderRadius: 14,
           fontSize: scaleDimension(12, uiScale),
-          height: 120,
+          height: scaleDimension(120, uiScale),
           marginBottom: 8,
           marginTop: 16,
         },

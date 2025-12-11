@@ -41,8 +41,8 @@ const MigrationSourceCard = ({
         },
         sourceIcon: {
           borderRadius: 4,
-          height: 40,
-          width: 40,
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
         },
         fontSize14: { fontSize: scaleDimension(14, uiScale) },
         fontSize12: { fontSize: scaleDimension(12, uiScale) },

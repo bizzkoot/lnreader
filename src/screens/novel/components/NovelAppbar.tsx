@@ -184,7 +184,7 @@ const NovelAppbar = ({
                   theme={{ colors: theme }}
                   icon="download-outline"
                   onPress={openDlMenu}
-                  size={26}
+                  size={iconSize.md}
                 />
               }
               items={downloadMenuItems}
