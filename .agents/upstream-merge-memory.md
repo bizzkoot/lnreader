@@ -38,16 +38,24 @@ applyTo: '**'
 
 ## 2025-12-07 - Upstream Merge & Validation
 
-- Strategy: Manual Resolution (Prioritized Fork Features)
-- Conflicts: 9 files (Resolved by keeping fork version + manual patches)
-- Resolution:
   - Kept fork versions for config files.
   - Manually patched `WebViewReader.tsx` (Battery fix + TTS).
   - Deleted conflicting `TTSTab.tsx`.
-- Tests:
   - Type Check: Passed
   - Lint: Passed
   - Jest: Passed (4 suites)
   - TTS Simulation: Passed (Refill & Wake Cycle)
   - Build Dry Run: Passed
-- Status: Pushed to origin/dev
+## 2025-12-11 - Merge dev -> master (PR #3)
+ - Strategy: Test-merge locally then open PR from `dev` into `master`
+ - Commits: 19 (head: ba60ecf9)
+ - Merge branch: merge/dev-into-master-20251211-ba60ecf9
+ - PR: https://github.com/bizzkoot/lnreader/pull/3
+ - Conflicts: None (automatic merge succeeded)
+ - Local Checks: lint: 17 warnings (no errors); type-check: passed; unit tests: 17 suites, 164 tests, all passed
+ - Result: PR opened and mergeable (MERGEABLE / CLEAN)
+ - Merged: Yes
+ - Merge Commit: 5e737d8e
+ - Merge Date: 2025-12-11 21:46:22 +0800
+ - Post-merge Checks (local): lint: 17 warnings (no errors); type-check: passed; unit tests: all passed
+ - Merge Branch Deleted: Yes (origin branch `merge/dev-into-master-20251211-ba60ecf9` removed)
