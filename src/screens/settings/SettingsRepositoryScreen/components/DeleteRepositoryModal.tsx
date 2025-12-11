@@ -1,12 +1,14 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Portal } from 'react-native-paper';
 
 import { Button, Modal } from '@components/index';
+import AppText from '@components/AppText';
 
 import { Repository } from '@database/types';
 import { deleteRepositoryById } from '@database/queries/RepositoryQueries';
-import { useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { getString } from '@strings/translations';
 
@@ -24,15 +26,33 @@ const DeleteRepositoryModal: React.FC<DeleteRepositoryModalProps> = ({
   onSuccess,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        btnContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: scaleDimension(24, uiScale),
+        },
+        modalDesc: {},
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {'Delete repository'}
-        </Text>
-        <Text style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
+        </AppText>
+        <AppText style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
           {`Do you wish to delete repository "${repository.url}"?`}
-        </Text>
+        </AppText>
         <View style={styles.btnContainer}>
           <Button
             title={getString('common.ok')}
@@ -50,15 +70,3 @@ const DeleteRepositoryModal: React.FC<DeleteRepositoryModalProps> = ({
 };
 
 export default DeleteRepositoryModal;
-
-const styles = StyleSheet.create({
-  btnContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  modalDesc: {},
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-});

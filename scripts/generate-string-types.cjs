@@ -4,7 +4,7 @@ const prettier = require('prettier');
 const prettierConfig = require('../.prettierrc');
 
 const flatten = (obj, target, prefix) => {
-  (target = target || {}), (prefix = prefix || '');
+  ((target = target || {}), (prefix = prefix || ''));
 
   Object.keys(obj).forEach(function (key) {
     if (typeof obj[key] === 'object' && obj[key] !== null) {

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, FlatListProps } from 'react-native';
+import { View, FlatList, StyleSheet, FlatListProps } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
-import { usePlugins, useTheme } from '@hooks/persisted';
+import AppText from '@components/AppText';
+import { usePlugins, useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import EmptyView from '@components/EmptyView';
 import MigrationNovelList from './MigrationNovelList';
@@ -25,6 +27,8 @@ export interface SourceSearchResult {
 const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
   const { novel } = route.params;
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
   const isMounted = React.useRef(true);
 
@@ -100,13 +104,13 @@ const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
   }) => (
     <>
       <View style={styles.padding}>
-        <Text style={{ color: theme.onSurface }}>{item.name}</Text>
-        <Text style={[{ color: theme.onSurfaceVariant }, styles.fontSize]}>
+        <AppText style={{ color: theme.onSurface }}>{item.name}</AppText>
+        <AppText style={[{ color: theme.onSurfaceVariant }, styles.fontSize]}>
           {item.lang}
-        </Text>
+        </AppText>
       </View>
       {item.error ? (
-        <Text style={[styles.error, colorError]}>{item.error}</Text>
+        <AppText style={[styles.error, colorError]}>{item.error}</AppText>
       ) : item.loading ? (
         <GlobalSearchSkeletonLoading theme={theme} />
       ) : (
@@ -155,12 +159,13 @@ const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
 
 export default MigrationNovels;
 
-const styles = StyleSheet.create({
-  error: {
-    paddingHorizontal: 8,
-    paddingVertical: 16,
-  },
-  flexGrow: { flexGrow: 1, padding: 4 },
-  padding: { padding: 8, paddingVertical: 16 },
-  fontSize: { fontSize: 12 },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    error: {
+      paddingHorizontal: 8,
+      paddingVertical: 16,
+    },
+    flexGrow: { flexGrow: 1, padding: 4 },
+    padding: { padding: 8, paddingVertical: 16 },
+    fontSize: { fontSize: scaleDimension(12, uiScale) },
+  });

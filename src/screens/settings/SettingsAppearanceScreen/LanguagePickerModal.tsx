@@ -1,7 +1,8 @@
 import React from 'react';
 
 import { Dialog, Portal } from 'react-native-paper';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { useTheme } from '@hooks/persisted';
 import { Modal, RadioButton } from '@components';
@@ -86,9 +87,9 @@ const LanguagePickerModal: React.FC<LanguagePickerModalProps> = ({
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss}>
         <Dialog.Title>{getString('appearanceScreen.appLanguage')}</Dialog.Title>
-        <Text style={[styles.noteText, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.noteText, { color: theme.onSurfaceVariant }]}>
           {getString('appearanceScreen.languagePickerModal.restartNote')}
-        </Text>
+        </AppText>
         <ScrollView>
           {languages.map(item => (
             <RadioButton

@@ -1,18 +1,29 @@
-import React from 'react';
-import { StyleSheet, View, FlatList, Text, FlatListProps } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View, FlatList, FlatListProps } from 'react-native';
 import { useTheme } from '@hooks/persisted';
 
 import ListView from '../../components/ListView';
 import { Appbar } from '@components';
+import AppText from '@components/AppText';
 import { SourceNovelsScreenProps } from '@navigators/types';
 import { NovelInfo } from '@database/types';
 import { getString } from '@strings/translations';
 import { useLibraryContext } from '@components/Context/LibraryContext';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+
+const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
+  // Add any scaled styles needed for this component
+});
 
 const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
   const pluginId = route.params.pluginId;
   const theme = useTheme();
   const { library } = useLibraryContext();
+  const scaledDimensions = useScaledDimensions();
+  const scaledStyles = useMemo(
+    () => getScaledStyles(scaledDimensions),
+    [scaledDimensions],
+  );
 
   const sourceNovels = library.filter(novel => novel.pluginId === pluginId);
 
@@ -20,6 +31,7 @@ const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
     <ListView
       item={item}
       theme={theme}
+      scaledStyles={scaledStyles}
       onPress={() =>
         navigation.navigate('MigrateNovel', {
           novel: item,
@@ -40,7 +52,7 @@ const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
         keyExtractor={item => 'migrateFrom' + item.id}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurfaceVariant,
@@ -49,7 +61,7 @@ const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {
             ]}
           >
             {getString('browseScreen.noSource')}
-          </Text>
+          </AppText>
         }
       />
     </View>

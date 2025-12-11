@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { Button, Modal, SwitchItem } from '@components/index';
-import { useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme } from '@hooks/persisted';
 import { getString } from '@strings/translations';
+import { scaleDimension } from '@theme/scaling';
 import { Storage } from '@plugins/helpers/storage';
+import AppText from '@components/AppText';
 
 interface PluginSetting {
   value: string;
@@ -34,6 +36,33 @@ const SourceSettingsModal: React.FC<SourceSettingsModal> = ({
   pluginSettings,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        button: {
+          flex: 1,
+          marginHorizontal: scaleDimension(8, uiScale),
+          marginTop: scaleDimension(16, uiScale),
+        },
+        customCSSButtons: {
+          flexDirection: 'row',
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+        textInput: {
+          borderRadius: scaleDimension(14, uiScale),
+          fontSize: scaleDimension(16, uiScale),
+          height: scaleDimension(50, uiScale),
+          marginBottom: scaleDimension(8, uiScale),
+          marginTop: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const [formValues, setFormValues] = useState<
     Record<string, string | boolean>
@@ -84,22 +113,22 @@ const SourceSettingsModal: React.FC<SourceSettingsModal> = ({
   if (!pluginSettings || Object.keys(pluginSettings).length === 0) {
     return (
       <Modal visible={visible} onDismiss={onDismiss}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {title}
-        </Text>
-        <Text style={{ color: theme.onSurfaceVariant }}>
+        </AppText>
+        <AppText style={{ color: theme.onSurfaceVariant }}>
           {description || 'No settings available.'}
-        </Text>
+        </AppText>
       </Modal>
     );
   }
 
   return (
     <Modal visible={visible} onDismiss={onDismiss}>
-      <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+      <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
         {title}
-      </Text>
-      <Text style={{ color: theme.onSurfaceVariant }}>{description}</Text>
+      </AppText>
+      <AppText style={{ color: theme.onSurfaceVariant }}>{description}</AppText>
       {Object.entries(pluginSettings).map(([key, setting]) => {
         if (setting?.type === 'Switch') {
           return (
@@ -140,25 +169,3 @@ const SourceSettingsModal: React.FC<SourceSettingsModal> = ({
 };
 
 export default SourceSettingsModal;
-
-const styles = StyleSheet.create({
-  button: {
-    flex: 1,
-    marginHorizontal: 8,
-    marginTop: 16,
-  },
-  customCSSButtons: {
-    flexDirection: 'row',
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  textInput: {
-    borderRadius: 14,
-    fontSize: 16,
-    height: 50,
-    marginBottom: 8,
-    marginTop: 16,
-  },
-});

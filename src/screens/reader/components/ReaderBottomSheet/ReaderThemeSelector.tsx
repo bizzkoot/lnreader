@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TextStyle, View } from 'react-native';
+import { StyleSheet, TextStyle, View } from 'react-native';
+import AppText from '@components/AppText';
 import React from 'react';
 import { ToggleColorButton } from '@components/Common/ToggleButton';
 import { getString } from '@strings/translations';
@@ -27,11 +28,11 @@ const ReaderThemeSelector: React.FC<ReaderThemeSelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text
+      <AppText
         style={[{ color: theme.onSurfaceVariant }, styles.title, labelStyle]}
       >
         {label || getString('readerScreen.bottomSheet.color')}
-      </Text>
+      </AppText>
       <FlatList
         data={[...customThemes, ...presetReaderThemes] as ReaderTheme[]}
         renderItem={({ item, index }) => (

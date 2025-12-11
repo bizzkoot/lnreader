@@ -4,6 +4,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { Appbar, List } from '@components';
 import { AboutScreenProps, MoreStackScreenProps } from '@navigators/types';
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 
 interface MoreHeaderProps {
   title: string;
@@ -12,6 +13,7 @@ interface MoreHeaderProps {
     | MoreStackScreenProps['navigation'];
   theme: ThemeColors;
   goBack?: boolean;
+  uiScale?: number;
 }
 
 export const MoreHeader = ({
@@ -19,6 +21,7 @@ export const MoreHeader = ({
   navigation,
   theme,
   goBack,
+  uiScale = 1.0,
 }: MoreHeaderProps) => (
   <>
     <Appbar
@@ -31,7 +34,7 @@ export const MoreHeader = ({
       <View style={[styles.logoContainer, { backgroundColor: theme.surface }]}>
         <Image
           source={require('../../../../assets/logo.png')}
-          style={[styles.logo, { tintColor: theme.onSurface }]}
+          style={[getLogoStyle(uiScale), { tintColor: theme.onSurface }]}
         />
       </View>
     </View>
@@ -40,17 +43,18 @@ export const MoreHeader = ({
 );
 
 const styles = StyleSheet.create({
-  logo: {
-    height: 90,
-    width: 90,
-  },
   logoContainer: {
     alignItems: 'center',
     paddingBottom: 24,
     paddingTop: 4,
   },
   overflow: {
-    overflow: 'hidden',
+    overflow: 'hidden' as const,
     paddingBottom: 4,
   },
+});
+
+const getLogoStyle = (uiScale: number) => ({
+  height: scaleDimension(90, uiScale),
+  width: scaleDimension(90, uiScale),
 });

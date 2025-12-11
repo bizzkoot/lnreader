@@ -1,7 +1,10 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Pressable, StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { ThemeColors } from '@theme/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 export interface SegmentedControlOption<T extends string = string> {
   value: T;
@@ -24,6 +27,60 @@ export function SegmentedControl<T extends string = string>({
   theme,
   showCheckIcon = true,
 }: SegmentedControlProps<T>) {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const iconSize = useMemo(() => scaleDimension(18, uiScale), [uiScale]);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flexDirection: 'row',
+          height: scaleDimension(48, uiScale),
+        },
+        segment: {
+          flex: 1,
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
+          overflow: 'hidden',
+        },
+        segmentFirst: {
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderTopLeftRadius: scaleDimension(24, uiScale),
+          borderBottomLeftRadius: scaleDimension(24, uiScale),
+        },
+        segmentMiddle: {
+          borderRightWidth: 1,
+        },
+        segmentLast: {
+          borderRightWidth: 1,
+          borderTopRightRadius: scaleDimension(24, uiScale),
+          borderBottomRightRadius: scaleDimension(24, uiScale),
+        },
+        segmentPressable: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: scaleDimension(12, uiScale),
+          paddingVertical: scaleDimension(10, uiScale),
+        },
+        segmentText: {
+          fontSize: scaleDimension(14, uiScale),
+          fontWeight: '500',
+          letterSpacing: 0.1,
+        },
+        checkIcon: {
+          marginRight: scaleDimension(8, uiScale),
+        },
+        icon: {
+          marginRight: scaleDimension(8, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <View style={styles.container}>
       {options.map((option, index) => {
@@ -61,7 +118,7 @@ export function SegmentedControl<T extends string = string>({
               {showCheckIcon && isSelected && (
                 <MaterialCommunityIcons
                   name="check"
-                  size={18}
+                  size={iconSize}
                   color={textColor}
                   style={styles.checkIcon}
                 />
@@ -69,14 +126,14 @@ export function SegmentedControl<T extends string = string>({
               {option.icon && !isSelected && (
                 <MaterialCommunityIcons
                   name={option.icon}
-                  size={18}
+                  size={iconSize}
                   color={textColor}
                   style={styles.icon}
                 />
               )}
-              <Text style={[styles.segmentText, { color: textColor }]}>
+              <AppText style={[styles.segmentText, { color: textColor }]}>
                 {option.label}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         );
@@ -84,49 +141,3 @@ export function SegmentedControl<T extends string = string>({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    height: 48,
-  },
-  segment: {
-    flex: 1,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    overflow: 'hidden',
-  },
-  segmentFirst: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
-  },
-  segmentMiddle: {
-    borderRightWidth: 1,
-  },
-  segmentLast: {
-    borderRightWidth: 1,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  segmentPressable: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 0.1,
-  },
-  checkIcon: {
-    marginRight: 8,
-  },
-  icon: {
-    marginRight: 8,
-  },
-});

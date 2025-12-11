@@ -192,8 +192,8 @@ class TTSHighlightService {
         mapping.matchedNativeType === 'local'
           ? ' — LOCAL'
           : mapping.matchedNativeType === 'network'
-          ? ' — NETWORK'
-          : '';
+            ? ' — NETWORK'
+            : '';
 
       // Format: "English (UK) — Male 1 — Clear — LOCAL"
       return `${lang} — ${simpleName}${styleInfo}${nativeTag || hqMarker}`;

@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, View, Text, useWindowDimensions } from 'react-native';
+import React, { useCallback, useState, useMemo } from 'react';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '@components/AppText';
 import color from 'color';
 
 import { TabView, SceneMap, TabBar, TabViewProps } from 'react-native-tab-view';
@@ -13,6 +14,8 @@ import { overlay } from 'react-native-paper';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { ThemeColors } from '@theme/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface ChaptersSettingsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheetModalMethods | null>;
@@ -34,6 +37,7 @@ const ChaptersSettingsSheet = ({
   setShowChapterTitles,
 }: ChaptersSettingsSheetProps) => {
   const { left, right } = useSafeAreaInsets();
+  const { uiScale = 1.0 } = useAppSettings();
   const sortChapters = useCallback(
     (val: string) => sortAndFilterChapters(val, filter),
     [filter, sortAndFilterChapters],
@@ -46,7 +50,7 @@ const ChaptersSettingsSheet = ({
 
   const FirstRoute = useCallback(
     () => (
-      <View style={styles.flex}>
+      <View style={styles(uiScale).flex}>
         <Checkbox
           theme={theme}
           label={getString('novelScreen.bottomSheet.filters.downloaded')}
@@ -54,8 +58,8 @@ const ChaptersSettingsSheet = ({
             filter.match('AND isDownloaded=1')
               ? true
               : filter.match('AND isDownloaded=0')
-              ? 'indeterminate'
-              : false
+                ? 'indeterminate'
+                : false
           }
           onPress={() => {
             if (filter.match('AND isDownloaded=1')) {
@@ -76,8 +80,8 @@ const ChaptersSettingsSheet = ({
             filter.match('AND `unread`=1')
               ? true
               : filter.match('AND `unread`=0')
-              ? 'indeterminate'
-              : false
+                ? 'indeterminate'
+                : false
           }
           onPress={() => {
             if (filter.match(' AND `unread`=1')) {
@@ -110,15 +114,15 @@ const ChaptersSettingsSheet = ({
 
   const SecondRoute = useCallback(
     () => (
-      <View style={styles.flex}>
+      <View style={styles(uiScale).flex}>
         <SortItem
           label={getString('novelScreen.bottomSheet.order.bySource')}
           status={
             sort === 'ORDER BY position ASC'
               ? 'asc'
               : sort === 'ORDER BY position DESC'
-              ? 'desc'
-              : undefined
+                ? 'desc'
+                : undefined
           }
           onPress={() =>
             sort === 'ORDER BY position ASC'
@@ -133,8 +137,8 @@ const ChaptersSettingsSheet = ({
             sort === 'ORDER BY name ASC'
               ? 'asc'
               : sort === 'ORDER BY name DESC'
-              ? 'desc'
-              : undefined
+                ? 'desc'
+                : undefined
           }
           onPress={() =>
             sort === 'ORDER BY name ASC'
@@ -150,7 +154,7 @@ const ChaptersSettingsSheet = ({
 
   const ThirdRoute = useCallback(
     () => (
-      <View style={styles.flex}>
+      <View style={styles(uiScale).flex}>
         <Checkbox
           status={showChapterTitles}
           label={getString('novelScreen.bottomSheet.displays.sourceTitle')}
@@ -168,11 +172,15 @@ const ChaptersSettingsSheet = ({
     [setShowChapterTitles, showChapterTitles, theme],
   );
 
-  const renderScene = SceneMap({
-    first: FirstRoute,
-    second: SecondRoute,
-    third: ThirdRoute,
-  });
+  const renderScene = useMemo(
+    () =>
+      SceneMap({
+        first: (props: any) => <FirstRoute {...props} />,
+        second: (props: any) => <SecondRoute {...props} />,
+        third: (props: any) => <ThirdRoute {...props} />,
+      }),
+    [],
+  );
 
   const layout = useWindowDimensions();
 
@@ -192,7 +200,7 @@ const ChaptersSettingsSheet = ({
           backgroundColor: overlay(2, theme.surface),
           borderBottomColor: theme.outline,
         },
-        styles.tabBar,
+        styles(uiScale).tabBar,
       ]}
       inactiveColor={theme.onSurfaceVariant}
       activeColor={theme.primary}
@@ -208,13 +216,13 @@ const ChaptersSettingsSheet = ({
   );
   return (
     <BottomSheet
-      snapPoints={[240]}
+      snapPoints={[scaleDimension(240, uiScale)]}
       bottomSheetRef={bottomSheetRef}
-      backgroundStyle={styles.transparent}
+      backgroundStyle={styles(uiScale).transparent}
     >
       <BottomSheetView
         style={[
-          styles.contentContainer,
+          styles(uiScale).contentContainer,
           {
             backgroundColor: overlay(2, theme.surface),
             marginLeft: left,
@@ -231,7 +239,7 @@ const ChaptersSettingsSheet = ({
           renderScene={renderScene}
           onIndexChange={setIndex}
           initialLayout={{ width: layout.width }}
-          style={styles.tabView}
+          style={styles(uiScale).tabView}
         />
       </BottomSheetView>
     </BottomSheet>
@@ -240,25 +248,26 @@ const ChaptersSettingsSheet = ({
 
 export default ChaptersSettingsSheet;
 
-const styles = StyleSheet.create({
-  contentContainer: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    flex: 1,
-  },
-  tabView: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    height: 240,
-  },
-  transparent: {
-    backgroundColor: 'transparent',
-  },
-  flex: {
-    flex: 1,
-  },
-  tabBar: {
-    borderBottomWidth: 1,
-    elevation: 0,
-  },
-});
+const styles = (uiScale: number) =>
+  StyleSheet.create({
+    contentContainer: {
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      flex: 1,
+    },
+    tabView: {
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      height: scaleDimension(240, uiScale),
+    },
+    transparent: {
+      backgroundColor: 'transparent',
+    },
+    flex: {
+      flex: 1,
+    },
+    tabBar: {
+      borderBottomWidth: 1,
+      elevation: 0,
+    },
+  });

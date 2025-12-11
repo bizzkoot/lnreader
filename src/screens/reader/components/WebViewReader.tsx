@@ -1,4 +1,11 @@
-import React, { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import {
   NativeEventEmitter,
   NativeModules,
@@ -92,20 +99,23 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   } = useChapterContext();
   const navigation = useNavigation();
   const theme = useTheme();
-  
+
   // Move toast-related hooks to the top to avoid hoisting issues
   const {
     value: toastVisible,
     setTrue: showToast,
     setFalse: hideToast,
   } = useBoolean();
-  
+
   const toastMessageRef = useRef<string>('');
-  
-  const showToastMessage = useCallback((message: string) => {
-    toastMessageRef.current = message;
-    showToast();
-  }, [showToast]);
+
+  const showToastMessage = useCallback(
+    (message: string) => {
+      toastMessageRef.current = message;
+      showToast();
+    },
+    [showToast],
+  );
   const readerSettings = useMemo(
     () =>
       getMMKVObject<ChapterReaderSettings>(CHAPTER_READER_SETTINGS) ||
@@ -157,7 +167,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     },
     // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
     // when progress is saved (which would update savedParagraphIndex)
-    [chapter.id, savedParagraphIndex],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapter.id],
   );
 
   // NEW: Create a stable chapter object that doesn't update on progress changes
@@ -169,7 +180,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // The key is that this object reference (and its stringified version)
       // won't change unless chapter.id changes
     }),
-    [chapter],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapter.id],
   );
 
   const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
@@ -395,7 +407,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     let ttsStateIndex = -1;
     try {
       ttsStateIndex = stableChapter.ttsState
-        ? JSON.parse(stableChapter.ttsState).paragraphIndex ?? -1
+        ? (JSON.parse(stableChapter.ttsState).paragraphIndex ?? -1)
         : -1;
     } catch {
       ttsStateIndex = -1;
@@ -488,7 +500,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         }
       }
     }
-  }, [chapter.id, html, savedParagraphIndex, showToastMessage, stableChapter.ttsState]);
+  }, [
+    chapter.id,
+    html,
+    savedParagraphIndex,
+    showToastMessage,
+    stableChapter.ttsState,
+  ]);
 
   const memoizedHTML = useMemo(() => {
     return `
@@ -856,7 +874,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             const percentage =
               total > 0
                 ? Math.round(((nextIndex + 1) / total) * 100)
-                : progressRef.current ?? 0;
+                : (progressRef.current ?? 0);
             saveProgressRef.current(percentage, nextIndex);
 
             // In batch mode, we DO NOT call speak() here because the native queue
@@ -1393,6 +1411,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                         
                         // Force scroll to current TTS position
                         window.tts.scrollToElement(window.tts.currentElement);
+                        
+                        // FIX: Reset scroll lock to allow immediate taps after sync
+                        setTimeout(() => { window.tts.resetScrollLock(); }, 600);
                         
                         // Highlight current paragraph with chapter validation
                         window.tts.highlightParagraph(${syncIndex}, ${chapterId});
@@ -1964,6 +1985,10 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                       window.tts.currentElement = readableElements[${syncIndex}];
                       window.tts.prevElement = ${syncIndex} > 0 ? readableElements[${syncIndex} - 1] : null;
                       window.tts.scrollToElement(window.tts.currentElement);
+                      
+                      // FIX: Reset scroll lock to allow immediate taps after sync
+                      setTimeout(() => { window.tts.resetScrollLock(); }, 600);
+                      
                       window.tts.highlightParagraph(${syncIndex}, ${chapterId});
                       console.log('TTS: Pending screen wake sync complete - scrolled to paragraph ${syncIndex}');
                     } else {

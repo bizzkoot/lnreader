@@ -1,6 +1,6 @@
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import * as React from 'react';
-import { StyleProp, ViewStyle, StyleSheet, View } from 'react-native';
+import { StyleProp, ViewStyle, View } from 'react-native';
 import Animated, {
   useAnimatedProps,
   useSharedValue,
@@ -10,12 +10,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import useLoadingColors from './useLoadingColors';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 const duration = 1000;
 
 function useSetupLoadingAnimations() {
   const sv = useSharedValue(0);
-  const { disableLoadingAnimations } = useAppSettings();
+  const { disableLoadingAnimations, uiScale = 1.0 } = useAppSettings();
   const theme = useTheme();
   const [highlightColor, backgroundColor] = useLoadingColors(theme);
 
@@ -26,8 +28,8 @@ function useSetupLoadingAnimations() {
   });
 
   const LGC = React.useMemo(
-    () => createLGC(highlightColor, style, disableLoadingAnimations),
-    [disableLoadingAnimations, highlightColor, style],
+    () => createLGC(highlightColor, style, disableLoadingAnimations, uiScale),
+    [disableLoadingAnimations, highlightColor, style, uiScale],
   );
 
   React.useEffect(() => {
@@ -37,10 +39,15 @@ function useSetupLoadingAnimations() {
   return [LGC, backgroundColor] as const;
 }
 
+const gradientStyle = {
+  width: '60%' as const,
+};
+
 function createLGC(
   highlightColor: string,
   style: StyleProp<ViewStyle>,
   disableLoadingAnimations?: boolean,
+  scale: number = 1,
 ) {
   if (disableLoadingAnimations) return <></>;
   const LG = Animated.createAnimatedComponent(LinearGradient);
@@ -51,7 +58,15 @@ function createLGC(
         start={[0, 0]}
         end={[1, 0]}
         locations={[0, 0.3, 0.7, 1]}
-        style={[style, styles.LG]}
+        style={[
+          style,
+          gradientStyle,
+          {
+            height: scaleDimension(40, scale),
+            position: 'absolute' as const,
+            transform: [{ translateX: '-100%' }],
+          },
+        ]}
         colors={['transparent', highlightColor, highlightColor, 'transparent']}
       />
     </React.Suspense>
@@ -67,14 +82,59 @@ const ChapterSkeleton = React.memo(function ChapterSkeleton({
   backgroundStyle: StyleProp<ViewStyle>;
   img?: boolean;
 }) {
+  const { uiScale = 1.0 } = useAppSettings();
+  const { borderRadius } = useScaledDimensions();
+
+  const styles = React.useMemo(
+    () => ({
+      chapter: {
+        flexDirection: 'row' as const,
+        marginHorizontal: scaleDimension(16, uiScale),
+        marginVertical: scaleDimension(8, uiScale),
+        height: scaleDimension(40, uiScale),
+      },
+      chapterText: {
+        height: scaleDimension(40, uiScale),
+        overflow: 'hidden' as const,
+        position: 'relative' as const,
+        flex: 1,
+      },
+      default: {
+        borderRadius: borderRadius.xs,
+        overflow: 'hidden' as const,
+      },
+      img: {
+        alignSelf: 'center' as const,
+        height: scaleDimension(40, uiScale),
+        marginRight: scaleDimension(20, uiScale),
+        width: scaleDimension(40, uiScale),
+      },
+      h20: {
+        height: scaleDimension(20, uiScale),
+        marginBottom: scaleDimension(5, uiScale),
+      },
+      h15: {
+        height: scaleDimension(15, uiScale),
+      },
+      circle: {
+        alignSelf: 'center' as const,
+        borderRadius: scaleDimension(20, uiScale),
+        height: scaleDimension(30, uiScale),
+        marginLeft: scaleDimension(20, uiScale),
+        width: scaleDimension(30, uiScale),
+      },
+    }),
+    [uiScale, borderRadius],
+  );
+
   return (
-    <View style={[styles.chapter, styles.h40]}>
+    <View style={styles.chapter}>
       {img ? (
         <View style={[styles.default, styles.img, backgroundStyle]}>{lgc}</View>
       ) : (
         <></>
       )}
-      <View style={[styles.flex, styles.chapterText]}>
+      <View style={styles.chapterText}>
         <View style={[styles.default, styles.h20, backgroundStyle]}>{lgc}</View>
         <View style={[styles.default, styles.h15, backgroundStyle]}>{lgc}</View>
       </View>
@@ -87,22 +147,61 @@ const ChapterSkeleton = React.memo(function ChapterSkeleton({
 
 function VerticalBarSkeleton() {
   const [LGC, backgroundColor] = useSetupLoadingAnimations();
-  return (
-    <View
-      style={[
-        { backgroundColor: backgroundColor },
-        styles.verticalBar,
-        styles.default,
-        styles.h24,
-      ]}
-    >
-      {LGC}
-    </View>
+  const { uiScale = 1.0 } = useAppSettings();
+  const { margin, borderRadius } = useScaledDimensions();
+
+  const styles = React.useMemo(
+    () => ({
+      verticalBar: {
+        borderRadius: borderRadius.xs,
+        marginHorizontal: margin.md,
+        marginVertical: margin.md,
+        height: scaleDimension(24, uiScale),
+        overflow: 'hidden' as const,
+      },
+    }),
+    [uiScale, margin, borderRadius],
   );
+
+  return <View style={[{ backgroundColor }, styles.verticalBar]}>{LGC}</View>;
 }
 
 function NovelMetaSkeleton() {
   const [LGC, backgroundColor] = useSetupLoadingAnimations();
+  const { uiScale = 1.0 } = useAppSettings();
+  const { borderRadius } = useScaledDimensions();
+
+  const styles = React.useMemo(
+    () => ({
+      novelInformationText: {
+        height: scaleDimension(110, uiScale),
+        marginBottom: scaleDimension(2.5, uiScale),
+        marginHorizontal: scaleDimension(16, uiScale),
+        marginTop: scaleDimension(8, uiScale),
+        paddingTop: scaleDimension(5, uiScale),
+      },
+      flex: { flex: 1 },
+      h20: {
+        height: scaleDimension(20, uiScale),
+        marginBottom: scaleDimension(5, uiScale),
+      },
+      default: {
+        borderRadius: borderRadius.xs,
+        overflow: 'hidden' as const,
+      },
+      metaGap: {
+        marginTop: scaleDimension(22, uiScale),
+      },
+      row: { flexDirection: 'row' as const },
+      chip: {
+        borderRadius: scaleDimension(8, uiScale),
+        height: scaleDimension(30, uiScale),
+        marginRight: scaleDimension(8, uiScale),
+        width: scaleDimension(80, uiScale),
+      },
+    }),
+    [uiScale, borderRadius],
+  );
 
   const Chips = React.useMemo(
     () => (
@@ -118,12 +217,12 @@ function NovelMetaSkeleton() {
         {LGC}
       </View>
     ),
-    [LGC, backgroundColor],
+    [LGC, backgroundColor, styles],
   );
 
   return (
-    <View style={[styles.novelInformationText, styles.h62]}>
-      <View style={[styles.flex, styles.h20]}>
+    <View style={styles.novelInformationText}>
+      <View style={[styles.flex, { height: scaleDimension(20, uiScale) }]}>
         <View
           style={[
             styles.default,
@@ -159,7 +258,7 @@ function NovelMetaSkeleton() {
 
 const ChapterListSkeleton = ({ img }: { img?: boolean }) => {
   const sv = useSharedValue(0);
-  const { disableLoadingAnimations } = useAppSettings();
+  const { disableLoadingAnimations, uiScale = 1.0 } = useAppSettings();
 
   React.useEffect(() => {
     if (disableLoadingAnimations) return;
@@ -177,8 +276,14 @@ const ChapterListSkeleton = ({ img }: { img?: boolean }) => {
   const [highlightColor, backgroundColor] = useLoadingColors(theme);
 
   const LGC = React.useMemo(
-    () => createLGC(highlightColor, animatedProps, disableLoadingAnimations),
-    [animatedProps, disableLoadingAnimations, highlightColor],
+    () =>
+      createLGC(
+        highlightColor,
+        animatedProps,
+        disableLoadingAnimations,
+        uiScale,
+      ),
+    [animatedProps, disableLoadingAnimations, highlightColor, uiScale],
   );
   const backgroundStyle = React.useMemo(
     () => ({ backgroundColor }),
@@ -200,78 +305,3 @@ const ChapterListSkeleton = ({ img }: { img?: boolean }) => {
 };
 
 export { ChapterListSkeleton, NovelMetaSkeleton, VerticalBarSkeleton };
-
-const styles = StyleSheet.create({
-  LG: {
-    height: 40,
-    position: 'absolute',
-    transform: [{ translateX: '-100%' }],
-    width: '60%',
-  },
-  chapter: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  chapterText: {
-    height: 40,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  chip: {
-    borderRadius: 8,
-    height: 30,
-    marginRight: 8,
-    width: 80,
-  },
-  circle: {
-    alignSelf: 'center',
-    borderRadius: 20,
-    height: 30,
-    marginLeft: 20,
-    width: 30,
-  },
-  default: {
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  flex: { flex: 1 },
-  h15: {
-    height: 15,
-  },
-  h20: {
-    height: 20,
-    marginBottom: 5,
-  },
-  h24: {
-    height: 24,
-  },
-  h40: {
-    height: 40,
-  },
-  h62: {
-    height: 110,
-  },
-  img: {
-    alignSelf: 'center',
-    height: 40,
-    marginRight: 20,
-    width: 40,
-  },
-  metaGap: {
-    marginTop: 22,
-  },
-  novelInformationText: {
-    height: 62,
-    marginBottom: 2.5,
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingTop: 5,
-  },
-  row: { flexDirection: 'row' },
-  verticalBar: {
-    borderRadius: 4,
-    marginHorizontal: 16,
-    marginVertical: 16,
-  },
-});

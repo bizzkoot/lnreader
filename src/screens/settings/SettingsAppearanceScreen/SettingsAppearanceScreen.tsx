@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, Text, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import AppText from '@components/AppText';
+import Slider from '@react-native-community/slider';
 
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
@@ -18,6 +20,7 @@ import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -35,10 +38,15 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     showLabelsInNav,
     hideBackdrop,
     useFabForContinueReading,
+    uiScale = 1.0,
     setAppSettings,
   } = useAppSettings();
 
   const currentMode = themeMode as ThemeMode;
+
+  // UI Scale slider local state
+  const [localUiScale, setLocalUiScale] = useState(uiScale);
+  const [_isDraggingScale, setIsDraggingScale] = useState(false);
 
   /**
    * Accent Color Modal
@@ -139,6 +147,83 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     }
   };
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        flex1: {
+          flex: 1,
+        },
+        scrollContent: {
+          paddingBottom: 40,
+        },
+        themeSectionText: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        themePickerRow: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          flexDirection: 'row',
+        },
+        segmentedControlContainer: {
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        },
+        // UI Scale slider styles
+        sliderSection: {
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+        },
+        sliderLabelRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        sliderLabel: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        sliderValue: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          minWidth: 48,
+          textAlign: 'right',
+        },
+        sliderContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        },
+        slider: {
+          flex: 1,
+          height: 48,
+        },
+        sliderButton: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+        },
+        sliderButtonText: {
+          fontSize: scaleDimension(24, uiScale),
+          fontWeight: '500',
+          lineHeight: 28,
+        },
+        sliderMarkers: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 48,
+          marginTop: 4,
+        },
+        sliderMarkerText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -166,9 +251,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           </View>
 
           {/* Light Themes */}
-          <Text style={[{ color: theme.onSurface }, styles.themeSectionText]}>
+          <AppText
+            style={[{ color: theme.onSurface }, styles.themeSectionText]}
+          >
             {getString('appearanceScreen.lightTheme')}
-          </Text>
+          </AppText>
           <ScrollView
             contentContainerStyle={styles.themePickerRow}
             horizontal={true}
@@ -186,9 +273,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           </ScrollView>
 
           {/* Dark Themes */}
-          <Text style={[{ color: theme.onSurface }, styles.themeSectionText]}>
+          <AppText
+            style={[{ color: theme.onSurface }, styles.themeSectionText]}
+          >
             {getString('appearanceScreen.darkTheme')}
-          </Text>
+          </AppText>
           <ScrollView
             contentContainerStyle={styles.themePickerRow}
             horizontal={true}
@@ -225,6 +314,93 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
             onPress={showLanguageModal}
             theme={theme}
           />
+          <List.Divider theme={theme} />
+          <List.SubHeader theme={theme}>
+            {getString('common.display')}
+          </List.SubHeader>
+          {/* UI Scale Slider */}
+          <View style={styles.sliderSection}>
+            <View style={styles.sliderLabelRow}>
+              <AppText style={[styles.sliderLabel, { color: theme.onSurface }]}>
+                UI Scale
+              </AppText>
+              <AppText style={[styles.sliderValue, { color: theme.primary }]}>
+                {Math.round(localUiScale * 100)}%
+              </AppText>
+            </View>
+            <View style={styles.sliderContainer}>
+              <Pressable
+                style={styles.sliderButton}
+                onPress={() => {
+                  const newValue = Math.max(0.2, localUiScale - 0.05);
+                  setLocalUiScale(newValue);
+                  setAppSettings({ uiScale: newValue });
+                }}
+              >
+                <AppText
+                  style={[styles.sliderButtonText, { color: theme.primary }]}
+                >
+                  −
+                </AppText>
+              </Pressable>
+              <Slider
+                style={styles.slider}
+                value={localUiScale}
+                minimumValue={0.2}
+                maximumValue={1.5}
+                step={0.05}
+                minimumTrackTintColor={theme.primary}
+                maximumTrackTintColor={theme.surfaceVariant}
+                thumbTintColor={theme.primary}
+                onSlidingStart={() => setIsDraggingScale(true)}
+                onValueChange={setLocalUiScale}
+                onSlidingComplete={value => {
+                  setIsDraggingScale(false);
+                  setAppSettings({ uiScale: value });
+                }}
+              />
+              <Pressable
+                style={styles.sliderButton}
+                onPress={() => {
+                  const newValue = Math.min(1.5, localUiScale + 0.05);
+                  setLocalUiScale(newValue);
+                  setAppSettings({ uiScale: newValue });
+                }}
+              >
+                <AppText
+                  style={[styles.sliderButtonText, { color: theme.primary }]}
+                >
+                  +
+                </AppText>
+              </Pressable>
+            </View>
+            <View style={styles.sliderMarkers}>
+              <AppText
+                style={[
+                  styles.sliderMarkerText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                20%
+              </AppText>
+              <AppText
+                style={[
+                  styles.sliderMarkerText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                100%
+              </AppText>
+              <AppText
+                style={[
+                  styles.sliderMarkerText,
+                  { color: theme.onSurfaceVariant },
+                ]}
+              >
+                150%
+              </AppText>
+            </View>
+          </View>
           <List.Divider theme={theme} />
           <List.SubHeader theme={theme}>
             {getString('appearanceScreen.novelInfo')}
@@ -290,25 +466,3 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
 };
 
 export default AppearanceSettings;
-
-const styles = StyleSheet.create({
-  flex1: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  themeSectionText: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  themePickerRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-  },
-  segmentedControlContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-});

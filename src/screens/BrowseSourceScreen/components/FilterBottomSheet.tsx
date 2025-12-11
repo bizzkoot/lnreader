@@ -1,16 +1,10 @@
-import React, { useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { BottomSheetFlatList, BottomSheetModal } from '@gorhom/bottom-sheet';
 
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import {
   FilterTypes,
   FilterToValues,
@@ -26,6 +20,9 @@ import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Switch from '@components/Switch/Switch';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const insertOrRemoveIntoArray = (array: string[], val: string): string[] =>
   array.indexOf(val) > -1 ? array.filter(ele => ele !== val) : [...array, val];
@@ -47,6 +44,57 @@ const FilterItem: React.FC<FilterItemProps> = ({
   selectedFilters,
   setSelectedFilters,
 }) => {
+  const { iconSize } = useScaledDimensions();
+  const { uiScale } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        flex: { flex: 1 },
+        textContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginVertical: 8,
+          paddingHorizontal: 24,
+        },
+        pickerContainer: {
+          alignItems: 'center',
+          flex: 1,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginVertical: 8,
+          paddingHorizontal: 24,
+        },
+        checkboxHeader: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 24,
+          paddingVertical: 16,
+        },
+        container: {
+          borderTopLeftRadius: 8,
+          borderTopRightRadius: 8,
+          flex: 1,
+        },
+        switchContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginVertical: 8,
+          paddingHorizontal: 24,
+        },
+        switchLabel: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        switchLabelContainer: {
+          flex: 1,
+          justifyContent: 'center',
+        },
+      }),
+    [uiScale],
+  );
   const {
     value: isVisible,
     toggle: toggleCard,
@@ -64,7 +112,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           style={[styles.flex, { width: screenWidth - 48 }]}
           mode="outlined"
           label={
-            <Text
+            <AppText
               style={[
                 {
                   color: theme.onSurface,
@@ -73,7 +121,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
               ]}
             >
               {` ${filter.label} `}
-            </Text>
+            </AppText>
           }
           defaultValue={value}
           theme={{ colors: { background: 'transparent' } }}
@@ -111,7 +159,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
               <TextInput
                 mode="outlined"
                 label={
-                  <Text
+                  <AppText
                     style={[
                       {
                         color: isVisible ? theme.primary : theme.onSurface,
@@ -120,7 +168,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
                     ]}
                   >
                     {` ${filter.label} `}
-                  </Text>
+                  </AppText>
                 }
                 value={label}
                 editable={false}
@@ -164,13 +212,13 @@ const FilterItem: React.FC<FilterItemProps> = ({
           onPress={toggleCard}
           android_ripple={{ color: theme.rippleColor }}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }]}>
             {filter.label}
-          </Text>
+          </AppText>
           <MaterialCommunityIcons
             name={isVisible ? 'chevron-up' : 'chevron-down'}
             color={theme.onSurface}
-            size={24}
+            size={iconSize.md}
           />
         </Pressable>
         {isVisible
@@ -215,9 +263,9 @@ const FilterItem: React.FC<FilterItemProps> = ({
       >
         <View style={styles.switchContainer}>
           <View style={styles.switchLabelContainer}>
-            <Text style={[{ color: theme.onSurface }, styles.switchLabel]}>
+            <AppText style={[{ color: theme.onSurface }, styles.switchLabel]}>
               {filter.label}
-            </Text>
+            </AppText>
           </View>
           <Switch
             value={value}
@@ -244,13 +292,13 @@ const FilterItem: React.FC<FilterItemProps> = ({
           onPress={toggleCard}
           android_ripple={{ color: theme.rippleColor }}
         >
-          <Text style={[{ color: theme.onSurfaceVariant }]}>
+          <AppText style={[{ color: theme.onSurfaceVariant }]}>
             {filter.label}
-          </Text>
+          </AppText>
           <MaterialCommunityIcons
             name={isVisible ? 'chevron-up' : 'chevron-down'}
             color={theme.onSurface}
-            size={24}
+            size={iconSize.md}
           />
         </Pressable>
         {isVisible
@@ -264,8 +312,8 @@ const FilterItem: React.FC<FilterItemProps> = ({
                     value.include?.includes(val.value)
                       ? true
                       : value.exclude?.includes(val.value)
-                      ? 'indeterminate'
-                      : false
+                        ? 'indeterminate'
+                        : false
                   }
                   onPress={() => {
                     if (value.exclude?.includes(val.value)) {
@@ -350,11 +398,17 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
       bottomSheetRef={filterSheetRef}
       snapPoints={[400, 600]}
       bottomInset={bottom}
-      backgroundStyle={styles.transparent}
-      style={[styles.container, { backgroundColor: overlay(2, theme.surface) }]}
+      backgroundStyle={bottomSheetStyles.transparent}
+      style={[
+        bottomSheetStyles.container,
+        { backgroundColor: overlay(2, theme.surface) },
+      ]}
       handleComponent={() => (
         <View
-          style={[styles.buttonContainer, { borderBottomColor: theme.outline }]}
+          style={[
+            bottomSheetStyles.buttonContainer,
+            { borderBottomColor: theme.outline },
+          ]}
         >
           <Button
             title={getString('common.reset')}
@@ -394,8 +448,7 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
 
 export default FilterBottomSheet;
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
+const bottomSheetStyles = StyleSheet.create({
   transparent: {
     backgroundColor: 'transparent',
   },
@@ -408,50 +461,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 8,
   },
-  checkboxHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
   container: {
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
     flex: 1,
-  },
-
-  picker: {
-    paddingHorizontal: 24,
-    width: 200,
-  },
-  pickerContainer: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 8,
-    paddingHorizontal: 24,
-  },
-  switchContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 8,
-    paddingHorizontal: 24,
-  },
-  switchLabel: {
-    fontSize: 16,
-  },
-  switchLabelContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  textContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 8,
-    paddingHorizontal: 24,
   },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, FlatList, Text, FlatListProps } from 'react-native';
+import { StyleSheet, View, FlatList, FlatListProps } from 'react-native';
+import { Text } from '@components/AppText';
 
 import MigrationSourceItem from './MigrationSourceItem';
 

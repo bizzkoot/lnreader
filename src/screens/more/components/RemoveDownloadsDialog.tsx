@@ -5,6 +5,8 @@ import { Dialog, overlay, Portal } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
 import { StyleSheet } from 'react-native';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface RemoveDownloadsDialogProps {
   dialogVisible: boolean;
@@ -19,6 +21,20 @@ const RemoveDownloadsDialog = ({
   theme,
   onSubmit,
 }: RemoveDownloadsDialogProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        fontSize: {
+          letterSpacing: 0,
+          fontSize: scaleDimension(16, uiScale),
+        },
+        borderRadius: { borderRadius: 6 },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Dialog
@@ -51,11 +67,3 @@ const RemoveDownloadsDialog = ({
 };
 
 export default RemoveDownloadsDialog;
-
-const styles = StyleSheet.create({
-  fontSize: {
-    letterSpacing: 0,
-    fontSize: 16,
-  },
-  borderRadius: { borderRadius: 6 },
-});

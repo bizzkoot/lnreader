@@ -52,6 +52,8 @@
     "pureBlackDarkMode": "Pure black dark mode",
     "showHistoryInTheNav": "Show history in the nav",
     "showUpdatesInTheNav": "Show updates in the nav",
+    "uiScale": "UI Scale",
+    "uiScaleDesc": "Adjust the size of text and icons throughout the app",
     "themeMode": "Theme mode",
     "themeModeLight": "Light",
     "themeModeDark": "Dark",

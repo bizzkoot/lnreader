@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
 import { useBackHandler } from '@hooks/index';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface TTSScrollSyncDialogProps {
   visible: boolean;
@@ -24,6 +26,32 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
   onKeepCurrent,
   onDismiss,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: scaleDimension(28, uiScale),
+          shadowColor: 'transparent',
+        },
+        content: {
+          fontSize: scaleDimension(16, uiScale),
+          lineHeight: scaleDimension(24, uiScale),
+          letterSpacing: 0,
+        },
+        boldText: {
+          fontWeight: 'bold',
+        },
+        buttonCtn: {
+          flexDirection: 'column',
+          padding: scaleDimension(16, uiScale),
+          gap: scaleDimension(8, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   // FIX Case 5.2: Handle Android back button press
   // When back is pressed while dialog visible, call safe default action (keep current position)
   useBackHandler(() => {
@@ -82,23 +110,3 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
 };
 
 export default TTSScrollSyncDialog;
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 28,
-    shadowColor: 'transparent',
-  },
-  content: {
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0,
-  },
-  boldText: {
-    fontWeight: 'bold',
-  },
-  buttonCtn: {
-    flexDirection: 'column',
-    padding: 16,
-    gap: 8,
-  },
-});

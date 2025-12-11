@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { MD3ThemeType } from '@theme/types';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
@@ -9,6 +9,8 @@ import { useBoolean } from '@hooks/index';
 import { IconButtonV2 } from '@components';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import Color from 'color';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface DownloadButtonProps {
   chapterId: number;
@@ -91,88 +93,161 @@ interface theme {
 type buttonPropType = theme & {
   onPress: () => void;
 };
-export const ChapterDownloadingButton: React.FC<theme> = ({ theme }) => (
-  <View style={styles.container}>
-    <ActivityIndicator
-      color={theme.outline}
-      size={25}
-      style={styles.activityIndicator}
-    />
-  </View>
-);
+export const ChapterDownloadingButton: React.FC<theme> = ({ theme }) => {
+  const { uiScale = 1.0 } = useAppSettings();
 
-const DownloadIcon: React.FC<theme> = ({ theme }) => (
-  <MaterialCommunityIcons
-    name="arrow-down-circle-outline"
-    size={25}
-    color={theme.outline}
-  />
-);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: 50,
+          width: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        activityIndicator: {
+          margin: scaleDimension(3.5, uiScale),
+          padding: scaleDimension(5, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator
+        color={theme.outline}
+        size={scaleDimension(25, uiScale)}
+        style={styles.activityIndicator}
+      />
+    </View>
+  );
+};
+
+const DownloadIcon: React.FC<theme> = ({ theme }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const iconSize = useMemo(() => scaleDimension(25, uiScale), [uiScale]);
+
+  return (
+    <MaterialCommunityIcons
+      name="arrow-down-circle-outline"
+      size={iconSize}
+      color={theme.outline}
+    />
+  );
+};
 
 export const DownloadChapterButton: React.FC<buttonPropType> = ({
   theme,
   onPress,
-}) => (
-  <View style={styles.container}>
-    <Pressable
-      style={styles.pressable}
-      onPress={onPress}
-      android_ripple={{ color: Color(theme.primary).alpha(0.12).string() }}
-    >
-      <DownloadIcon theme={theme} />
-    </Pressable>
-  </View>
-);
+}) => {
+  const { uiScale = 1.0 } = useAppSettings();
 
-const DeleteIcon: React.FC<theme> = ({ theme }) => (
-  <MaterialCommunityIcons
-    name="check-circle"
-    size={25}
-    color={theme.onSurface}
-  />
-);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: 50,
+          width: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        pressable: {
+          width: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <View style={styles.container}>
+      <Pressable
+        style={styles.pressable}
+        onPress={onPress}
+        android_ripple={{ color: Color(theme.primary).alpha(0.12).string() }}
+      >
+        <DownloadIcon theme={theme} />
+      </Pressable>
+    </View>
+  );
+};
+
+const DeleteIcon: React.FC<theme> = ({ theme }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const iconSize = useMemo(() => scaleDimension(25, uiScale), [uiScale]);
+
+  return (
+    <MaterialCommunityIcons
+      name="check-circle"
+      size={iconSize}
+      color={theme.onSurface}
+    />
+  );
+};
 
 export const DeleteChapterButton: React.FC<buttonPropType> = ({
   theme,
   onPress,
-}) => (
-  <View style={styles.container}>
-    <Pressable
-      style={styles.pressable}
-      onPress={onPress}
-      android_ripple={{ color: Color(theme.primary).alpha(0.12).string() }}
-    >
-      <DeleteIcon theme={theme} />
-    </Pressable>
-  </View>
-);
+}) => {
+  const { uiScale = 1.0 } = useAppSettings();
 
-export const ChapterBookmarkButton: React.FC<theme> = ({ theme }) => (
-  <IconButtonV2
-    name="bookmark"
-    theme={theme}
-    color={theme.primary}
-    size={18}
-    style={styles.iconButtonLeft}
-  />
-);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: 50,
+          width: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        pressable: {
+          width: scaleDimension(40, uiScale),
+          height: scaleDimension(40, uiScale),
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      }),
+    [uiScale],
+  );
 
-const styles = StyleSheet.create({
-  activityIndicator: { margin: 3.5, padding: 5 },
-  container: {
-    borderRadius: 50,
-    width: 40,
-    height: 40,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressable: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconButton: { margin: 2 },
-  iconButtonLeft: { marginLeft: 2 },
-});
+  return (
+    <View style={styles.container}>
+      <Pressable
+        style={styles.pressable}
+        onPress={onPress}
+        android_ripple={{ color: Color(theme.primary).alpha(0.12).string() }}
+      >
+        <DeleteIcon theme={theme} />
+      </Pressable>
+    </View>
+  );
+};
+
+export const ChapterBookmarkButton: React.FC<theme> = ({ theme }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const iconSize = useMemo(() => scaleDimension(18, uiScale), [uiScale]);
+  const iconButtonStyle = useMemo(
+    () => ({ marginLeft: scaleDimension(2, uiScale) }),
+    [uiScale],
+  );
+
+  return (
+    <IconButtonV2
+      name="bookmark"
+      theme={theme}
+      color={theme.primary}
+      size={iconSize}
+      style={iconButtonStyle}
+    />
+  );
+};

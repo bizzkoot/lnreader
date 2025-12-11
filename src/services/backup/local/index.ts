@@ -1,11 +1,9 @@
 import { showToast } from '@utils/showToast';
-import dayjs from 'dayjs';
-import {
-  saveDocuments,
-  pick,
-  types,
-  keepLocalCopy,
-} from '@react-native-documents/picker';
+// import dayjs from 'dayjs';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { Share } from 'react-native';
+
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { ROOT_STORAGE } from '@utils/Storages';
@@ -59,14 +57,16 @@ export const createBackup = async (
       progressText: getString('backupScreen.savingBackup'),
     }));
 
-    const datetime = dayjs().format('YYYY-MM-DD_HH_mm');
-    const fileName = 'lnreader_backup_' + datetime + '.zip';
+    // const datetime = dayjs().format('YYYY-MM-DD_HH_mm');
+    // const fileName = 'lnreader_backup_' + datetime + '.zip';
+    const fileUri = 'file://' + CACHE_DIR_PATH + '.zip';
 
-    await saveDocuments({
-      sourceUris: ['file://' + CACHE_DIR_PATH + '.zip'],
-      copy: false,
-      mimeType: 'application/zip',
-      fileName,
+    // Get content URI for sharing on Android
+    const contentUri = await FileSystem.getContentUriAsync(fileUri);
+
+    await Share.share({
+      url: contentUri,
+      title: getString('backupScreen.backupCreated'),
     });
 
     setMeta?.(meta => ({
@@ -98,30 +98,57 @@ export const restoreBackup = async (
       progressText: getString('backupScreen.downloadingData'),
     }));
 
-    const [result] = await pick({
-      mode: 'import',
-      type: [types.zip],
-      allowVirtualFiles: true, // TODO: hopefully this just works
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/zip',
+      copyToCacheDirectory: true,
     });
+
+    if (result.canceled) {
+      setMeta?.(meta => ({ ...meta, isRunning: false }));
+      return;
+    }
 
     if (NativeFile.exists(CACHE_DIR_PATH)) {
       NativeFile.unlink(CACHE_DIR_PATH);
     }
 
-    const [localRes] = await keepLocalCopy({
-      files: [
-        {
-          uri: result.uri,
-          fileName: 'backup.zip',
-        },
-      ],
-      destination: 'cachesDirectory',
-    });
-    if (localRes.status === 'error') {
-      throw new Error(localRes.copyError);
+    // expo-document-picker copies to cache automatically
+    const sourceUri = result.assets[0].uri;
+
+    // We need to move it to our CACHE_DIR_PATH or unzip directly?
+    // NativeZipArchive.unzip expects a path.
+    // sourceUri might be content:// or file://
+
+    let localPath = sourceUri;
+
+    // If it is a content URI, we might need to ensure it's a file path for NativeZipArchive?
+    // NativeZipArchive usually works with paths.
+    // But sourceUri from copyToCacheDirectory: true is usually file://
+
+    if (sourceUri.startsWith('file://')) {
+      localPath = sourceUri.replace('file://', '');
+    } else {
+      // If it's content URI, we might need to copy it to a known file path if NativeZipArchive can't handle content://
+      // But let's assume assets[0].uri is file:// since copyToCacheDirectory is true.
     }
 
-    const localPath = localRes.localUri.replace(/^file:(\/\/)?\//, '/');
+    // Actually, let's keep the existing keepLocalCopy logic logic pattern but simplified:
+    // We already have it in cache. Just unzip it.
+
+    // But wait, the original code used keepLocalCopy to put it in cachesDirectory.
+    // DocumentPicker with copyToCacheDirectory: true ALREADY puts it in cachesDirectory/DocumentPicker/...
+
+    // The previous code had:
+    // const [localRes] = await keepLocalCopy(...)
+    // const localPath = localRes.localUri.replace(/^file:(\/\/)?\//, '/');
+
+    // So we just need the path.
+    localPath = sourceUri.replace(/^file:(\/\/)?/, ''); // Remove scheme
+
+    // Ensure format is correct for the native module (usually absolute path starting with /)
+    if (!localPath.startsWith('/')) {
+      localPath = '/' + localPath;
+    }
 
     setMeta?.(meta => ({
       ...meta,

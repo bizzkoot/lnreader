@@ -2,12 +2,12 @@ import React, { memo, useMemo } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   useWindowDimensions,
   Pressable,
   Image,
 } from 'react-native';
 
+import AppText from '@components/AppText';
 import { LinearGradient } from 'expo-linear-gradient';
 import ListView from './ListView';
 
@@ -23,6 +23,8 @@ import { getString } from '@strings/translations';
 import SourceScreenSkeletonLoading from '@screens/browse/loadingAnimation/SourceScreenSkeletonLoading';
 import { defaultCover } from '@plugins/helpers/constants';
 import { ActivityIndicator } from 'react-native-paper';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted/useSettings';
 
 interface UnreadBadgeProps {
   chaptersDownloaded: number;
@@ -38,20 +40,17 @@ interface DownloadBadgeProps {
   theme: ThemeColors;
 }
 
-type CoverItemDB =
-  | DBNovelInfo & {
-      completeRow?: number;
-    };
+type CoverItemDB = DBNovelInfo & {
+  completeRow?: number;
+};
 
-type CoverItemLibrary =
-  | NovelInfo & {
-      completeRow?: number;
-    };
+type CoverItemLibrary = NovelInfo & {
+  completeRow?: number;
+};
 
-type CoverItemPlugin =
-  | NovelItem & {
-      completeRow?: number;
-    };
+type CoverItemPlugin = NovelItem & {
+  completeRow?: number;
+};
 
 interface INovelCover<TNovel> {
   item: TNovel;
@@ -96,6 +95,12 @@ function NovelCover<
   } = useLibrarySettings();
 
   const window = useWindowDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+  const scaledDimensions = useScaledDimensions();
+  const scaledStyles = useMemo(
+    () => getScaledStyles(scaledDimensions),
+    [scaledDimensions],
+  );
 
   const orientation = useDeviceOrientation();
 
@@ -104,19 +109,25 @@ function NovelCover<
     [orientation, novelsPerRow],
   );
 
-  const coverHeight = useMemo(() => {
+  // Base cover dimensions (before scaling)
+  const baseCoverWidth = useMemo(() => {
     if (globalSearch) {
-      return ((window.width / 3 - 16) * 4) / 3;
+      return window.width / 3 - 32; // Base padding of 16dp per side
     }
-    return (window.width / numColumns) * (4 / 3);
+    return window.width / numColumns - 32;
   }, [globalSearch, window.width, numColumns]);
+
+  // Apply scale to cover dimensions
+  const coverHeight = useMemo(() => {
+    return baseCoverWidth * (4 / 3) * uiScale;
+  }, [baseCoverWidth, uiScale]);
 
   const coverWidth = useMemo(() => {
     if (globalSearch) {
-      return window.width / 3 - 16;
+      return baseCoverWidth * uiScale;
     }
     return undefined;
-  }, [globalSearch, window.width]);
+  }, [globalSearch, baseCoverWidth, uiScale]);
 
   const selectNovel = () => onLongPress(item);
 
@@ -152,6 +163,7 @@ function NovelCover<
           margin,
         },
         styles.standardNovelCover,
+        scaledStyles.novelCoverBorderRadius,
         isSelected && {
           backgroundColor: theme.primary,
           ...styles.selectedNovelCover,
@@ -160,7 +172,7 @@ function NovelCover<
     >
       <Pressable
         android_ripple={{ color: theme.rippleColor }}
-        style={styles.opac}
+        style={[styles.flexOne, scaledStyles.opacPadding]}
         onPress={
           selectedNovelIds && selectedNovelIds.length > 0
             ? selectNovel
@@ -168,8 +180,10 @@ function NovelCover<
         }
         onLongPress={selectNovel}
       >
-        <View style={styles.badgeContainer}>
-          {libraryStatus ? <InLibraryBadge theme={theme} /> : null}
+        <View style={[styles.badgeContainer, scaledStyles.badgePosition]}>
+          {libraryStatus ? (
+            <InLibraryBadge theme={theme} scaledStyles={scaledStyles} />
+          ) : null}
           {isFromDB(item) ? (
             <>
               {showDownloadBadges && item.chaptersDownloaded > 0 ? (
@@ -178,6 +192,7 @@ function NovelCover<
                   chaptersDownloaded={item.chaptersDownloaded}
                   chaptersUnread={item.chaptersUnread}
                   theme={theme}
+                  scaledStyles={scaledStyles}
                 />
               ) : null}
               {showUnreadBadges && item.chaptersUnread > 0 ? (
@@ -186,11 +201,14 @@ function NovelCover<
                   chaptersDownloaded={item.chaptersDownloaded}
                   chaptersUnread={item.chaptersUnread}
                   showDownloadBadges={showDownloadBadges}
+                  scaledStyles={scaledStyles}
                 />
               ) : null}
             </>
           ) : null}
-          {inActivity ? <InActivityBadge theme={theme} /> : null}
+          {inActivity ? (
+            <InActivityBadge theme={theme} scaledStyles={scaledStyles} />
+          ) : null}
         </View>
         <Image
           source={{ uri, ...requestInit }}
@@ -199,13 +217,18 @@ function NovelCover<
               height: coverHeight,
               backgroundColor: coverPlaceholderColor,
             },
-            styles.standardBorderRadius,
+            scaledStyles.standardBorderRadius,
             libraryStatus && styles.opacityPoint5,
           ]}
         />
-        <View style={styles.compactTitleContainer}>
+        <View
+          style={[
+            styles.compactTitleContainer,
+            scaledStyles.compactTitlePosition,
+          ]}
+        >
           {displayMode === DisplayModes.Compact ? (
-            <CompactTitle novelName={item.name} />
+            <CompactTitle novelName={item.name} scaledStyles={scaledStyles} />
           ) : null}
         </View>
         {displayMode === DisplayModes.Comfortable ? (
@@ -213,6 +236,7 @@ function NovelCover<
             novelName={item.name}
             theme={theme}
             width={coverWidth}
+            scaledStyles={scaledStyles}
           />
         ) : null}
       </Pressable>
@@ -227,6 +251,7 @@ function NovelCover<
             showUnreadBadges={showUnreadBadges}
             chaptersDownloaded={item.chaptersDownloaded}
             chaptersUnread={item.chaptersUnread}
+            scaledStyles={scaledStyles}
           />
         ) : null
       }
@@ -237,16 +262,22 @@ function NovelCover<
             chaptersDownloaded={item.chaptersDownloaded}
             chaptersUnread={item.chaptersUnread}
             showDownloadBadges={showDownloadBadges}
+            scaledStyles={scaledStyles}
           />
         ) : null
       }
-      inLibraryBadge={libraryStatus && <InLibraryBadge theme={theme} />}
+      inLibraryBadge={
+        libraryStatus && (
+          <InLibraryBadge theme={theme} scaledStyles={scaledStyles} />
+        )
+      }
       theme={theme}
       onPress={
         selectedNovelIds && selectedNovelIds.length > 0 ? selectNovel : onPress
       }
       onLongPress={selectNovel}
       isSelected={isSelected}
+      scaledStyles={scaledStyles}
     />
   );
 }
@@ -257,65 +288,98 @@ const ComfortableTitle = ({
   theme,
   novelName,
   width,
+  scaledStyles,
 }: {
   theme: ThemeColors;
   novelName: string;
   width?: number;
+  scaledStyles: any;
 }) => (
-  <Text
+  <AppText
     numberOfLines={2}
     style={[
       styles.title,
-      styles.padding4,
+      scaledStyles.titlePadding,
       {
         color: theme.onSurface,
         maxWidth: width,
+        fontSize: scaledStyles.titleFontSize,
       },
     ]}
   >
     {novelName}
-  </Text>
+  </AppText>
 );
 
-const CompactTitle = ({ novelName }: { novelName: string }) => (
-  <View style={styles.titleContainer}>
+const CompactTitle = ({
+  novelName,
+  scaledStyles,
+}: {
+  novelName: string;
+  scaledStyles: any;
+}) => (
+  <View style={[styles.titleContainer, scaledStyles.titleBorderRadius]}>
     <LinearGradient
       colors={['transparent', 'rgba(0,0,0,0.7)']}
-      style={styles.linearGradient}
+      style={scaledStyles.linearGradient}
     >
-      <Text numberOfLines={2} style={[styles.title, styles.compactTitle]}>
+      <AppText
+        numberOfLines={2}
+        style={[
+          styles.title,
+          styles.compactTitle,
+          scaledStyles.titlePadding,
+          { fontSize: scaledStyles.titleFontSize },
+        ]}
+      >
         {novelName}
-      </Text>
+      </AppText>
     </LinearGradient>
   </View>
 );
 
-const InLibraryBadge = ({ theme }: { theme: ThemeColors }) => (
-  <Text
+const InLibraryBadge = ({
+  theme,
+  scaledStyles,
+}: {
+  theme: ThemeColors;
+  scaledStyles: any;
+}) => (
+  <AppText
     style={[
-      styles.inLibraryBadge,
+      scaledStyles.inLibraryBadge,
       {
         backgroundColor: theme.primary,
         color: theme.onPrimary,
       },
-      styles.standardBorderRadius,
+      scaledStyles.standardBorderRadius,
     ]}
   >
     {getString('novelScreen.inLibaray')}
-  </Text>
+  </AppText>
 );
 
-const InActivityBadge = ({ theme }: { theme: ThemeColors }) => (
+const InActivityBadge = ({
+  theme,
+  scaledStyles,
+}: {
+  theme: ThemeColors;
+  scaledStyles: any;
+}) => (
   <View
     style={[
-      styles.activityBadge,
+      scaledStyles.activityBadge,
       {
         backgroundColor: theme.primary,
       },
-      styles.standardBorderRadius,
+      scaledStyles.standardBorderRadius,
     ]}
   >
-    <ActivityIndicator animating={true} size={10} color={theme.onPrimary} />
+    <ActivityIndicator
+      animating={true}
+      size={scaledStyles.activityIndicatorSize}
+      color={theme.onPrimary}
+    />
   </View>
 );
 
@@ -323,6 +387,7 @@ interface BadgeProps {
   chaptersDownloaded: number;
   chaptersUnread: number;
   theme: ThemeColors;
+  scaledStyles: any;
 }
 interface UnreadBadgeProps extends BadgeProps {
   showDownloadBadges: boolean;
@@ -336,20 +401,23 @@ const UnreadBadge: React.FC<UnreadBadgeProps> = ({
   chaptersUnread,
   showDownloadBadges,
   theme,
+  scaledStyles,
 }: UnreadBadgeProps) => (
-  <Text
+  <AppText
     style={[
-      styles.unreadBadge,
-      !chaptersDownloaded && styles.LeftBorderRadius,
-      !showDownloadBadges && styles.standardBorderRadius,
+      scaledStyles.unreadBadge,
+      !chaptersDownloaded && scaledStyles.LeftBorderRadius,
+      !showDownloadBadges && scaledStyles.standardBorderRadius,
       {
         backgroundColor: theme.primary,
         color: theme.onPrimary,
+        fontSize: scaledStyles.badgeFontSize,
+        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
     {chaptersUnread}
-  </Text>
+  </AppText>
 );
 
 const DownloadBadge: React.FC<DownloadBadgeProps> = ({
@@ -357,42 +425,26 @@ const DownloadBadge: React.FC<DownloadBadgeProps> = ({
   showUnreadBadges,
   chaptersUnread,
   theme,
+  scaledStyles,
 }: DownloadBadgeProps) => (
-  <Text
+  <AppText
     style={[
-      styles.downloadBadge,
-      !chaptersUnread && styles.RightBorderRadius,
-      !showUnreadBadges && styles.standardBorderRadius,
+      scaledStyles.downloadBadge,
+      !chaptersUnread && scaledStyles.RightBorderRadius,
+      !showUnreadBadges && scaledStyles.standardBorderRadius,
       {
         backgroundColor: theme.tertiary,
         color: theme.onTertiary,
+        fontSize: scaledStyles.badgeFontSize,
+        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
     {chaptersDownloaded}
-  </Text>
+  </AppText>
 );
 
 const styles = StyleSheet.create({
-  LeftBorderRadius: {
-    borderBottomLeftRadius: 4,
-    borderTopLeftRadius: 4,
-  },
-  RightBorderRadius: {
-    borderBottomRightRadius: 4,
-    borderTopRightRadius: 4,
-  },
-  activityBadge: {
-    marginHorizontal: 4,
-    padding: 5,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    left: 10,
-    position: 'absolute',
-    top: 10,
-    zIndex: 1,
-  },
   compactTitle: {
     color: 'rgba(255,255,255,1)',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
@@ -400,71 +452,105 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   compactTitleContainer: {
-    bottom: 4,
-    left: 4,
     position: 'absolute',
-    right: 4,
   },
-  downloadBadge: {
-    borderBottomLeftRadius: 4,
-    borderTopLeftRadius: 4,
-    fontSize: 12,
-    paddingHorizontal: 5,
-    paddingTop: 2,
+  badgeContainer: {
+    flexDirection: 'row',
+    position: 'absolute',
+    zIndex: 1,
   },
-  extensionIcon: {
-    borderRadius: 4,
-    height: 42,
-    width: 42,
-  },
-  inLibraryBadge: {
-    fontSize: 12,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  linearGradient: {
-    borderRadius: 4,
+  flexOne: {
+    flex: 1,
   },
   listView: {
     alignItems: 'center',
-    borderRadius: 4,
     flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-
-  opac: {
-    borderRadius: 4,
-    flex: 1,
-    padding: 4.8,
   },
   opacityPoint5: { opacity: 0.5 },
-  padding4: { padding: 4 },
   selectedNovelCover: {
     opacity: 0.8,
   },
-  standardBorderRadius: {
-    borderRadius: 4,
-  },
   standardNovelCover: {
-    borderRadius: 6,
     overflow: 'hidden',
   },
   title: {
     fontFamily: 'pt-sans-bold',
-    fontSize: 14,
-    padding: 8,
   },
   titleContainer: {
-    borderRadius: 4,
     flex: 1,
   },
-  unreadBadge: {
-    borderBottomRightRadius: 4,
-    borderTopRightRadius: 4,
-    fontSize: 12,
-    paddingHorizontal: 4,
-    paddingTop: 2,
+});
+
+// Scaled styles - created dynamically based on uiScale
+const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
+  LeftBorderRadius: {
+    borderBottomLeftRadius: scaled.borderRadius.sm,
+    borderTopLeftRadius: scaled.borderRadius.sm,
   },
+  RightBorderRadius: {
+    borderBottomRightRadius: scaled.borderRadius.sm,
+    borderTopRightRadius: scaled.borderRadius.sm,
+  },
+  activityBadge: {
+    marginHorizontal: scaled.margin.xs,
+    padding: scaled.padding.xs + 1,
+  },
+  activityIndicatorSize: scaled.iconSize.sm,
+  badgePosition: {
+    left: scaled.padding.sm + 2,
+    top: scaled.padding.sm + 2,
+  },
+  compactTitlePosition: {
+    bottom: scaled.padding.xs,
+    left: scaled.padding.xs,
+    right: scaled.padding.xs,
+  },
+  downloadBadge: {
+    borderBottomLeftRadius: scaled.borderRadius.sm,
+    borderTopLeftRadius: scaled.borderRadius.sm,
+    paddingHorizontal: scaled.padding.xs + 1,
+    paddingTop: scaled.padding.xs / 2,
+  },
+  extensionIcon: {
+    borderRadius: scaled.borderRadius.sm,
+    height: scaled.iconSize.xl + 6,
+    width: scaled.iconSize.xl + 6,
+  },
+  inLibraryBadge: {
+    paddingHorizontal: scaled.padding.xs,
+    paddingVertical: scaled.padding.xs / 2,
+  },
+  linearGradient: {
+    borderRadius: scaled.borderRadius.sm,
+  },
+  listViewPadding: {
+    paddingHorizontal: scaled.padding.md / 1.33,
+    paddingVertical: scaled.padding.sm,
+  },
+  opacPadding: {
+    borderRadius: scaled.borderRadius.sm,
+    padding: scaled.padding.xs + 0.8,
+  },
+  padding4: { padding: scaled.padding.xs },
+  standardBorderRadius: {
+    borderRadius: scaled.borderRadius.sm,
+  },
+  novelCoverBorderRadius: {
+    borderRadius: scaled.borderRadius.sm + 2,
+  },
+  titlePadding: {
+    padding: scaled.padding.sm,
+  },
+  titleFontSize: scaled.iconSize.sm - 2, // 14 at scale 1.0
+  titleBorderRadius: {
+    borderRadius: scaled.borderRadius.sm,
+  },
+  unreadBadge: {
+    borderBottomRightRadius: scaled.borderRadius.sm,
+    borderTopRightRadius: scaled.borderRadius.sm,
+    paddingHorizontal: scaled.padding.xs,
+    paddingTop: scaled.padding.xs / 2,
+  },
+  badgeFontSize: scaled.iconSize.sm - 4,
 });

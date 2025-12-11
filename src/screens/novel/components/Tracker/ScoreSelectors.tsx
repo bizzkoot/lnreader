@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { TextInput } from 'react-native-paper';
 
 import { RadioButton, RadioButtonGroup } from '@components/RadioButton';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import {
   getAniListScoreFormatting,
   getMyAnimeListScoreLabel,
@@ -13,6 +13,8 @@ import {
   ScoreFormat,
   ScoreSelectorProps,
 } from './types';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 export const MyAnimeListScoreSelector: React.FC<ScoreSelectorProps> = ({
   trackItem,
@@ -44,10 +46,30 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
   onUpdateScore,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const [scoreText, setScoreText] = useState(
     trackItem.score === 0 ? '' : trackItem.score.toString(),
   );
   const [error, setError] = useState<string | undefined>();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        errorText: {
+          fontSize: scaleDimension(12, uiScale),
+          marginTop: 4,
+        },
+        input: {
+          fontSize: scaleDimension(13, uiScale),
+          lineHeight: 20,
+        },
+        helperText: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: 8,
+        },
+      }),
+    [uiScale],
+  );
 
   useEffect(() => {
     setScoreText(trackItem.score === 0 ? '' : trackItem.score.toString());
@@ -81,9 +103,9 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
 
   return (
     <View>
-      <Text style={[styles.helperText, { color: theme.onSurfaceVariant }]}>
+      <AppText style={[styles.helperText, { color: theme.onSurfaceVariant }]}>
         Enter a score between 0 and 10 (decimals allowed, e.g., 7.5)
-      </Text>
+      </AppText>
       <TextInput
         value={scoreText}
         onChangeText={handleChangeText}
@@ -100,10 +122,12 @@ export const MangaUpdatesScoreSelector: React.FC<ScoreSelectorProps> = ({
           },
         }}
         underlineColor={theme.outline}
-        style={styles.textInput}
+        style={styles.input}
       />
       {error && (
-        <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+        <AppText style={[styles.errorText, { color: theme.error }]}>
+          {error}
+        </AppText>
       )}
     </View>
   );
@@ -140,26 +164,3 @@ export const AniListScoreSelector: React.FC<AniListScoreSelectorProps> = ({
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  guideText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  guideTitle: {
-    fontSize: 14,
-    fontWeight: 500,
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  textInput: {
-    backgroundColor: 'transparent',
-  },
-});

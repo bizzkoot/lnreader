@@ -1,6 +1,9 @@
 import { useTheme } from '@hooks/persisted';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { scaleDimension } from '@theme/scaling';
 
 interface EmptyViewProps {
   icon: string;
@@ -18,6 +21,28 @@ const EmptyView = ({
   iconStyle,
 }: EmptyViewProps) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        emptyViewContainer: {
+          alignItems: 'center',
+          flex: 1,
+          justifyContent: 'center',
+        },
+        emptyViewIcon: {
+          fontSize: scaleDimension(45, uiScale),
+        },
+        emptyViewText: {
+          fontWeight: 'bold',
+          marginTop: scaleDimension(10, uiScale),
+          paddingHorizontal: scaleDimension(30, uiScale),
+          textAlign: 'center',
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View style={styles.emptyViewContainer}>
@@ -40,20 +65,3 @@ const EmptyView = ({
 };
 
 export default EmptyView;
-
-const styles = StyleSheet.create({
-  emptyViewContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  emptyViewIcon: {
-    fontSize: 45,
-  },
-  emptyViewText: {
-    fontWeight: 'bold',
-    marginTop: 10,
-    paddingHorizontal: 30,
-    textAlign: 'center',
-  },
-});

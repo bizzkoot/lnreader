@@ -30,12 +30,12 @@ Your TTS state is stored in JavaScript memory (WebView context) and gets complet
 
 1. **WebView Lifecycle**: When you navigate away from the chapter screen, the WebView is unmounted, destroying all JavaScript state including `window.tts.currentElement`, `window.tts.started`, and `window.tts.reading`[^5][^6]
 2. **TTS State Not Persisted**: While `paragraphIndex` is saved to native storage, critical TTS-specific state is not:
-    - Whether TTS was actively playing when the user exited
-    - The exact element being read
-    - TTS playback settings at exit time
+   - Whether TTS was actively playing when the user exited
+   - The exact element being read
+   - TTS playback settings at exit time
 3. **Resume Logic Limitation**: The current auto-resume in `tts.start()` only triggers on first load (`!this.hasAutoResumed`), but doesn't persist across app/screen exits[^1]
 
-***
+---
 
 ## Complete Implementation Plan
 
@@ -53,17 +53,16 @@ interface ChapterProgress {
   novelId: number;
   progress: number;
   paragraphIndex: number;
-  
+
   // NEW: TTS Resume State
   ttsState?: {
-    wasPlaying: boolean;           // Was TTS active when user exited
+    wasPlaying: boolean; // Was TTS active when user exited
     lastReadParagraphIndex: number; // Last paragraph being spoken
-    timestamp: number;              // When state was saved
-    autoStartOnReturn: boolean;     // User preference for auto-resume
+    timestamp: number; // When state was saved
+    autoStartOnReturn: boolean; // User preference for auto-resume
   };
 }
 ```
-
 
 #### 1.2 Save TTS State on Exit
 
@@ -83,7 +82,7 @@ const ChapterScreen = () => {
   // Listen for TTS state updates from WebView
   const handleWebViewMessage = (event) => {
     const message = JSON.parse(event.nativeEvent.data);
-    
+
     switch (message.type) {
       case 'save':
         // Existing save logic
@@ -93,7 +92,7 @@ const ChapterScreen = () => {
           paragraphIndex: message.paragraphIndex,
         });
         break;
-        
+
       case 'tts-state':
         // NEW: Track TTS state in real-time
         ttsStateRef.current = {
@@ -101,7 +100,7 @@ const ChapterScreen = () => {
           lastReadParagraphIndex: message.data.paragraphIndex || -1,
         };
         break;
-        
+
       case 'request-tts-resume':
         // NEW: WebView asking if it should auto-resume
         handleTTSResumeRequest();
@@ -119,13 +118,13 @@ const ChapterScreen = () => {
           timestamp: Date.now(),
           autoStartOnReturn: true, // Default preference
         };
-        
+
         // Save to chapter progress
         saveProg({
           ...currentChapter,
           ttsState,
         });
-        
+
         console.log('[TTS] State saved on exit:', ttsState);
       }
     };
@@ -134,7 +133,7 @@ const ChapterScreen = () => {
   // Restore TTS state when component mounts
   const handleTTSResumeRequest = async () => {
     const storedState = currentChapter?.ttsState;
-    
+
     if (!storedState || !storedState.wasPlaying) {
       // No TTS was playing when user left
       webViewRef.current?.injectJavaScript(`
@@ -143,10 +142,10 @@ const ChapterScreen = () => {
       `);
       return;
     }
-    
+
     // Check if state is recent (within 30 minutes)
     const isRecent = (Date.now() - storedState.timestamp) < 30 * 60 * 1000;
-    
+
     if (!isRecent) {
       // State is stale, don't auto-resume
       webViewRef.current?.injectJavaScript(`
@@ -155,10 +154,10 @@ const ChapterScreen = () => {
       `);
       return;
     }
-    
+
     // Check user preference for auto-resume
     const autoResumeEnabled = await AsyncStorage.getItem('tts_auto_resume');
-    
+
     if (autoResumeEnabled === 'prompt') {
       // Show prompt dialog
       showTTSResumeDialog(storedState);
@@ -183,9 +182,9 @@ const ChapterScreen = () => {
           text: 'Restart Chapter',
           onPress: () => {
             webViewRef.current?.injectJavaScript(`
-              window.tts.restoreState({ 
+              window.tts.restoreState({
                 shouldResume: false,
-                startFromBeginning: true 
+                startFromBeginning: true
               });
               true;
             `);
@@ -202,9 +201,9 @@ const ChapterScreen = () => {
 
   const resumeTTS = (storedState) => {
     console.log('[TTS] Resuming from saved state:', storedState);
-    
+
     webViewRef.current?.injectJavaScript(`
-      window.tts.restoreState({ 
+      window.tts.restoreState({
         shouldResume: true,
         paragraphIndex: ${storedState.lastReadParagraphIndex},
         autoStart: true
@@ -230,8 +229,7 @@ const ChapterScreen = () => {
 };
 ```
 
-
-***
+---
 
 ### Phase 2: Enhanced WebView TTS Logic (core.js)
 
@@ -241,31 +239,32 @@ Insert this after the existing `tts.start()` function in `core.js`:
 
 ```javascript
 // NEW: Restore TTS state from native storage
-this.restoreState = (config) => {
+this.restoreState = config => {
   console.log('TTS: Restore state called with config:', config);
-  
+
   if (!config || !config.shouldResume) {
     console.log('TTS: No resume needed');
     this.hasAutoResumed = true; // Prevent auto-resume later
-    
+
     if (config?.startFromBeginning) {
       console.log('TTS: User chose to restart from beginning');
       this.start(); // Start from first paragraph
     }
     return;
   }
-  
+
   // Resume from saved paragraph
   const readableElements = reader.getReadableElements();
-  const paragraphIndex = config.paragraphIndex || initialReaderConfig.savedParagraphIndex;
-  
+  const paragraphIndex =
+    config.paragraphIndex || initialReaderConfig.savedParagraphIndex;
+
   if (paragraphIndex >= 0 && readableElements[paragraphIndex]) {
     console.log('TTS: Resuming from paragraph index:', paragraphIndex);
-    
+
     this.hasAutoResumed = true;
     this.currentElement = readableElements[paragraphIndex];
     this.scrollToElement(this.currentElement);
-    
+
     if (config.autoStart) {
       console.log('TTS: Auto-starting playback');
       setTimeout(() => {
@@ -275,9 +274,9 @@ this.restoreState = (config) => {
       console.log('TTS: Positioned at paragraph but not auto-starting');
       // Just position, don't start
       this.currentElement.classList.add('highlight');
-      reader.post({ 
+      reader.post({
         type: 'tts-positioned',
-        data: { paragraphIndex }
+        data: { paragraphIndex },
       });
     }
   } else {
@@ -287,7 +286,6 @@ this.restoreState = (config) => {
 };
 ```
 
-
 #### 2.2 Update TTS State Reporting
 
 Modify the existing `this.speak()` function to report detailed state:
@@ -295,18 +293,18 @@ Modify the existing `this.speak()` function to report detailed state:
 ```javascript
 this.speak = () => {
   if (!this.currentElement) return;
-  
+
   this.prevElement = this.currentElement;
   this.scrollToElement(this.currentElement);
-  
+
   if (reader.generalSettings.val.showParagraphHighlight) {
     this.currentElement.classList.add('highlight');
   }
-  
+
   // Save progress based on current TTS element
   const readableElements = reader.getReadableElements();
   const paragraphIndex = readableElements.indexOf(this.currentElement);
-  
+
   if (paragraphIndex !== -1) {
     reader.post({
       type: 'save',
@@ -316,7 +314,7 @@ this.speak = () => {
       ),
       paragraphIndex,
     });
-    
+
     // NEW: Also report detailed TTS state
     reader.post({
       type: 'tts-state',
@@ -324,11 +322,11 @@ this.speak = () => {
         isReading: this.reading,
         paragraphIndex: paragraphIndex,
         totalParagraphs: readableElements.length,
-        currentText: this.currentElement.textContent.substring(0, 50) + '...'
-      }
+        currentText: this.currentElement.textContent.substring(0, 50) + '...',
+      },
     });
   }
-  
+
   // Use textContent to ensure indices match for highlighting
   const text = this.currentElement.textContent;
   if (text && text.trim().length > 0) {
@@ -339,7 +337,6 @@ this.speak = () => {
   }
 };
 ```
-
 
 #### 2.3 Request Resume State on Page Load
 
@@ -354,11 +351,12 @@ window.addEventListener('load', () => {
       console.log('TTS: Found restore state in initial config');
       // Native side injected the state, process it
       const restoreState = window.initialReaderConfig.ttsRestoreState;
-      
+
       // Auto-restore only if it was playing recently
-      const isRecent = restoreState?.timestamp && 
-        (Date.now() - restoreState.timestamp) < 30 * 60 * 1000;
-      
+      const isRecent =
+        restoreState?.timestamp &&
+        Date.now() - restoreState.timestamp < 30 * 60 * 1000;
+
       if (restoreState?.wasPlaying && isRecent) {
         reader.post({ type: 'request-tts-resume' });
       }
@@ -369,7 +367,6 @@ window.addEventListener('load', () => {
 });
 ```
 
-
 #### 2.4 Update Pause Function to Report State
 
 Modify the `this.pause()` function:
@@ -378,23 +375,22 @@ Modify the `this.pause()` function:
 this.pause = () => {
   this.reading = false;
   reader.post({ type: 'stop-speak' });
-  
+
   // Report paused state with current position
   const readableElements = reader.getReadableElements();
   const paragraphIndex = readableElements.indexOf(this.currentElement);
-  
-  reader.post({ 
-    type: 'tts-state', 
-    data: { 
+
+  reader.post({
+    type: 'tts-state',
+    data: {
       isReading: false,
-      paragraphIndex: paragraphIndex
-    }
+      paragraphIndex: paragraphIndex,
+    },
   });
 };
 ```
 
-
-***
+---
 
 ### Phase 3: User Settings \& Preferences
 
@@ -405,21 +401,21 @@ this.pause = () => {
 ```typescript
 const TTSSettings = () => {
   const [autoResume, setAutoResume] = useState('prompt'); // 'always', 'prompt', 'never'
-  
+
   useEffect(() => {
     loadSettings();
   }, []);
-  
+
   const loadSettings = async () => {
     const saved = await AsyncStorage.getItem('tts_auto_resume');
     setAutoResume(saved || 'prompt');
   };
-  
+
   const saveSettings = async (value) => {
     await AsyncStorage.setItem('tts_auto_resume', value);
     setAutoResume(value);
   };
-  
+
   return (
     <View>
       <Text>Text-to-Speech Auto-Resume</Text>
@@ -446,8 +442,7 @@ const TTSSettings = () => {
 };
 ```
 
-
-***
+---
 
 ### Phase 4: Handle Edge Cases
 
@@ -462,7 +457,7 @@ const handleTTSStop = () => {
     wasPlaying: false,
     lastReadParagraphIndex: -1,
   };
-  
+
   // Clear from database
   saveProg({
     ...currentChapter,
@@ -480,7 +475,6 @@ const handleChapterComplete = () => {
   }
 };
 ```
-
 
 #### 4.2 Handle App Background/Foreground
 
@@ -509,13 +503,12 @@ useEffect(() => {
       // State will be restored via normal flow
     }
   });
-  
+
   return () => subscription.remove();
 }, [currentChapter]);
 ```
 
-
-***
+---
 
 ### Phase 5: Testing \& Validation
 
@@ -561,7 +554,7 @@ useEffect(() => {
 - Return after 2 hours
 - ✅ Expected: No auto-resume (state expired)
 
-***
+---
 
 ### Phase 6: Optional Enhancements
 
@@ -580,7 +573,6 @@ Add a subtle banner when TTS state is available:
 )}
 ```
 
-
 #### 6.2 TTS Progress Bar
 
 Show visual progress of TTS playback:
@@ -588,7 +580,7 @@ Show visual progress of TTS playback:
 ```typescript
 const TTSProgressBar = ({ current, total }) => {
   const progress = total > 0 ? (current / total) * 100 : 0;
-  
+
   return (
     <View style={styles.progressContainer}>
       <View style={[styles.progressBar, { width: `${progress}%` }]} />
@@ -600,24 +592,23 @@ const TTSProgressBar = ({ current, total }) => {
 };
 ```
 
-
-***
+---
 
 ## Summary of Changes
 
 ### Files to Modify
 
 1. **Native Side** (React Native):
-    - `ChapterScreen.tsx`: Add TTS state tracking and restoration logic
-    - Database schema: Add `ttsState` field to chapter progress
-    - Settings screen: Add auto-resume preference
-    - App.tsx: Handle app lifecycle events
+   - `ChapterScreen.tsx`: Add TTS state tracking and restoration logic
+   - Database schema: Add `ttsState` field to chapter progress
+   - Settings screen: Add auto-resume preference
+   - App.tsx: Handle app lifecycle events
 2. **WebView Side** (JavaScript):
-    - `core.js`:
-        - Add `tts.restoreState()` function
-        - Enhance `tts.speak()` to report state
-        - Update `tts.pause()` and `tts.stop()`
-        - Add page load listener for restoration
+   - `core.js`:
+     - Add `tts.restoreState()` function
+     - Enhance `tts.speak()` to report state
+     - Update `tts.pause()` and `tts.stop()`
+     - Add page load listener for restoration
 
 ### Key Mechanisms
 
@@ -678,4 +669,3 @@ This implementation ensures TTS resume works reliably across all scenarios: scre
 [^23]: https://github.com/readest/readest/issues/547
 
 [^24]: https://stackoverflow.com/questions/14064589/android-webview-inject-javascript-before-html-loaded
-

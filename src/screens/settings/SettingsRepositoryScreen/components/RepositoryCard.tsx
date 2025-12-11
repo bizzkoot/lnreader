@@ -1,13 +1,15 @@
 import React, { FC } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 
 import { IconButtonV2 } from '@components';
+import AppText from '@components/AppText';
 
 import { Repository } from '@database/types';
 import { useBoolean } from '@hooks/index';
-import { useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { showToast } from '@utils/showToast';
 import { getString } from '@strings/translations';
 import { Portal } from 'react-native-paper';
@@ -26,6 +28,43 @@ const RepositoryCard: FC<RepositoryCardProps> = ({
   upsertRepository,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        buttonsCtn: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        },
+        cardCtn: {
+          borderRadius: 12,
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+          marginBottom: scaleDimension(8, uiScale),
+          marginHorizontal: scaleDimension(16, uiScale),
+          paddingHorizontal: scaleDimension(8, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        manageBtn: {
+          marginLeft: scaleDimension(8, uiScale),
+        },
+        name: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '500',
+          marginHorizontal: scaleDimension(16, uiScale),
+        },
+        nameCtn: {
+          alignItems: 'center',
+          flex: 1,
+          flexDirection: 'row',
+          marginLeft: scaleDimension(8, uiScale),
+          paddingRight: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(4, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const {
     value: repositoryModalVisible,
@@ -55,14 +94,14 @@ const RepositoryCard: FC<RepositoryCardProps> = ({
           padding={0}
           theme={theme}
         />
-        <Text
+        <AppText
           style={[styles.name, { color: theme.onSurface }]}
           onPress={showRepositoryModal}
         >
           {`${repository.url.split('/')?.[3]}/${
             repository.url.split('/')?.[4]
           }`}
-        </Text>
+        </AppText>
       </View>
       <View style={styles.buttonsCtn}>
         <IconButtonV2
@@ -109,35 +148,3 @@ const RepositoryCard: FC<RepositoryCardProps> = ({
 };
 
 export default RepositoryCard;
-
-const styles = StyleSheet.create({
-  buttonsCtn: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  cardCtn: {
-    borderRadius: 12,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-    marginBottom: 8,
-    marginHorizontal: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  manageBtn: {
-    marginLeft: 8,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginHorizontal: 16,
-  },
-  nameCtn: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    marginLeft: 8,
-    paddingRight: 16,
-    paddingVertical: 4,
-  },
-});

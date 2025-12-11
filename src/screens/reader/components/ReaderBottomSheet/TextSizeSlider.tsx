@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import React from 'react';
+import AppText from '@components/AppText';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
 import Slider from '@react-native-community/slider';
@@ -14,9 +15,9 @@ const TextSizeSlider: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: theme.onSurfaceVariant }]}>
+      <AppText style={[styles.label, { color: theme.onSurfaceVariant }]}>
         {getString('readerScreen.bottomSheet.textSize')}
-      </Text>
+      </AppText>
       <Slider
         style={styles.slider}
         value={textSize}

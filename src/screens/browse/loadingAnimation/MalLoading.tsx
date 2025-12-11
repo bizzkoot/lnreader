@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Dimensions, StyleSheet } from 'react-native';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,15 +6,19 @@ import { ThemeColors } from '@theme/types';
 
 import useLoadingColors from '@utils/useLoadingColors';
 import { useAppSettings } from '@hooks/persisted/index';
+import { scaleDimension } from '@theme/scaling';
 
 interface Props {
   theme: ThemeColors;
 }
 
 const MalLoading: React.FC<Props> = ({ theme }) => {
-  const { disableLoadingAnimations } = useAppSettings();
+  const { disableLoadingAnimations, uiScale = 1.0 } = useAppSettings();
   const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
-  const styles = createStyleSheet(theme);
+  const styles = useMemo(
+    () => createStyleSheet(theme, uiScale),
+    [theme, uiScale],
+  );
 
   const [highlightColor, backgroundColor] = useLoadingColors(theme);
 
@@ -61,7 +65,7 @@ const MalLoading: React.FC<Props> = ({ theme }) => {
   return <View style={styles.container}>{items.map(renderLoadingRect)}</View>;
 };
 
-const createStyleSheet = (theme: ThemeColors) => {
+const createStyleSheet = (theme: ThemeColors, uiScale: number) => {
   return StyleSheet.create({
     container: {
       backgroundColor: 'transparent',
@@ -81,9 +85,9 @@ const createStyleSheet = (theme: ThemeColors) => {
       overflow: 'hidden',
     },
     loadingText: {
-      height: 10,
-      margin: 10,
-      width: Dimensions.get('window').width - 140,
+      height: scaleDimension(10, uiScale),
+      margin: scaleDimension(10, uiScale),
+      width: Dimensions.get('window').width - scaleDimension(140, uiScale),
     },
     text: {
       borderRadius: 8,

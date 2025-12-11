@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { StyleSheet, FlatList, Text, View, FlatListProps } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { StyleSheet, FlatList, View, FlatListProps } from 'react-native';
 import { Portal } from 'react-native-paper';
+import AppText from '@components/AppText';
 import GlobalSearchNovelCover from '../globalsearch/GlobalSearchNovelCover';
 
 import { showToast } from '@utils/showToast';
@@ -12,6 +13,8 @@ import { ThemeColors } from '@theme/types';
 import { SourceSearchResult } from './MigrationNovels';
 import { NovelItem } from '@plugins/types';
 import ServiceManager from '@services/ServiceManager';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface MigrationNovelListProps {
   data: SourceSearchResult;
@@ -33,7 +36,29 @@ const MigrationNovelList = ({
   library,
   navigation,
 }: MigrationNovelListProps) => {
+  const { uiScale } = useAppSettings();
   const pluginId = data.id;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        flatListCont: {
+          flexGrow: 1,
+          paddingHorizontal: 4,
+          paddingVertical: 8,
+        },
+        row: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+        },
+        text: {
+          fontSize: scaleDimension(18, uiScale),
+          marginBottom: 16,
+        },
+        padding: { padding: 8, paddingVertical: 4 },
+      }),
+    [uiScale],
+  );
   const [selectedNovel, setSelectedNovel] = useState<SelectedNovel>(
     {} as SelectedNovel,
   );
@@ -77,7 +102,7 @@ const MigrationNovelList = ({
         keyExtractor={(item, index) => index + item.path}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurfaceVariant,
@@ -86,12 +111,12 @@ const MigrationNovelList = ({
             ]}
           >
             {getString('sourceScreen.noResultsFound')}
-          </Text>
+          </AppText>
         }
       />
       <Portal>
         <Modal visible={migrateNovelDialog} onDismiss={hideMigrateNovelDialog}>
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurface,
@@ -102,7 +127,7 @@ const MigrationNovelList = ({
             {getString('browseScreen.migration.dialogMessage', {
               url: selectedNovel.name,
             })}
-          </Text>
+          </AppText>
           <View style={styles.row}>
             <Button
               onPress={hideMigrateNovelDialog}
@@ -130,20 +155,3 @@ const MigrationNovelList = ({
 };
 
 export default MigrationNovelList;
-
-const styles = StyleSheet.create({
-  flatListCont: {
-    flexGrow: 1,
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  text: {
-    fontSize: 18,
-    marginBottom: 16,
-  },
-  padding: { padding: 8, paddingVertical: 4 },
-});

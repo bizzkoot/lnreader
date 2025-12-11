@@ -1,11 +1,14 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { getString } from '@strings/translations';
 
 import { Dialog, Portal } from 'react-native-paper';
 import { ThemeColors } from '../../theme/types';
 import Button from '../Button/Button';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface ConfirmationDialogProps {
   title?: string;
@@ -24,6 +27,27 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   theme,
   onSubmit,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        buttonCtn: {
+          flexDirection: 'row-reverse',
+          padding: scaleDimension(16, uiScale),
+        },
+        container: {
+          borderRadius: scaleDimension(28, uiScale),
+          shadowColor: 'transparent',
+        },
+        content: {
+          fontSize: scaleDimension(16, uiScale),
+          letterSpacing: 0,
+        },
+      }),
+    [uiScale],
+  );
+
   const handleOnSubmit = () => {
     onSubmit();
     onDismiss();
@@ -39,9 +63,9 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         <Dialog.Title style={{ color: theme.onSurface }}>{title}</Dialog.Title>
         {message ? (
           <Dialog.Content>
-            <Text style={[styles.content, { color: theme.onSurface }]}>
+            <AppText style={[styles.content, { color: theme.onSurface }]}>
               {message}
-            </Text>
+            </AppText>
           </Dialog.Content>
         ) : null}
         <View style={styles.buttonCtn}>
@@ -54,18 +78,3 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 };
 
 export default ConfirmationDialog;
-
-const styles = StyleSheet.create({
-  buttonCtn: {
-    flexDirection: 'row-reverse',
-    padding: 16,
-  },
-  container: {
-    borderRadius: 28,
-    shadowColor: 'transparent',
-  },
-  content: {
-    fontSize: 16,
-    letterSpacing: 0,
-  },
-});

@@ -9,6 +9,7 @@ import Animated, {
   useDerivedValue,
 } from 'react-native-reanimated';
 import { useTheme } from '@hooks/persisted';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface SwitchProps {
   value: boolean;
@@ -17,19 +18,23 @@ interface SwitchProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const Switch = ({ value, size = 22, onValueChange, style }: SwitchProps) => {
+const Switch = ({ value, size, onValueChange, style }: SwitchProps) => {
   const theme = useTheme();
+  const scaledDimensions = useScaledDimensions();
+
+  // Use scaled icon size as default
+  const switchSize = size ?? scaledDimensions.iconSize.md - 2;
   // Value for Switch Animation
-  // const switchTranslate = useSharedValue(value ? size : size / 6);
+  // const switchTranslate = useSharedValue(value ? switchSize : switchSize / 6);
 
   // Background color animation progress
-  const progress = useSharedValue(value ? size : 0);
+  const progress = useSharedValue(value ? switchSize : 0);
 
   // Animate switch movement
   const customSpringStyles = useAnimatedStyle(() => ({
     transform: [
       {
-        translateX: withSpring(value ? size : size / 6, {
+        translateX: withSpring(value ? switchSize : switchSize / 6, {
           mass: 1,
           damping: 15,
           stiffness: 120,
@@ -44,7 +49,7 @@ const Switch = ({ value, size = 22, onValueChange, style }: SwitchProps) => {
     () =>
       interpolateColor(
         progress.value,
-        [0, size],
+        [0, switchSize],
         [theme.outline, theme.primary],
       ),
     [value],
@@ -55,8 +60,8 @@ const Switch = ({ value, size = 22, onValueChange, style }: SwitchProps) => {
   }));
 
   useEffect(() => {
-    progress.value = withTiming(value ? size : 0);
-  }, [progress, size, value]);
+    progress.value = withTiming(value ? switchSize : 0);
+  }, [progress, switchSize, value]);
 
   return (
     <Pressable onPress={onValueChange}>
@@ -65,9 +70,9 @@ const Switch = ({ value, size = 22, onValueChange, style }: SwitchProps) => {
           styles.container,
           style,
           {
-            width: size * 2 + size / 6,
-            height: size + size / 3,
-            borderRadius: size,
+            width: switchSize * 2 + switchSize / 6,
+            height: switchSize + switchSize / 3,
+            borderRadius: switchSize,
           },
           backgroundColorStyle,
         ]}
@@ -76,7 +81,7 @@ const Switch = ({ value, size = 22, onValueChange, style }: SwitchProps) => {
           style={[
             styles.circle,
             customSpringStyles,
-            { height: size, width: size, borderRadius: size },
+            { height: switchSize, width: switchSize, borderRadius: switchSize },
           ]}
         />
       </Animated.View>

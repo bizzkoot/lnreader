@@ -1,7 +1,10 @@
 import { ThemeColors } from '@theme/types';
-import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@components/AppText';
 import { RadioButton as MaterialRadioButton } from 'react-native-paper';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface RadioButtonGroupProps {
   children?: React.ReactNode;
@@ -34,29 +37,41 @@ export const RadioButton = ({
   label,
   theme,
   labelStyle,
-}: RadioButtonProps) => (
-  <View style={styles.radioButtonContainer}>
-    <MaterialRadioButton
-      value={String(value)}
-      color={theme.primary}
-      uncheckedColor={theme.onSurfaceVariant}
-    />
-    <Text
-      style={[styles.radioButtonLabel, { color: theme.onSurface }, labelStyle]}
-    >
-      {label}
-    </Text>
-  </View>
-);
+}: RadioButtonProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
 
-const styles = StyleSheet.create({
-  radioButtonContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingVertical: 8,
-  },
-  radioButtonLabel: {
-    fontSize: 16,
-    marginLeft: 16,
-  },
-});
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        radioButtonContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        radioButtonLabel: {
+          fontSize: scaleDimension(16, uiScale),
+          marginLeft: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <View style={styles.radioButtonContainer}>
+      <MaterialRadioButton
+        value={String(value)}
+        color={theme.primary}
+        uncheckedColor={theme.onSurfaceVariant}
+      />
+      <Text
+        style={[
+          styles.radioButtonLabel,
+          { color: theme.onSurface },
+          labelStyle,
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+};

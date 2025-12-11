@@ -4,11 +4,17 @@ import { Voice } from 'expo-speech';
 import { Portal, TextInput, ActivityIndicator } from 'react-native-paper';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 
-import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
+import {
+  useChapterReaderSettings,
+  useTheme,
+  useAppSettings,
+} from '@hooks/persisted';
 import { TTSVoice } from '@services/TTSHighlight';
+import { scaleDimension } from '@theme/scaling';
 import { LegendList } from '@legendapp/list';
 import { Modal } from '@components';
 import { StyleSheet } from 'react-native';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface VoicePickerModalProps {
   visible: boolean;
@@ -24,9 +30,24 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   onVoiceSelect,
 }) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
   const [searchedVoices, setSearchedVoices] = useState<TTSVoice[]>([]);
   const [searchText, setSearchText] = useState('');
   const { setChapterReaderSettings, tts } = useChapterReaderSettings();
+
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        containerStyle: {
+          flex: 1,
+        },
+        paddingHorizontal: { paddingHorizontal: scaleDimension(12, uiScale) },
+        marginTop: { marginTop: scaleDimension(16, uiScale) },
+      }),
+    [uiScale],
+  );
 
   return (
     <Portal>
@@ -54,6 +75,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
               }}
               value={searchText}
               placeholder="Search voice"
+              style={{ fontSize: scaleDimension(16, uiScale) }}
             />
           }
           ListHeaderComponentStyle={styles.paddingHorizontal}
@@ -71,15 +93,16 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
               }}
               label={item.name}
               theme={theme}
+              labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
             />
           )}
           keyExtractor={(item, index) =>
             item.identifier || `voice_${index}_${item.name}`
           }
-          estimatedItemSize={64}
+          estimatedItemSize={scaleDimension(64, uiScale)}
           ListEmptyComponent={
             <ActivityIndicator
-              size={24}
+              size={iconSize.md}
               style={styles.marginTop}
               color={theme.primary}
             />
@@ -91,11 +114,3 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
 };
 
 export default VoicePickerModal;
-
-const styles = StyleSheet.create({
-  containerStyle: {
-    flex: 1,
-  },
-  paddingHorizontal: { paddingHorizontal: 12 },
-  marginTop: { marginTop: 16 },
-});

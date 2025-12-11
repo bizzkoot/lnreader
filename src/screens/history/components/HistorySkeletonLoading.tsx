@@ -1,19 +1,21 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeColors } from '@theme/types';
 import useLoadingColors from '@utils/useLoadingColors';
 import { useAppSettings } from '@hooks/persisted/index';
+import { scaleDimension } from '@theme/scaling';
 
 interface Props {
   theme: ThemeColors;
 }
 
 const HistorySkeletonLoading: React.FC<Props> = ({ theme }) => {
-  const { disableLoadingAnimations } = useAppSettings();
+  const { disableLoadingAnimations, uiScale = 1.0 } = useAppSettings();
   const ShimmerPlaceHolder = createShimmerPlaceholder(LinearGradient);
   const [highlightColor, backgroundColor] = useLoadingColors(theme);
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
   const renderLoadingChapter = (index: number) => (
     <View key={`historyLoading${index}`}>
@@ -71,44 +73,45 @@ const HistorySkeletonLoading: React.FC<Props> = ({ theme }) => {
   return <View>{items.map((_, index) => renderLoadingChapter(index))}</View>;
 };
 
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: 12.5,
-  },
-  buttonCtn: {
-    alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  chapterCtn: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginVertical: 8,
-  },
-  contentCtn: {
-    paddingVertical: 8,
-  },
-  date: {
-    borderRadius: 6,
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  picture: {
-    borderRadius: 4,
-    height: 80,
-    marginHorizontal: 16,
-    width: 56,
-  },
-  text: {
-    borderRadius: 6,
-    marginBottom: 4,
-  },
-  textCtn: {
-    borderRadius: 6,
-    marginBottom: 2,
-    marginTop: 5,
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    button: {
+      borderRadius: 12.5,
+    },
+    buttonCtn: {
+      alignItems: 'center',
+      height: scaleDimension(40, uiScale),
+      justifyContent: 'center',
+      width: scaleDimension(40, uiScale),
+    },
+    chapterCtn: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      marginVertical: 8,
+    },
+    contentCtn: {
+      paddingVertical: 8,
+    },
+    date: {
+      borderRadius: 6,
+      marginHorizontal: 16,
+      marginVertical: 8,
+    },
+    picture: {
+      borderRadius: 4,
+      height: scaleDimension(80, uiScale),
+      marginHorizontal: scaleDimension(16, uiScale),
+      width: scaleDimension(56, uiScale),
+    },
+    text: {
+      borderRadius: 6,
+      marginBottom: 4,
+    },
+    textCtn: {
+      borderRadius: 6,
+      marginBottom: 2,
+      marginTop: 5,
+    },
+  });
 
 export default memo(HistorySkeletonLoading);

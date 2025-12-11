@@ -1,8 +1,11 @@
 import { PluginItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { TouchableRipple } from 'react-native-paper';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface MigrationSourceCardProps {
   item: PluginItem;
@@ -18,6 +21,35 @@ const MigrationSourceCard = ({
   onPress,
 }: MigrationSourceCardProps) => {
   const { name, iconUrl, lang } = item;
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        cardContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          marginVertical: 4,
+          paddingHorizontal: 20,
+          paddingVertical: 8,
+        },
+        sourceDetailsContainer: {
+          alignItems: 'center',
+          flex: 1,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginLeft: 16,
+        },
+        sourceIcon: {
+          borderRadius: 4,
+          height: scaleDimension(40, uiScale),
+          width: scaleDimension(40, uiScale),
+        },
+        fontSize14: { fontSize: scaleDimension(14, uiScale) },
+        fontSize12: { fontSize: scaleDimension(12, uiScale) },
+      }),
+    [uiScale],
+  );
 
   return (
     <TouchableRipple
@@ -28,7 +60,7 @@ const MigrationSourceCard = ({
       <>
         <Image source={{ uri: iconUrl }} style={styles.sourceIcon} />
         <View style={styles.sourceDetailsContainer}>
-          <Text
+          <AppText
             style={[
               {
                 color: theme.onSurface,
@@ -37,8 +69,8 @@ const MigrationSourceCard = ({
             ]}
           >
             {name} {` (${noOfNovels || 0})`}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             style={[
               {
                 color: theme.onSurfaceVariant,
@@ -47,7 +79,7 @@ const MigrationSourceCard = ({
             ]}
           >
             {lang}
-          </Text>
+          </AppText>
         </View>
       </>
     </TouchableRipple>
@@ -55,27 +87,3 @@ const MigrationSourceCard = ({
 };
 
 export default MigrationSourceCard;
-
-const styles = StyleSheet.create({
-  cardContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginVertical: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  sourceDetailsContainer: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginLeft: 16,
-  },
-  sourceIcon: {
-    borderRadius: 4,
-    height: 40,
-    width: 40,
-  },
-  fontSize14: { fontSize: 14 },
-  fontSize12: { fontSize: 12 },
-});

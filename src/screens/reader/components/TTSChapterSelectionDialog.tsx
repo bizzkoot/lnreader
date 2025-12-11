@@ -4,6 +4,8 @@ import { Dialog, Portal, Text, TouchableRipple } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
 import { useBackHandler } from '@hooks/index';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface TTSChapterSelectionDialogProps {
   visible: boolean;
@@ -30,6 +32,56 @@ const TTSChapterSelectionDialog: React.FC<TTSChapterSelectionDialogProps> = ({
   onSelectChapter,
   onDismiss,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: scaleDimension(28, uiScale),
+          maxHeight: '80%', // Ensure it doesn't overflow screen
+        },
+        message: {
+          fontSize: scaleDimension(16, uiScale),
+          marginBottom: scaleDimension(12, uiScale),
+        },
+        warning: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: scaleDimension(12, uiScale),
+          fontWeight: 'bold',
+        },
+        scrollContainer: {
+          maxHeight: scaleDimension(400, uiScale), // Limit internal scroll height
+        },
+        optionsContainer: {
+          gap: scaleDimension(12, uiScale),
+          paddingBottom: scaleDimension(8, uiScale),
+        },
+        optionButton: {
+          borderWidth: 1,
+          borderRadius: scaleDimension(12, uiScale),
+          padding: scaleDimension(16, uiScale),
+        },
+        optionContent: {
+          flexDirection: 'column',
+        },
+        optionTitle: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: 'bold',
+          marginBottom: scaleDimension(4, uiScale),
+        },
+        optionSubtitle: {
+          fontSize: scaleDimension(14, uiScale),
+        },
+        divider: {
+          height: 1,
+          width: '100%',
+          marginVertical: scaleDimension(4, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   // Handle Android back button
   useBackHandler(() => {
     if (visible) {
@@ -143,47 +195,3 @@ const TTSChapterSelectionDialog: React.FC<TTSChapterSelectionDialogProps> = ({
 };
 
 export default TTSChapterSelectionDialog;
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 28,
-    maxHeight: '80%', // Ensure it doesn't overflow screen
-  },
-  message: {
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  warning: {
-    fontSize: 14,
-    marginBottom: 12,
-    fontWeight: 'bold',
-  },
-  scrollContainer: {
-    maxHeight: 400, // Limit internal scroll height
-  },
-  optionsContainer: {
-    gap: 12,
-    paddingBottom: 8,
-  },
-  optionButton: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-  },
-  optionContent: {
-    flexDirection: 'column',
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  optionSubtitle: {
-    fontSize: 14,
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginVertical: 4,
-  },
-});

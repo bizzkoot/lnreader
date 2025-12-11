@@ -66,7 +66,7 @@ public class TTSHighlightModule extends ReactContextBaseJavaModule {
                 params.putInt("start", start);
                 params.putInt("end", end);
                 params.putString("utteranceId", utteranceId);
-                
+
                 sendEvent("onWordRange", params);
             }
 
@@ -227,7 +227,6 @@ const styles = StyleSheet.create({
 });
 ```
 
-
 #### Option 2: Fork `react-native-tts`
 
 Fork the `ak1394/react-native-tts` repository and add `onRangeStart` support to the Android implementation [^1_6][^1_7]. This provides better long-term maintainability.
@@ -355,7 +354,6 @@ This MVP approach provides the core highlighting functionality while maintaining
 
 [^1_40]: https://github.com/mhpdev-com/react-native-speech
 
-
 ---
 
 # MVP Feature Specification: Synchronized TTS Word Highlighting for LNReader
@@ -369,7 +367,7 @@ This feature enables real-time visual highlighting of text synchronized with Tex
 **Development Time**: 3-4 weeks
 **Priority**: High (addresses critical UX gap)
 
-***
+---
 
 ## Problem Statement
 
@@ -381,7 +379,7 @@ Currently, LNReader's TTS feature reads novel content without visual feedback, f
 - No way to verify pronunciation accuracy or identify mispronounced words
 - Reduced engagement compared to audiobook experiences with synchronized lyrics [^2_4]
 
-***
+---
 
 ## Solution Overview
 
@@ -389,26 +387,26 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 
 **Core Value Proposition**: Transform passive listening into active reading, improving comprehension by 30-40% for users with learning differences [^2_2][^2_11].
 
-***
+---
 
 ## Target Users
 
 ### Primary Personas
 
 1. **Accessibility Users** (40% of feature users)
-    - Users with dyslexia, ADHD, or visual impairments
-    - Need synchronized visual-audio feedback
-    - Rely on customizable highlight colors for readability [^2_1][^2_2]
+   - Users with dyslexia, ADHD, or visual impairments
+   - Need synchronized visual-audio feedback
+   - Rely on customizable highlight colors for readability [^2_1][^2_2]
 2. **Multitasking Readers** (35% of feature users)
-    - Read while commuting, exercising, or doing chores
-    - Want to glance at text occasionally to verify position
-    - Need reliable auto-scroll functionality [^2_3][^2_7]
+   - Read while commuting, exercising, or doing chores
+   - Want to glance at text occasionally to verify position
+   - Need reliable auto-scroll functionality [^2_3][^2_7]
 3. **Language Learners** (25% of feature users)
-    - Learning Japanese, Chinese, Korean, or English
-    - Need to connect pronunciation with written characters
-    - Benefit from slower TTS speeds with visual tracking [^2_1][^2_2]
+   - Learning Japanese, Chinese, Korean, or English
+   - Need to connect pronunciation with written characters
+   - Benefit from slower TTS speeds with visual tracking [^2_1][^2_2]
 
-***
+---
 
 ## User Stories
 
@@ -417,60 +415,58 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 **US-001**: As a reader, I want words to be highlighted as they're spoken so I can follow along visually
 
 - **Acceptance Criteria**:
-    - Active word/phrase shows with yellow background highlight
-    - Highlight updates in real-time (≤100ms latency)
-    - Works with device-based TTS voices
-    - Gracefully degrades if TTS engine doesn't support word-level callbacks
+  - Active word/phrase shows with yellow background highlight
+  - Highlight updates in real-time (≤100ms latency)
+  - Works with device-based TTS voices
+  - Gracefully degrades if TTS engine doesn't support word-level callbacks
 
 **US-002**: As a reader, I want the text to auto-scroll to keep the highlighted word visible so I don't have to manually scroll
 
 - **Acceptance Criteria**:
-    - Scrolls automatically to keep highlighted text in viewport center
-    - Smooth animation (300ms duration)
-    - Doesn't interfere with manual scrolling
-    - Pauses auto-scroll when user manually scrolls
+  - Scrolls automatically to keep highlighted text in viewport center
+  - Smooth animation (300ms duration)
+  - Doesn't interfere with manual scrolling
+  - Pauses auto-scroll when user manually scrolls
 
 **US-003**: As a reader, I want highlighting to work with my preferred TTS voice so I'm not limited to specific engines
 
 - **Acceptance Criteria**:
-    - Supports Google TTS engine voices (primary)
-    - Detects if selected voice supports word-level callbacks
-    - Shows warning message for unsupported engines
-    - Falls back to sentence-level highlighting if word-level unavailable
+  - Supports Google TTS engine voices (primary)
+  - Detects if selected voice supports word-level callbacks
+  - Shows warning message for unsupported engines
+  - Falls back to sentence-level highlighting if word-level unavailable
 
 **US-004**: As a user with accessibility needs, I want to customize highlight colors so I can optimize for my vision requirements
 
 - **Acceptance Criteria**:
-    - 5 preset color options (Yellow, Blue, Green, Pink, Orange)
-    - Adjustable highlight opacity (25%, 50%, 75%, 100%)
-    - Option for text color change instead of background
-    - Preview before applying settings
-
+  - 5 preset color options (Yellow, Blue, Green, Pink, Orange)
+  - Adjustable highlight opacity (25%, 50%, 75%, 100%)
+  - Option for text color change instead of background
+  - Preview before applying settings
 
 ### Should-Have (P1)
 
 **US-005**: As a reader, I want highlighting to pause when I pause TTS playback so the visual state matches audio state
 
 - **Acceptance Criteria**:
-    - Pause button freezes highlight on current word
-    - Resume continues from same position
-    - Stop button clears all highlighting
+  - Pause button freezes highlight on current word
+  - Resume continues from same position
+  - Stop button clears all highlighting
 
 **US-006**: As a language learner, I want to see highlighting work at slower TTS speeds so I can study pronunciation
 
 - **Acceptance Criteria**:
-    - Highlighting synchronized at 0.5x to 2.0x playback speeds
-    - No visual lag or desync at any speed
-    - Tested with speeds: 0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 2.0x
+  - Highlighting synchronized at 0.5x to 2.0x playback speeds
+  - No visual lag or desync at any speed
+  - Tested with speeds: 0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 2.0x
 
 **US-007**: As a power user, I want to toggle highlighting on/off without stopping TTS so I can switch between listening modes
 
 - **Acceptance Criteria**:
-    - Eye icon button in TTS player controls
-    - Toggles highlighting without interrupting playback
-    - Saves preference for next session
-    - Keyboard shortcut support
-
+  - Eye icon button in TTS player controls
+  - Toggles highlighting without interrupting playback
+  - Saves preference for next session
+  - Keyboard shortcut support
 
 ### Could-Have (P2) - Post-MVP
 
@@ -486,7 +482,7 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 
 - Tap highlighted text to save quote with timestamp
 
-***
+---
 
 ## Functional Requirements
 
@@ -497,73 +493,70 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 **FR-001**: Implement native Android module for `UtteranceProgressListener`
 
 - **Technical Details**:
-    - Create `TTSHighlightModule.java` in `/android/app/src/main/java/`
-    - Extend `ReactContextBaseJavaModule`
-    - Implement `onRangeStart()`, `onStart()`, `onDone()`, `onError()` callbacks
-    - Send events to React Native via `DeviceEventEmitter`
+  - Create `TTSHighlightModule.java` in `/android/app/src/main/java/`
+  - Extend `ReactContextBaseJavaModule`
+  - Implement `onRangeStart()`, `onStart()`, `onDone()`, `onError()` callbacks
+  - Send events to React Native via `DeviceEventEmitter`
 - **Dependencies**: Android API 26+, react-native-tts library [^2_12][^2_13]
 - **Data Flow**: TTS Engine → Native Module → Event Emitter → React Component → UI Update
 
 **FR-002**: React Native component for highlight rendering
 
 - **Technical Details**:
-    - Create `<TTSHighlightedText>` component
-    - Accept `content`, `highlightRange`, `highlightColor` props
-    - Split text into three segments: before, highlighted, after
-    - Apply `StyleSheet` based on user preferences
+  - Create `<TTSHighlightedText>` component
+  - Accept `content`, `highlightRange`, `highlightColor` props
+  - Split text into three segments: before, highlighted, after
+  - Apply `StyleSheet` based on user preferences
 - **Performance**: Re-render only on range change (memoization required)
 
 **FR-003**: Synchronization manager
 
 - **Technical Details**:
-    - Track current utterance ID and character ranges
-    - Handle multi-paragraph text splitting (max 5000 chars per utterance)
-    - Queue next utterance before current completes for seamless playback
-    - Resync if user manually changes chapter/page
+  - Track current utterance ID and character ranges
+  - Handle multi-paragraph text splitting (max 5000 chars per utterance)
+  - Queue next utterance before current completes for seamless playback
+  - Resync if user manually changes chapter/page
 - **Edge Cases**: Handle punctuation, emojis, special characters, line breaks
-
 
 #### 2. Auto-Scroll Mechanism
 
 **FR-004**: Implement smart auto-scroll with scroll conflict detection
 
 - **Technical Details**:
-    - Use `ScrollView.scrollTo()` with animated transition
-    - Calculate target scroll position: highlightedWord.y - (viewportHeight / 2)
-    - Detect manual scroll: if user scrolls > 100px, pause auto-scroll for 5 seconds
-    - Resume auto-scroll when highlight reaches viewport edge
+  - Use `ScrollView.scrollTo()` with animated transition
+  - Calculate target scroll position: highlightedWord.y - (viewportHeight / 2)
+  - Detect manual scroll: if user scrolls > 100px, pause auto-scroll for 5 seconds
+  - Resume auto-scroll when highlight reaches viewport edge
 - **Performance**: Debounce scroll events (16ms/60fps)
-
 
 #### 3. TTS Engine Compatibility Layer
 
 **FR-005**: Detect and validate TTS engine capabilities
 
 - **Technical Details**:
-    - Query available TTS engines on device initialization
-    - Test for `onRangeStart` support via feature detection
-    - Maintain allowlist: Google TTS (full support), Samsung TTS (partial), Others (fallback)
-    - Store engine compatibility in AsyncStorage cache
+  - Query available TTS engines on device initialization
+  - Test for `onRangeStart` support via feature detection
+  - Maintain allowlist: Google TTS (full support), Samsung TTS (partial), Others (fallback)
+  - Store engine compatibility in AsyncStorage cache
 - **Fallback Strategy**:
-    - **Tier 1**: Word-level highlighting (Google TTS)
-    - **Tier 2**: Sentence-level highlighting (estimate word timing)
-    - **Tier 3**: No highlighting (show notification)
-
+  - **Tier 1**: Word-level highlighting (Google TTS)
+  - **Tier 2**: Sentence-level highlighting (estimate word timing)
+  - **Tier 3**: No highlighting (show notification)
 
 #### 4. Settings \& Customization
 
 **FR-006**: User preference manager
 
 - **Settings Options**:
-    - Highlight color: Yellow, Blue, Green, Pink, Orange (default: Yellow)
-    - Highlight opacity: 25%, 50%, 75%, 100% (default: 75%)
-    - Highlight style: Background, Underline, Text color, Bold (default: Background)
-    - Auto-scroll: Enabled/Disabled (default: Enabled)
-    - Auto-scroll speed: Slow (500ms), Normal (300ms), Fast (150ms)
+  - Highlight color: Yellow, Blue, Green, Pink, Orange (default: Yellow)
+  - Highlight opacity: 25%, 50%, 75%, 100% (default: 75%)
+  - Highlight style: Background, Underline, Text color, Bold (default: Background)
+  - Auto-scroll: Enabled/Disabled (default: Enabled)
+  - Auto-scroll speed: Slow (500ms), Normal (300ms), Fast (150ms)
 - **Storage**: Save to AsyncStorage with versioning
 - **Validation**: Ensure color contrast meets WCAG AA standards [^2_14][^2_11]
 
-***
+---
 
 ## Non-Functional Requirements
 
@@ -587,7 +580,6 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 - **Measurement**: Android Battery Historian analysis
 - **Optimization**: Use requestAnimationFrame, avoid continuous polling
 
-
 ### Compatibility
 
 **NFR-004**: Android version support
@@ -610,7 +602,6 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 - **Tablets**: 7"+ (highlight more context around active word)
 - **Foldables**: Detect screen size changes, adjust scroll behavior
 
-
 ### Accessibility
 
 **NFR-007**: WCAG 2.1 Level AA compliance [^2_14][^2_11]
@@ -626,7 +617,6 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 - **Implementation**: Add accessibility labels to all UI controls
 - **Testing**: Manual testing with TalkBack enabled
 
-
 ### Security \& Privacy
 
 **NFR-009**: Data privacy
@@ -635,7 +625,7 @@ Implement synchronized word-level text highlighting that visually tracks TTS pla
 - **Implementation**: All processing happens on-device
 - **Validation**: Network traffic analysis confirms zero external calls
 
-***
+---
 
 ## Technical Architecture
 
@@ -665,7 +655,6 @@ src/
             └── TTSHighlightPackage.java # React Native registration
 ```
 
-
 ### Data Flow
 
 ```
@@ -678,7 +667,6 @@ src/
 7. Component re-renders → Apply highlight style
 8. ScrollController.scrollTo(highlightedWordPosition)
 ```
-
 
 ### State Management
 
@@ -695,7 +683,7 @@ src/
 - `ttsEngineCompatibility: EngineCapability[]`
 - `lastReadPosition: {chapterId: string, charIndex: number}`
 
-***
+---
 
 ## UI/UX Design Specifications
 
@@ -730,7 +718,6 @@ src/
 └─────────────────────────────────────┘
 ```
 
-
 ### Settings Modal
 
 **Highlighting Tab**:
@@ -754,17 +741,16 @@ src/
 - Fallback mode: None
 - [Change TTS Engine] button
 
-
 ### User Flows
 
 **First-Time Setup**:
 
 1. User opens chapter and taps TTS play button
 2. If Google TTS not default → Show one-time notification:
-> "For best highlighting experience, use Google Text-to-Speech. [Change Engine] [Continue Anyway]"
+   > "For best highlighting experience, use Google Text-to-Speech. [Change Engine] [Continue Anyway]"
 3. Highlighting starts automatically (default enabled)
 4. After 10 seconds → Show tooltip pointing to eye icon:
-> "Tap to customize or disable highlighting"
+   > "Tap to customize or disable highlighting"
 
 **Typical Usage**:
 
@@ -781,7 +767,7 @@ src/
 - **TTS initialization failure**: Retry 3 times, show error message
 - **Out of sync**: Detect desync >2 seconds, force resync from current position
 
-***
+---
 
 ## Success Metrics
 
@@ -802,7 +788,6 @@ src/
 - **Target**: 40% of users with accessibility settings enabled use highlighting
 - **Measurement**: Cross-reference accessibility flags with feature usage
 
-
 ### Secondary Metrics
 
 **Performance**:
@@ -817,32 +802,32 @@ src/
 - Support tickets: <5% mention highlighting issues
 - Retention: +10% 7-day retention for highlighting users vs. non-users
 
-***
+---
 
 ## Out of Scope (Post-MVP)
 
 ### Explicitly Excluded
 
 1. **Multiple highlight colors simultaneously** (e.g., sentence + word)
-    - Reason: Adds UI complexity, minimal user value
-    - Future: Version 1.2
+   - Reason: Adds UI complexity, minimal user value
+   - Future: Version 1.2
 2. **Custom highlight animations** (fade in/out, slide, etc.)
-    - Reason: Performance concerns, accessibility issues
-    - Future: Only if user-requested
+   - Reason: Performance concerns, accessibility issues
+   - Future: Only if user-requested
 3. **Cloud-based TTS highlighting** (OpenAI, Azure, Google Cloud)
-    - Reason: Network latency, privacy concerns, API costs [^2_1]
-    - Future: Version 2.0 with opt-in
+   - Reason: Network latency, privacy concerns, API costs [^2_1]
+   - Future: Version 2.0 with opt-in
 4. **OCR integration** (highlight text in images)
-    - Reason: Out of scope for TTS feature
-    - Future: Separate feature request
+   - Reason: Out of scope for TTS feature
+   - Future: Separate feature request
 5. **Lyrics-style synchronized timestamps** (export/import .lrc files) [^2_4]
-    - Reason: Complexity vs. benefit, limited use case
-    - Future: Community plugin system
+   - Reason: Complexity vs. benefit, limited use case
+   - Future: Community plugin system
 6. **Multi-voice highlighting** (different colors per character in dialogue)
-    - Reason: Requires NLP, high development cost
-    - Future: AI-powered feature set
+   - Reason: Requires NLP, high development cost
+   - Future: AI-powered feature set
 
-***
+---
 
 ## Implementation Phases
 
@@ -862,7 +847,6 @@ src/
 - Works with Google TTS engine
 - No crashes on Android 8-14
 
-
 ### Phase 2: Auto-Scroll \& UX (Week 2-3)
 
 **Deliverables**:
@@ -878,7 +862,6 @@ src/
 - Text scrolls smoothly to keep highlight visible
 - Manual scroll pauses auto-scroll temporarily
 - Settings save and restore correctly
-
 
 ### Phase 3: Customization \& Polish (Week 3-4)
 
@@ -898,7 +881,6 @@ src/
 - Passes accessibility audit
 - User documentation complete
 
-
 ### Phase 4: Testing \& Release (Week 4)
 
 **Deliverables**:
@@ -916,7 +898,7 @@ src/
 - Beta user satisfaction ≥4.5/5
 - Ready for production release
 
-***
+---
 
 ## Testing Requirements
 
@@ -936,7 +918,6 @@ src/
 - ✓ Re-renders only when range changes (performance)
 - ✓ Handles empty/null content gracefully
 
-
 ### Integration Tests
 
 **End-to-End Flows**:
@@ -946,18 +927,17 @@ src/
 - ✓ Switch TTS engines → Detect compatibility → Show appropriate UI
 - ✓ Manual scroll during playback → Auto-scroll pauses → Resumes after delay
 
-
 ### Device Testing Matrix
 
-| Device Model | Android Version | Screen Size | TTS Engine | Priority |
-| :-- | :-- | :-- | :-- | :-- |
-| Pixel 8 Pro | 14 | 6.7" 1440p | Google | P0 |
-| Samsung S23 | 13 | 6.1" 1080p | Samsung | P0 |
-| OnePlus 11 | 13 | 6.7" 1440p | Google | P1 |
-| Xiaomi 13 | 12 | 6.36" 1080p | Google | P1 |
-| Moto G Power | 11 | 6.5" 720p | Google | P1 |
-| Galaxy Tab S8 | 13 | 11" 1600p | Samsung | P2 |
-| Budget Phone | 9 | 5.5" 720p | Google | P2 |
+| Device Model  | Android Version | Screen Size | TTS Engine | Priority |
+| :------------ | :-------------- | :---------- | :--------- | :------- |
+| Pixel 8 Pro   | 14              | 6.7" 1440p  | Google     | P0       |
+| Samsung S23   | 13              | 6.1" 1080p  | Samsung    | P0       |
+| OnePlus 11    | 13              | 6.7" 1440p  | Google     | P1       |
+| Xiaomi 13     | 12              | 6.36" 1080p | Google     | P1       |
+| Moto G Power  | 11              | 6.5" 720p   | Google     | P1       |
+| Galaxy Tab S8 | 13              | 11" 1600p   | Samsung    | P2       |
+| Budget Phone  | 9               | 5.5" 720p   | Google     | P2       |
 
 ### Accessibility Testing
 
@@ -975,7 +955,7 @@ src/
 - ✓ Contrast checker: All combinations ≥4.5:1 ratio
 - ✓ Screen reader compatibility: Tested with TalkBack
 
-***
+---
 
 ## Risk Assessment
 
@@ -999,7 +979,6 @@ src/
 - **Likelihood**: Medium
 - **Mitigation**: Implement resync mechanism every 5 minutes, allow manual resync button
 
-
 ### Medium-Risk Items
 
 **RISK-004**: User confusion about feature availability
@@ -1014,7 +993,7 @@ src/
 - **Likelihood**: Low
 - **Mitigation**: Optimize battery usage, provide battery impact metrics in settings
 
-***
+---
 
 ## Dependencies \& Assumptions
 
@@ -1026,13 +1005,11 @@ src/
 - TypeScript 4.9+
 - Jest + React Native Testing Library
 
-
 ### External Dependencies
 
 - Google Text-to-Speech engine availability on user devices
 - Android TTS API stability across OS versions
 - React Native bridge performance for real-time events
-
 
 ### Assumptions
 
@@ -1042,7 +1019,7 @@ src/
 4. **Users read in landscape or portrait**: Both orientations supported equally
 5. **Chapter lengths are reasonable**: Most chapters <50,000 characters
 
-***
+---
 
 ## Launch Plan
 
@@ -1061,7 +1038,6 @@ src/
 - ≥40 users test the feature
 - ≥4.0/5 satisfaction rating
 - <5 critical bugs reported
-
 
 ### Production Release (Week 4)
 
@@ -1085,22 +1061,22 @@ src/
 - If critical bug discovered, disable feature via remote config
 - Hotfix release within 24 hours for P0 bugs
 
-***
+---
 
 ## Documentation Requirements
 
 ### User Documentation
 
 1. **Feature Guide**: "How to Use TTS Word Highlighting"
-    - What is highlighting and why use it
-    - How to enable/disable
-    - Customization options
-    - Troubleshooting common issues
+   - What is highlighting and why use it
+   - How to enable/disable
+   - Customization options
+   - Troubleshooting common issues
 2. **Settings Reference**: Complete guide to all highlight settings
 3. **FAQ**:
-    - Why doesn't highlighting work with my TTS voice?
-    - How do I improve synchronization accuracy?
-    - Does highlighting drain battery?
+   - Why doesn't highlighting work with my TTS voice?
+   - How do I improve synchronization accuracy?
+   - Does highlighting drain battery?
 
 ### Developer Documentation
 
@@ -1109,7 +1085,7 @@ src/
 3. **Testing Guide**: How to run tests, device testing matrix
 4. **Contribution Guidelines**: How to add support for new TTS engines
 
-***
+---
 
 ## Post-MVP Roadmap
 
@@ -1119,13 +1095,11 @@ src/
 - Export highlighted quotes
 - Reading statistics (words per minute)
 
-
 ### Version 1.2 (Month 3-4)
 
 - Multi-color highlighting (sentence + word)
 - Custom color picker (full spectrum)
 - Highlighting presets (Dyslexia mode, High contrast, etc.)
-
 
 ### Version 2.0 (Month 6)
 
@@ -1134,7 +1108,7 @@ src/
 - Synchronized reading across devices
 - Community highlight sharing
 
-***
+---
 
 This MVP specification provides a complete roadmap for implementing synchronized TTS word highlighting in LNReader, ensuring the feature is accessible, performant, and user-friendly across diverse Android devices and TTS engines [^2_5][^2_16][^2_17][^2_18].
 <span style="display:none">[^2_19][^2_20][^2_21][^2_22][^2_23][^2_24][^2_25][^2_26][^2_27]</span>
@@ -1194,4 +1168,3 @@ This MVP specification provides a complete roadmap for implementing synchronized
 [^2_26]: https://www.netz-barrierefrei.de/en/text-to-speech.html
 
 [^2_27]: https://onlinelibrary.wiley.com/doi/10.1155/2013/713589
-

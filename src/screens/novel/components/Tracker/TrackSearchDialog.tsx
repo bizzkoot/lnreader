@@ -1,16 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { TextInput, TouchableRipple } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { Button, Modal } from '@components';
-import { getTracker, useTheme } from '@hooks/persisted';
+import { getTracker, useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { SearchResult } from '@services/Trackers';
 import { TrackSearchDialogProps } from './types';
 import { showToast } from '@utils/showToast';
 import { getErrorMessage } from '@utils/error';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
   tracker,
@@ -20,6 +23,58 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
   novelName,
 }) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
+  const { uiScale } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        actionButtons: {
+          flexDirection: 'row',
+        },
+        buttonContainer: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginTop: 30,
+        },
+        checkIcon: {
+          position: 'absolute',
+          right: 8,
+          top: 8,
+          zIndex: 1,
+        },
+        coverImage: {
+          borderRadius: 4,
+          height: scaleDimension(150, uiScale),
+          width: scaleDimension(100, uiScale),
+        },
+        loader: {
+          margin: scaleDimension(16, uiScale),
+        },
+        resultText: {
+          flex: 1,
+          flexWrap: 'wrap',
+          fontSize: scaleDimension(16, uiScale),
+          marginLeft: scaleDimension(20, uiScale),
+          padding: scaleDimension(8, uiScale),
+          paddingLeft: 0,
+        },
+        scrollView: {
+          flexGrow: 1,
+          marginVertical: 8,
+          maxHeight: 500,
+        },
+        searchResultCard: {
+          borderRadius: 4,
+          flexDirection: 'row',
+          margin: scaleDimension(8, uiScale),
+        },
+        textInput: {
+          backgroundColor: 'transparent',
+        },
+      }),
+    [uiScale],
+  );
   const [loading, setLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchText, setSearchText] = useState(novelName);
@@ -90,7 +145,7 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
               <MaterialCommunityIcons
                 name="check-circle"
                 color={theme.primary}
-                size={24}
+                size={iconSize.md}
                 style={styles.checkIcon}
               />
             )}
@@ -98,17 +153,17 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
               source={{ uri: item.coverImage }}
               style={styles.coverImage}
             />
-            <Text
+            <AppText
               style={[styles.resultText, { color: theme.onSurface }]}
               numberOfLines={3}
             >
               {item.title}
-            </Text>
+            </AppText>
           </>
         </TouchableRipple>
       );
     },
-    [handleSelectNovel, selectedNovel, theme],
+    [handleSelectNovel, selectedNovel, theme, iconSize.md],
   );
 
   return (
@@ -138,7 +193,7 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
         {loading ? (
           <ActivityIndicator
             color={theme.primary}
-            size={45}
+            size={iconSize.xl}
             style={styles.loader}
           />
         ) : (
@@ -159,49 +214,3 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
 };
 
 export default TrackSearchDialog;
-
-const styles = StyleSheet.create({
-  actionButtons: {
-    flexDirection: 'row',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 30,
-  },
-  checkIcon: {
-    position: 'absolute',
-    right: 8,
-    top: 8,
-    zIndex: 1,
-  },
-  coverImage: {
-    borderRadius: 4,
-    height: 150,
-    width: 100,
-  },
-  loader: {
-    margin: 16,
-  },
-  resultText: {
-    flex: 1,
-    flexWrap: 'wrap',
-    fontSize: 16,
-    marginLeft: 20,
-    padding: 8,
-    paddingLeft: 0,
-  },
-  scrollView: {
-    flexGrow: 1,
-    marginVertical: 8,
-    maxHeight: 500,
-  },
-  searchResultCard: {
-    borderRadius: 4,
-    flexDirection: 'row',
-    margin: 8,
-  },
-  textInput: {
-    backgroundColor: 'transparent',
-  },
-});

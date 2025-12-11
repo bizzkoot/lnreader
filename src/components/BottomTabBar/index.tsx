@@ -1,10 +1,12 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Animated from 'react-native-reanimated';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted';
 
 interface CustomBottomTabBarProps extends BottomTabBarProps {
   theme: ThemeColors;
@@ -27,6 +29,14 @@ function CustomBottomTabBar({
   showLabelsInNav,
   renderIcon,
 }: CustomBottomTabBarProps) {
+  const scaledDimensions = useScaledDimensions();
+  const { padding, margin, iconSize, borderRadius } = scaledDimensions;
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () => getStyles(padding, margin, iconSize, borderRadius, uiScale),
+    [padding, margin, iconSize, borderRadius, uiScale],
+  );
   const getLabelText = useCallback(
     (route: any) => {
       if (!showLabelsInNav && route.name !== state.routeNames[state.index]) {
@@ -38,8 +48,8 @@ function CustomBottomTabBar({
         typeof options.tabBarLabel === 'string'
           ? options.tabBarLabel
           : typeof options.title === 'string'
-          ? options.title
-          : route.name;
+            ? options.title
+            : route.name;
 
       return label;
     },
@@ -99,8 +109,8 @@ function CustomBottomTabBar({
                   transitionProperty: ['width', 'backgroundColor'],
                   transitionDuration: 250,
                   transitionTimingFunction: 'ease-in-out',
-                  marginBottom: showLabel ? 4 : 20,
-                  width: isFocused ? 52 : 32,
+                  marginBottom: showLabel ? margin.xs : margin.lg - 4,
+                  width: isFocused ? iconSize.lg + 20 : iconSize.lg,
                   backgroundColor: isFocused
                     ? theme.primaryContainer
                     : 'transparent',
@@ -135,31 +145,38 @@ function CustomBottomTabBar({
 export default CustomBottomTabBar;
 export type { CustomBottomTabBarProps };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-    minHeight: 80,
-  },
-  pressable: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    position: 'relative',
-  },
-  iconContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 2,
-    borderRadius: 24,
-  },
-  label: {
-    height: 16,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-});
+const getStyles = (
+  padding: ReturnType<typeof useScaledDimensions>['padding'],
+  margin: ReturnType<typeof useScaledDimensions>['margin'],
+  iconSize: ReturnType<typeof useScaledDimensions>['iconSize'],
+  borderRadius: ReturnType<typeof useScaledDimensions>['borderRadius'],
+  uiScale: number,
+) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      paddingVertical: padding.xs,
+      paddingHorizontal: 0,
+      minHeight: iconSize.xl + iconSize.lg,
+    },
+    pressable: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: padding.xs + 2,
+      paddingHorizontal: padding.xs,
+      position: 'relative',
+    },
+    iconContainer: {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: padding.xs / 2,
+      borderRadius: borderRadius.lg + 8,
+    },
+    label: {
+      fontSize: Math.round(12 * uiScale),
+      lineHeight: Math.round(16 * uiScale),
+      textAlign: 'center',
+    },
+  });

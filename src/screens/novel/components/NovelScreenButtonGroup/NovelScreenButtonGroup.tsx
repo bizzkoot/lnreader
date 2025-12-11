@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { NovelInfo } from '@database/types';
@@ -9,9 +9,12 @@ import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
 import SetCategoryModal from '../SetCategoriesModal';
 import { NovelScreenProps } from '@navigators/types';
-import { useTrackedNovel, useTracker } from '@hooks/persisted';
+import { useTrackedNovel, useTracker, useAppSettings } from '@hooks/persisted';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { MaterialDesignIconName } from '@type/icon';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 const NButton = ({
   onPress,
@@ -28,6 +31,9 @@ const NButton = ({
   color?: string;
   theme: ThemeColors;
 }) => {
+  const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
   return (
     <Animated.View
       entering={ZoomIn.duration(150)}
@@ -44,11 +50,13 @@ const NButton = ({
         <MaterialCommunityIcons
           name={icon}
           color={color ?? theme.outline}
-          size={24}
+          size={iconSize.md}
         />
-        <Text style={[styles.buttonLabel, { color: color ?? theme.outline }]}>
+        <AppText
+          style={[styles.buttonLabel, { color: color ?? theme.outline }]}
+        >
           {label}
-        </Text>
+        </AppText>
       </Pressable>
     </Animated.View>
   );
@@ -72,6 +80,8 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
   const { navigate } = useNavigation<NovelScreenProps['navigation']>();
   const { tracker } = useTracker();
   const { trackedNovel } = useTrackedNovel(novel.id);
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
   const followButtonColor = inLibrary ? theme.primary : theme.outline;
   const trackerButtonColor = trackedNovel ? theme.primary : theme.outline;
@@ -153,27 +163,28 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
 
 export default memo(NovelScreenButtonGroup);
 
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  buttonContainer: {
-    borderRadius: 50,
-    flex: 1,
-    marginHorizontal: 4,
-    overflow: 'hidden',
-  },
-  buttonGroupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 16,
-    paddingTop: 8,
-  },
-  buttonLabel: {
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+    },
+    buttonContainer: {
+      borderRadius: 50,
+      flex: 1,
+      marginHorizontal: 4,
+      overflow: 'hidden',
+    },
+    buttonGroupContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginHorizontal: 16,
+      paddingTop: 8,
+    },
+    buttonLabel: {
+      fontSize: scaleDimension(12, uiScale),
+      marginTop: 4,
+      textAlign: 'center',
+    },
+  });

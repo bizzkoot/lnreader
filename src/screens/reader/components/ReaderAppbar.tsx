@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import color from 'color';
 
@@ -13,6 +13,7 @@ import { ThemeColors } from '@theme/types';
 import { bookmarkChapter } from '@database/queries/ChapterQueries';
 import { useChapterContext } from '../ChapterContext';
 import { useNovelContext } from '@screens/novel/NovelContext';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface ReaderAppbarProps {
   theme: ThemeColors;
@@ -31,6 +32,8 @@ const ReaderAppbar = ({
 }: ReaderAppbarProps) => {
   const { chapter, novel } = useChapterContext();
   const { statusBarHeight } = useNovelContext();
+  const scaledDimensions = useScaledDimensions();
+  const styles = useMemo(() => getStyles(scaledDimensions), [scaledDimensions]);
 
   const entering = () => {
     'worklet';
@@ -88,7 +91,7 @@ const ReaderAppbar = ({
           name="arrow-left"
           onPress={goBack}
           color={theme.onSurface}
-          size={26}
+          size={scaledDimensions.iconSize.md + 2}
           theme={theme}
         />
         <View style={styles.content}>
@@ -107,7 +110,7 @@ const ReaderAppbar = ({
         </View>
         <IconButtonV2
           name={bookmarked ? 'bookmark' : 'bookmark-outline'}
-          size={24}
+          size={scaledDimensions.iconSize.md}
           onPress={() => {
             bookmarkChapter(chapter.id).then(() => setBookmarked(!bookmarked));
           }}
@@ -122,29 +125,26 @@ const ReaderAppbar = ({
 
 export default ReaderAppbar;
 
-const styles = StyleSheet.create({
-  appbar: {
-    display: 'flex',
-    flexDirection: 'row',
-  },
-  bookmark: {
-    marginRight: 4,
-  },
-  container: {
-    flex: 1,
-    paddingBottom: 8,
-    position: 'absolute',
-    top: 0,
-    width: '100%',
-    zIndex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  subtitle: {
-    fontSize: 16,
-  },
-  title: {
-    fontSize: 20,
-  },
-});
+const getStyles = (scaled: ReturnType<typeof useScaledDimensions>) =>
+  StyleSheet.create({
+    appbar: {
+      display: 'flex',
+      flexDirection: 'row',
+    },
+    bookmark: {
+      marginRight: scaled.margin.xs,
+    },
+    container: {
+      flex: 1,
+      paddingBottom: scaled.padding.sm,
+      position: 'absolute',
+      top: 0,
+      width: '100%',
+      zIndex: 1,
+    },
+    content: {
+      flex: 1,
+    },
+    subtitle: {},
+    title: {},
+  });

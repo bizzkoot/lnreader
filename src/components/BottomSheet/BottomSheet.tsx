@@ -11,8 +11,10 @@ import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/typ
 import BottomSheetBackdrop from './BottomSheetBackdrop';
 import { useWindowDimensions } from 'react-native';
 
-interface BottomSheetProps
-  extends Omit<BottomSheetModalProps, 'ref' | 'onChange' | 'snapPoints'> {
+interface BottomSheetProps extends Omit<
+  BottomSheetModalProps,
+  'ref' | 'onChange' | 'snapPoints'
+> {
   bottomSheetRef: RefObject<BottomSheetModalMethods | null>;
   onChange?: (index: number) => void;
   snapPoints?: number[];

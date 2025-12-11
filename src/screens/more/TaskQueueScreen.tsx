@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, View, Text, StyleSheet } from 'react-native';
+import { FlatList, View, StyleSheet } from 'react-native';
 import {
   FAB,
   ProgressBar,
@@ -13,6 +13,7 @@ import { useTheme } from '@hooks/persisted';
 import { showToast } from '../../utils/showToast';
 import { getString } from '@strings/translations';
 import { Appbar, EmptyView, SafeAreaView } from '@components';
+import AppText from '@components/AppText';
 import { TaskQueueScreenProps } from '@navigators/types';
 import ServiceManager, { QueuedBackgroundTask } from '@services/ServiceManager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -76,11 +77,13 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
         data={taskQueue || []}
         renderItem={({ item }) => (
           <View style={styles.padding}>
-            <Text style={{ color: theme.onSurface }}>{item.meta.name}</Text>
+            <AppText style={{ color: theme.onSurface }}>
+              {item.meta.name}
+            </AppText>
             {item.meta.progressText ? (
-              <Text style={{ color: theme.onSurfaceVariant }}>
+              <AppText style={{ color: theme.onSurfaceVariant }}>
                 {item.meta.progressText}
-              </Text>
+              </AppText>
             ) : null}
             <ProgressBar
               indeterminate={

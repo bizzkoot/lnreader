@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Pressable, StyleSheet, ScrollView } from 'react-native';
 import {
   useMMKVBoolean,
   useMMKVNumber,
@@ -9,9 +9,11 @@ import { SegmentedControl } from '@components';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import { ThemeColors } from '@theme/types';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { getString } from '@strings/translations';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -22,6 +24,9 @@ interface AmoledToggleProps {
 const AmoledToggle: React.FC<AmoledToggleProps> = ({ theme }) => {
   const [isAmoledBlack = false, setAmoledBlack] =
     useMMKVBoolean('AMOLED_BLACK');
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
   if (!theme.isDark) {
     return null;
@@ -29,9 +34,9 @@ const AmoledToggle: React.FC<AmoledToggleProps> = ({ theme }) => {
 
   return (
     <View style={styles.amoledContainer}>
-      <Text style={[styles.amoledLabel, { color: theme.onSurface }]}>
+      <AppText style={[styles.amoledLabel, { color: theme.onSurface }]}>
         {getString('appearanceScreen.pureBlackDarkMode')}
-      </Text>
+      </AppText>
       <Pressable
         onPress={() => setAmoledBlack(!isAmoledBlack)}
         style={[
@@ -61,6 +66,7 @@ const AmoledToggle: React.FC<AmoledToggleProps> = ({ theme }) => {
 
 export default function ThemeSelectionStep() {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE');
   const [, setThemeId] = useMMKVNumber('APP_THEME_ID');
 
@@ -106,6 +112,8 @@ export default function ThemeSelectionStep() {
     setThemeMode(selectedTheme.isDark ? 'dark' : 'light');
   };
 
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
+
   return (
     <View style={styles.container}>
       {/* Segmented Control */}
@@ -141,51 +149,52 @@ export default function ThemeSelectionStep() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  segmentedControlContainer: {
-    marginBottom: 24,
-  },
-  themeScrollContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  themeItem: {
-    marginHorizontal: 8,
-  },
-  amoledContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-    marginTop: 'auto',
-  },
-  amoledLabel: {
-    fontSize: 16,
-    fontWeight: '400',
-  },
-  toggle: {
-    width: 52,
-    height: 32,
-    borderRadius: 16,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  toggleThumbActive: {
-    alignSelf: 'flex-end',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: 16,
+    },
+    segmentedControlContainer: {
+      marginBottom: 24,
+    },
+    themeScrollContent: {
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+    },
+    themeItem: {
+      marginHorizontal: 8,
+    },
+    amoledContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 16,
+      paddingHorizontal: 4,
+      marginTop: 'auto',
+    },
+    amoledLabel: {
+      fontSize: scaleDimension(16, uiScale),
+      fontWeight: '400',
+    },
+    toggle: {
+      width: scaleDimension(52, uiScale),
+      height: scaleDimension(32, uiScale),
+      borderRadius: scaleDimension(16, uiScale),
+      padding: scaleDimension(2, uiScale),
+      justifyContent: 'center',
+    },
+    toggleThumb: {
+      width: scaleDimension(28, uiScale),
+      height: scaleDimension(28, uiScale),
+      borderRadius: scaleDimension(14, uiScale),
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+    },
+    toggleThumbActive: {
+      alignSelf: 'flex-end',
+    },
+  });

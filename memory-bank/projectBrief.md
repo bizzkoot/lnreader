@@ -15,9 +15,9 @@ Describe who will use this.
 - **Why**: Users reported TTS stopping at chapter end when the screen is off. The root cause was WebView JS suspension. This native/RN hybrid fix ensures long reading sessions continue uninterrupted per user settings (`ttsContinueToNextChapter`).
 
 - **User impact**:
-	- Background reading continues across chapter boundaries when enabled.
-	- Paragraph highlighting remains accurate during background playback.
-	- No additional permissions required; uses existing foreground service and wake-lock handling.
+  - Background reading continues across chapter boundaries when enabled.
+  - Paragraph highlighting remains accurate during background playback.
+  - No additional permissions required; uses existing foreground service and wake-lock handling.
 
 - **Files / Commits**: Changes across native and JS modules; see commit `e7aa3b86` on branch `dev` for details.
 
@@ -46,9 +46,8 @@ This section should contain a short, consumable summary for stakeholders and new
 - **Why**: Users reported TTS stopping at chapter end when the screen is off. The root cause was WebView JS suspension. This native/RN hybrid fix ensures long reading sessions continue uninterrupted per user settings (`ttsContinueToNextChapter`).
 
 - **User impact**:
-	- Background reading continues across chapter boundaries when enabled.
-	- Paragraph highlighting remains accurate during background playback.
-	- No additional permissions required; uses existing foreground service and wake-lock handling.
+  - Background reading continues across chapter boundaries when enabled.
+  - Paragraph highlighting remains accurate during background playback.
+  - No additional permissions required; uses existing foreground service and wake-lock handling.
 
 - **Files / Commits**: Changes across native and JS modules; see commit `e7aa3b86` on branch `dev` for details.
-

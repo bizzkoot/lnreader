@@ -1,9 +1,15 @@
-import { StyleSheet, Text, TextStyle, View } from 'react-native';
-import React from 'react';
+import { StyleSheet, TextStyle, View } from 'react-native';
+import React, { useMemo } from 'react';
+import AppText from '@components/AppText';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
 import { IconButtonV2 } from '@components';
-import { ChapterReaderSettings } from '@hooks/persisted/useSettings';
+import {
+  ChapterReaderSettings,
+  useAppSettings,
+} from '@hooks/persisted/useSettings';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 type ValueKey<T extends object> = Exclude<
   {
@@ -34,18 +40,43 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
   unit = '%',
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const { setChapterReaderSettings, ...settings } = useChapterReaderSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        buttonContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+        },
+        container: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginVertical: scaleDimension(6, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+        value: {
+          paddingHorizontal: scaleDimension(4, uiScale),
+          textAlign: 'center',
+          width: scaleDimension(60, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
+      <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
         {label}
-      </Text>
+      </AppText>
       <View style={styles.buttonContainer}>
         <IconButtonV2
           name="minus"
           color={theme.primary}
-          size={26}
+          size={iconSize.md + scaleDimension(2, uiScale)}
           disabled={settings[valueKey] <= min}
           onPress={() =>
             setChapterReaderSettings({
@@ -54,13 +85,13 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
           }
           theme={theme}
         />
-        <Text style={[styles.value, { color: theme.onSurface }]}>
+        <AppText style={[styles.value, { color: theme.onSurface }]}>
           {`${((settings[valueKey] * 10) / 10).toFixed(decimals)}${unit}`}
-        </Text>
+        </AppText>
         <IconButtonV2
           name="plus"
           color={theme.primary}
-          size={26}
+          size={iconSize.md + scaleDimension(2, uiScale)}
           disabled={settings[valueKey] >= max}
           onPress={() =>
             setChapterReaderSettings({
@@ -75,22 +106,3 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
 };
 
 export default ReaderValueChange;
-
-const styles = StyleSheet.create({
-  buttonContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 6,
-    paddingHorizontal: 16,
-  },
-  value: {
-    paddingHorizontal: 4,
-    textAlign: 'center',
-    width: 60,
-  },
-});

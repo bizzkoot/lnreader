@@ -1,12 +1,14 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
 import { Checkbox, Modal } from '@components';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
-import { useLibrarySettings } from '@hooks/persisted';
+import { useLibrarySettings, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface NovelBadgesModalProps {
   novelBadgesModalVisible: boolean;
@@ -25,12 +27,29 @@ const NovelBadgesModal: React.FC<NovelBadgesModalProps> = ({
     showUnreadBadges = true,
     setLibrarySettings,
   } = useLibrarySettings();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        modalDescription: {
+          fontSize: scaleDimension(16, uiScale),
+          marginBottom: 16,
+        },
+        modalHeader: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 10,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={novelBadgesModalVisible} onDismiss={hideNovelBadgesModal}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {getString('libraryScreen.bottomSheet.display.badges')}
-        </Text>
+        </AppText>
         <Checkbox
           label={getString('libraryScreen.bottomSheet.display.downloadBadges')}
           status={showDownloadBadges}
@@ -40,6 +59,7 @@ const NovelBadgesModal: React.FC<NovelBadgesModalProps> = ({
             })
           }
           theme={theme}
+          labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
         />
         <Checkbox
           label={getString('libraryScreen.bottomSheet.display.unreadBadges')}
@@ -50,6 +70,7 @@ const NovelBadgesModal: React.FC<NovelBadgesModalProps> = ({
             })
           }
           theme={theme}
+          labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
         />
         <Checkbox
           label={getString('libraryScreen.bottomSheet.display.showNoOfItems')}
@@ -60,6 +81,7 @@ const NovelBadgesModal: React.FC<NovelBadgesModalProps> = ({
             })
           }
           theme={theme}
+          labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
         />
       </Modal>
     </Portal>
@@ -67,14 +89,3 @@ const NovelBadgesModal: React.FC<NovelBadgesModalProps> = ({
 };
 
 export default NovelBadgesModal;
-
-const styles = StyleSheet.create({
-  modalDescription: {
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  modalHeader: {
-    fontSize: 24,
-    marginBottom: 10,
-  },
-});

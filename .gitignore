@@ -90,3 +90,7 @@ flake.lock
 .pnpm-store
 
 .cursor/
+
+# Roo AI assistant configuration
+.roo/
+.roomodes

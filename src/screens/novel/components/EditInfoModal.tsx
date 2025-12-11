@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
@@ -18,6 +17,9 @@ import { ThemeColors } from '@theme/types';
 import { NovelInfo } from '@database/types';
 import { NovelStatus } from '@plugins/types';
 import { translateNovelStatus } from '@utils/translateEnum';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface EditInfoModalProps {
   theme: ThemeColors;
@@ -26,23 +28,6 @@ interface EditInfoModalProps {
   novel: NovelInfo;
   setNovel: (novel: NovelInfo | undefined) => void;
 }
-
-// --- Dynamic style helpers ---
-const getModalTitleColor = (theme: ThemeColors) => ({ color: theme.onSurface });
-const getStatusLabelColor = (theme: ThemeColors) => ({
-  color: theme.onSurfaceVariant,
-});
-const getScrollViewStyle = () => styles.statusScrollView;
-const getStatusChipContainer = () => styles.statusChipContainer;
-const getStatusChipPressable = (selected: boolean, theme: ThemeColors) => ({
-  backgroundColor: selected ? theme.rippleColor : 'transparent',
-});
-const getStatusChipText = (selected: boolean, theme: ThemeColors) => ({
-  color: selected ? theme.primary : theme.onSurfaceVariant,
-});
-const getGenreListStyle = () => styles.genreList;
-const getButtonRowStyle = () => styles.buttonRow;
-const getFlex1 = () => styles.flex1;
 
 // --- Main Component ---
 const EditInfoModal = ({
@@ -54,8 +39,70 @@ const EditInfoModal = ({
 }: EditInfoModalProps) => {
   const initialNovelInfo = { ...novel };
   const [novelInfo, setNovelInfo] = useState(novel);
-
   const [newGenre, setNewGenre] = useState('');
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        errorText: {
+          color: '#FF0033',
+          paddingTop: scaleDimension(8, uiScale),
+        },
+        inputWrapper: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: scaleDimension(12, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+        statusRow: {
+          marginVertical: scaleDimension(8, uiScale),
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        statusScrollView: {
+          marginLeft: scaleDimension(8, uiScale),
+        },
+        statusChipContainer: {
+          borderRadius: scaleDimension(8, uiScale),
+          overflow: 'hidden',
+        },
+        statusChipPressable: {
+          paddingVertical: scaleDimension(6, uiScale),
+          paddingHorizontal: scaleDimension(12, uiScale),
+        },
+        genreList: {
+          marginVertical: scaleDimension(8, uiScale),
+        },
+        buttonRow: {
+          flexDirection: 'row',
+        },
+        flex1: {
+          flex: 1,
+        },
+        genreChipContainer: {
+          flex: 1,
+          flexDirection: 'row',
+          borderRadius: scaleDimension(8, uiScale),
+          paddingVertical: scaleDimension(6, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+          marginBottom: scaleDimension(4, uiScale),
+          marginRight: scaleDimension(8, uiScale),
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        genreChipText: {
+          fontSize: scaleDimension(12, uiScale),
+          textTransform: 'capitalize',
+        },
+        genreChipIcon: {
+          marginLeft: scaleDimension(4, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const removeTag = (t: string) => {
     setNovelInfo({
@@ -72,35 +119,51 @@ const EditInfoModal = ({
   return (
     <Portal>
       <Modal visible={modalVisible} onDismiss={hideModal}>
-        <Text style={[styles.modalTitle, getModalTitleColor(theme)]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('novelScreen.edit.info')}
-        </Text>
+        </AppText>
         <View style={styles.statusRow}>
-          <Text style={getStatusLabelColor(theme)}>
+          <AppText
+            style={{
+              color: theme.onSurfaceVariant,
+              fontSize: scaleDimension(14, uiScale),
+            }}
+          >
             {getString('novelScreen.edit.status')}
-          </Text>
+          </AppText>
           <ScrollView
-            style={getScrollViewStyle()}
+            style={styles.statusScrollView}
             horizontal
             showsHorizontalScrollIndicator={false}
           >
             {status.map((item, index) => (
-              <View style={getStatusChipContainer()} key={'novelInfo' + index}>
+              <View
+                style={styles.statusChipContainer}
+                key={'novelInfo' + index}
+              >
                 <Pressable
                   style={[
                     styles.statusChipPressable,
-                    getStatusChipPressable(novelInfo.status === item, theme),
+                    novelInfo.status === item && {
+                      backgroundColor: theme.rippleColor,
+                    },
                   ]}
                   android_ripple={{
                     color: theme.rippleColor,
                   }}
                   onPress={() => setNovelInfo({ ...novel, status: item })}
                 >
-                  <Text
-                    style={getStatusChipText(novelInfo.status === item, theme)}
+                  <AppText
+                    style={{
+                      color:
+                        novelInfo.status === item
+                          ? theme.primary
+                          : theme.onSurfaceVariant,
+                      fontSize: scaleDimension(12, uiScale),
+                    }}
                   >
                     {translateNovelStatus(item)}
-                  </Text>
+                  </AppText>
                 </Pressable>
               </View>
             ))}
@@ -185,19 +248,38 @@ const EditInfoModal = ({
 
         {novelInfo.genres !== undefined && novelInfo.genres !== '' ? (
           <FlatList
-            style={getGenreListStyle()}
+            style={styles.genreList}
             horizontal
             data={novelInfo.genres?.split(',')}
             keyExtractor={(_, index) => 'novelTag' + index}
             renderItem={({ item }) => (
-              <GenreChip theme={theme} onPress={() => removeTag(item)}>
-                {item}
-              </GenreChip>
+              <View
+                style={[
+                  styles.genreChipContainer,
+                  { backgroundColor: theme.secondaryContainer },
+                ]}
+              >
+                <AppText
+                  style={[
+                    styles.genreChipText,
+                    { color: theme.onSecondaryContainer },
+                  ]}
+                >
+                  {item}
+                </AppText>
+                <MaterialCommunityIcons
+                  name="close"
+                  size={scaleDimension(18, uiScale)}
+                  onPress={() => removeTag(item)}
+                  style={styles.genreChipIcon}
+                  color={theme.onSecondaryContainer}
+                />
+              </View>
             )}
             showsHorizontalScrollIndicator={false}
           />
         ) : null}
-        <View style={getButtonRowStyle()}>
+        <View style={styles.buttonRow}>
           <Button
             onPress={() => {
               setNovelInfo(initialNovelInfo);
@@ -206,7 +288,7 @@ const EditInfoModal = ({
           >
             {getString('common.reset')}
           </Button>
-          <View style={getFlex1()} />
+          <View style={styles.flex1} />
           <Button
             onPress={() => {
               setNovel(novelInfo);
@@ -224,95 +306,3 @@ const EditInfoModal = ({
 };
 
 export default EditInfoModal;
-
-// --- GenreChip with split styles ---
-const getGenreChipContainer = (theme: ThemeColors) => ({
-  backgroundColor: theme.secondaryContainer,
-});
-const getGenreChipText = (theme: ThemeColors) => ({
-  color: theme.onSecondaryContainer,
-});
-const getGenreChipIcon = (theme: ThemeColors) => ({
-  color: theme.onSecondaryContainer,
-});
-
-const GenreChip = ({
-  children,
-  theme,
-  onPress,
-}: {
-  children: React.ReactNode;
-  theme: ThemeColors;
-  onPress: () => void;
-}) => (
-  <View style={[styles.genreChipContainer, getGenreChipContainer(theme)]}>
-    <Text style={[styles.genreChipText, getGenreChipText(theme)]}>
-      {children}
-    </Text>
-    <MaterialCommunityIcons
-      name="close"
-      size={18}
-      onPress={onPress}
-      style={styles.genreChipIcon}
-      {...getGenreChipIcon(theme)}
-    />
-  </View>
-);
-
-const styles = StyleSheet.create({
-  errorText: {
-    color: '#FF0033',
-    paddingTop: 8,
-  },
-  inputWrapper: {
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  statusRow: {
-    marginVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusScrollView: {
-    marginLeft: 8,
-  },
-  statusChipContainer: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  statusChipPressable: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  genreList: {
-    marginVertical: 8,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-  },
-  flex1: {
-    flex: 1,
-  },
-  genreChipContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    marginBottom: 4,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  genreChipText: {
-    fontSize: 12,
-    textTransform: 'capitalize',
-  },
-  genreChipIcon: {
-    marginLeft: 4,
-  },
-});

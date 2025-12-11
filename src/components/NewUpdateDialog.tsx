@@ -11,7 +11,8 @@ import * as Linking from 'expo-linking';
 import { ScrollView } from 'react-native-gesture-handler';
 import Button from './Button/Button';
 import { getString } from '@strings/translations';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { Modal } from '@components';
 import {
   downloadAndInstallApk,
@@ -37,6 +38,8 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
   const [state, setState] = useState<DialogState>({ status: 'idle' });
 
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
   const modalHeight = Dimensions.get('window').height / 2;
 
   const handleDownload = useCallback(async () => {
@@ -102,12 +105,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
         return (
           <View style={styles.progressContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <Text
-              style={[
-                styles.progressText,
-                { color: theme.onSurface },
-              ]}
-            >
+            <Text style={[styles.progressText, { color: theme.onSurface }]}>
               {getString('common.installing')}...
             </Text>
           </View>
@@ -120,10 +118,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
               {state.message}
             </Text>
             <Text
-              style={[
-                styles.progressDetail,
-                { color: theme.onSurfaceVariant },
-              ]}
+              style={[styles.progressDetail, { color: theme.onSurfaceVariant }]}
             >
               Try downloading from GitHub instead.
             </Text>
@@ -200,47 +195,48 @@ const formatBytes = (bytes: number): string => {
 
 export default NewUpdateDialog;
 
-const styles = StyleSheet.create({
-  body: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  buttonCtn: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 16,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  modalHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  progressContainer: {
-    paddingVertical: 32,
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  scrollView: {
-    height: 200, // Default height that will be overridden
-  },
-  progressBar: {
-    width: '100%',
-    height: 8,
-    borderRadius: 4,
-  },
-  progressDetail: {
-    fontSize: 13,
-    marginTop: 8,
-  },
-  errorText: {
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    body: {
+      fontSize: scaleDimension(15, uiScale),
+      fontWeight: '500',
+    },
+    buttonCtn: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginTop: 16,
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    modalHeader: {
+      fontSize: scaleDimension(20, uiScale),
+      fontWeight: 'bold',
+      marginBottom: 16,
+    },
+    progressContainer: {
+      paddingVertical: 32,
+      alignItems: 'center',
+    },
+    progressText: {
+      fontSize: scaleDimension(16, uiScale),
+      fontWeight: '600',
+      marginBottom: 16,
+    },
+    scrollView: {
+      height: 200, // Default height that will be overridden
+    },
+    progressBar: {
+      width: '100%',
+      height: 8,
+      borderRadius: 4,
+    },
+    progressDetail: {
+      fontSize: scaleDimension(13, uiScale),
+      marginTop: 8,
+    },
+    errorText: {
+      fontSize: scaleDimension(15, uiScale),
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+  });

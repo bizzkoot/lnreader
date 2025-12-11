@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import {
   Portal,
-  Text,
   Button,
   Provider,
   List as PaperList,
 } from 'react-native-paper';
+import AppText from '@components/AppText';
 
-import { getTracker, useTheme, useTracker } from '@hooks/persisted';
+import {
+  getTracker,
+  useAppSettings,
+  useTheme,
+  useTracker,
+} from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { Appbar, List, Modal, SafeAreaView } from '@components';
 import { TrackerSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
@@ -16,7 +22,7 @@ import MangaUpdatesLoginDialog from './components/MangaUpdatesLoginDialog';
 import { authenticateWithCredentials } from '@services/Trackers/mangaUpdates';
 import { showToast } from '@utils/showToast';
 
-const AniListLogo = () => (
+const AniListLogo = ({ styles }: { styles: any }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/anilist.png')}
@@ -25,7 +31,7 @@ const AniListLogo = () => (
   </View>
 );
 
-const MyAnimeListLogo = () => (
+const MyAnimeListLogo = ({ styles }: { styles: any }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/mal.png')}
@@ -34,7 +40,7 @@ const MyAnimeListLogo = () => (
   </View>
 );
 
-const MangaUpdatesLogo = () => (
+const MangaUpdatesLogo = ({ styles }: { styles: any }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/mangaupdates.png')}
@@ -47,6 +53,50 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
   const theme = useTheme();
   const { isTrackerAuthenticated, setTracker, removeTracker, getTrackerAuth } =
     useTracker();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        flex1: {
+          flex: 1,
+        },
+        screenPadding: {
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        modalText: {
+          fontSize: scaleDimension(18, uiScale),
+        },
+        modalButtonRow: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        },
+        modalButton: {
+          marginTop: scaleDimension(30, uiScale),
+        },
+        modalButtonLabel: {
+          letterSpacing: 0,
+          textTransform: 'none',
+        },
+        logoContainer: {
+          paddingLeft: scaleDimension(16, uiScale),
+          justifyContent: 'center',
+        },
+        trackerLogo: {
+          width: scaleDimension(32, uiScale),
+          height: scaleDimension(32, uiScale),
+          resizeMode: 'contain',
+          borderRadius: scaleDimension(4, uiScale),
+        },
+        listItem: {
+          paddingVertical: scaleDimension(12, uiScale),
+        },
+        iconStyle: {
+          margin: 0,
+        },
+      }),
+    [uiScale],
+  );
 
   // Tracker Modal for logout confirmation
   const [logoutTrackerName, setLogoutTrackerName] = useState<string>('');
@@ -105,7 +155,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
             <PaperList.Item
               title="AniList"
               titleStyle={{ color: theme.onSurface }}
-              left={AniListLogo}
+              left={() => <AniListLogo styles={styles} />}
               right={
                 isTrackerAuthenticated('AniList')
                   ? () => (
@@ -133,7 +183,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
             <PaperList.Item
               title="MyAnimeList"
               titleStyle={{ color: theme.onSurface }}
-              left={MyAnimeListLogo}
+              left={() => <MyAnimeListLogo styles={styles} />}
               right={
                 isTrackerAuthenticated('MyAnimeList')
                   ? () => (
@@ -161,7 +211,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
             <PaperList.Item
               title="MangaUpdates"
               titleStyle={{ color: theme.onSurface }}
-              left={MangaUpdatesLogo}
+              left={() => <MangaUpdatesLogo styles={styles} />}
               right={
                 isTrackerAuthenticated('MangaUpdates')
                   ? () => (
@@ -212,11 +262,11 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
 
           <Portal>
             <Modal visible={visible} onDismiss={hideModal}>
-              <Text style={[{ color: theme.onSurface }, styles.modalText]}>
+              <AppText style={[{ color: theme.onSurface }, styles.modalText]}>
                 {getString('trackingScreen.logOutMessage', {
                   name: logoutTrackerName,
                 })}
-              </Text>
+              </AppText>
               <View style={styles.modalButtonRow}>
                 <Button
                   style={styles.modalButton}
@@ -257,41 +307,4 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
 
 export default TrackerScreen;
 
-const styles = StyleSheet.create({
-  flex1: {
-    flex: 1,
-  },
-  screenPadding: {
-    paddingVertical: 8,
-  },
-  modalText: {
-    fontSize: 18,
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  modalButton: {
-    marginTop: 30,
-  },
-  modalButtonLabel: {
-    letterSpacing: 0,
-    textTransform: 'none',
-  },
-  logoContainer: {
-    paddingLeft: 16,
-    justifyContent: 'center',
-  },
-  trackerLogo: {
-    width: 32,
-    height: 32,
-    resizeMode: 'contain',
-    borderRadius: 4,
-  },
-  listItem: {
-    paddingVertical: 12,
-  },
-  iconStyle: {
-    margin: 0,
-  },
-});
+// Styles are now inside the component using useMemo

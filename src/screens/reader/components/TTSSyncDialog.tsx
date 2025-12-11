@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface TTSSyncInfo {
   chapterName: string;
@@ -28,6 +30,70 @@ const TTSSyncDialog: React.FC<TTSSyncDialogProps> = ({
   onDismiss,
   onRetry,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          borderRadius: scaleDimension(28, uiScale),
+          shadowColor: 'transparent',
+        },
+        loadingContent: {
+          alignItems: 'center',
+          paddingVertical: scaleDimension(16, uiScale),
+          gap: scaleDimension(16, uiScale),
+        },
+        loadingText: {
+          fontSize: scaleDimension(14, uiScale),
+          textAlign: 'center',
+        },
+        infoContent: {
+          gap: scaleDimension(12, uiScale),
+        },
+        successText: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          textAlign: 'center',
+        },
+        errorText: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: scaleDimension(8, uiScale),
+        },
+        infoText: {
+          fontSize: scaleDimension(14, uiScale),
+          textAlign: 'center',
+        },
+        detailsContainer: {
+          backgroundColor: 'rgba(0, 0, 0, 0.05)',
+          borderRadius: scaleDimension(8, uiScale),
+          padding: scaleDimension(12, uiScale),
+          gap: scaleDimension(4, uiScale),
+        },
+        detailLabel: {
+          fontSize: scaleDimension(12, uiScale),
+          marginTop: scaleDimension(4, uiScale),
+        },
+        detailValue: {
+          fontSize: scaleDimension(14, uiScale),
+          fontWeight: '500',
+        },
+        hintText: {
+          fontSize: scaleDimension(12, uiScale),
+          fontStyle: 'italic',
+          textAlign: 'center',
+          marginTop: scaleDimension(8, uiScale),
+        },
+        buttonCtn: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          padding: scaleDimension(16, uiScale),
+          gap: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   const getTitle = () => {
     switch (status) {
       case 'syncing':
@@ -147,61 +213,3 @@ const TTSSyncDialog: React.FC<TTSSyncDialogProps> = ({
 };
 
 export default TTSSyncDialog;
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 28,
-    shadowColor: 'transparent',
-  },
-  loadingContent: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  infoContent: {
-    gap: 12,
-  },
-  successText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  detailsContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 8,
-    padding: 12,
-    gap: 4,
-  },
-  detailLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  hintText: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  buttonCtn: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 16,
-    gap: 12,
-  },
-});

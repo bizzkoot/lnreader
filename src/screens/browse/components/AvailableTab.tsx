@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo, useState, memo } from 'react';
-import { View, Text, StyleSheet, RefreshControl } from 'react-native';
+import { View, StyleSheet, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { usePlugins } from '@hooks/persisted';
+import { usePlugins, useAppSettings } from '@hooks/persisted';
 import { PluginItem } from '@plugins/types';
+import { scaleDimension } from '@theme/scaling';
 import { coverPlaceholderColor } from '@theme/colors';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
@@ -16,6 +17,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { getLocaleLanguageName } from '@utils/constants/languages';
 import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 interface AvailableTabProps {
   searchText: string;
   theme: ThemeColors;
@@ -31,6 +34,9 @@ const AvailablePluginCard = ({
   theme,
   installPlugin,
 }: AvailablePluginCardProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
+  const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
   const ratio = useSharedValue(1);
   const imageStyles = useAnimatedStyle(() => ({
     height: ratio.value * 40,
@@ -45,9 +51,9 @@ const AvailablePluginCard = ({
   return (
     <View>
       {plugin.header ? (
-        <Text style={[styles.listHeader, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.listHeader, { color: theme.onSurfaceVariant }]}>
           {getLocaleLanguageName(plugin.lang)}
-        </Text>
+        </AppText>
       ) : null}
       <Animated.View
         style={[
@@ -66,7 +72,7 @@ const AvailablePluginCard = ({
             ]}
           />
           <Animated.View style={styles.details}>
-            <Animated.Text
+            <AppText
               numberOfLines={1}
               style={[
                 {
@@ -77,8 +83,8 @@ const AvailablePluginCard = ({
               ]}
             >
               {plugin.name}
-            </Animated.Text>
-            <Animated.Text
+            </AppText>
+            <AppText
               numberOfLines={1}
               style={[
                 { color: theme.onSurfaceVariant },
@@ -87,7 +93,7 @@ const AvailablePluginCard = ({
               ]}
             >
               {`${getLocaleLanguageName(plugin.lang)} - ${plugin.version}`}
-            </Animated.Text>
+            </AppText>
           </Animated.View>
         </Animated.View>
         <IconButtonV2
@@ -108,7 +114,7 @@ const AvailablePluginCard = ({
                 ratio.value = 1;
               });
           }}
-          size={22}
+          size={iconSize.sm}
           theme={theme}
         />
       </Animated.View>
@@ -118,6 +124,8 @@ const AvailablePluginCard = ({
 
 export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
   const navigation = useNavigation<MoreStackScreenProps['navigation']>();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
 
   const [refreshing, setRefreshing] = useState(false);
   const { filteredAvailablePlugins, refreshPlugins, installPlugin } =
@@ -218,46 +226,47 @@ export const AvailableTab = memo(({ searchText, theme }: AvailableTabProps) => {
   );
 });
 
-const styles = StyleSheet.create({
-  margintTop100: { marginTop: 100 },
-  addition: {
-    fontSize: 12,
-    lineHeight: 20,
-  },
-  buttonGroup: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-  },
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  details: {
-    marginLeft: 16,
-  },
-  icon: {
-    backgroundColor: coverPlaceholderColor,
-    borderRadius: 4,
-    height: 40,
-    width: 40,
-  },
-  listHeader: {
-    fontSize: 14,
-    fontWeight: '500',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  name: {
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  center: { alignItems: 'center' },
-  flex: { flex: 1 },
-});
+const createStyles = (theme: ThemeColors, uiScale: number) =>
+  StyleSheet.create({
+    margintTop100: { marginTop: 100 },
+    addition: {
+      fontSize: scaleDimension(12, uiScale),
+      lineHeight: 20,
+    },
+    buttonGroup: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      paddingHorizontal: 8,
+    },
+    container: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    details: {
+      marginLeft: 16,
+    },
+    icon: {
+      backgroundColor: coverPlaceholderColor,
+      borderRadius: 4,
+      height: scaleDimension(40, uiScale),
+      width: scaleDimension(40, uiScale),
+    },
+    listHeader: {
+      fontSize: scaleDimension(14, uiScale),
+      fontWeight: '500',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+    name: {
+      fontWeight: '500',
+      lineHeight: 20,
+    },
+    row: {
+      flexDirection: 'row',
+    },
+    center: { alignItems: 'center' },
+    flex: { flex: 1 },
+  });

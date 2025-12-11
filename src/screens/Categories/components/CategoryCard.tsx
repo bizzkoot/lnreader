@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import React from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
+import AppText from '@components/AppText';
 
 import { Category } from '@database/types';
 import { useTheme } from '@hooks/persisted';
@@ -60,7 +61,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
             />
           </TouchableOpacity>
           <View style={styles.nameCtn}>
-            <Text
+            <AppText
               style={[
                 styles.name,
                 {
@@ -71,14 +72,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               disabled={category.id === 2}
             >
               {category.name}
-            </Text>
+            </AppText>
             {category.id === 2 && (
-              <Badge
-                style={[
-                  styles.badge,
-                  { backgroundColor: theme.primary },
-                ]}
-              >
+              <Badge style={[styles.badge, { backgroundColor: theme.primary }]}>
                 System
               </Badge>
             )}

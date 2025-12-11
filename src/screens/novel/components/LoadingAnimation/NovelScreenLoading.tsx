@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,6 +6,7 @@ import { ThemeColors } from '@theme/types';
 import useLoadingColors from '@utils/useLoadingColors';
 import { useAppSettings, useTheme } from '@hooks/persisted/index';
 import { WINDOW_WIDTH } from '@gorhom/bottom-sheet';
+import { scaleDimension } from '@theme/scaling';
 
 interface Props {
   theme: ThemeColors;
@@ -45,161 +46,193 @@ export const LoadingShimmer = memo(
   },
 );
 
-const NovelTop = memo(() => (
-  <View style={styles.headerContainer}>
-    <LoadingShimmer style={styles.picture} height={150} width={100} />
-    <View style={styles.headerText}>
-      <LoadingShimmer
-        style={styles.text}
-        height={25}
-        width={FULL_WIDTH - 116}
-      />
-      <LoadingShimmer
-        style={styles.text}
-        height={20}
-        width={FULL_WIDTH - 116}
-      />
-      <LoadingShimmer
-        style={styles.text}
-        height={20}
-        width={FULL_WIDTH - 116}
-      />
+const NovelTop = memo(
+  ({ styles }: { styles: ReturnType<typeof createStyles> }) => (
+    <View style={styles.headerContainer}>
+      <LoadingShimmer style={styles.picture} height={150} width={100} />
+      <View style={styles.headerText}>
+        <LoadingShimmer
+          style={styles.text}
+          height={25}
+          width={FULL_WIDTH - 116}
+        />
+        <LoadingShimmer
+          style={styles.text}
+          height={20}
+          width={FULL_WIDTH - 116}
+        />
+        <LoadingShimmer
+          style={styles.text}
+          height={20}
+          width={FULL_WIDTH - 116}
+        />
+      </View>
     </View>
-  </View>
-));
+  ),
+);
 
-export const LoadingDescription = memo(() => (
-  <View style={styles.novelInformationText}>
-    {[...Array(2)].map((_, i) => (
-      <LoadingShimmer
-        key={i}
-        style={styles.text}
-        height={16}
-        width={FULL_WIDTH}
-      />
-    ))}
-  </View>
-));
-
-export const LoadingChips = memo(() => (
-  <View style={styles.novelInformationChips}>
-    {[...Array(4)].map((_, i) => (
-      <LoadingShimmer
-        key={i}
-        style={styles.chip}
-        height={32}
-        width={40 + Math.random() * 60}
-      />
-    ))}
-  </View>
-));
-
-const NovelInformation = memo(() => (
-  <View style={styles.metadataContainer}>
-    <View style={styles.statsContainer}>
-      {[...Array(3)].map((_, i) => (
-        <LoadingShimmer key={i} style={styles.icon} height={56} width={90} />
+export const LoadingDescription = memo(
+  ({ styles }: { styles: ReturnType<typeof createStyles> }) => (
+    <View style={styles.novelInformationText}>
+      {[...Array(2)].map((_, i) => (
+        <LoadingShimmer
+          key={i}
+          style={styles.text}
+          height={16}
+          width={FULL_WIDTH}
+        />
       ))}
     </View>
-    <LoadingDescription />
-    <LoadingChips />
-  </View>
-));
+  ),
+);
 
-export const LoadingChapterItem = memo(() => (
-  <View style={styles.chapter}>
-    <View>
-      <LoadingShimmer style={styles.text} height={20} width={FULL_WIDTH - 50} />
-      <LoadingShimmer style={styles.text} height={16} width={FULL_WIDTH - 50} />
+export const LoadingChips = memo(
+  ({ styles }: { styles: ReturnType<typeof createStyles> }) => (
+    <View style={styles.novelInformationChips}>
+      {[...Array(4)].map((_, i) => (
+        <LoadingShimmer
+          key={i}
+          style={styles.chip}
+          height={32}
+          width={40 + Math.random() * 60}
+        />
+      ))}
     </View>
-    <LoadingShimmer style={styles.loadingChapterItem} height={30} width={30} />
-  </View>
-));
+  ),
+);
 
-const Chapters = memo(() => (
-  <View>
-    <LoadingShimmer
-      style={[styles.text, styles.chapters]}
-      height={30}
-      width={FULL_WIDTH}
-    />
-    {[...Array(7)].map((_, i) => (
-      <LoadingChapterItem key={i} />
-    ))}
-  </View>
-));
+const NovelInformation = memo(
+  ({ styles }: { styles: ReturnType<typeof createStyles> }) => (
+    <View style={styles.metadataContainer}>
+      <View style={styles.statsContainer}>
+        {[...Array(3)].map((_, i) => (
+          <LoadingShimmer key={i} style={styles.icon} height={56} width={90} />
+        ))}
+      </View>
+      <LoadingDescription styles={styles} />
+      <LoadingChips styles={styles} />
+    </View>
+  ),
+);
+
+export const LoadingChapterItem = memo(
+  ({ styles }: { styles: ReturnType<typeof createStyles> }) => (
+    <View style={styles.chapter}>
+      <View>
+        <LoadingShimmer
+          style={styles.text}
+          height={20}
+          width={FULL_WIDTH - 50}
+        />
+        <LoadingShimmer
+          style={styles.text}
+          height={16}
+          width={FULL_WIDTH - 50}
+        />
+      </View>
+      <LoadingShimmer
+        style={styles.loadingChapterItem}
+        height={30}
+        width={30}
+      />
+    </View>
+  ),
+);
+
+const Chapters = memo(
+  ({ styles }: { styles: ReturnType<typeof createStyles> }) => (
+    <View>
+      <LoadingShimmer
+        style={[styles.text, styles.chapters]}
+        height={30}
+        width={FULL_WIDTH}
+      />
+      {[...Array(7)].map((_, i) => (
+        <LoadingChapterItem key={i} styles={styles} />
+      ))}
+    </View>
+  ),
+);
 
 const NovelScreenLoading: React.FC<Props> = () => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(uiScale), [uiScale]);
+
   return (
     <View style={styles.container}>
-      <NovelTop />
-      <NovelInformation />
-      <Chapters />
+      <NovelTop styles={styles} />
+      <NovelInformation styles={styles} />
+      <Chapters styles={styles} />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  loadingChapterItem: { borderRadius: 20, alignSelf: 'center', marginLeft: 20 },
-  chapters: { marginBottom: 5, marginHorizontal: 16 },
-  chapter: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    paddingVertical: 8,
-  },
-  chapterContainer: {
-    marginHorizontal: 16,
-  },
-  chip: {
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  container: {
-    flexGrow: 1,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    height: 268,
-    justifyContent: 'space-evenly',
-    paddingTop: 118,
-    width: '100%',
-  },
-  headerText: {
-    height: 100,
-    justifyContent: 'center',
-    paddingTop: 30,
-  },
-  icon: {
-    borderRadius: 30,
-  },
-  metadataContainer: {
-    marginVertical: 4,
-  },
-  novelInformationChips: {
-    flexDirection: 'row',
-    paddingBottom: 6,
-    paddingLeft: 8,
-  },
-  novelInformationText: {
-    backgroundColor: 'red',
-    height: 62,
-    margin: 16,
-    marginTop: 8,
-  },
-  picture: {
-    borderRadius: 8,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 4,
-  },
-  text: {
-    borderRadius: 8,
-    marginTop: 5,
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    loadingChapterItem: {
+      borderRadius: 20,
+      alignSelf: 'center',
+      marginLeft: 20,
+    },
+    chapters: { marginBottom: 5, marginHorizontal: 16 },
+    chapter: {
+      flexDirection: 'row',
+      marginHorizontal: 16,
+      paddingVertical: 8,
+    },
+    chapterContainer: {
+      marginHorizontal: 16,
+    },
+    chip: {
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    container: {
+      flexGrow: 1,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    headerContainer: {
+      flexDirection: 'row',
+      height: scaleDimension(268, uiScale),
+      justifyContent: 'space-evenly',
+      paddingTop: scaleDimension(118, uiScale),
+      width: '100%',
+    },
+    headerText: {
+      height: scaleDimension(100, uiScale),
+      justifyContent: 'center',
+      paddingTop: scaleDimension(30, uiScale),
+    },
+    icon: {
+      borderRadius: 30,
+    },
+    metadataContainer: {
+      marginVertical: 4,
+    },
+    novelInformationChips: {
+      flexDirection: 'row',
+      paddingBottom: 6,
+      paddingLeft: 8,
+    },
+    novelInformationText: {
+      backgroundColor: 'red',
+      height: scaleDimension(62, uiScale),
+      margin: scaleDimension(16, uiScale),
+      marginTop: scaleDimension(8, uiScale),
+    },
+    picture: {
+      borderRadius: 8,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: 4,
+    },
+    text: {
+      borderRadius: 8,
+      marginTop: 5,
+    },
+  });
 
 export default memo(NovelScreenLoading);

@@ -3,7 +3,12 @@ import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { defaultTo } from 'lodash-es';
-import { useTheme, useChapterGeneralSettings } from '@hooks/persisted';
+import {
+  useAppSettings,
+  useChapterGeneralSettings,
+  useTheme,
+} from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { List, Button } from '@components/index';
 import SettingSwitch from '../../components/SettingSwitch';
@@ -26,6 +31,41 @@ const NavigationTab: React.FC = () => {
 
   const areAutoScrollSettingsDefault =
     autoScrollInterval === 10 && autoScrollOffset === null;
+
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: 24,
+        },
+        section: {
+          marginVertical: 8,
+        },
+        inputContainer: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        textInput: {
+          fontSize: scaleDimension(14, uiScale),
+        },
+        buttonContainer: {
+          marginHorizontal: 16,
+          marginVertical: 8,
+        },
+        button: {
+          marginVertical: 8,
+        },
+        bottomSpacing: {
+          height: 24,
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <BottomSheetScrollView
@@ -151,32 +191,3 @@ const NavigationTab: React.FC = () => {
 };
 
 export default NavigationTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  section: {
-    marginVertical: 8,
-  },
-  inputContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  textInput: {
-    fontSize: 14,
-  },
-  buttonContainer: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  button: {
-    marginVertical: 8,
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-});

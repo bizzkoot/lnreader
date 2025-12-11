@@ -5,7 +5,8 @@ import { Button, Dialog } from 'react-native-paper';
 import { RadioButton } from '@components';
 
 import { getString } from '@strings/translations';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { Category } from '@database/types';
 
@@ -26,6 +27,8 @@ const DefaultCategoryDialog: React.FC<DefaultCategoryDialogProps> = ({
 }) => {
   const theme = useTheme();
 
+  const { uiScale = 1.0 } = useAppSettings();
+
   return (
     <Dialog
       visible={visible}
@@ -45,6 +48,7 @@ const DefaultCategoryDialog: React.FC<DefaultCategoryDialogProps> = ({
             label={item.name}
             onPress={() => setDefaultCategory(item.id)}
             theme={theme}
+            labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
           />
         )}
       />

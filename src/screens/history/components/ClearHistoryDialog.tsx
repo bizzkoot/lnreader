@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { Dialog, Portal } from 'react-native-paper';
 
 import { Button } from '@components';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface ClearHistoryDialogProps {
   visible: boolean;
@@ -19,6 +21,26 @@ const ClearHistoryDialog: React.FC<ClearHistoryDialogProps> = ({
   theme,
   onSubmit,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        button: {
+          marginLeft: 4,
+        },
+        container: {
+          borderRadius: 28,
+          margin: 20,
+        },
+        title: {
+          fontSize: scaleDimension(16, uiScale),
+          letterSpacing: 0,
+        },
+      }),
+    [uiScale],
+  );
+
   const handleOnSubmit = () => {
     onSubmit();
     onDismiss();
@@ -44,17 +66,3 @@ const ClearHistoryDialog: React.FC<ClearHistoryDialogProps> = ({
 };
 
 export default ClearHistoryDialog;
-
-const styles = StyleSheet.create({
-  button: {
-    marginLeft: 4,
-  },
-  container: {
-    borderRadius: 28,
-    margin: 20,
-  },
-  title: {
-    fontSize: 16,
-    letterSpacing: 0,
-  },
-});

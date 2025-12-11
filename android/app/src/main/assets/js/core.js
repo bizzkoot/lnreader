@@ -278,7 +278,7 @@ window.reader = new (function () {
       this.accumulatedScrollDelta = 0;
       return;
     }
-    
+
     // ENHANCED: Detect user manual scroll during TTS
     if (window.tts && window.tts.reading) {
       // Check if TTS has completed its auto-scroll before processing user scroll
@@ -376,18 +376,23 @@ window.reader = new (function () {
       // window.tts.log('Skipping scroll-based save (TTS is reading)');
       return;
     }
-    
+
     // BUG FIX: Block saves during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
       console.log('processScroll: Skipping save - screen wake sync pending');
       return;
     }
-    
+
     // BUG FIX: Block saves shortly after TTS stops (grace period)
     // This prevents small scrolls from corrupting the TTS position
     const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
-    if (timeSinceTTSStop < 2000) { // 2 second grace period
-      console.log('processScroll: Skipping save - TTS grace period (' + timeSinceTTSStop + 'ms)');
+    if (timeSinceTTSStop < 2000) {
+      // 2 second grace period
+      console.log(
+        'processScroll: Skipping save - TTS grace period (' +
+          timeSinceTTSStop +
+          'ms)',
+      );
       return;
     }
 
@@ -451,7 +456,6 @@ window.reader = new (function () {
   });
 
   if (DEBUG) {
-    // eslint-disable-next-line no-global-assign, no-new-object
     console = new Object();
     console.log = function (...data) {
       reader.post({ 'type': 'console', 'msg': data?.join(' ') });
@@ -526,12 +530,21 @@ window.tts = new (function () {
   this.applySettings = settings => {
     try {
       this.log('Applying settings', settings);
-      if (settings.enabled !== undefined) this.enabled = !!settings.enabled;
-      if (settings.rate !== undefined) this.rate = settings.rate;
-      if (settings.pitch !== undefined) this.pitch = settings.pitch;
-      if (settings.voice !== undefined) this.voice = settings.voice;
-      if (settings.showParagraphHighlight !== undefined)
+      if (settings.enabled !== undefined) {
+        this.enabled = !!settings.enabled;
+      }
+      if (settings.rate !== undefined) {
+        this.rate = settings.rate;
+      }
+      if (settings.pitch !== undefined) {
+        this.pitch = settings.pitch;
+      }
+      if (settings.voice !== undefined) {
+        this.voice = settings.voice;
+      }
+      if (settings.showParagraphHighlight !== undefined) {
         this.showParagraphHighlight = !!settings.showParagraphHighlight;
+      }
 
       // If currently reading, we prefer to update parameters in-place without stopping.
       // Notify native side as well so native TTS engine can adjust immediately.
@@ -564,6 +577,18 @@ window.tts = new (function () {
   // NEW: User scroll detection
   this.userScrollDetected = false;
   this.lastKnownScrollY = 0;
+
+  // FIX: Method to fully reset scroll lock state (both flag AND cooldown)
+  // Called after sync operations to allow immediate taps
+  this.resetScrollLock = () => {
+    this.isAutoScrolling = false;
+    this.lastAutoScrollTime = 0;
+    if (this.scrollLockTimeout) {
+      clearTimeout(this.scrollLockTimeout);
+      this.scrollLockTimeout = null;
+    }
+    this.log('Scroll lock explicitly reset');
+  };
 
   // NEW: Handle user manual scroll when TTS is paused
   this.manualScrollListener = () => {
@@ -630,8 +655,9 @@ window.tts = new (function () {
 
           reader.post({
             type: 'show-toast',
-            data: `TTS position updated to paragraph ${visibleParagraphIndex + 1
-              }`,
+            data: `TTS position updated to paragraph ${
+              visibleParagraphIndex + 1
+            }`,
           });
         }
         // If 'never-change', do nothing
@@ -781,12 +807,14 @@ window.tts = new (function () {
       // When next() is called, it checks if currentElement equals prevElement
       // If they're the same, it advances. By setting prevElement to previous paragraph,
       // next() will see currentElement as "unread" and speak it.
-      this.prevElement = paragraphIndex > 0 ? readableElements[paragraphIndex - 1] : null;
+      this.prevElement =
+        paragraphIndex > 0 ? readableElements[paragraphIndex - 1] : null;
 
       // DEBUG: Log element status
       const rect = this.currentElement.getBoundingClientRect();
       this.log(
-        `Resuming element status: isConnected=${this.currentElement.isConnected
+        `Resuming element status: isConnected=${
+          this.currentElement.isConnected
         }, rect=${JSON.stringify(rect)}`,
       );
 
@@ -816,7 +844,7 @@ window.tts = new (function () {
   };
 
   this.hasAutoResumed = false;
-  
+
   // NEW: Track if background TTS playback is active (RN is driving playback)
   // This prevents resume prompts from showing when user returns from background
   this.isBackgroundPlaybackActive = false;
@@ -828,7 +856,7 @@ window.tts = new (function () {
       this.log('Skipping start() - background playback is active');
       return;
     }
-    
+
     this.stop();
     if (element) {
       this.log('Starting from specific element');
@@ -909,7 +937,7 @@ window.tts = new (function () {
         if (
           rect.bottom > 0 &&
           rect.top <
-          (window.innerHeight || document.documentElement.clientHeight)
+            (window.innerHeight || document.documentElement.clientHeight)
         ) {
           // We prefer elements that start near the top (positive rect.top)
           // If rect.top is negative, it means the element started ABOVE the viewport.
@@ -1073,7 +1101,7 @@ window.tts = new (function () {
 
     this.started = false;
     this.reading = false;
-    
+
     // Reset background playback flag when stopping
     this.isBackgroundPlaybackActive = false;
 
@@ -1229,7 +1257,7 @@ window.tts = new (function () {
           type: 'save',
           data: parseInt(
             ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) *
-            100,
+              100,
             10,
           ),
           paragraphIndex,
@@ -1242,7 +1270,11 @@ window.tts = new (function () {
       if (text && text.trim().length > 0) {
         this.log('Speaking', text.substring(0, 20));
         // Include paragraphIndex so RN can create utteranceId matching the batch format
-        reader.post({ type: 'speak', data: text, paragraphIndex: paragraphIndex });
+        reader.post({
+          type: 'speak',
+          data: text,
+          paragraphIndex: paragraphIndex,
+        });
         reader.post({
           type: 'tts-state',
           data: {
@@ -1349,27 +1381,36 @@ window.tts = new (function () {
   this.highlightParagraph = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter causing wrong scrolls
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(`TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      console.log(
+        `TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
+      );
       return false;
     }
-    
+
     const readableElements = reader.getReadableElements();
-    
+
     // Guard against out-of-bounds indices (e.g., from stale events during chapter transition)
     if (paragraphIndex < 0 || paragraphIndex >= readableElements.length) {
-      console.warn(`TTS: highlightParagraph index ${paragraphIndex} out of bounds (${readableElements.length} elements)`);
+      console.warn(
+        `TTS: highlightParagraph index ${paragraphIndex} out of bounds (${readableElements.length} elements)`,
+      );
       return false;
     }
-    
+
     // Mark background playback as active - this prevents resume prompts from interfering
     this.isBackgroundPlaybackActive = true;
     this.reading = true; // Mark as reading since background TTS is active
     this.hasAutoResumed = true; // Prevent resume prompts
-    
+
     this.currentElement = readableElements[paragraphIndex];
     this.prevElement = readableElements[paragraphIndex - 1] || null;
 
     this.scrollToElement(this.currentElement);
+
+    // FIX: Reset scroll lock after sync to allow immediate taps
+    setTimeout(() => {
+      this.resetScrollLock();
+    }, this.CONSTANTS.SCROLL_LOCK_DURATION);
 
     if (reader.generalSettings.val.showParagraphHighlight) {
       const oldHighlight = document.querySelector('.highlight');
@@ -1384,10 +1425,12 @@ window.tts = new (function () {
   this.updateState = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter corrupting state
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(`TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`);
+      console.log(
+        `TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
+      );
       return;
     }
-    
+
     console.log(`TTS: updateState called with index ${paragraphIndex}`);
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
@@ -1395,7 +1438,7 @@ window.tts = new (function () {
       this.isBackgroundPlaybackActive = true;
       this.reading = true;
       this.hasAutoResumed = true;
-      
+
       this.currentElement = readableElements[paragraphIndex];
       this.prevElement = readableElements[paragraphIndex - 1] || null;
       this.started = true; // Ensure next() works from here
@@ -1579,7 +1622,7 @@ window.pageReader = new (function () {
         reader.refresh();
         this.totalPages.val = parseInt(
           (reader.chapterWidth + reader.readerSettings.val.padding * 2) /
-          reader.layoutWidth,
+            reader.layoutWidth,
           10,
         );
         this.movePage(this.totalPages.val * ratio);
@@ -1622,7 +1665,6 @@ function calculatePages() {
     !reader.initialScrollPending &&
     initialReaderConfig.savedParagraphIndex !== undefined &&
     initialReaderConfig.savedParagraphIndex >= 0;
-
 
   // Allow first calculatePages call for initial scroll, then debounce subsequent calls
   const isFirstCall = window.lastCalculatePagesCall === 0;
@@ -1691,7 +1733,7 @@ function calculatePages() {
   if (reader.generalSettings.val.pageReader) {
     pageReader.totalPages.val = parseInt(
       (reader.chapterWidth + reader.readerSettings.val.padding * 2) /
-      reader.layoutWidth,
+        reader.layoutWidth,
       10,
     );
 
@@ -1799,7 +1841,6 @@ function calculatePages() {
 
     if (shouldScrollToProgress) {
       // NEW: Comprehensive TTS protection for progress scroll
-
 
       // Block progress scroll during any TTS-related operation
       if (
@@ -1998,7 +2039,11 @@ const __handleNativeMessage = ev => {
   try {
     if (payload.type === 'set-general-settings' && payload.data) {
       // Merge shallowly into existing generalSettings value
-      reader.generalSettings.val = Object.assign({}, reader.generalSettings.val, payload.data);
+      reader.generalSettings.val = Object.assign(
+        {},
+        reader.generalSettings.val,
+        payload.data,
+      );
     } else if (payload.type === 'tts-update-settings' && payload.data) {
       if (window.tts && typeof window.tts.applySettings === 'function') {
         window.tts.applySettings(payload.data);
@@ -2193,12 +2238,13 @@ document.addEventListener('message', __handleNativeMessage);
         .replace(
           /<br>\s*<br>[^]+/,
           _ =>
-            `${/\/p>/.test(_)
-              ? _.replace(
-                /<br>\s*<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p\b[^>]*><br>\s*<br>))\s*/g,
-                '',
-              )
-              : _
+            `${
+              /\/p>/.test(_)
+                ? _.replace(
+                    /<br>\s*<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p\b[^>]*><br>\s*<br>))\s*/g,
+                    '',
+                  )
+                : _
             } `,
         ) //if p found, delete all double br near p
         .replace(/<br>(?:(?=\s*<\/?p[> ])|(?<=<\/?p>\s*<br>))\s*/g, '');

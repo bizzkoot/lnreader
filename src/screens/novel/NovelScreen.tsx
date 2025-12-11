@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, StatusBar, Text, Share } from 'react-native';
+import { StyleSheet, View, StatusBar, Share } from 'react-native';
 import Animated, {
   SlideInUp,
   SlideOutUp,
@@ -32,6 +32,7 @@ import { ThemeColors } from '@theme/types';
 import { SafeAreaView } from '@components';
 import { useNovelContext } from './NovelContext';
 import { LegendListRef } from '@legendapp/list';
+import AppText from '@components/AppText';
 
 const Novel = ({ route, navigation }: NovelScreenProps) => {
   const {
@@ -307,9 +308,9 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
             theme={{ colors: { primary: theme.primary } }}
             style={styles.snackbar}
           >
-            <Text style={{ color: theme.onSurface }}>
+            <AppText style={{ color: theme.onSurface }}>
               {getString('novelScreen.deleteMessage')}
-            </Text>
+            </AppText>
           </Snackbar>
         </Portal>
         <Portal>

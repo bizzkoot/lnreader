@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Dialog, Portal, Text } from 'react-native-paper';
 import { ThemeColors } from '@theme/types';
 import Button from '@components/Button/Button';
 import { useBackHandler } from '@hooks/index';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface TTSExitDialogProps {
   visible: boolean;
@@ -24,6 +25,9 @@ const TTSExitDialog: React.FC<TTSExitDialogProps> = ({
   onExitReader,
   onCancel,
 }) => {
+  const scaledDimensions = useScaledDimensions();
+  const styles = useMemo(() => getStyles(scaledDimensions), [scaledDimensions]);
+
   // Handle Android back button press -> Cancel
   useBackHandler(() => {
     if (visible) {
@@ -83,22 +87,21 @@ const TTSExitDialog: React.FC<TTSExitDialogProps> = ({
 
 export default TTSExitDialog;
 
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 28,
-  },
-  content: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  buttonCtn: {
-    flexDirection: 'column',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 8,
-  },
-});
+const getStyles = (scaled: ReturnType<typeof useScaledDimensions>) =>
+  StyleSheet.create({
+    container: {
+      borderRadius: scaled.borderRadius.lg + 12,
+    },
+    content: {
+      marginBottom: scaled.margin.sm,
+    },
+    subtitle: {
+      marginBottom: scaled.margin.md,
+    },
+    buttonCtn: {
+      flexDirection: 'column',
+      paddingHorizontal: scaled.padding.md,
+      paddingBottom: scaled.padding.md,
+      gap: 8,
+    },
+  });

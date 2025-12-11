@@ -13,6 +13,9 @@ import { useChapterContext } from '../ChapterContext';
 import { SCREEN_HEIGHT } from '@gorhom/bottom-sheet';
 import { useNovelContext } from '@screens/novel/NovelContext';
 import { useTheme } from '@hooks/persisted';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 interface ChapterFooterProps {
   readerSheetRef: React.RefObject<BottomSheetModalMethods | null>;
@@ -32,6 +35,8 @@ const ChapterFooter = ({
   const { novel, chapter, nextChapter, prevChapter, navigateChapter } =
     useChapterContext();
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const rippleConfig = {
     color: theme.rippleColor,
     borderless: true,
@@ -78,6 +83,30 @@ const ChapterFooter = ({
     };
   };
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        buttonStyles: {
+          alignItems: 'center',
+          flex: 1,
+          justifyContent: 'center',
+          paddingBottom: scaleDimension(4, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        buttonsContainer: {
+          flexDirection: 'row',
+        },
+        footer: {
+          bottom: 0,
+          flex: 1,
+          position: 'absolute',
+          width: '100%',
+          zIndex: 1,
+        },
+      }),
+    [uiScale],
+  );
+
   const style = useMemo(
     () => [
       styles.footer,
@@ -86,7 +115,7 @@ const ChapterFooter = ({
         paddingBottom: navigationBarHeight,
       },
     ],
-    [theme.surface, navigationBarHeight],
+    [theme.surface, navigationBarHeight, styles.footer],
   );
 
   return (
@@ -103,7 +132,7 @@ const ChapterFooter = ({
         >
           <IconButton
             icon="chevron-left"
-            size={26}
+            size={iconSize.md + scaleDimension(2, uiScale)}
             disabled={!prevChapter}
             iconColor={theme.onSurface}
           />
@@ -120,7 +149,11 @@ const ChapterFooter = ({
               })
             }
           >
-            <IconButton icon="earth" size={26} iconColor={theme.onSurface} />
+            <IconButton
+              icon="earth"
+              size={iconSize.md + scaleDimension(2, uiScale)}
+              iconColor={theme.onSurface}
+            />
           </Pressable>
         ) : null}
         <Pressable
@@ -130,7 +163,7 @@ const ChapterFooter = ({
         >
           <IconButton
             icon="format-vertical-align-top"
-            size={26}
+            size={iconSize.md + scaleDimension(2, uiScale)}
             iconColor={theme.onSurface}
           />
         </Pressable>
@@ -141,7 +174,7 @@ const ChapterFooter = ({
         >
           <IconButton
             icon="format-horizontal-align-right"
-            size={26}
+            size={iconSize.md + scaleDimension(2, uiScale)}
             iconColor={theme.onSurface}
           />
         </Pressable>
@@ -152,7 +185,7 @@ const ChapterFooter = ({
         >
           <IconButton
             icon="cog-outline"
-            size={26}
+            size={iconSize.md + scaleDimension(2, uiScale)}
             iconColor={theme.onSurface}
           />
         </Pressable>
@@ -163,7 +196,7 @@ const ChapterFooter = ({
         >
           <IconButton
             icon="chevron-right"
-            size={26}
+            size={iconSize.md + scaleDimension(2, uiScale)}
             disabled={!nextChapter}
             iconColor={theme.onSurface}
           />
@@ -174,23 +207,3 @@ const ChapterFooter = ({
 };
 
 export default React.memo(ChapterFooter);
-
-const styles = StyleSheet.create({
-  buttonStyles: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: 4,
-    paddingVertical: 8,
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-  },
-  footer: {
-    bottom: 0,
-    flex: 1,
-    position: 'absolute',
-    width: '100%',
-    zIndex: 1,
-  },
-});

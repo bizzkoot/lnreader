@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import color from 'color';
 
 import * as Clipboard from 'expo-clipboard';
@@ -8,6 +8,7 @@ import { IconButton } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { showToast } from '@utils/showToast';
+import AppText from '@components/AppText';
 
 import {
   CoverImage,
@@ -33,6 +34,8 @@ import { NovelStatus, PluginItem } from '@plugins/types';
 import { translateNovelStatus } from '@utils/translateEnum';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { AVAILABLE_PLUGINS } from '@hooks/persisted/usePlugins';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { scaleDimension } from '@theme/scaling';
 
 import {
   NovelMetaSkeleton,
@@ -90,8 +93,39 @@ const NovelInfoHeader = ({
   totalChapters,
   trackerSheetRef,
 }: NovelInfoHeaderProps) => {
-  const { hideBackdrop = false } = useAppSettings();
+  const { hideBackdrop = false, uiScale = 1.0 } = useAppSettings();
+  const { iconSize } = useScaledDimensions();
   const { followNovel } = useNovelContext();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        bottomsheet: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingRight: scaleDimension(12, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        bottomsheetContainer: {
+          gap: scaleDimension(12, uiScale),
+        },
+        chapters: {
+          fontSize: scaleDimension(14, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+        flex: { flex: 1 },
+        marginRight: { marginRight: scaleDimension(4, uiScale) },
+        novelDetails: {
+          flex: 1,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          paddingBottom: scaleDimension(16, uiScale),
+          paddingLeft: scaleDimension(12, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const pluginName = useMemo(
     () =>
@@ -147,7 +181,7 @@ const NovelInfoHeader = ({
               <Row>
                 <MaterialCommunityIcons
                   name="fountain-pen-tip"
-                  size={14}
+                  size={iconSize.sm}
                   color={theme.onSurfaceVariant}
                   style={styles.marginRight}
                 />
@@ -158,7 +192,7 @@ const NovelInfoHeader = ({
               <Row>
                 <MaterialCommunityIcons
                   name="palette-outline"
-                  size={14}
+                  size={iconSize.sm}
                   color={theme.onSurfaceVariant}
                   style={styles.marginRight}
                 />
@@ -170,7 +204,7 @@ const NovelInfoHeader = ({
                 name={getStatusIcon(
                   novel.id !== 'NO_ID' ? novel.status : undefined,
                 )}
-                size={14}
+                size={iconSize.sm}
                 color={theme.onSurfaceVariant}
                 style={styles.marginRight}
               />
@@ -235,16 +269,16 @@ const NovelInfoHeader = ({
               }}
             >
               <View style={styles.flex}>
-                <Text style={[{ color: theme.onSurface }, styles.chapters]}>
+                <AppText style={[{ color: theme.onSurface }, styles.chapters]}>
                   {!fetching || totalChapters !== undefined
                     ? `${totalChapters} ${getString('novelScreen.chapters')}`
                     : getString('common.loading')}
-                </Text>
+                </AppText>
               </View>
               <IconButton
                 icon="filter-variant"
                 iconColor={filter ? filterColor(theme.isDark) : theme.onSurface}
-                size={24}
+                size={iconSize.md}
                 onPress={() => novelBottomSheetRef.current?.present()}
               />
             </Pressable>
@@ -256,29 +290,3 @@ const NovelInfoHeader = ({
 };
 
 export default memo(NovelInfoHeader);
-
-const styles = StyleSheet.create({
-  bottomsheet: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingRight: 12,
-    paddingVertical: 8,
-  },
-  bottomsheetContainer: {
-    gap: 12,
-  },
-  chapters: {
-    fontSize: 14,
-    paddingHorizontal: 16,
-  },
-  flex: { flex: 1 },
-  marginRight: { marginRight: 4 },
-  novelDetails: {
-    flex: 1,
-    flexDirection: 'column',
-    justifyContent: 'center',
-    paddingBottom: 16,
-    paddingLeft: 12,
-  },
-});

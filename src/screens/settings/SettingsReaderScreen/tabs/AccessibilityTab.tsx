@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, Pressable, Alert } from 'react-native';
+import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { Voice, VoiceQuality } from 'expo-speech';
@@ -8,9 +8,12 @@ import {
   useTheme,
   useChapterGeneralSettings,
   useChapterReaderSettings,
+  useAppSettings,
 } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { List, Button } from '@components/index';
+import AppText from '@components/AppText';
 import SettingSwitch from '../../components/SettingSwitch';
 import Switch from '@components/Switch/Switch';
 import { useBoolean } from '@hooks';
@@ -155,6 +158,90 @@ const AccessibilityTab: React.FC = () => {
     });
   }, []);
 
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: 24,
+        },
+        section: {
+          marginVertical: 8,
+        },
+        ttsHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingRight: 16,
+        },
+        sliderSection: {
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+        },
+        sliderLabelRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        sliderLabel: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+        sliderValue: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          minWidth: 48,
+          textAlign: 'right',
+        },
+        sliderContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        },
+        slider: {
+          flex: 1,
+          height: 48,
+        },
+        sliderButton: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(128, 128, 128, 0.1)',
+        },
+        sliderButtonText: {
+          fontSize: scaleDimension(24, uiScale),
+          fontWeight: '500',
+          lineHeight: 28,
+        },
+        sliderMarkers: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: 48,
+          marginTop: 4,
+        },
+        sliderMarkerText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+        resetButtonContainer: {
+          paddingHorizontal: 16,
+          marginTop: 16,
+        },
+        resetButton: {
+          marginVertical: 8,
+        },
+        bottomSpacing: {
+          height: 24,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <>
       <BottomSheetScrollView
@@ -256,8 +343,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoResume === 'always'
                     ? 'Always resume'
                     : ttsAutoResume === 'never'
-                    ? 'Never resume'
-                    : 'Ask every time'
+                      ? 'Never resume'
+                      : 'Ask every time'
                 }
                 onPress={showAutoResumeModal}
                 theme={theme}
@@ -272,14 +359,16 @@ const AccessibilityTab: React.FC = () => {
               {/* Voice Rate Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text
+                  <AppText
                     style={[styles.sliderLabel, { color: theme.onSurface }]}
                   >
                     Voice speed
-                  </Text>
-                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                  </AppText>
+                  <AppText
+                    style={[styles.sliderValue, { color: theme.primary }]}
+                  >
                     {localRate.toFixed(1)}x
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.sliderContainer}>
                   <Pressable
@@ -292,14 +381,14 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       −
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -329,55 +418,57 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       +
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
                 <View style={styles.sliderMarkers}>
-                  <Text
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Slow
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Normal
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Fast
-                  </Text>
+                  </AppText>
                 </View>
               </View>
 
               {/* Voice Pitch Slider with enhanced UX */}
               <View style={styles.sliderSection}>
                 <View style={styles.sliderLabelRow}>
-                  <Text
+                  <AppText
                     style={[styles.sliderLabel, { color: theme.onSurface }]}
                   >
                     Voice pitch
-                  </Text>
-                  <Text style={[styles.sliderValue, { color: theme.primary }]}>
+                  </AppText>
+                  <AppText
+                    style={[styles.sliderValue, { color: theme.primary }]}
+                  >
                     {localPitch.toFixed(1)}x
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.sliderContainer}>
                   <Pressable
@@ -390,14 +481,14 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       −
-                    </Text>
+                    </AppText>
                   </Pressable>
                   <Slider
                     style={styles.slider}
@@ -427,41 +518,41 @@ const AccessibilityTab: React.FC = () => {
                       });
                     }}
                   >
-                    <Text
+                    <AppText
                       style={[
                         styles.sliderButtonText,
                         { color: theme.primary },
                       ]}
                     >
                       +
-                    </Text>
+                    </AppText>
                   </Pressable>
                 </View>
                 <View style={styles.sliderMarkers}>
-                  <Text
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Low
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     Normal
-                  </Text>
-                  <Text
+                  </AppText>
+                  <AppText
                     style={[
                       styles.sliderMarkerText,
                       { color: theme.onSurfaceVariant },
                     ]}
                   >
                     High
-                  </Text>
+                  </AppText>
                 </View>
               </View>
 
@@ -496,8 +587,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsScrollPrompt === 'always-ask'
                     ? 'Ask me if I want to change TTS position'
                     : ttsScrollPrompt === 'auto-change'
-                    ? 'Automatically update TTS position'
-                    : 'Never change TTS position'
+                      ? 'Automatically update TTS position'
+                      : 'Never change TTS position'
                 }
                 onPress={showScrollPromptModal}
                 theme={theme}
@@ -522,10 +613,10 @@ const AccessibilityTab: React.FC = () => {
                   ttsContinueToNextChapter === 'none'
                     ? 'No (stop at end of chapter)'
                     : ttsContinueToNextChapter === '5'
-                    ? 'Up to 5 chapters'
-                    : ttsContinueToNextChapter === '10'
-                    ? 'Up to 10 chapters'
-                    : 'Continuously (until stopped)'
+                      ? 'Up to 5 chapters'
+                      : ttsContinueToNextChapter === '10'
+                        ? 'Up to 10 chapters'
+                        : 'Continuously (until stopped)'
                 }
                 onPress={showContinueNextChapterModal}
                 theme={theme}
@@ -536,12 +627,12 @@ const AccessibilityTab: React.FC = () => {
                   ttsForwardChapterReset === 'none'
                     ? 'Disabled'
                     : ttsForwardChapterReset === 'reset-next'
-                    ? 'Reset next chapter'
-                    : ttsForwardChapterReset === 'reset-until-5'
-                    ? 'Reset next 5 chapters'
-                    : ttsForwardChapterReset === 'reset-until-10'
-                    ? 'Reset next 10 chapters'
-                    : 'Reset ALL future chapters (Destructive)'
+                      ? 'Reset next chapter'
+                      : ttsForwardChapterReset === 'reset-until-5'
+                        ? 'Reset next 5 chapters'
+                        : ttsForwardChapterReset === 'reset-until-10'
+                          ? 'Reset next 10 chapters'
+                          : 'Reset ALL future chapters (Destructive)'
                 }
                 onPress={showTtsResetModeModal}
                 theme={theme}
@@ -554,8 +645,8 @@ const AccessibilityTab: React.FC = () => {
                   ttsAutoDownload === 'disabled'
                     ? 'Disabled (use app setting)'
                     : ttsAutoDownload === '5'
-                    ? 'When 5 chapters remain'
-                    : 'When 10 chapters remain'
+                      ? 'When 5 chapters remain'
+                      : 'When 10 chapters remain'
                 }
                 onPress={showTtsAutoDownloadModal}
                 theme={theme}
@@ -729,81 +820,3 @@ const AccessibilityTab: React.FC = () => {
 };
 
 export default AccessibilityTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  section: {
-    marginVertical: 8,
-  },
-  ttsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: 16,
-  },
-  sliderSection: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  sliderLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sliderLabel: {
-    fontSize: 16,
-  },
-  sliderValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 48,
-    textAlign: 'right',
-  },
-  sliderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  slider: {
-    flex: 1,
-    height: 48,
-  },
-  sliderButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
-  },
-  sliderButtonText: {
-    fontSize: 24,
-    fontWeight: '500',
-    lineHeight: 28,
-  },
-  sliderMarkers: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 48,
-    marginTop: 4,
-  },
-  sliderMarkerText: {
-    fontSize: 12,
-  },
-  resetButtonContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  resetButton: {
-    alignSelf: 'flex-start',
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-});

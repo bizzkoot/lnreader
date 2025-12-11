@@ -1,5 +1,5 @@
 import React, { RefObject } from 'react';
-import { Pressable, Share, View, Text, StyleSheet } from 'react-native';
+import { Pressable, Share, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as Linking from 'expo-linking';
@@ -7,6 +7,7 @@ import * as Linking from 'expo-linking';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
 import { showToast } from '@utils/showToast';
+import AppText from '@components/AppText';
 
 interface MenuProps {
   theme: ThemeColors;
@@ -33,9 +34,9 @@ const Menu: React.FC<MenuProps> = ({
             webView.current?.reload();
           }}
         >
-          <Text style={{ color: theme.onSurface }}>
+          <AppText style={{ color: theme.onSurface }}>
             {getString('webview.refresh')}
-          </Text>
+          </AppText>
         </Pressable>
 
         <Pressable
@@ -45,9 +46,9 @@ const Menu: React.FC<MenuProps> = ({
             Share.share({ message: currentUrl });
           }}
         >
-          <Text style={{ color: theme.onSurface }}>
+          <AppText style={{ color: theme.onSurface }}>
             {getString('webview.share')}
-          </Text>
+          </AppText>
         </Pressable>
 
         <Pressable
@@ -57,9 +58,9 @@ const Menu: React.FC<MenuProps> = ({
             Linking.openURL(currentUrl);
           }}
         >
-          <Text style={{ color: theme.onSurface }}>
+          <AppText style={{ color: theme.onSurface }}>
             {getString('webview.openInBrowser')}
-          </Text>
+          </AppText>
         </Pressable>
 
         <Pressable
@@ -71,9 +72,9 @@ const Menu: React.FC<MenuProps> = ({
             showToast(getString('webview.dataDeleted'));
           }}
         >
-          <Text style={{ color: theme.onSurface }}>
+          <AppText style={{ color: theme.onSurface }}>
             {getString('webview.clearData')}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </Pressable>

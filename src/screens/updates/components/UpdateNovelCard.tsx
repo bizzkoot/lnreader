@@ -11,11 +11,17 @@ import {
 import { List } from 'react-native-paper';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import ChapterItem from '@screens/novel/components/ChapterItem';
-import { useDownload, useTheme, useUpdates } from '@hooks/persisted';
+import {
+  useDownload,
+  useTheme,
+  useUpdates,
+  useAppSettings,
+} from '@hooks/persisted';
 import { RootStackParamList } from '@navigators/types';
 import { FlatList } from 'react-native-gesture-handler';
 import { defaultCover } from '@plugins/helpers/constants';
 import { ThemeColors } from '@theme/types';
+import { scaleDimension } from '@theme/scaling';
 
 type UpdateCardProps = {
   onlyDownloadedChapters?: boolean;
@@ -113,7 +119,8 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
     }
   }, [chapterList, chapterListInfo.updatesPerDay, navigate]);
 
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
 
   const Cover = useCallback(() => {
     const uri = chapterListInfo.novelCover || defaultCover;
@@ -205,7 +212,7 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
 
 export default memo(UpdateNovelCard);
 
-function createStyles(theme: ThemeColors) {
+function createStyles(theme: ThemeColors, uiScale: number) {
   return StyleSheet.create({
     alignSelf: { alignSelf: 'center' },
     chapterList: {
@@ -217,10 +224,10 @@ function createStyles(theme: ThemeColors) {
     },
     cover: {
       borderRadius: 4,
-      height: 40,
-      width: 40,
+      height: scaleDimension(40, uiScale),
+      width: scaleDimension(40, uiScale),
     },
-    description: { fontSize: 12 },
+    description: { fontSize: scaleDimension(12, uiScale) },
     novelCover: {
       marginRight: 8,
     },
@@ -228,6 +235,6 @@ function createStyles(theme: ThemeColors) {
       paddingHorizontal: 16,
       paddingVertical: 2,
     },
-    title: { color: theme.onSurface, fontSize: 14 },
+    title: { color: theme.onSurface, fontSize: scaleDimension(14, uiScale) },
   });
 }

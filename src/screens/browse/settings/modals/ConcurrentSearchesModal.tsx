@@ -1,13 +1,15 @@
-import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet } from 'react-native';
+import { Text } from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
 import { RadioButton } from '@components/RadioButton/RadioButton';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
-import { useBrowseSettings } from '@hooks/persisted/index';
+import { useAppSettings, useBrowseSettings } from '@hooks/persisted/index';
 import { Modal } from '@components';
+import { scaleDimension } from '@theme/scaling';
 
 interface DisplayModeModalProps {
   globalSearchConcurrency: number;
@@ -23,6 +25,19 @@ const ConcurrentSearchesModal: React.FC<DisplayModeModalProps> = ({
   modalVisible,
 }) => {
   const { setBrowseSettings } = useBrowseSettings();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        modalHeader: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(10, uiScale),
+          paddingHorizontal: scaleDimension(24, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <Portal>
@@ -47,11 +62,3 @@ const ConcurrentSearchesModal: React.FC<DisplayModeModalProps> = ({
 };
 
 export default ConcurrentSearchesModal;
-
-const styles = StyleSheet.create({
-  modalHeader: {
-    fontSize: 24,
-    marginBottom: 10,
-    paddingHorizontal: 24,
-  },
-});

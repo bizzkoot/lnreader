@@ -1,10 +1,12 @@
-import React, { memo, useRef, useState } from 'react';
+import React, { memo, useRef, useState, useMemo } from 'react';
 import { Pressable, StyleSheet, View, TextInput } from 'react-native';
 
 import IconButtonV2 from '../IconButtonV2/IconButtonV2';
 import { ThemeColors } from '../../theme/types';
 import { Menu } from '@components';
 import { MaterialDesignIconName } from '@type/icon';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 export interface RightIcon {
   iconName: MaterialDesignIconName;
@@ -47,10 +49,44 @@ const Searchbar: React.FC<SearcbarProps> = ({
   const searchbarRef = useRef<any>(null);
   const focusSearchbar = () => searchbarRef.current.focus();
   const [extraMenu, showExtraMenu] = useState(false);
+  const { uiScale = 1.0 } = useAppSettings();
 
-  const marginTop = 8;
-  const marginRight = 16;
-  const marginLeft = 16;
+  const marginTop = useMemo(() => scaleDimension(8, uiScale), [uiScale]);
+  const marginRight = useMemo(() => scaleDimension(16, uiScale), [uiScale]);
+  const marginLeft = useMemo(() => scaleDimension(16, uiScale), [uiScale]);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        icon: {
+          marginHorizontal: scaleDimension(8, uiScale),
+        },
+        searchIconContainer: {
+          borderRadius: 50,
+          overflow: 'hidden',
+        },
+        searchbar: {
+          alignItems: 'center',
+          flex: 1,
+          flexDirection: 'row',
+          paddingHorizontal: scaleDimension(8, uiScale),
+        },
+        searchbarContainer: {
+          borderRadius: 50,
+          marginBottom: scaleDimension(12, uiScale),
+          marginHorizontal: scaleDimension(16, uiScale),
+          minHeight: scaleDimension(56, uiScale),
+          overflow: 'hidden',
+          zIndex: 1,
+        },
+        textInput: {
+          flex: 1,
+          fontSize: scaleDimension(16, uiScale),
+          marginHorizontal: scaleDimension(8, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View
@@ -148,32 +184,3 @@ const Searchbar: React.FC<SearcbarProps> = ({
 };
 
 export default memo(Searchbar);
-
-const styles = StyleSheet.create({
-  icon: {
-    marginHorizontal: 8,
-  },
-  searchIconContainer: {
-    borderRadius: 50,
-    overflow: 'hidden',
-  },
-  searchbar: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-  },
-  searchbarContainer: {
-    borderRadius: 50,
-    marginBottom: 12,
-    marginHorizontal: 16,
-    minHeight: 56,
-    overflow: 'hidden',
-    zIndex: 1,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    marginHorizontal: 8,
-  },
-});

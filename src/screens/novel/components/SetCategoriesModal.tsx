@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { Divider, Portal } from 'react-native-paper';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 
 import { Button, Modal } from '@components/index';
 
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { getString } from '@strings/translations';
 import { getCategoriesWithCount } from '@database/queries/CategoryQueries';
@@ -14,6 +15,7 @@ import { CCategory, Category } from '@database/types';
 import { Checkbox } from '@components/Checkbox/Checkbox';
 import { xor } from 'lodash-es';
 import { RootStackParamList } from '@navigators/types';
+import AppText from '@components/AppText';
 
 interface SetCategoryModalProps {
   novelIds: number[];
@@ -34,6 +36,33 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
   const { navigate } = useNavigation<NavigationProp<RootStackParamList>>();
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [categories = [], setCategories] = useState<CCategory[]>();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        divider: { height: 1, width: '90%', marginLeft: '5%' },
+        btnContainer: {
+          flexDirection: 'row',
+          marginTop: scaleDimension(20, uiScale),
+        },
+        checkboxView: {
+          marginBottom: scaleDimension(5, uiScale),
+        },
+        flex: {
+          flex: 1,
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(20, uiScale),
+        },
+        modelOption: {
+          fontSize: scaleDimension(15, uiScale),
+          marginVertical: scaleDimension(10, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   const getCategories = useCallback(async () => {
     const res = getCategoriesWithCount(novelIds);
@@ -56,9 +85,9 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
           setSelectedCategories([]);
         }}
       >
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString('categories.setCategories')}
-        </Text>
+        </AppText>
         <FlatList
           data={categories}
           renderItem={({ item }) => (
@@ -76,9 +105,14 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
             />
           )}
           ListEmptyComponent={
-            <Text style={{ color: theme.onSurfaceVariant }}>
+            <AppText
+              style={{
+                color: theme.onSurfaceVariant,
+                fontSize: scaleDimension(14, uiScale),
+              }}
+            >
               {getString('categories.setModalEmptyMsg')}
-            </Text>
+            </AppText>
           }
         />
         <Divider
@@ -125,25 +159,3 @@ const SetCategoryModal: React.FC<SetCategoryModalProps> = ({
 };
 
 export default SetCategoryModal;
-
-const styles = StyleSheet.create({
-  divider: { height: 1, width: '90%', marginLeft: '5%' },
-  btnContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  checkboxView: {
-    marginBottom: 5,
-  },
-  flex: {
-    flex: 1,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
-  modelOption: {
-    fontSize: 15,
-    marginVertical: 10,
-  },
-});

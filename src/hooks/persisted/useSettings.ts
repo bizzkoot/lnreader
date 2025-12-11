@@ -29,6 +29,13 @@ export interface AppSettings {
   showLabelsInNav: boolean;
   useFabForContinueReading: boolean;
   disableLoadingAnimations: boolean;
+  /**
+   * UI Scale factor for app-wide UI element sizing (padding, margins, icons, etc.)
+   * - Range: 0.2 (20% - extremely compact) to 1.5 (150% - very spacious)
+   * - Default: 0.8 (80% - comfortable, Material Design 3 adapted for mobile)
+   * - Note: Does NOT affect chapter text size (use textSize for that)
+   */
+  uiScale: number;
 
   /**
    * Library settings
@@ -189,6 +196,7 @@ const initialAppSettings: AppSettings = {
   showLabelsInNav: true,
   useFabForContinueReading: false,
   disableLoadingAnimations: false,
+  uiScale: 0.8,
 
   /**
    * Library settings

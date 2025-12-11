@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { useNavigation } from '@react-navigation/native';
 import dayjs from 'dayjs';
@@ -8,7 +9,8 @@ import { IconButtonV2 } from '@components';
 
 import { defaultCover } from '@plugins/helpers/constants';
 import { getString } from '@strings/translations';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { History, NovelInfo } from '@database/types';
 import { HistoryScreenProps } from '@navigators/types';
@@ -26,6 +28,46 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 }) => {
   const theme = useTheme();
   const { navigate } = useNavigation<HistoryScreenProps['navigation']>();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        buttonContainer: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        },
+        container: {
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        cover: {
+          backgroundColor: coverPlaceholderColor,
+          borderRadius: scaleDimension(4, uiScale),
+          height: scaleDimension(80, uiScale),
+          width: scaleDimension(56, uiScale),
+        },
+        detailsContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          marginLeft: scaleDimension(16, uiScale),
+        },
+        imageAndNameContainer: {
+          alignItems: 'center',
+          flex: 1,
+          flexDirection: 'row',
+        },
+        novelName: {
+          marginBottom: scaleDimension(4, uiScale),
+          fontWeight: '500',
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <Pressable
@@ -65,13 +107,25 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           />
         </Pressable>
         <View style={styles.detailsContainer}>
-          <Text
+          <AppText
             numberOfLines={2}
-            style={[{ color: theme.onSurface }, styles.novelName]}
+            style={[
+              {
+                color: theme.onSurface,
+                fontSize: scaleDimension(14, uiScale),
+              },
+              styles.novelName,
+            ]}
           >
             {history.novelName}
-          </Text>
-          <Text style={{ color: theme.onSurfaceVariant }}>
+          </AppText>
+          <AppText
+            style={{
+              color: theme.onSurfaceVariant,
+              fontSize: scaleDimension(12, uiScale),
+              marginTop: scaleDimension(4, uiScale),
+            }}
+          >
             {`${getString('historyScreen.chapter')} ${
               history.chapterNumber
             } • ${dayjs(history.readTime).format('LT').toUpperCase()}` +
@@ -80,7 +134,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
                   ? ' • ' + history.progress + '%'
                   : ''
               }`}
-          </Text>
+          </AppText>
         </View>
       </View>
       <View style={styles.buttonContainer}>
@@ -95,37 +149,3 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 };
 
 export default HistoryCard;
-
-const styles = StyleSheet.create({
-  buttonContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  cover: {
-    backgroundColor: coverPlaceholderColor,
-    borderRadius: 4,
-    height: 80,
-    width: 56,
-  },
-  detailsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    marginLeft: 16,
-  },
-  imageAndNameContainer: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-  },
-  novelName: {
-    marginBottom: 4,
-  },
-});

@@ -2,8 +2,11 @@ import { LegendList, LegendListRenderItemProps } from '@legendapp/list';
 import { ThemeColors } from '@theme/types';
 import color from 'color';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
+import React, { useMemo } from 'react';
+import AppText from '@components/AppText';
 
 interface NovelDrawerProps {
   theme: ThemeColors;
@@ -20,6 +23,44 @@ export default function NovelDrawer({
   closeDrawer,
 }: NovelDrawerProps) {
   const insets = useSafeAreaInsets();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        drawer: {
+          flex: 1,
+          height: scaleDimension(100, uiScale),
+          paddingTop: scaleDimension(60, uiScale),
+        },
+        drawerElementContainer: {
+          borderRadius: 50,
+          margin: scaleDimension(4, uiScale),
+          marginLeft: scaleDimension(16, uiScale),
+          marginRight: scaleDimension(16, uiScale),
+          minHeight: scaleDimension(48, uiScale),
+          overflow: 'hidden',
+        },
+        headerCtn: {
+          borderBottomWidth: 1,
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '500',
+          marginBottom: scaleDimension(4, uiScale),
+          padding: scaleDimension(16, uiScale),
+        },
+        pageCtn: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingHorizontal: scaleDimension(20, uiScale),
+          paddingVertical: scaleDimension(10, uiScale),
+        },
+        pageText: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   const renderItem = ({ item, index }: LegendListRenderItemProps<string>) => (
     <View
       style={[
@@ -38,7 +79,9 @@ export default function NovelDrawer({
         }}
       >
         <View>
-          <Text style={{ color: theme.onSurfaceVariant }}>{item}</Text>
+          <AppText style={[{ color: theme.onSurfaceVariant }, styles.pageText]}>
+            {item}
+          </AppText>
         </View>
       </Pressable>
     </View>
@@ -50,14 +93,14 @@ export default function NovelDrawer({
         { backgroundColor: theme.surface, paddingBottom: insets.bottom },
       ]}
     >
-      <Text
+      <AppText
         style={[
           styles.headerCtn,
           { color: theme.onSurface, borderBottomColor: theme.outline },
         ]}
       >
         Novel pages
-      </Text>
+      </AppText>
       <LegendList
         data={pages}
         recycleItems
@@ -69,32 +112,3 @@ export default function NovelDrawer({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  drawer: {
-    flex: 1,
-    height: 100,
-    paddingTop: 60,
-  },
-  drawerElementContainer: {
-    borderRadius: 50,
-    margin: 4,
-    marginLeft: 16,
-    marginRight: 16,
-    minHeight: 48,
-    overflow: 'hidden',
-  },
-  headerCtn: {
-    borderBottomWidth: 1,
-    fontSize: 16,
-    fontWeight: 500,
-    marginBottom: 4,
-    padding: 16,
-  },
-  pageCtn: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-});

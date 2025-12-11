@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
+import AppText from '@components/AppText';
 
 import { Button, Modal } from '@components/index';
 
@@ -10,7 +11,8 @@ import {
   isCategoryNameDuplicate,
   updateCategory,
 } from '../../../database/queries/CategoryQueries';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { getString } from '@strings/translations';
 import { showToast } from '@utils/showToast';
@@ -42,16 +44,33 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
     close();
   }
 
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        btnContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: 24,
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 16,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={close}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {getString(
             isEditMode
               ? 'categories.editCategories'
               : 'categories.addCategories',
           )}
-        </Text>
+        </AppText>
         <TextInput
           autoFocus
           defaultValue={categoryName}
@@ -60,6 +79,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
           mode="outlined"
           underlineColor={theme.outline}
           theme={{ colors: { ...theme } }}
+          style={{ fontSize: scaleDimension(16, uiScale) }}
         />
         <View style={styles.btnContainer}>
           <Button
@@ -85,14 +105,3 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({
 };
 
 export default AddCategoryModal;
-
-const styles = StyleSheet.create({
-  btnContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-});

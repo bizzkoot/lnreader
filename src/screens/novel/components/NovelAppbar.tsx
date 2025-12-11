@@ -16,6 +16,7 @@ import ExportNovelAsEpubButton from './ExportNovelAsEpubButton';
 import { NovelInfo } from '@database/types';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { MaterialDesignIconName } from '@type/icon';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 const Menu = React.memo(
   ({
@@ -94,6 +95,7 @@ const NovelAppbar = ({
     };
   });
 
+  const { iconSize } = useScaledDimensions();
   const [downloadMenu, showDownloadMenu] = useState(false);
   const [extraMenu, showExtraMenu] = useState(false);
 
@@ -111,12 +113,12 @@ const NovelAppbar = ({
           // delay to prevent flickering on rerenders
           exiting={FadeOut.delay(50).duration(250)}
           theme={{ colors: theme }}
-          size={24}
+          size={iconSize.md}
           {...props}
         />
       );
     },
-    [theme],
+    [theme, iconSize.md],
   );
   const downloadMenuItems = useMemo(() => {
     return [
@@ -182,7 +184,7 @@ const NovelAppbar = ({
                   theme={{ colors: theme }}
                   icon="download-outline"
                   onPress={openDlMenu}
-                  size={26}
+                  size={iconSize.md}
                 />
               }
               items={downloadMenuItems}
@@ -196,7 +198,7 @@ const NovelAppbar = ({
                 theme={{ colors: theme }}
                 icon="dots-vertical"
                 onPress={() => showExtraMenu(true)}
-                size={24}
+                size={iconSize.md}
               />
             }
             theme={theme}

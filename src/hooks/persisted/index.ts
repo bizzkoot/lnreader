@@ -9,6 +9,8 @@ export {
   useChapterGeneralSettings,
   useChapterReaderSettings,
 } from './useSettings';
+
+export { useScaledDimensions } from '../useScaledDimensions';
 export { default as usePlugins } from './usePlugins';
 export { getTracker, useTracker } from './useTracker';
 export { useTrackedNovel } from './useTrackedNovel';

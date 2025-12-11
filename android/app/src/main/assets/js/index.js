@@ -1,24 +1,23 @@
 const { div, img, button } = van.tags;
 
-
 const ChapterEnding = () => {
   return () =>
     reader.generalSettings.val.pageReader
       ? div()
       : div(div({ class: 'info-text' }, reader.strings.finished), () =>
-        reader.nextChapter
-          ? button(
-            {
-              class: 'next-button',
-              onclick: e => {
-                e.stopPropagation();
-                reader.post({ type: 'next' });
-              },
-            },
-            reader.strings.nextChapter,
-          )
-          : div({ class: 'info-text' }, reader.strings.noNextChapter),
-      );
+          reader.nextChapter
+            ? button(
+                {
+                  class: 'next-button',
+                  onclick: e => {
+                    e.stopPropagation();
+                    reader.post({ type: 'next' });
+                  },
+                },
+                reader.strings.nextChapter,
+              )
+            : div({ class: 'info-text' }, reader.strings.noNextChapter),
+        );
 };
 
 const Scrollbar = () => {
@@ -127,7 +126,8 @@ const ToolWrapper = () => {
     {
       id: 'ToolWrapper',
       class: () =>
-        `${reader.hidden.val ? 'hidden' : ''} ${horizontal.val ? 'horizontal' : ''
+        `${reader.hidden.val ? 'hidden' : ''} ${
+          horizontal.val ? 'horizontal' : ''
         }`,
     },
     Scrollbar(),
@@ -211,7 +211,7 @@ const Footer = () => {
       id: 'reader-footer-wrapper',
       class: () =>
         reader.generalSettings.val.showBatteryAndTime ||
-          reader.generalSettings.val.showScrollPercentage
+        reader.generalSettings.val.showScrollPercentage
           ? ''
           : 'd-none',
     },
@@ -222,7 +222,8 @@ const Footer = () => {
         {
           id: 'reader-battery',
           class: () =>
-            `reader-footer-item ${reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
+            `reader-footer-item ${
+              reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
             }`,
         },
         () => Math.ceil(reader.batteryLevel.val * 100) + '%',
@@ -231,7 +232,8 @@ const Footer = () => {
         {
           id: 'reader-percentage',
           class: () =>
-            `reader-footer-item ${reader.generalSettings.val.showScrollPercentage ? '' : 'hidden'
+            `reader-footer-item ${
+              reader.generalSettings.val.showScrollPercentage ? '' : 'hidden'
             }`,
         },
         () =>
@@ -243,7 +245,8 @@ const Footer = () => {
         {
           id: 'reader-time',
           class: () =>
-            `reader-footer-item ${reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
+            `reader-footer-item ${
+              reader.generalSettings.val.showBatteryAndTime ? '' : 'hidden'
             }`,
         },
         time,
@@ -252,29 +255,23 @@ const Footer = () => {
   );
 };
 
-
-
 // Safe storage helper to handle SecurityError
 const SafeStorage = {
-  getItem: (key) => {
+  getItem: key => {
     try {
       return localStorage.getItem(key);
     } catch (e) {
-
       return null;
     }
   },
   setItem: (key, value) => {
     try {
       localStorage.setItem(key, value);
-    } catch (e) {
-
-    }
-  }
+    } catch (e) {}
+  },
 };
 
 const TTSController = () => {
-
   try {
     let controllerElement = null;
     let isDragging = false;
@@ -297,7 +294,12 @@ const TTSController = () => {
       const windowHeight = window.innerHeight;
 
       // Basic validation: must be within screen bounds (allowing for some margin)
-      if (leftVal < 0 || leftVal > windowWidth - 20 || topVal < 0 || topVal > windowHeight - 20) {
+      if (
+        leftVal < 0 ||
+        leftVal > windowWidth - 20 ||
+        topVal < 0 ||
+        topVal > windowHeight - 20
+      ) {
         savedLeft = null;
         savedTop = null;
       }
@@ -306,10 +308,14 @@ const TTSController = () => {
     return div(
       {
         id: 'TTS-Controller',
-        class: () => reader.generalSettings.val.TTSEnable ? '' : 'hidden',
+        class: () => (reader.generalSettings.val.TTSEnable ? '' : 'hidden'),
         style: () => {
           // Skip ALL style updates during any drag operation to prevent ResizeObserver triggering
-          if (controllerElement && (controllerElement.dataset.dragging === 'true' || controllerElement.dataset.cleanupInProgress === 'true')) {
+          if (
+            controllerElement &&
+            (controllerElement.dataset.dragging === 'true' ||
+              controllerElement.dataset.cleanupInProgress === 'true')
+          ) {
             return 'transform: none;'; // Ensure clean state for transform positioning
           }
           if (savedLeft && savedTop) {
@@ -318,7 +324,7 @@ const TTSController = () => {
           // Default to left-center (9 o'clock position)
           return 'left: 15px; top: calc(50% - 25px);';
         },
-        ontouchstart: (e) => {
+        ontouchstart: e => {
           if (!controllerElement) {
             controllerElement = document.getElementById('TTS-Controller');
           }
@@ -344,7 +350,7 @@ const TTSController = () => {
             e.stopPropagation();
           }
         },
-        ontouchmove: (e) => {
+        ontouchmove: e => {
           if (startX === undefined) return;
 
           const deltaX = e.touches[0].clientX - startX;
@@ -359,8 +365,14 @@ const TTSController = () => {
             const buttonWidth = controllerElement.offsetWidth;
             const buttonHeight = controllerElement.offsetHeight;
 
-            const newLeft = Math.max(0, Math.min(initialLeft + deltaX, window.innerWidth - buttonWidth));
-            const newTop = Math.max(0, Math.min(initialTop + deltaY, window.innerHeight - buttonHeight));
+            const newLeft = Math.max(
+              0,
+              Math.min(initialLeft + deltaX, window.innerWidth - buttonWidth),
+            );
+            const newTop = Math.max(
+              0,
+              Math.min(initialTop + deltaY, window.innerHeight - buttonHeight),
+            );
 
             // Apply transform directly to DOM element to bypass reactivity system
             controllerElement.style.transform = `translate(${newLeft}px, ${newTop}px)`;
@@ -374,7 +386,7 @@ const TTSController = () => {
             e.stopPropagation();
           }
         },
-        ontouchend: (e) => {
+        ontouchend: e => {
           if (isDragging) {
             // Prevent click event from firing after drag
             if (e.cancelable) {
@@ -403,8 +415,8 @@ const TTSController = () => {
               type: 'save-tts-position',
               data: {
                 left: savedLeft,
-                top: savedTop
-              }
+                top: savedTop,
+              },
             });
 
             // CRITICAL: Remove active class immediately to fix visual issue
@@ -448,12 +460,15 @@ const TTSController = () => {
         },
         onclick: e => {
           e.stopPropagation();
-          
+
           // Set TTS operation flag to prevent ResizeObserver during click processing
           window.ttsOperationActive = true;
-          
+
           // If we were dragging, don't toggle playback
-          if (controllerElement && controllerElement.dataset.dragging === 'true') {
+          if (
+            controllerElement &&
+            controllerElement.dataset.dragging === 'true'
+          ) {
             window.ttsOperationActive = false;
             return;
           }
@@ -476,7 +491,6 @@ const TTSController = () => {
       button({ innerHTML: tts.volumeIcon || 'TTS' }),
     );
   } catch (e) {
-
     return div();
   }
 };

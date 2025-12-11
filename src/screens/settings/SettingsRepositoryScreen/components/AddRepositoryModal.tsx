@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
 
 import { Button, Modal } from '@components/index';
+import AppText from '@components/AppText';
 
 import { Repository } from '@database/types';
-import { useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 import { getString } from '@strings/translations';
 
@@ -23,14 +25,30 @@ const AddRepositoryModal: React.FC<AddRepositoryModalProps> = ({
   upsertRepository,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
   const [repositoryUrl, setRepositoryUrl] = useState(repository?.url || '');
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        btnContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: scaleDimension(24, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
-        <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
           {repository ? 'Edit repository' : 'Add repository'}
-        </Text>
+        </AppText>
         <TextInput
           autoFocus
           defaultValue={repositoryUrl}
@@ -56,14 +74,3 @@ const AddRepositoryModal: React.FC<AddRepositoryModalProps> = ({
 };
 
 export default AddRepositoryModal;
-
-const styles = StyleSheet.create({
-  btnContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-});

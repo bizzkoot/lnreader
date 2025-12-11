@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 
 import {
@@ -26,9 +26,14 @@ import { Row } from '@components/Common';
 import { overlay } from 'react-native-paper';
 import { translateNovelStatus } from '@utils/translateEnum';
 
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
+
 const StatsScreen = () => {
   const theme = useTheme();
   const { goBack } = useNavigation();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<LibraryStats>({});
@@ -89,9 +94,9 @@ const StatsScreen = () => {
         style={styles.screenCtn}
         contentContainerStyle={styles.contentCtn}
       >
-        <Text style={[styles.header, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('generalSettings')}
-        </Text>
+        </AppText>
         <Row style={styles.statsRow}>
           <StatsCard
             label={getString('statsScreen.titlesInLibrary')}
@@ -122,17 +127,17 @@ const StatsScreen = () => {
             value={stats.sourcesCount}
           />
         </Row>
-        <Text style={[styles.header, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('statsScreen.genreDistribution')}
-        </Text>
+        </AppText>
         <Row style={[styles.statsRow, styles.genreRow]}>
           {Object.entries(stats.genres || {}).map(item => (
             <StatsCard key={item[0]} label={item[0]} value={item[1]} />
           ))}
         </Row>
-        <Text style={[styles.header, { color: theme.onSurfaceVariant }]}>
+        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('statsScreen.statusDistribution')}
-        </Text>
+        </AppText>
         <Row style={[styles.statsRow, styles.genreRow]}>
           {Object.entries(stats.status || {}).map(item => (
             <StatsCard
@@ -154,6 +159,8 @@ export const StatsCard: React.FC<{ label: string; value?: number }> = ({
   value = 0,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
   if (!label) {
     return null;
@@ -170,41 +177,44 @@ export const StatsCard: React.FC<{ label: string; value?: number }> = ({
         },
       ]}
     >
-      <Text style={[styles.statsVal, { color: theme.primary }]}>{value}</Text>
-      <Text style={{ color: theme.onSurface }}> {label}</Text>
+      <AppText style={[styles.statsVal, { color: theme.primary }]}>
+        {value}
+      </AppText>
+      <AppText style={{ color: theme.onSurface }}> {label}</AppText>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  contentCtn: {
-    paddingBottom: 40,
-  },
-  genreRow: {
-    flexWrap: 'wrap',
-  },
-  header: {
-    fontWeight: 'bold',
-    paddingVertical: 16,
-  },
-  screenCtn: {
-    paddingHorizontal: 16,
-  },
-  statsCardCtn: {
-    alignItems: 'center',
-    borderRadius: 12,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    margin: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  statsRow: {
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  statsVal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
+const createStyles = (uiScale: number) =>
+  StyleSheet.create({
+    contentCtn: {
+      paddingBottom: 40,
+    },
+    genreRow: {
+      flexWrap: 'wrap',
+    },
+    header: {
+      fontWeight: 'bold',
+      paddingVertical: 16,
+    },
+    screenCtn: {
+      paddingHorizontal: 16,
+    },
+    statsCardCtn: {
+      alignItems: 'center',
+      borderRadius: 12,
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
+      justifyContent: 'center',
+      margin: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 12,
+    },
+    statsRow: {
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    statsVal: {
+      fontSize: scaleDimension(16, uiScale),
+      fontWeight: 'bold',
+    },
+  });

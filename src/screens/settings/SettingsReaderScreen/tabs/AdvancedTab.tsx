@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
-  Text,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -12,11 +11,17 @@ import { TextInput, Portal } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 import { StorageAccessFramework } from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
-import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
+import {
+  useTheme,
+  useChapterReaderSettings,
+  useAppSettings,
+} from '@hooks/persisted';
 import { getString } from '@strings/translations';
 import { Button, ConfirmationDialog } from '@components/index';
+import AppText from '@components/AppText';
 import { showToast } from '@utils/showToast';
 import { useBoolean } from '@hooks';
+import { scaleDimension } from '@theme/scaling';
 
 type CodeTab = 'css' | 'js';
 
@@ -31,6 +36,96 @@ const AdvancedTab: React.FC = () => {
 
   const clearCSSModal = useBoolean();
   const clearJSModal = useBoolean();
+
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+        },
+        scrollContainer: {
+          flex: 1,
+        },
+        contentContainer: {
+          paddingBottom: 24,
+        },
+        tabContainer: {
+          flexDirection: 'row',
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(0, 0, 0, 0.12)',
+        },
+        tab: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 12,
+          minHeight: 48,
+        },
+        tabIcon: {
+          marginRight: 8,
+        },
+        tabLabel: {
+          fontSize: scaleDimension(14, uiScale),
+          letterSpacing: 0.5,
+        },
+        editorContainer: {
+          marginHorizontal: 16,
+          marginTop: 16,
+          minHeight: 300,
+        },
+        codeEditor: {
+          minHeight: 300,
+          maxHeight: 400,
+        },
+        codeEditorContent: {
+          fontFamily: 'monospace',
+          fontSize: scaleDimension(13, uiScale),
+          lineHeight: 20,
+          paddingTop: 12,
+          paddingBottom: 12,
+        },
+        hint: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          padding: 12,
+          borderRadius: 8,
+          marginHorizontal: 16,
+          marginTop: 16,
+          gap: 8,
+        },
+        hintIcon: {
+          marginTop: 2,
+        },
+        hintText: {
+          flex: 1,
+          fontSize: scaleDimension(12, uiScale),
+          lineHeight: 18,
+        },
+        actionButtons: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          marginHorizontal: 16,
+          marginTop: 16,
+          gap: 8,
+        },
+        button: {
+          flex: 1,
+        },
+        bottomSpacing: {
+          height: 24,
+        },
+        activeTab: {
+          borderBottomWidth: 2,
+        },
+        activeTabLabel: {
+          fontWeight: '500',
+        },
+      }),
+    [uiScale],
+  );
 
   const customCSSPlaceholder = `/* Custom CSS for your reader */
 
@@ -142,20 +237,23 @@ if (title) {
           <Pressable
             style={[
               styles.tab,
-              activeCodeTab === 'css' && [styles.activeTab, { borderBottomColor: theme.primary }],
+              activeCodeTab === 'css' && [
+                styles.activeTab,
+                { borderBottomColor: theme.primary },
+              ],
             ]}
             onPress={() => setActiveCodeTab('css')}
             android_ripple={{ color: theme.rippleColor }}
           >
             <MaterialCommunityIcons
               name="language-css3"
-              size={20}
+              size={scaleDimension(20, uiScale)}
               color={
                 activeCodeTab === 'css' ? theme.primary : theme.onSurfaceVariant
               }
               style={styles.tabIcon}
             />
-            <Text
+            <AppText
               style={[
                 styles.tabLabel,
                 {
@@ -168,26 +266,29 @@ if (title) {
               ]}
             >
               CSS
-            </Text>
+            </AppText>
           </Pressable>
 
           <Pressable
             style={[
               styles.tab,
-              activeCodeTab === 'js' && [styles.activeTab, { borderBottomColor: theme.primary }],
+              activeCodeTab === 'js' && [
+                styles.activeTab,
+                { borderBottomColor: theme.primary },
+              ],
             ]}
             onPress={() => setActiveCodeTab('js')}
             android_ripple={{ color: theme.rippleColor }}
           >
             <MaterialCommunityIcons
               name="language-javascript"
-              size={20}
+              size={scaleDimension(20, uiScale)}
               color={
                 activeCodeTab === 'js' ? theme.primary : theme.onSurfaceVariant
               }
               style={styles.tabIcon}
             />
-            <Text
+            <AppText
               style={[
                 styles.tabLabel,
                 {
@@ -198,10 +299,9 @@ if (title) {
                 },
                 activeCodeTab === 'js' && styles.activeTabLabel,
               ]}
-
             >
               JS
-            </Text>
+            </AppText>
           </Pressable>
         </View>
 
@@ -237,17 +337,17 @@ if (title) {
         >
           <MaterialCommunityIcons
             name="lightbulb-outline"
-            size={18}
+            size={scaleDimension(18, uiScale)}
             color={theme.onSecondaryContainer}
             style={styles.hintIcon}
           />
-          <Text
+          <AppText
             style={[styles.hintText, { color: theme.onSecondaryContainer }]}
           >
             {activeCodeTab === 'css'
               ? getString('readerSettings.cssHint')
               : getString('readerSettings.jsHint')}
-          </Text>
+          </AppText>
         </View>
 
         {/* Action Buttons */}
@@ -298,87 +398,3 @@ if (title) {
 };
 
 export default AdvancedTab;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 24,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.12)',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    minHeight: 48,
-  },
-  tabIcon: {
-    marginRight: 8,
-  },
-  tabLabel: {
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
-  editorContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    minHeight: 300,
-  },
-  codeEditor: {
-    minHeight: 300,
-    maxHeight: 400,
-  },
-  codeEditorContent: {
-    fontFamily: 'monospace',
-    fontSize: 13,
-    lineHeight: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginTop: 16,
-    gap: 8,
-  },
-  hintIcon: {
-    marginTop: 2,
-  },
-  hintText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 16,
-    gap: 8,
-  },
-  button: {
-    flex: 1,
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-  },
-  activeTabLabel: {
-    fontWeight: '500',
-  },
-});

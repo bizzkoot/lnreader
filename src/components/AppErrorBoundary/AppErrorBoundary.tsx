@@ -1,10 +1,13 @@
-import React from 'react';
-import { StyleSheet, View, Text, StatusBar } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View, StatusBar } from 'react-native';
+import { Text } from '@components/AppText';
 import ErrorBoundary from 'react-native-error-boundary';
 
 import { Button, List } from '@components';
 import { useTheme } from '@hooks/persisted';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppSettings } from '@hooks/persisted/useSettings';
+import { scaleDimension } from '@theme/scaling';
 
 interface ErrorFallbackProps {
   error: Error;
@@ -16,6 +19,42 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   resetError,
 }) => {
   const theme = useTheme();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        buttonCtn: {
+          margin: scaleDimension(16, uiScale),
+          marginBottom: scaleDimension(32, uiScale),
+        },
+        errorCtn: {
+          borderRadius: scaleDimension(8, uiScale),
+          lineHeight: scaleDimension(20, uiScale),
+          marginVertical: scaleDimension(16, uiScale),
+          paddingHorizontal: scaleDimension(8, uiScale),
+          paddingVertical: scaleDimension(16, uiScale),
+        },
+        errorDesc: {
+          lineHeight: scaleDimension(20, uiScale),
+          marginVertical: scaleDimension(8, uiScale),
+        },
+        errorInfoCtn: {
+          flex: 1,
+          justifyContent: 'center',
+          padding: scaleDimension(16, uiScale),
+        },
+        errorTitle: {
+          fontSize: scaleDimension(20, uiScale),
+          marginBottom: scaleDimension(8, uiScale),
+          textAlign: 'center',
+        },
+        mainCtn: {
+          flex: 1,
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <SafeAreaView
@@ -66,34 +105,3 @@ const AppErrorBoundary: React.FC<AppErrorBoundaryProps> = ({ children }) => {
 };
 
 export default AppErrorBoundary;
-
-const styles = StyleSheet.create({
-  buttonCtn: {
-    margin: 16,
-    marginBottom: 32,
-  },
-  errorCtn: {
-    borderRadius: 8,
-    lineHeight: 20,
-    marginVertical: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 16,
-  },
-  errorDesc: {
-    lineHeight: 20,
-    marginVertical: 8,
-  },
-  errorInfoCtn: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 16,
-  },
-  errorTitle: {
-    fontSize: 20,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  mainCtn: {
-    flex: 1,
-  },
-});

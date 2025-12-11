@@ -1,10 +1,12 @@
 import React from 'react';
-import { Text, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
 import { ThemeColors } from '@theme/types';
 import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { Modal } from '@components';
 import { RadioButton } from '@components/RadioButton/RadioButton';
@@ -62,14 +64,31 @@ const AutoDownloadModal: React.FC<AutoDownloadModalProps> = ({
     onDismiss();
   };
 
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        modalHeader: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 16,
+          paddingHorizontal: 24,
+        },
+        optionsContainer: {
+          paddingHorizontal: 8,
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {type === 'remaining'
             ? getString('generalSettingsScreen.autoDownloadOnRemaining')
             : getString('generalSettingsScreen.autoDownloadAmount')}
-        </Text>
+        </AppText>
         <View style={styles.optionsContainer}>
           {options.map(option => (
             <RadioButton
@@ -78,6 +97,7 @@ const AutoDownloadModal: React.FC<AutoDownloadModalProps> = ({
               status={currentValue === option.value}
               onPress={() => handleSelect(option.value)}
               theme={theme}
+              labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
             />
           ))}
         </View>
@@ -87,14 +107,3 @@ const AutoDownloadModal: React.FC<AutoDownloadModalProps> = ({
 };
 
 export default AutoDownloadModal;
-
-const styles = StyleSheet.create({
-  modalHeader: {
-    fontSize: 24,
-    marginBottom: 16,
-    paddingHorizontal: 24,
-  },
-  optionsContainer: {
-    paddingHorizontal: 8,
-  },
-});

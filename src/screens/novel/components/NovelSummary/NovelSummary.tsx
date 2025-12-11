@@ -1,9 +1,11 @@
 import { getString } from '@strings/translations';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
 
 import { ThemeColors } from '@theme/types';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 
 interface NovelSummaryProps {
   summary: string;
@@ -16,6 +18,7 @@ const NovelSummary: React.FC<NovelSummaryProps> = ({
   isExpanded,
   theme,
 }) => {
+  const { iconSize } = useScaledDimensions();
   const textColor = theme.onSurfaceVariant;
 
   const [expanded, setExpanded] = useState(isExpanded);
@@ -37,12 +40,12 @@ const NovelSummary: React.FC<NovelSummaryProps> = ({
       ]}
       onPress={toggleExpanded}
     >
-      <Text
+      <AppText
         style={[styles.summaryText, { color: textColor }]}
         numberOfLines={expanded ? Number.MAX_SAFE_INTEGER : 3}
       >
         {summary || getString('novelScreen.noSummary')}
-      </Text>
+      </AppText>
       {summary ? (
         <View
           style={[
@@ -57,7 +60,7 @@ const NovelSummary: React.FC<NovelSummaryProps> = ({
           <MaterialCommunityIcons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             color={theme.onBackground}
-            size={24}
+            size={iconSize.md}
             style={[{ backgroundColor: theme.background }, styles.icon]}
           />
         </View>

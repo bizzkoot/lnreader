@@ -3,13 +3,16 @@ import {
   displayModesList,
 } from '@screens/library/constants/constants';
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import AppText from '@components/AppText';
 
 import { Portal } from 'react-native-paper';
 
 import { RadioButton } from '@components/RadioButton/RadioButton';
+
 import { ThemeColors } from '@theme/types';
-import { useLibrarySettings } from '@hooks/persisted';
+import { useLibrarySettings, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { Modal } from '@components';
 
@@ -27,13 +30,25 @@ const DisplayModeModal: React.FC<DisplayModeModalProps> = ({
   displayModalVisible,
 }) => {
   const { setLibrarySettings } = useLibrarySettings();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        modalHeader: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: 10,
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <Portal>
       <Modal visible={displayModalVisible} onDismiss={hideDisplayModal}>
-        <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
+        <AppText style={[styles.modalHeader, { color: theme.onSurface }]}>
           {getString('generalSettingsScreen.displayMode')}
-        </Text>
+        </AppText>
         {displayModesList.map(mode => (
           <RadioButton
             key={mode.value}
@@ -41,6 +56,7 @@ const DisplayModeModal: React.FC<DisplayModeModalProps> = ({
             onPress={() => setLibrarySettings({ displayMode: mode.value })}
             label={mode.label}
             theme={theme}
+            labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
           />
         ))}
       </Modal>
@@ -49,10 +65,3 @@ const DisplayModeModal: React.FC<DisplayModeModalProps> = ({
 };
 
 export default DisplayModeModal;
-
-const styles = StyleSheet.create({
-  modalHeader: {
-    fontSize: 24,
-    marginBottom: 10,
-  },
-});

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
-  Text,
   View,
   Pressable,
   ImageBackground,
@@ -17,6 +16,10 @@ import { coverPlaceholderColor } from '../../../../theme/colors';
 import { ThemeColors } from '@theme/types';
 import { getString } from '@strings/translations';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface CoverImageProps {
   children: React.ReactNode;
@@ -39,9 +42,25 @@ interface NovelTitleProps {
   onPress: () => void;
 }
 
-const NovelInfoContainer = ({ children }: { children: React.ReactNode }) => (
-  <View style={styles.novelInfoContainer}>{children}</View>
-);
+const NovelInfoContainer = ({ children }: { children: React.ReactNode }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        novelInfoContainer: {
+          flexDirection: 'row',
+          margin: scaleDimension(16, uiScale),
+          marginBottom: 0,
+          marginTop: scaleDimension(28, uiScale),
+          paddingTop: scaleDimension(90, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
+  return <View style={styles.novelInfoContainer}>{children}</View>;
+};
 
 const CoverImage = ({
   children,
@@ -49,6 +68,22 @@ const CoverImage = ({
   theme,
   hideBackdrop,
 }: CoverImageProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        coverImage: {},
+        flex1: {
+          flex: 1,
+        },
+        linearGradient: {
+          flex: 1,
+        },
+      }),
+    [uiScale],
+  );
+
   if (hideBackdrop) {
     return <View>{children}</View>;
   } else {
@@ -85,6 +120,40 @@ const NovelThumbnail = ({
 }: NovelThumbnailProps) => {
   const [expanded, setExpanded] = useState(false);
   const { top, right } = useSafeAreaInsets();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        novelThumbnailContainer: {
+          height: scaleDimension(150, uiScale),
+          marginHorizontal: scaleDimension(4, uiScale),
+          width: scaleDimension(100, uiScale),
+        },
+        novelThumbnail: {
+          backgroundColor: coverPlaceholderColor,
+          borderRadius: scaleDimension(6, uiScale),
+          height: scaleDimension(150, uiScale),
+          width: scaleDimension(100, uiScale),
+        },
+        absoluteIcon: {
+          position: 'absolute',
+        },
+        expandedOverlay: {
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          flex: 1,
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+        },
+        flex1: {
+          flex: 1,
+        },
+        zIndex: { zIndex: 10 },
+      }),
+    [uiScale],
+  );
 
   return (
     <Pressable
@@ -132,16 +201,30 @@ const NovelTitle = ({
   children,
   onLongPress,
   onPress,
-}: NovelTitleProps) => (
-  <Text
-    onLongPress={onLongPress}
-    onPress={onPress}
-    style={[{ color: theme.onBackground }, styles.novelTitle]}
-    numberOfLines={4}
-  >
-    {children}
-  </Text>
-);
+}: NovelTitleProps) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        novelTitle: {
+          fontSize: scaleDimension(20, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <AppText
+      onLongPress={onLongPress}
+      onPress={onPress}
+      style={[{ color: theme.onBackground }, styles.novelTitle]}
+      numberOfLines={4}
+    >
+      {children}
+    </AppText>
+  );
+};
 
 const NovelInfo = ({
   theme,
@@ -149,14 +232,29 @@ const NovelInfo = ({
 }: {
   theme: ThemeColors;
   children: React.ReactNode;
-}) => (
-  <Text
-    style={[{ color: theme.onSurfaceVariant }, styles.novelInfo]}
-    numberOfLines={1}
-  >
-    {children}
-  </Text>
-);
+}) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        novelInfo: {
+          fontSize: scaleDimension(14, uiScale),
+          marginBottom: scaleDimension(4, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <AppText
+      style={[{ color: theme.onSurfaceVariant }, styles.novelInfo]}
+      numberOfLines={1}
+    >
+      {children}
+    </AppText>
+  );
+};
 
 const FollowButton = ({
   theme,
@@ -166,35 +264,63 @@ const FollowButton = ({
   theme: ThemeColors;
   onPress: () => void;
   followed: boolean;
-}) => (
-  <View style={styles.followButtonContainer}>
-    <Pressable
-      android_ripple={{
-        color: color(theme.primary).alpha(0.12).string(),
-        borderless: false,
-      }}
-      onPress={onPress}
-      style={styles.followButtonPressable}
-    >
-      <IconButton
-        icon={followed ? 'heart' : 'heart-outline'}
-        iconColor={followed ? theme.primary : theme.outline}
-        size={24}
-        style={styles.iconButton}
-      />
-      <Text
-        style={[
-          { color: followed ? theme.primary : theme.outline },
-          styles.followButtonText,
-        ]}
+}) => {
+  const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        followButtonContainer: {
+          borderRadius: scaleDimension(4, uiScale),
+          overflow: 'hidden',
+          flex: 1,
+        },
+        followButtonPressable: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingBottom: scaleDimension(8, uiScale),
+        },
+        followButtonText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+        iconButton: {
+          margin: 0,
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <View style={styles.followButtonContainer}>
+      <Pressable
+        android_ripple={{
+          color: color(theme.primary).alpha(0.12).string(),
+          borderless: false,
+        }}
+        onPress={onPress}
+        style={styles.followButtonPressable}
       >
-        {followed
-          ? getString('novelScreen.inLibaray')
-          : getString('novelScreen.addToLibaray')}
-      </Text>
-    </Pressable>
-  </View>
-);
+        <IconButton
+          icon={followed ? 'heart' : 'heart-outline'}
+          iconColor={followed ? theme.primary : theme.outline}
+          size={iconSize.md}
+          style={styles.iconButton}
+        />
+        <AppText
+          style={[
+            { color: followed ? theme.primary : theme.outline },
+            styles.followButtonText,
+          ]}
+        >
+          {followed
+            ? getString('novelScreen.inLibaray')
+            : getString('novelScreen.addToLibaray')}
+        </AppText>
+      </Pressable>
+    </View>
+  );
+};
 
 const TrackerButton = ({
   theme,
@@ -204,35 +330,63 @@ const TrackerButton = ({
   theme: ThemeColors;
   onPress: () => void;
   isTracked: boolean;
-}) => (
-  <View style={styles.followButtonContainer}>
-    <Pressable
-      android_ripple={{
-        color: theme.rippleColor,
-        borderless: false,
-      }}
-      onPress={onPress}
-      style={styles.followButtonPressable}
-    >
-      <IconButton
-        icon={isTracked ? 'check' : 'sync'}
-        iconColor={isTracked ? theme.primary : theme.outline}
-        size={24}
-        style={styles.iconButton}
-      />
-      <Text
-        style={[
-          { color: isTracked ? theme.primary : theme.outline },
-          styles.followButtonText,
-        ]}
+}) => {
+  const { iconSize } = useScaledDimensions();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        followButtonContainer: {
+          borderRadius: scaleDimension(4, uiScale),
+          overflow: 'hidden',
+          flex: 1,
+        },
+        followButtonPressable: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingBottom: scaleDimension(8, uiScale),
+        },
+        followButtonText: {
+          fontSize: scaleDimension(12, uiScale),
+        },
+        iconButton: {
+          margin: 0,
+        },
+      }),
+    [uiScale],
+  );
+
+  return (
+    <View style={styles.followButtonContainer}>
+      <Pressable
+        android_ripple={{
+          color: theme.rippleColor,
+          borderless: false,
+        }}
+        onPress={onPress}
+        style={styles.followButtonPressable}
       >
-        {isTracked
-          ? getString('novelScreen.tracked')
-          : getString('novelScreen.tracking')}
-      </Text>
-    </Pressable>
-  </View>
-);
+        <IconButton
+          icon={isTracked ? 'check' : 'sync'}
+          iconColor={isTracked ? theme.primary : theme.outline}
+          size={iconSize.md}
+          style={styles.iconButton}
+        />
+        <AppText
+          style={[
+            { color: isTracked ? theme.primary : theme.outline },
+            styles.followButtonText,
+          ]}
+        >
+          {isTracked
+            ? getString('novelScreen.tracked')
+            : getString('novelScreen.tracking')}
+        </AppText>
+      </Pressable>
+    </View>
+  );
+};
 
 const NovelGenres = ({
   theme,
@@ -241,6 +395,19 @@ const NovelGenres = ({
   theme: ThemeColors;
   genres: string;
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        genreContainer: {
+          paddingBottom: scaleDimension(4, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   const data = genres.split(/,\s*/);
 
   return (
@@ -265,80 +432,3 @@ export {
   TrackerButton,
   NovelGenres,
 };
-
-const styles = StyleSheet.create({
-  flex1: {
-    flex: 1,
-  },
-  coverImage: {},
-  absoluteIcon: {
-    position: 'absolute',
-  },
-  expandedOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
-  followButtonContainer: {
-    borderRadius: 4,
-    overflow: 'hidden',
-    flex: 1,
-  },
-  followButtonPressable: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 8,
-  },
-  followButtonText: {
-    fontSize: 12,
-  },
-  iconButton: {
-    margin: 0,
-  },
-  genreChip: {
-    borderRadius: 50,
-    flex: 1,
-    fontSize: 12,
-    justifyContent: 'center',
-    marginHorizontal: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    textTransform: 'capitalize',
-  },
-  genreContainer: {
-    paddingBottom: 4,
-    paddingHorizontal: 16,
-  },
-  linearGradient: {
-    flex: 1,
-  },
-  novelInfo: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  novelInfoContainer: {
-    flexDirection: 'row',
-    margin: 16,
-    marginBottom: 0,
-    marginTop: 28,
-    paddingTop: 90,
-  },
-  novelThumbnail: {
-    backgroundColor: coverPlaceholderColor,
-    borderRadius: 6,
-    height: 150,
-    width: 100,
-  },
-  novelThumbnailContainer: {
-    height: 150,
-    marginHorizontal: 4,
-    width: 100,
-  },
-  novelTitle: {
-    fontSize: 20,
-  },
-  zIndex: { zIndex: 10 },
-});

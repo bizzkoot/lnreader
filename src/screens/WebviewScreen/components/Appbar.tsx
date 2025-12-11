@@ -1,10 +1,13 @@
 import React, { RefObject } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButtonV2 } from '@components';
 import { ThemeColors } from '@theme/types';
 import WebView from 'react-native-webview';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
+import AppText from '@components/AppText';
 
 interface AppbarProps {
   title: string;
@@ -26,6 +29,34 @@ const Appbar: React.FC<AppbarProps> = ({
   goBack,
 }) => {
   const { top } = useSafeAreaInsets();
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flexDirection: 'row',
+          justifyContent: 'center',
+        },
+        iconContainer: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        },
+        title: {
+          fontSize: scaleDimension(18, uiScale),
+          paddingBottom: 2,
+          paddingLeft: 2,
+        },
+        titleContainer: {
+          flex: 1,
+          justifyContent: 'center',
+        },
+        url: {
+          fontSize: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   return (
     <View
@@ -41,12 +72,12 @@ const Appbar: React.FC<AppbarProps> = ({
         theme={theme}
       />
       <View style={styles.titleContainer}>
-        <Text
+        <AppText
           numberOfLines={1}
           style={[styles.title, { color: theme.onSurface }]}
         >
           {title}
-        </Text>
+        </AppText>
       </View>
       <View style={styles.iconContainer}>
         <IconButtonV2
@@ -77,26 +108,3 @@ const Appbar: React.FC<AppbarProps> = ({
 };
 
 export default Appbar;
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  iconContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  title: {
-    fontSize: 18,
-    paddingBottom: 2,
-    paddingLeft: 2,
-  },
-  titleContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  url: {
-    fontSize: 16,
-  },
-});

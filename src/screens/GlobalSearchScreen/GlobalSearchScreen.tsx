@@ -88,8 +88,8 @@ export default GlobalSearchScreen;
 
 const styles = StyleSheet.create({
   filterContainer: {
-    paddingHorizontal: 8,
-    paddingTop: 16,
+    paddingHorizontal: 8, // scaled inline or useMemo if converted
+    paddingTop: 16, // scaled inline or useMemo if converted
     flexDirection: 'row',
   },
 });

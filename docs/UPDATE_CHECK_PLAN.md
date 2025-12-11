@@ -47,11 +47,13 @@ This approach prevents accidental downloads of non-installers (debug artifacts, 
 ---
 
 If you want, I can create the exact code diff to implement Option B in `src/hooks/common/useGithubUpdateChecker.ts` (including tests and a short migration note). Otherwise, follow the steps above to prepare releases and/or add a proxy for authenticated requests.
+
 # Plan: Point update checker to your GitHub repo (detailed)
 
 TL;DR — Update the GitHub Releases API URL in `useGithubUpdateChecker.ts` to `bizzkoot/lnreader`, ensure your releases are public and contain a stable asset (or implement asset selection by name), and optionally add auth (token/proxy) to avoid rate limits and access private repos.
 
 ## Overview
+
 This document describes the changes required to make the app check your repository (`bizzkoot/lnreader`) for the latest release. It covers the exact code edit, verification steps, hardening options for asset selection, authentication strategies, testing, and operational considerations such as rate limits and platform-specific distribution concerns.
 
 ## Steps
@@ -151,8 +153,8 @@ This document describes the changes required to make the app check your reposito
 - Tests cover the asset selection logic (unit tests for the hook) and the update flow is manually validated in at least one environment (Android emulator/device).
 
 ## Notes
-- If you want, I can produce a small patch that performs either the minimal change (URL replacement) or the robust change (URL + asset selection). Indicate which variant you prefer.
 
+- If you want, I can produce a small patch that performs either the minimal change (URL replacement) or the robust change (URL + asset selection). Indicate which variant you prefer.
 
 ---
 

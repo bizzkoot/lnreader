@@ -8,8 +8,9 @@ import {
 import { getString } from '@strings/translations';
 import { Button, Modal, SwitchItem } from '@components';
 
-import { Portal, Text } from 'react-native-paper';
-import { useTheme } from '@hooks/persisted';
+import { Portal } from 'react-native-paper';
+import { useTheme, useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { NovelScreenProps } from '@navigators/types';
 import {
@@ -18,6 +19,8 @@ import {
   LegendListRenderItemProps,
 } from '@legendapp/list';
 import { getNovelChapters } from '@database/queries/ChapterQueries';
+import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import AppText from '@components/AppText';
 
 interface JumpToChapterModalProps {
   hideModal: () => void;
@@ -35,6 +38,7 @@ const JumpToChapterModal = ({
   chapterListRef,
 }: JumpToChapterModalProps) => {
   const theme = useTheme();
+  const { iconSize } = useScaledDimensions();
   const [mode, setMode] = useState(false);
   const [openChapter, setOpenChapter] = useState(false);
   const [allChapters, setAllChapters] = useState<ChapterInfo[]>([]);
@@ -45,6 +49,48 @@ const JumpToChapterModal = ({
 
   const inputRef = useRef<RNTextInput>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        dateCtn: {
+          fontSize: scaleDimension(12, uiScale),
+          marginTop: scaleDimension(2, uiScale),
+        },
+        errorText: {
+          paddingTop: scaleDimension(12, uiScale),
+        },
+        flashlist: {
+          borderBottomWidth: 1,
+          borderTopWidth: 1,
+          height: scaleDimension(300, uiScale),
+          marginTop: scaleDimension(8, uiScale),
+        },
+        listContentCtn: {
+          paddingVertical: scaleDimension(8, uiScale),
+        },
+        listElementContainer: {
+          paddingVertical: scaleDimension(12, uiScale),
+        },
+        modalFooterCtn: {
+          flexDirection: 'row-reverse',
+          paddingTop: scaleDimension(8, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+        textInput: {
+          borderRadius: scaleDimension(4, uiScale),
+          borderStyle: 'solid',
+          fontSize: scaleDimension(16, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+          paddingVertical: scaleDimension(10, uiScale),
+        },
+      }),
+    [uiScale],
+  );
 
   useEffect(() => {
     if (modalVisible && novel?.id) {
@@ -121,16 +167,22 @@ const JumpToChapterModal = ({
         onPress={() => executeFunction(item)}
         style={styles.listElementContainer}
       >
-        <Text numberOfLines={1} style={{ color: theme.onSurface }}>
+        <AppText
+          numberOfLines={1}
+          style={{
+            color: theme.onSurface,
+            fontSize: scaleDimension(14, uiScale),
+          }}
+        >
           {item.name}
-        </Text>
+        </AppText>
         {item?.releaseTime ? (
-          <Text
+          <AppText
             numberOfLines={1}
             style={[{ color: theme.onSurfaceVariant }, styles.dateCtn]}
           >
             {item.releaseTime}
-          </Text>
+          </AppText>
         ) : null}
       </Pressable>
     );
@@ -196,9 +248,9 @@ const JumpToChapterModal = ({
     <Portal>
       <Modal visible={modalVisible} onDismiss={onDismiss}>
         <View>
-          <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+          <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
             {getString('novelScreen.jumpToChapterModal.jumpToChapter')}
-          </Text>
+          </AppText>
           <RNTextInput
             ref={inputRef}
             placeholder={placeholder}
@@ -215,8 +267,8 @@ const JumpToChapterModal = ({
                 borderColor: error
                   ? theme.error
                   : inputFocused
-                  ? theme.primary
-                  : theme.outline,
+                    ? theme.primary
+                    : theme.outline,
                 borderWidth: borderWidth,
                 margin: margin,
               },
@@ -224,30 +276,35 @@ const JumpToChapterModal = ({
             ]}
           />
           {!!error && (
-            <Text style={[styles.errorText, { color: errorColor }]}>
+            <AppText
+              style={[
+                styles.errorText,
+                { color: errorColor, fontSize: scaleDimension(12, uiScale) },
+              ]}
+            >
               {error}
-            </Text>
+            </AppText>
           )}
           <SwitchItem
             label={getString('novelScreen.jumpToChapterModal.openChapter')}
             value={openChapter}
             theme={theme}
             onPress={() => setOpenChapter(!openChapter)}
-            size={20}
+            size={iconSize.sm}
           />
           <SwitchItem
             label={getString('novelScreen.jumpToChapterModal.chapterName')}
             value={mode}
             theme={theme}
             onPress={() => setMode(!mode)}
-            size={20}
+            size={iconSize.sm}
           />
         </View>
         {result.length ? (
           <View style={[styles.flashlist, { borderColor: theme.outline }]}>
             <LegendList
               recycleItems
-              estimatedItemSize={70}
+              estimatedItemSize={scaleDimension(70, uiScale)}
               data={result}
               extraData={openChapter}
               renderItem={renderItem}
@@ -266,40 +323,3 @@ const JumpToChapterModal = ({
 };
 
 export default JumpToChapterModal;
-
-const styles = StyleSheet.create({
-  dateCtn: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  errorText: {
-    paddingTop: 12,
-  },
-  flashlist: {
-    borderBottomWidth: 1,
-    borderTopWidth: 1,
-    height: 300,
-    marginTop: 8,
-  },
-  listContentCtn: {
-    paddingVertical: 8,
-  },
-  listElementContainer: {
-    paddingVertical: 12,
-  },
-  modalFooterCtn: {
-    flexDirection: 'row-reverse',
-    paddingTop: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-  textInput: {
-    borderRadius: 4,
-    borderStyle: 'solid',
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-});

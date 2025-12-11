@@ -1,9 +1,12 @@
 import { Button, Modal } from '@components';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import AppText from '@components/AppText';
 import { TextInput } from 'react-native-paper';
+import { useAppSettings } from '@hooks/persisted';
+import { scaleDimension } from '@theme/scaling';
 
 interface ConnectionModalProps {
   title: string;
@@ -28,11 +31,28 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({
   setIpv4,
   setPort,
 }) => {
+  const { uiScale = 1.0 } = useAppSettings();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        btnContainer: {
+          flexDirection: 'row-reverse',
+          marginTop: scaleDimension(24, uiScale),
+        },
+        modalTitle: {
+          fontSize: scaleDimension(24, uiScale),
+          marginBottom: scaleDimension(16, uiScale),
+        },
+      }),
+    [uiScale],
+  );
+
   return (
     <Modal visible={visible} onDismiss={closeModal}>
-      <Text style={[styles.modalTitle, { color: theme.onSurface }]}>
+      <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
         {title}
-      </Text>
+      </AppText>
       <TextInput
         value={ipv4}
         placeholder={'xxx.xxx.xxx.xxx'}
@@ -65,14 +85,3 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({
 };
 
 export default ConnectionModal;
-
-const styles = StyleSheet.create({
-  btnContainer: {
-    flexDirection: 'row-reverse',
-    marginTop: 24,
-  },
-  modalTitle: {
-    fontSize: 24,
-    marginBottom: 16,
-  },
-});
