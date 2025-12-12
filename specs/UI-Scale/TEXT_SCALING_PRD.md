@@ -33,6 +33,7 @@ This implementation involved migrating 102+ components from React Native's `Text
 Replace all instances of React Native's `Text` with the custom `AppText` component in 102+ identified files:
 
 #### Core Components (15 files)
+
 - `src/components/SegmentedControl/SegmentedControl.tsx`
 - `src/components/RadioButton.tsx`
 - `src/components/ColorPreferenceItem/ColorPreferenceItem.tsx`
@@ -50,10 +51,12 @@ Replace all instances of React Native's `Text` with the custom `AppText` compone
 - `src/components/ListView.tsx`
 
 #### Screen Components (50+ files)
+
 - All files in `src/screens/` directory using `Text` from React Native
 - Priority screens: Library, Browse, Reader, Settings, Novel, History, Updates
 
 #### Reader Components (15+ files)
+
 - All files in `src/screens/reader/components/` directory
 - Critical for reading experience consistency
 
@@ -62,6 +65,7 @@ Replace all instances of React Native's `Text` with the custom `AppText` compone
 Identify and replace hardcoded string literals with `getString()` calls:
 
 #### Categories of Hardcoded Strings
+
 1. **Error Messages**: Direct string literals in error handling
 2. **Placeholder Text**: Input field placeholders not using localization
 3. **Button Labels**: Hardcoded button text in some components
@@ -71,6 +75,7 @@ Identify and replace hardcoded string literals with `getString()` calls:
 ### Phase 3: Verification and Testing (High Priority)
 
 Ensure all changes work correctly across different:
+
 - UI Scale settings (20% - 150%)
 - Languages (30+ supported languages)
 - Screen sizes and densities
@@ -81,6 +86,7 @@ Ensure all changes work correctly across different:
 ### Text Component Migration Strategy
 
 #### 1. Import Replacement
+
 ```typescript
 // Before
 import { Text } from 'react-native';
@@ -90,7 +96,9 @@ import { Text } from '@components/AppText';
 ```
 
 #### 2. Component Usage
+
 No changes needed to component usage - `AppText` maintains the same API as React Native's `Text`:
+
 ```typescript
 // This remains the same
 <Text style={styles.title}>Title</Text>
@@ -99,6 +107,7 @@ No changes needed to component usage - `AppText` maintains the same API as React
 ```
 
 #### 3. Special Cases
+
 - **Icon Text**: Use `disableScale` prop for text that represents icons
 - **Dynamic Content**: Ensure `AppText` works with interpolated strings
 - **Third-party Components**: Check if props accept Text components or require children
@@ -106,11 +115,13 @@ No changes needed to component usage - `AppText` maintains the same API as React
 ### String Localization Strategy
 
 #### 1. Identification Process
+
 - Search for hardcoded English strings in components
 - Look for patterns: `"Text"`, `'Text'`, `>Text<`
 - Exclude: URLs, email addresses, technical identifiers
 
 #### 2. Localization Implementation
+
 ```typescript
 // Before
 <Text>Error occurred</Text>
@@ -120,6 +131,7 @@ No changes needed to component usage - `AppText` maintains the same API as React
 ```
 
 #### 3. String Key Organization
+
 - Follow existing key structure: `screen.component.message`
 - Add new keys to `strings/languages/en/strings.json`
 - Update `strings/types/index.ts` for type safety
@@ -127,19 +139,25 @@ No changes needed to component usage - `AppText` maintains the same API as React
 ### Migration Tools and Scripts
 
 #### 1. Automated Migration Script
+
 Create a script to:
+
 - Find all `Text` imports from React Native
 - Replace with `AppText` imports
 - Flag potential issues for manual review
 
 #### 2. String Extraction Script
+
 Create a script to:
+
 - Find hardcoded strings
 - Suggest localization keys
 - Generate updated string files
 
 #### 3. Validation Script
+
 Create a script to:
+
 - Verify all `Text` imports are from `AppText`
 - Check for missing localization keys
 - Validate string key format
@@ -165,6 +183,7 @@ Create a script to:
 ### Testing Requirements
 
 #### Manual Testing Checklist
+
 - [ ] Test at 20%, 80% (default), and 150% UI Scale
 - [ ] Test in English, Arabic (RTL), and Chinese (character-heavy)
 - [ ] Test on small, medium, and large screen devices
@@ -172,6 +191,7 @@ Create a script to:
 - [ ] Test accessibility features (TalkBack, large text)
 
 #### Automated Testing
+
 - [ ] Unit tests for `AppText` component
 - [ ] Visual regression tests at different scales
 - [ ] Script to verify no hardcoded strings remain
@@ -180,18 +200,21 @@ Create a script to:
 ## Implementation Timeline
 
 ### Phase 1: Text Component Migration (5-7 days)
+
 - **Day 1-2**: Core components (15 files)
 - **Day 3-4**: Screen components (30 files)
 - **Day 5-6**: Reader components (15 files)
 - **Day 7**: Review and testing
 
 ### Phase 2: String Localization (3-4 days)
+
 - **Day 1**: Identify hardcoded strings
 - **Day 2**: Implement localization for high-priority strings
 - **Day 3**: Implement localization for remaining strings
 - **Day 4**: Review and testing
 
 ### Phase 3: Testing and Refinement (2-3 days)
+
 - **Day 1**: Manual testing across scales and languages
 - **Day 2**: Automated testing and validation
 - **Day 3**: Bug fixes and final polish
@@ -201,6 +224,7 @@ Create a script to:
 ## Risk Assessment
 
 ### High Risk
+
 1. **Layout Breakage**: Scaling might cause overflow or alignment issues
    - **Mitigation**: Thorough testing at all scale factors
    - **Contingency**: Adjust scaling factors or add max-width constraints
@@ -210,6 +234,7 @@ Create a script to:
    - **Contingency**: Implement scaling only on value change
 
 ### Medium Risk
+
 1. **Third-party Component Compatibility**: Some components might not accept `AppText`
    - **Mitigation**: Identify and handle special cases
    - **Contingency**: Create wrapper components
@@ -219,6 +244,7 @@ Create a script to:
    - **Contingency**: Community translation process
 
 ### Low Risk
+
 1. **Developer Adoption**: Developers might continue using `Text` from React Native
    - **Mitigation**: Update contribution guidelines and add linting rules
    - **Contingency**: Code review process
@@ -226,11 +252,13 @@ Create a script to:
 ## Dependencies
 
 ### Technical Dependencies
+
 - Existing `AppText` component (already implemented)
 - `getString()` localization function (already implemented)
 - UI Scale setting in `useAppSettings` hook (already implemented)
 
 ### Team Dependencies
+
 - Code review process for PR validation
 - Translation team for new string keys
 - QA team for thorough testing
@@ -238,12 +266,14 @@ Create a script to:
 ## Future Considerations
 
 ### Enhancement Opportunities
+
 1. **Dynamic Type Support**: Integrate with iOS Dynamic Type and Android font scaling
 2. **Custom Text Styles**: Allow users to save text style preferences
 3. **Advanced Localization**: Support for pluralization, gender, and context
 4. **Text-to-Speech Integration**: Ensure TTS respects scaling preferences
 
 ### Maintenance
+
 1. **Documentation**: Update developer documentation with text component guidelines
 2. **Linting Rules**: Add ESLint rules to prevent React Native `Text` usage
 3. **Component Library**: Consider creating a comprehensive component library
@@ -260,9 +290,11 @@ Success will be measured by the complete elimination of hardcoded text elements 
 ## Implementation Results
 
 ### Files Updated
+
 Successfully updated the following files to use `AppText` component:
 
 **Core Components (15 files):**
+
 - `src/components/Chip/Chip.tsx`
 - `src/components/ColorPreferenceItem/ColorPreferenceItem.tsx`
 - `src/components/ConfirmationDialog/ConfirmationDialog.tsx`
@@ -275,6 +307,7 @@ Successfully updated the following files to use `AppText` component:
 - And 6 additional core component files
 
 **Screen Components (50+ files):**
+
 - `src/screens/browse/SourceNovels.tsx`
 - `src/screens/browse/components/AvailableTab.tsx`
 - `src/screens/browse/components/InstalledTab.tsx`
@@ -287,9 +320,11 @@ Successfully updated the following files to use `AppText` component:
 - And 42 additional screen component files
 
 **Reader Components (15+ files):**
+
 - All reader component files have been updated to use `AppText`
 
 **Additional Components Migrated (13 files):**
+
 - `src/screens/browse/settings/modals/ConcurrentSearchesModal.tsx`
 - `src/screens/novel/components/PageNavigationBottomSheet.tsx`
 - `src/screens/browse/migration/Migration.tsx`
@@ -305,6 +340,7 @@ Successfully updated the following files to use `AppText` component:
 - `src/components/RadioButton.tsx`
 
 **Final Polish Fixes:**
+
 - `src/components/NovelCover.tsx`:
   - Replaced `Text` with `AppText` in `ComfortableTitle` and `CompactTitle`
   - Added scaled `titleFontSize` (14 at scale 1.0) to both title components
@@ -324,7 +360,9 @@ Successfully updated the following files to use `AppText` component:
 **Total Files Migrated:** 115+ files
 
 ### String Localization
+
 Identified and localized hardcoded strings in:
+
 - Error messages
 - Button labels
 - Status messages
@@ -332,6 +370,7 @@ Identified and localized hardcoded strings in:
 - Dialog titles and content
 
 ### Key Changes Made
+
 1. Replaced all `import { Text } from 'react-native'` with `import { Text } from '@components/AppText'`
 2. Updated string literals to use `getString()` function calls
 3. Added new localization keys to `strings/languages/en/strings.json`
@@ -340,6 +379,7 @@ Identified and localized hardcoded strings in:
 ## Post-Implementation Verification
 
 ### Testing Results
+
 ✅ Text scaling works correctly at all UI scale settings (20% - 150%)
 ✅ All text elements scale proportionally with UI Scale setting
 ✅ Localization works correctly across all supported languages
@@ -349,6 +389,7 @@ Identified and localized hardcoded strings in:
 ✅ TypeScript compilation without errors
 
 ### Quality Assurance
+
 ✅ Visual consistency achieved across all screens and components
 ✅ Text remains readable at minimum scale (20%)
 ✅ Layout stability maintained at all scale factors

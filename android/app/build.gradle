@@ -129,6 +129,10 @@ dependencies {
         exclude group: 'com.fox2code', module: 'react-native-ssl-pinning'
     }
     implementation 'androidx.core:core-ktx:1.15.0'
+    // TEMPORARY: Commented out due to dependency resolution failure
+    // See specs/Enhanced-media-control/PRD.md for details
+    // implementation 'androidx.media:media:1.7.0'
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

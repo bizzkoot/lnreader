@@ -16,6 +16,12 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+// TEMPORARY: Commented out due to dependency resolution failure
+// import androidx.media.app.NotificationCompat.MediaStyle
+// import androidx.media.session.MediaSessionCompat
+// import androidx.media.session.PlaybackStateCompat
+// import androidx.media.session.MediaMetadataCompat
 import java.util.Locale
 
 class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
@@ -24,6 +30,16 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var isTtsInitialized = false
     private val binder = TTSBinder()
     private var ttsListener: TTSListener? = null
+    // TEMPORARY: Commented out due to dependency resolution failure
+    // private var mediaSession: MediaSessionCompat? = null
+
+    // Notification-driven state (set by RN)
+    private var mediaNovelName: String = "LNReader"
+    private var mediaChapterLabel: String = ""
+    private var mediaChapterId: Int? = null
+    private var mediaParagraphIndex: Int = 0
+    private var mediaTotalParagraphs: Int = 0
+    private var mediaIsPlaying: Boolean = false
     
     // Queue management for batch feeding
     private var currentBatchIndex = 0
@@ -36,6 +52,12 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         const val CHANNEL_ID = "tts_service_channel"
         const val NOTIFICATION_ID = 1001
         const val ACTION_STOP_TTS = "com.rajarsheechatterjee.LNReader.STOP_TTS"
+
+        const val ACTION_MEDIA_PREV_CHAPTER = "com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER"
+        const val ACTION_MEDIA_SEEK_BACK = "com.rajarsheechatterjee.LNReader.TTS.SEEK_BACK"
+        const val ACTION_MEDIA_PLAY_PAUSE = "com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE"
+        const val ACTION_MEDIA_SEEK_FORWARD = "com.rajarsheechatterjee.LNReader.TTS.SEEK_FORWARD"
+        const val ACTION_MEDIA_NEXT_CHAPTER = "com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER"
     }
 
     interface TTSListener {
@@ -45,16 +67,60 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun onWordRange(utteranceId: String, start: Int, end: Int, frame: Int)
         fun onQueueEmpty()  // Called when TTS queue is completely empty (chapter finished)
         fun onVoiceFallback(originalVoice: String, fallbackVoice: String)  // FIX Case 7.2: Notify when voice fallback occurs
+        fun onMediaAction(action: String) // Notification media control action
     }
 
     inner class TTSBinder : Binder() {
         fun getService(): TTSForegroundService = this@TTSForegroundService
     }
 
+    // TEMPORARY: Commented out MediaSessionCallback due to dependency resolution failure
+    /*
+    private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
+        override fun onPlay() {
+            ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
+        }
+
+        override fun onPause() {
+            ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
+        }
+
+        override fun onSkipToNext() {
+            ttsListener?.onMediaAction(ACTION_MEDIA_NEXT_CHAPTER)
+        }
+
+        override fun onSkipToPrevious() {
+            ttsListener?.onMediaAction(ACTION_MEDIA_PREV_CHAPTER)
+        }
+
+        override fun onFastForward() {
+            ttsListener?.onMediaAction(ACTION_MEDIA_SEEK_FORWARD)
+        }
+
+        override fun onRewind() {
+            ttsListener?.onMediaAction(ACTION_MEDIA_SEEK_BACK)
+        }
+
+        override fun onStop() {
+            stopTTS()
+        }
+    }
+    */
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         tts = TextToSpeech(this, this)
+        
+        
+        // TEMPORARY: Commented out MediaSession initialization due to dependency resolution failure
+        /*
+        // Initialize MediaSessionCompat
+        mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
+            setCallback(MediaSessionCallback())
+            isActive = true
+        }
+        */
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
@@ -66,8 +132,15 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP_TTS) {
-            stopTTS()
+        when (intent?.action) {
+            ACTION_STOP_TTS -> stopTTS()
+            ACTION_MEDIA_PREV_CHAPTER,
+            ACTION_MEDIA_SEEK_BACK,
+            ACTION_MEDIA_PLAY_PAUSE,
+            ACTION_MEDIA_SEEK_FORWARD,
+            ACTION_MEDIA_NEXT_CHAPTER -> {
+                ttsListener?.onMediaAction(intent.action!!)
+            }
         }
         return START_STICKY
     }
@@ -327,6 +400,21 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         stopForegroundService()
     }
 
+    /**
+     * MVP pause semantics: stop audio output but keep service + notification.
+     * Resume is handled by RN via speakBatch from last known paragraph.
+     */
+    fun stopAudioKeepService() {
+        tts?.stop()
+        synchronized(queuedUtteranceIds) {
+            queuedUtteranceIds.clear()
+        }
+        currentBatchIndex = 0
+        mediaIsPlaying = false
+        updatePlaybackState()
+        updateNotification()
+    }
+
     fun getVoices(): List<Voice> {
         return tts?.voices?.toList() ?: emptyList()
     }
@@ -362,7 +450,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             // media playback to continue without an explicit wake lock.
         }
         
-        val notification = createNotification("TTS is reading...")
+        val notification = createNotification()
         
         try {
             if (Build.VERSION.SDK_INT >= 34) {
@@ -421,34 +509,162 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun createNotification(content: String): Notification {
-        val stopIntent = Intent(this, TTSForegroundService::class.java).apply {
-            action = ACTION_STOP_TTS
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
-        )
-
+    private fun createNotification(): Notification {
         // Open app on click
         val appIntent = packageManager.getLaunchIntentForPackage(packageName)
         val appPendingIntent = PendingIntent.getActivity(
             this, 0, appIntent, PendingIntent.FLAG_IMMUTABLE
         )
 
+        fun actionPendingIntent(action: String, requestCode: Int): PendingIntent {
+            val intent = Intent(this, TTSForegroundService::class.java).apply {
+                this.action = action
+            }
+            return PendingIntent.getService(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+
+        val prevChapterPI = actionPendingIntent(ACTION_MEDIA_PREV_CHAPTER, 101)
+        val seekBackPI = actionPendingIntent(ACTION_MEDIA_SEEK_BACK, 102)
+        val playPausePI = actionPendingIntent(ACTION_MEDIA_PLAY_PAUSE, 103)
+        val seekForwardPI = actionPendingIntent(ACTION_MEDIA_SEEK_FORWARD, 104)
+        val nextChapterPI = actionPendingIntent(ACTION_MEDIA_NEXT_CHAPTER, 105)
+
+        val stopIntent = Intent(this, TTSForegroundService::class.java).apply {
+            action = ACTION_STOP_TTS
+        }
+        val stopPI = PendingIntent.getService(this, 106, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        val title = if (mediaNovelName.isNotBlank()) mediaNovelName else "LNReader"
+        val chapterText = if (mediaChapterLabel.isNotBlank()) mediaChapterLabel else ""
+
+        val progressPercent = if (mediaTotalParagraphs > 0) {
+            val safeIndex = mediaParagraphIndex.coerceIn(0, mediaTotalParagraphs - 1)
+            (((safeIndex + 1).toDouble() / mediaTotalParagraphs.toDouble()) * 100.0).toInt().coerceIn(0, 100)
+        } else {
+            0
+        }
+
+        val playPauseIcon = if (mediaIsPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val playPauseLabel = if (mediaIsPlaying) "Pause" else "Play"
+
+        // TEMPORARY: Commented out MediaStyle due to dependency resolution failure
+        /*
+        // Use standard MediaStyle notification with progress bar and action buttons
+        // Connect to MediaSessionCompat for native progress support
+        val mediaStyle = MediaStyle()
+            .setShowActionsInCompactView(1, 2, 3) // Show seek back, play/pause, seek forward in compact
+        
+        // Set the media session token to enable native progress bar
+        mediaSession?.let { session ->
+            mediaStyle.setMediaSession(session.sessionToken)
+        }
+        */
+        
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("LNReader TTS")
-            .setContentText(content)
             .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(chapterText)
+            .setSubText("$progressPercent%") // Show progress as subtext
+            .setProgress(100, progressPercent, false) // Seek bar: max=100, current=progressPercent, indeterminate=false
             .setContentIntent(appPendingIntent)
-            .addAction(android.R.drawable.ic_media_pause, "Stop", stopPendingIntent)
+            .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // TEMPORARY: Commented out .setStyle() due to MediaStyle dependency resolution failure
+            // .setStyle(mediaStyle)
+            .addAction(android.R.drawable.ic_media_previous, "Previous", prevChapterPI)
+            .addAction(android.R.drawable.ic_media_rew, "-5", seekBackPI)
+            .addAction(playPauseIcon, playPauseLabel, playPausePI)
+            .addAction(android.R.drawable.ic_media_ff, "+5", seekForwardPI)
+            .addAction(android.R.drawable.ic_media_next, "Next", nextChapterPI)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Close", stopPI)
             .build()
+    }
+
+    fun updateMediaState(
+        novelName: String?,
+        chapterLabel: String?,
+        chapterId: Int?,
+        paragraphIndex: Int,
+        totalParagraphs: Int,
+        isPlaying: Boolean
+    ) {
+        if (novelName != null) mediaNovelName = novelName
+        if (chapterLabel != null) mediaChapterLabel = chapterLabel
+        mediaChapterId = chapterId
+        mediaParagraphIndex = paragraphIndex
+        mediaTotalParagraphs = totalParagraphs
+        mediaIsPlaying = isPlaying
+        updatePlaybackState()
+        updateNotification()
+    }
+
+    // TEMPORARY: Commented out updatePlaybackState due to dependency resolution failure
+    /*
+    private fun updatePlaybackState() {
+        mediaSession?.let { session ->
+            val state = if (mediaIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+            
+            // Calculate position in milliseconds (using paragraph index * 1000 as a reasonable approximation)
+            val position = (mediaParagraphIndex * 1000).toLong()
+            // Calculate duration in milliseconds (using total paragraphs * 1000 as a reasonable approximation)
+            val duration = (mediaTotalParagraphs * 1000).toLong()
+            
+            val playbackState = PlaybackStateCompat.Builder()
+                .setState(state, position, 1.0f) // 1.0f is normal playback speed
+                .setActions(
+                    PlaybackStateCompat.ACTION_PLAY or
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackStateCompat.ACTION_FAST_FORWARD or
+                    PlaybackStateCompat.ACTION_REWIND or
+                    PlaybackStateCompat.ACTION_STOP
+                )
+                .setActiveQueueItemId(mediaChapterId?.toLong() ?: PlaybackStateCompat.UNKNOWN_QUEUE_ID)
+                .build()
+                
+            session.setPlaybackState(playbackState)
+            
+            // Set metadata for better media control display
+            val metadata = MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, mediaNovelName)
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, mediaChapterLabel)
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "LNReader TTS")
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
+                .build()
+                
+            session.setMetadata(metadata)
+        }
+    }
+    */
+    
+    private fun updatePlaybackState() {
+        // TEMPORARY: No-op until MediaSessionCompat dependency is resolved
+    }
+
+    private fun updateNotification() {
+        if (!isServiceForeground) return
+        val notification = createNotification()
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            android.util.Log.w("TTSForegroundService", "notify failed: ${e.message}")
+        }
     }
 
     override fun onDestroy() {
         tts?.stop()
         tts?.shutdown()
+        // TEMPORARY: Commented out due to dependency resolution failure
+        // mediaSession?.release()
+        // mediaSession = null
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }

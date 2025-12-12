@@ -24,6 +24,15 @@ export type TTSParams = {
   utteranceId?: string;
 };
 
+export type TTSMediaState = {
+  novelName: string;
+  chapterLabel: string;
+  chapterId: number | null;
+  paragraphIndex: number;
+  totalParagraphs: number;
+  isPlaying: boolean;
+};
+
 class TTSHighlightService {
   async speak(text: string, params: TTSParams = {}): Promise<string> {
     // Try preferred voice first, retry once if it fails, then fallback to system default
@@ -122,7 +131,11 @@ class TTSHighlightService {
   }
 
   pause(): Promise<boolean> {
-    return TTSAudioManager.stop();
+    return TTSHighlight.pause();
+  }
+
+  updateMediaState(state: TTSMediaState): Promise<boolean> {
+    return TTSHighlight.updateMediaState(state);
   }
 
   getVoices(): Promise<TTSVoice[]> {
@@ -136,7 +149,8 @@ class TTSHighlightService {
       | 'onSpeechDone'
       | 'onSpeechError'
       | 'onQueueEmpty'
-      | 'onVoiceFallback', // FIX Case 7.2: Voice fallback notification
+      | 'onVoiceFallback' // FIX Case 7.2: Voice fallback notification
+      | 'onMediaAction',
     listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);

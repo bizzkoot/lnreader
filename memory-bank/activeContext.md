@@ -2,7 +2,7 @@
 
 ## Current Goals
 
-- Performing comprehensive audit of LNReader app focusing on security, performance, code quality, and architecture after recent improvements
+- Current focus: Fix native crash on TTS start (awaiting Android logcat FATAL EXCEPTION from user). Build pipeline is green after clean+release. MVP features (actions, marquee, progress, pause/resume, chapter transitions) are implemented; only crash blocks on-device validation.
 
 ## Key Files Modified
 

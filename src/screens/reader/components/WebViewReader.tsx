@@ -200,6 +200,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const pluginCustomCSS = `file://${PLUGIN_STORAGE}/${plugin?.id}/custom.css`;
   const nextChapterScreenVisible = useRef<boolean>(false);
   const autoStartTTSRef = useRef<boolean>(false);
+  // NEW: When true, TTS auto-start will begin from paragraph 0 (used by notification prev/next chapter)
+  const forceStartFromParagraphZeroRef = useRef<boolean>(false);
   const isTTSReadingRef = useRef<boolean>(false);
   const ttsStateRef = useRef<any>(null);
   const progressRef = useRef(chapter.progress);
@@ -450,11 +452,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       );
 
       if (paragraphs.length > 0) {
-        // Start from any previously known index if available (for example
-        // when background advance already progressed the native TTS inside
+        // Check if we should force start from paragraph 0 (notification prev/next chapter)
+        const forceStartFromZero = forceStartFromParagraphZeroRef.current;
+        if (forceStartFromZero) {
+          forceStartFromParagraphZeroRef.current = false; // Reset the flag
+          console.log(
+            'WebViewReader: Forcing start from paragraph 0 due to notification chapter navigation',
+          );
+        }
+
+        // Start from paragraph 0 if forced, otherwise use any previously known index
+        // (for example when background advance already progressed the native TTS inside
         // the new chapter). Otherwise start at 0.
         // FIX Case 1.1: Validate and clamp paragraph index to valid range
-        const rawIndex = currentParagraphIndexRef.current ?? 0;
+        const rawIndex = forceStartFromZero
+          ? 0
+          : (currentParagraphIndexRef.current ?? 0);
         const startIndex = validateAndClampParagraphIndex(
           Math.max(0, rawIndex),
           paragraphs.length,
@@ -684,13 +697,88 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Ref for log throttling
   const lastStaleLogTimeRef = useRef<number>(0);
 
+  const isTTSPausedRef = useRef<boolean>(false);
+
+  const updateTtsMediaNotificationState = useCallback(
+    (nextIsPlaying: boolean) => {
+      try {
+        const novelName = novel?.name ?? 'LNReader';
+        // Use the original chapter name/title from the source
+        const chapterLabel = chapter.name || `Chapter ${chapter.id}`;
+
+        const paragraphIndex = Math.max(0, currentParagraphIndexRef.current);
+        const totalParagraphs = Math.max(0, totalParagraphsRef.current);
+
+        TTSHighlight.updateMediaState({
+          novelName,
+          chapterLabel,
+          chapterId: chapter.id,
+          paragraphIndex,
+          totalParagraphs,
+          isPlaying: nextIsPlaying,
+        }).catch(() => {
+          // Best-effort: notification updates should never break TTS
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [chapter.id, chapter.name, novel?.name],
+  );
+
+  const restartTtsFromParagraphIndex = useCallback(
+    async (targetIndex: number) => {
+      const paragraphs = extractParagraphs(html);
+      if (!paragraphs || paragraphs.length === 0) return;
+
+      const clamped = validateAndClampParagraphIndex(
+        targetIndex,
+        paragraphs.length,
+        'media control seek',
+      );
+
+      // Prevent false onQueueEmpty during stop/restart cycles
+      TTSHighlight.setRestartInProgress(true);
+
+      // Pause/stop audio but keep foreground notification
+      await TTSHighlight.pause();
+
+      const remaining = paragraphs.slice(clamped);
+      const ids = remaining.map(
+        (_, i) => `chapter_${chapter.id}_utterance_${clamped + i}`,
+      );
+
+      ttsQueueRef.current = {
+        startIndex: clamped,
+        texts: remaining,
+      };
+
+      currentParagraphIndexRef.current = clamped;
+      latestParagraphIndexRef.current = clamped;
+      isTTSPausedRef.current = false;
+
+      await TTSHighlight.speakBatch(remaining, ids, {
+        voice: readerSettingsRef.current.tts?.voice?.identifier,
+        pitch: readerSettingsRef.current.tts?.pitch || 1,
+        rate: readerSettingsRef.current.tts?.rate || 1,
+      });
+
+      isTTSReadingRef.current = true;
+      updateTtsMediaNotificationState(true);
+    },
+    [chapter.id, html, updateTtsMediaNotificationState],
+  );
+
   useEffect(() => {
     if (html) {
       // Calculate total paragraphs for progress tracking
       const paragraphs = extractParagraphs(html);
       totalParagraphsRef.current = paragraphs?.length || 0;
+
+      // Best-effort: keep notification progress in sync when total becomes known
+      updateTtsMediaNotificationState(isTTSReadingRef.current);
     }
-  }, [html]);
+  }, [html, updateTtsMediaNotificationState]);
 
   /**
    * Track how many additional chapters have been auto-played in this TTS session.
@@ -889,6 +977,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 : (progressRef.current ?? 0);
             saveProgressRef.current(percentage, nextIndex);
 
+            // Keep media notification progress updated
+            updateTtsMediaNotificationState(isTTSReadingRef.current);
+
             // In batch mode, we DO NOT call speak() here because the native queue
             // is already playing the next item. Calling speak() would flush the queue!
             // We only need to update the UI and state.
@@ -1057,6 +1148,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             currentParagraphIndexRef.current = paragraphIndex;
           }
 
+          // Keep media notification progress updated
+          updateTtsMediaNotificationState(isTTSReadingRef.current);
+
           // CRITICAL: Only inject JS if WebView is synced with current chapter
           if (
             webViewRef.current &&
@@ -1083,6 +1177,86 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           }
         } catch (e) {
           console.warn('WebViewReader: onSpeechStart handler error', e);
+        }
+      },
+    );
+
+    const mediaActionSubscription = TTSHighlight.addListener(
+      'onMediaAction',
+      async event => {
+        const action = String(event?.action || '');
+        try {
+          // Always ensure we have latest notification state before acting
+          updateTtsMediaNotificationState(isTTSReadingRef.current);
+
+          if (action === 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE') {
+            if (isTTSReadingRef.current) {
+              // Pause (MVP): stop audio but keep service/notification
+              isTTSReadingRef.current = false;
+              isTTSPausedRef.current = true;
+              await TTSHighlight.pause();
+              updateTtsMediaNotificationState(false);
+              return;
+            }
+
+            // Resume: restart from last known paragraph
+            const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
+            await restartTtsFromParagraphIndex(idx);
+            return;
+          }
+
+          if (action === 'com.rajarsheechatterjee.LNReader.TTS.SEEK_BACK') {
+            const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
+            const target = Math.max(0, idx - 5);
+            await restartTtsFromParagraphIndex(target);
+            return;
+          }
+
+          if (action === 'com.rajarsheechatterjee.LNReader.TTS.SEEK_FORWARD') {
+            const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
+            const total = Math.max(0, totalParagraphsRef.current);
+            const last = total > 0 ? total - 1 : idx;
+            const target = Math.min(last, idx + 5);
+            await restartTtsFromParagraphIndex(target);
+            return;
+          }
+
+          if (action === 'com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER') {
+            if (!prevChapter) {
+              showToastMessage('No previous chapter');
+              return;
+            }
+            // Navigate to previous chapter; force start from paragraph 0
+            isTTSReadingRef.current = true;
+            isTTSPausedRef.current = false;
+            autoStartTTSRef.current = true;
+            forceStartFromParagraphZeroRef.current = true; // Start from beginning
+            backgroundTTSPendingRef.current = true;
+            currentParagraphIndexRef.current = 0;
+            latestParagraphIndexRef.current = 0;
+            navigateChapter('PREV');
+            updateTtsMediaNotificationState(true);
+            return;
+          }
+
+          if (action === 'com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER') {
+            if (!nextChapter) {
+              showToastMessage('No next chapter');
+              return;
+            }
+            // Navigate to next chapter; force start from paragraph 0
+            isTTSReadingRef.current = true;
+            isTTSPausedRef.current = false;
+            autoStartTTSRef.current = true;
+            forceStartFromParagraphZeroRef.current = true; // Start from beginning
+            backgroundTTSPendingRef.current = true;
+            currentParagraphIndexRef.current = 0;
+            latestParagraphIndexRef.current = 0;
+            navigateChapter('NEXT');
+            updateTtsMediaNotificationState(true);
+          }
+        } catch (e) {
+          // Best-effort: avoid crashing if action handled during state transition
         }
       },
     );
@@ -1529,6 +1703,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       onSpeechDoneSubscription.remove();
       rangeSubscription.remove();
       startSubscription.remove();
+      mediaActionSubscription.remove();
       queueEmptySubscription.remove();
       voiceFallbackSubscription.remove(); // FIX Case 7.2
       appStateSubscription.remove();
@@ -2095,20 +2270,46 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
           if (autoStartTTSRef.current) {
             autoStartTTSRef.current = false;
+            const startFromZero = forceStartFromParagraphZeroRef.current;
+            forceStartFromParagraphZeroRef.current = false; // Reset the flag
+
             setTimeout(() => {
-              webViewRef.current?.injectJavaScript(`
-              (function() {
-                if (window.tts && reader.generalSettings.val.TTSEnable) {
-                  setTimeout(() => {
-                    tts.start();
-                    const controller = document.getElementById('TTS-Controller');
-                    if (controller && controller.firstElementChild) {
-                      controller.firstElementChild.innerHTML = pauseIcon;
+              if (startFromZero) {
+                // Force start from paragraph 0 (notification chapter nav)
+                webViewRef.current?.injectJavaScript(`
+                  (function() {
+                    if (window.tts && reader.generalSettings.val.TTSEnable) {
+                      setTimeout(() => {
+                        // Use restoreState to start from paragraph 0
+                        window.tts.restoreState({ 
+                          shouldResume: true,
+                          paragraphIndex: 0,
+                          autoStart: true
+                        });
+                        const controller = document.getElementById('TTS-Controller');
+                        if (controller && controller.firstElementChild) {
+                          controller.firstElementChild.innerHTML = pauseIcon;
+                        }
+                      }, 500);
                     }
-                  }, 500);
-                }
-              })();
-            `);
+                  })();
+                `);
+              } else {
+                // Normal auto-start (uses saved position)
+                webViewRef.current?.injectJavaScript(`
+                  (function() {
+                    if (window.tts && reader.generalSettings.val.TTSEnable) {
+                      setTimeout(() => {
+                        tts.start();
+                        const controller = document.getElementById('TTS-Controller');
+                        if (controller && controller.firstElementChild) {
+                          controller.firstElementChild.innerHTML = pauseIcon;
+                        }
+                      }, 500);
+                    }
+                  })();
+                `);
+              }
             }, 300);
           }
         }}

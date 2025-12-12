@@ -142,7 +142,38 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun pause(promise: Promise) {
-        stop(promise)
+        if (isBound && ttsService != null) {
+            ttsService?.stopAudioKeepService()
+            promise.resolve(true)
+        } else {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+        }
+    }
+
+    @ReactMethod
+    fun updateMediaState(state: ReadableMap, promise: Promise) {
+        if (!isBound || ttsService == null) {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+            return
+        }
+
+        val novelName = if (state.hasKey("novelName")) state.getString("novelName") else null
+        val chapterLabel = if (state.hasKey("chapterLabel")) state.getString("chapterLabel") else null
+        val chapterId = if (state.hasKey("chapterId") && !state.isNull("chapterId")) state.getInt("chapterId") else null
+        val paragraphIndex = if (state.hasKey("paragraphIndex")) state.getInt("paragraphIndex") else 0
+        val totalParagraphs = if (state.hasKey("totalParagraphs")) state.getInt("totalParagraphs") else 0
+        val isPlaying = if (state.hasKey("isPlaying")) state.getBoolean("isPlaying") else false
+
+        ttsService?.updateMediaState(
+            novelName,
+            chapterLabel,
+            chapterId,
+            paragraphIndex,
+            totalParagraphs,
+            isPlaying
+        )
+
+        promise.resolve(true)
     }
 
     @ReactMethod
@@ -218,6 +249,12 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         params.putString("originalVoice", originalVoice)
         params.putString("fallbackVoice", fallbackVoice)
         sendEvent("onVoiceFallback", params)
+    }
+
+    override fun onMediaAction(action: String) {
+        val params = Arguments.createMap()
+        params.putString("action", action)
+        sendEvent("onMediaAction", params)
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {
