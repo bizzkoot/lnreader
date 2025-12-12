@@ -75,7 +75,7 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
   });
 
   const injectJavaScriptCode =
-    'window.ReactNativeWebView.postMessage(JSON.stringify({localStorage, sessionStorage}))';
+    'try { window.ReactNativeWebView.postMessage(JSON.stringify({ localStorage, sessionStorage })); } catch (e) {}';
 
   return (
     <>
@@ -106,9 +106,23 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
         injectedJavaScript={injectJavaScriptCode}
         onNavigationStateChange={handleNavigation}
         onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
-        onMessage={({ nativeEvent }) =>
-          setTempData(JSON.parse(nativeEvent.data))
-        }
+        onMessage={({ nativeEvent }) => {
+          try {
+            const parsed = JSON.parse(nativeEvent.data);
+            if (
+              parsed &&
+              typeof parsed === 'object' &&
+              (!('localStorage' in parsed) ||
+                typeof parsed.localStorage === 'object') &&
+              (!('sessionStorage' in parsed) ||
+                typeof parsed.sessionStorage === 'object')
+            ) {
+              setTempData(parsed);
+            }
+          } catch (e) {
+            // Ignore invalid payloads
+          }
+        }}
         containerStyle={{ paddingBottom: bottom }}
       />
       {menuVisible ? (

@@ -50,7 +50,14 @@ window.reader = new (function () {
   this.isUserScrolling = false;
   this.scrollTimeout = null;
 
-  this.post = obj => window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+  this.post = obj => {
+    try {
+      if (typeof window.__LNREADER_NONCE__ === 'string') {
+        obj.nonce = window.__LNREADER_NONCE__;
+      }
+    } catch (e) {}
+    window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+  };
   this.refresh = () => {
     if (this.generalSettings.val.pageReader) {
       this.chapterWidth = this.chapterElement.scrollWidth;

@@ -13,6 +13,13 @@ import {
   AppState,
 } from 'react-native';
 import WebView from 'react-native-webview';
+import {
+  READER_WEBVIEW_ORIGIN_WHITELIST,
+  createMessageRateLimiter,
+  createWebViewNonce,
+  parseWebViewMessage,
+  shouldAllowReaderWebViewRequest,
+} from '@utils/webviewSecurity';
 import color from 'color';
 
 import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
@@ -99,6 +106,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   } = useChapterContext();
   const navigation = useNavigation();
   const theme = useTheme();
+
+  const webViewNonceRef = useRef<string>(createWebViewNonce());
+  const allowMessageRef = useRef(createMessageRateLimiter());
 
   // Move toast-related hooks to the top to avoid hoisting issues
   const {
@@ -702,17 +712,19 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     latestParagraphIndexRef.current = lastReadParagraph;
     // Confirm resume dialog always appears (showResumeDialog is called on request-tts-confirmation)
     const ttsState = chapter.ttsState ? JSON.parse(chapter.ttsState) : {};
-    console.log(
-      'WebViewReader: Resuming TTS. Resolved index:',
-      lastReadParagraph,
-      '(Ref:',
-      refValue,
-      'MMKV:',
-      mmkvValue,
-      'Prop:',
-      savedIndex,
-      ')',
-    );
+    if (__DEV__) {
+      console.log(
+        'WebViewReader: Resuming TTS. Resolved index:',
+        lastReadParagraph,
+        '(Ref:',
+        refValue,
+        'MMKV:',
+        mmkvValue,
+        'Prop:',
+        savedIndex,
+        ')',
+      );
+    }
     resumeTTS({
       ...ttsState,
       paragraphIndex: lastReadParagraph,
@@ -1651,12 +1663,14 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           const visible = window.reader.getVisibleElementIndex ? window.reader.getVisibleElementIndex() : 0;
           const ttsIndex = ${lastTTSPosition};
           const GAP_THRESHOLD = 5; // paragraphs
+          const nonce = window.__LNREADER_NONCE__;
           
           // Only prompt if there's a significant gap
           if (Math.abs(visible - ttsIndex) > GAP_THRESHOLD) {
             window.ReactNativeWebView.postMessage(JSON.stringify({
                type: 'request-tts-exit', 
-               data: { visible, ttsIndex }
+               data: { visible, ttsIndex },
+               nonce,
             }));
           } else {
             // Gap is small - just save TTS position and allow back
@@ -1664,14 +1678,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                type: 'save',
                data: Math.round((ttsIndex / (reader.getReadableElements()?.length || 1)) * 100),
                paragraphIndex: ttsIndex,
-               chapterId: ${chapter.id}
+               chapterId: ${chapter.id},
+               nonce,
             }));
             // Signal that we can exit
             window.ReactNativeWebView.postMessage(JSON.stringify({
-               type: 'exit-allowed'
+               type: 'exit-allowed',
+               nonce,
             }));
           }
         })();
+        true;
       `);
       return true; // Block while we check
     }
@@ -1784,11 +1801,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         ref={webViewRef}
         style={{ backgroundColor: readerSettings.theme }}
         allowFileAccess={true}
-        originWhitelist={['*']}
+        originWhitelist={READER_WEBVIEW_ORIGIN_WHITELIST}
         scalesPageToFit={true}
         showsVerticalScrollIndicator={false}
         javaScriptEnabled={true}
         webviewDebuggingEnabled={__DEV__}
+        onShouldStartLoadWithRequest={shouldAllowReaderWebViewRequest}
+        injectedJavaScriptBeforeContentLoaded={`
+          (function(){
+            try { window.__LNREADER_NONCE__ = ${JSON.stringify(
+              webViewNonceRef.current,
+            )}; } catch (e) {}
+          })();
+          true;
+        `}
         onLoadEnd={() => {
           // Update battery level when WebView finishes loading
           const currentBatteryLevel = getBatteryLevelSync();
@@ -1804,18 +1830,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           // FIX Case 1.1: Log paragraph count for debugging sync issues
           const paragraphs = extractParagraphs(html);
           const totalParagraphs = paragraphs?.length ?? 0;
-          console.log(
-            `WebViewReader: onLoadEnd - Chapter ${chapter.id} synced.`,
-            `Total paragraphs: ${totalParagraphs},`,
-            `Saved index: ${currentParagraphIndexRef.current}`,
-          );
+          if (__DEV__) {
+            console.log(
+              `WebViewReader: onLoadEnd - Chapter ${chapter.id} synced.`,
+              `Total paragraphs: ${totalParagraphs},`,
+              `Saved index: ${currentParagraphIndexRef.current}`,
+            );
+          }
 
           // If the chapter was loaded as part of background TTS navigation
           // we may need to resume a screen-wake sync or skip WebView-driven start
           if (backgroundTTSPendingRef.current) {
-            console.log(
-              'WebViewReader: onLoadEnd skipped TTS start - background TTS pending',
-            );
+            if (__DEV__) {
+              console.log(
+                'WebViewReader: onLoadEnd skipped TTS start - background TTS pending',
+              );
+            }
             return;
           }
 
@@ -1829,11 +1859,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             const savedWakeParagraphIdx = wakeParagraphIndexRef.current;
             const currentChapterId = chapter.id;
 
-            console.log(
-              'WebViewReader: Processing pending screen-wake sync.',
-              `Saved: Chapter ${savedWakeChapterId}, Paragraph ${savedWakeParagraphIdx}.`,
-              `Current: Chapter ${currentChapterId}`,
-            );
+            if (__DEV__) {
+              console.log(
+                'WebViewReader: Processing pending screen-wake sync.',
+                `Saved: Chapter ${savedWakeChapterId}, Paragraph ${savedWakeParagraphIdx}.`,
+                `Current: Chapter ${currentChapterId}`,
+              );
+            }
 
             // ENFORCE CHAPTER MATCH: If the loaded chapter doesn't match where TTS was,
             // attempt to navigate to the correct chapter automatically.
@@ -2081,6 +2113,39 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           }
         }}
         onMessage={(ev: { nativeEvent: { data: string } }) => {
+          if (!allowMessageRef.current(Date.now())) {
+            return;
+          }
+
+          const msg = parseWebViewMessage<string, unknown>(
+            ev.nativeEvent.data,
+            [
+              'save',
+              'request-tts-exit',
+              'exit-allowed',
+              'tts-update-settings',
+              'hide',
+              'next',
+              'prev',
+              'scroll-to',
+              'log',
+              // TTS-related message types
+              'speak',
+              'stop-speak',
+              'tts-state',
+              'request-tts-confirmation',
+              'tts-scroll-prompt',
+              'tts-manual-mode-prompt',
+              'tts-apply-settings',
+              'save-tts-position',
+              'show-toast',
+              'console',
+            ] as const,
+          );
+          if (!msg || msg.nonce !== webViewNonceRef.current) {
+            return;
+          }
+
           __DEV__ && onLogMessage(ev);
           const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
 
