@@ -2,7 +2,7 @@
 
 ## Current Goals
 
-- Current focus: Fix native crash on TTS start (awaiting Android logcat FATAL EXCEPTION from user). Build pipeline is green after clean+release. MVP features (actions, marquee, progress, pause/resume, chapter transitions) are implemented; only crash blocks on-device validation.
+- Enhanced Media Control - Phase 1 delivered; MediaSessionCompat integration deferred due to dependency/import issues. Next: investigate Media3 or compat libs.
 
 ## Key Files Modified
 

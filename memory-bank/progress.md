@@ -2,20 +2,12 @@
 
 ## Done
 
-- Phase 0: Discovery & alignment
-- Phase 1: MVP implementation (Android)
-- Phase 2: Automated testing (Jest/TS)
-- Phase 3: Polish (marquee + boundary feedback)
-- Phase 4: Build pipeline (clean+release)
+- Enhanced Notification: progress text + 6 actions configured (Phase 1)
 
 ## Doing
 
-- Phase 4: Fix native crash on TTS start (awaiting logcat)
-- Phase 4: Restore MediaSessionCompat integration (optional, after crash resolved)
-- Phase 4: Verify on-device: actions, marquee, progress, pause/resume, chapter boundaries
+- Manual verification of action visibility across OEMs
 
 ## Next
 
-- Phase 4: Fix native crash on TTS start (awaiting logcat)
-- Phase 4: Restore MediaSessionCompat integration (optional, after crash resolved)
-- Phase 4: Verify on-device: actions, marquee, progress, pause/resume, chapter boundaries
+- Investigate MediaSession compatibility; create isolated sample to reproduce the dependency issue

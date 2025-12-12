@@ -1,180 +1,197 @@
-# Tasks: Enhanced TTS Media Control
+# TASKS: Enhanced TTS Media Control
 
-This checklist follows the PRD in this folder.
+> **Last Updated**: December 13, 2025
 
-## Phase 0 — Discovery & alignment
+---
 
-- [x] Confirm MVP scope decisions (pause=stop-to-pause, chapterNumber preferred, marquee deferred)
-- [x] Identify exact “current chapter number” field in runtime state (RN `chapter` object)
-- [x] Identify best place to emit “media state updates” from RN (WebViewReader)
+## Phase 1: MediaStyle Notification ✅ COMPLETE
 
-## Phase 1 — MVP implementation (Android)
+### Dependencies
+- [x] Add `androidx.media:media:1.7.0` to `android/app/build.gradle`
+- [x] Verify Gradle sync succeeds
 
-### A) Native: service notification upgrade
+### TTSForegroundService.kt Changes
+- [x] Add import: `import androidx.media.app.NotificationCompat.MediaStyle`
+- [x] Apply `MediaStyle()` to notification builder
+- [x] Configure `setShowActionsInCompactView(0, 1, 2, 3, 4)`
+- [x] Set up 6 action buttons with standard Android icons:
+  - [x] `ic_media_previous` - Previous Chapter
+  - [x] `ic_media_rew` - Rewind 5
+  - [x] `ic_media_pause/play` - Play/Pause toggle
+  - [x] `ic_media_ff` - Forward 5
+  - [x] `ic_media_next` - Next Chapter
+  - [x] `ic_delete` - Stop
 
-- [x] Add MediaSessionCompat + PlaybackStateCompat integration in Android service
-- [x] Add new notification actions: prev chapter, -5, play/pause, +5, next chapter
-- [x] Ensure notification remains visible while paused (no `stopForeground(true)` on pause)
-- [x] Render notification text:
-  - [x] Title: novel name
-  - [x] Subtitle: `Chapter XX`
-  - [x] Progress bar: 0–100 (percent)
+### Verification
+- [x] Build succeeds: `pnpm run build:release:android`
+- [x] All 5 media buttons visible with icons
+- [x] Buttons functional (verified by user)
 
-### B) Native: RN bridge additions
+---
 
-- [x] Add `updateMediaState(...)` method to native module and TS types
-- [x] Add event emitter for notification actions (e.g. `onMediaAction`)
-- [x] Ensure events are delivered even when app is backgrounded (service alive)
+## Phase 2: MediaSessionCompat Integration 🔄 IN PROGRESS
 
-### C) RN: action handlers (reuse existing logic)
+### Goal
+Add visual seek bar showing chapter progress percentage.
 
-- [x] Implement “prev chapter → paragraph 0” action handler
-- [x] Implement “next chapter → paragraph 0” action handler
-- [x] Implement “seek back 5 paragraphs” handler with clamp at 0
-- [x] Implement “seek forward 5 paragraphs” handler with clamp at last paragraph
-- [x] Implement “play/pause toggle” handler (MVP confirmed: stop-to-pause, requeue-to-resume)
-- [x] Ensure handlers correctly set `restartInProgress` to prevent false `onQueueEmpty`
+### Pre-Requisites
+- [x] Phase 1 committed as checkpoint (safe rollback point)
+- [x] PRD and TASKS documentation updated
 
-### D) RN: state updates to notification
+### Implementation Tasks
 
-- [x] Emit `updateMediaState` when:
-  - [x] total paragraph count becomes known
-  - [x] paragraph index changes
-  - [x] play/pause state changes
-  - [x] chapter changes (ensure updates happen on chapter transitions too)
+#### 2.1: Add Imports
+- [ ] Add to `TTSForegroundService.kt`:
+  ```kotlin
+  import android.support.v4.media.session.MediaSessionCompat
+  import android.support.v4.media.session.PlaybackStateCompat
+  import android.support.v4.media.MediaMetadataCompat
+  ```
 
-## Phase 2 — Testing & regression safety
+#### 2.2: Initialize MediaSession
+- [ ] Add private variable: `private var mediaSession: MediaSessionCompat? = null`
+- [ ] Initialize in `onCreate()`:
+  ```kotlin
+  mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
+      setCallback(MediaSessionCallback())
+      isActive = true
+  }
+  ```
 
-### Automated
+#### 2.3: Implement MediaSessionCallback
+- [ ] Create inner class `MediaSessionCallback` extending `MediaSessionCompat.Callback()`
+- [ ] Override methods:
+  - [ ] `onPlay()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)`
+  - [ ] `onPause()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)`
+  - [ ] `onSkipToNext()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_NEXT_CHAPTER)`
+  - [ ] `onSkipToPrevious()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_PREV_CHAPTER)`
+  - [ ] `onFastForward()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_SEEK_FORWARD)`
+  - [ ] `onRewind()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_SEEK_BACK)`
+  - [ ] `onStop()` → call `stopTTS()`
 
-- [x] Add unit tests for clamp/progress: existing tests cover clamp helper; Jest passes after native mock updates
-- [x] Type-check passes; lint warnings only (no errors)
+#### 2.4: Implement updatePlaybackState()
+- [ ] Create/uncomment `updatePlaybackState()` function:
+  ```kotlin
+  private fun updatePlaybackState() {
+      mediaSession?.let { session ->
+          val state = if (mediaIsPlaying) 
+              PlaybackStateCompat.STATE_PLAYING 
+          else 
+              PlaybackStateCompat.STATE_PAUSED
+          
+          val position = (mediaParagraphIndex * 1000).toLong()
+          val duration = (mediaTotalParagraphs * 1000).toLong()
+          
+          val playbackState = PlaybackStateCompat.Builder()
+              .setState(state, position, 1.0f)
+              .setActions(
+                  PlaybackStateCompat.ACTION_PLAY or
+                  PlaybackStateCompat.ACTION_PAUSE or
+                  PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                  PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                  PlaybackStateCompat.ACTION_FAST_FORWARD or
+                  PlaybackStateCompat.ACTION_REWIND or
+                  PlaybackStateCompat.ACTION_STOP
+              )
+              .build()
+          
+          session.setPlaybackState(playbackState)
+          
+          // Set metadata
+          val metadata = MediaMetadataCompat.Builder()
+              .putString(MediaMetadataCompat.METADATA_KEY_TITLE, mediaNovelName)
+              .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, mediaChapterLabel)
+              .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "LNReader TTS")
+              .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
+              .build()
+          
+          session.setMetadata(metadata)
+      }
+  }
+  ```
 
-### Manual (must pass before release)
+#### 2.5: Connect MediaStyle to Session
+- [ ] Update `createNotification()` to include session token:
+  ```kotlin
+  .setStyle(MediaStyle()
+      .setMediaSession(mediaSession?.sessionToken)
+      .setShowActionsInCompactView(0, 1, 2, 3, 4))
+  ```
 
-- [x] Background playback ON: lock screen → use all actions (user verified)
-- [x] Pause/Play buttons work as intended (user verified)
-- [x] Seek back/forward (-5/+5) buttons work as intended (user verified)
-- [ ] Chapter boundaries: prev on first chapter, next on last chapter (no crash)
-- [ ] Pause keeps notification; resume works
-- [ ] `Continue to next chapter` behavior unchanged
+#### 2.6: Call updatePlaybackState()
+- [ ] Uncomment/add calls in:
+  - [ ] `updateMediaState()` - called when RN updates state
+  - [ ] `stopAudioKeepService()` - called on pause
 
-## Phase 3 — Polish
+#### 2.7: Cleanup in onDestroy()
+- [ ] Uncomment MediaSession cleanup:
+  ```kotlin
+  mediaSession?.release()
+  mediaSession = null
+  ```
 
-- [x] ~~Add marquee scrolling novel title using RemoteViews~~ Reverted to standard MediaStyle (RemoteViews caused crash + hid buttons)
-- [x] Disable (or no-op + feedback) prev/next chapter buttons when unavailable (toast feedback added)
-- [x] Match iconography/labels; keep button order consistent (Previous, -5, Play/Pause, +5, Next, Close)
-- [x] Use original chapter name instead of app-generated chapter number
+### Build & Verification
+- [ ] Run: `pnpm run build:release:android`
+- [ ] Verify: No compilation errors
+- [ ] Install APK and test:
+  - [ ] Seek bar visible in notification
+  - [ ] Seek bar shows progress (read-only)
+  - [ ] All 5 buttons still work
+  - [ ] Lock screen controls functional
 
-## Phase 4 — Build & Initial Fixes (completed)
+### Rollback (If Build Fails)
+If MediaSessionCompat compilation fails:
+1. Revert `TTSForegroundService.kt` to Phase 1 state
+2. Keep `androidx.media:media:1.7.0` (needed for MediaStyle)
+3. Document specific error in PRD
+4. Phase 1 functionality preserved
 
-- [x] `pnpm run clean:full` + `pnpm run build:release:android` succeeds
-- [x] Fix native crash on TTS start (Root cause: `RemoteViews.setBoolean("setSelected", true)` not supported; removed)
-- [x] Fix notification buttons not showing (Root cause: custom RemoteViews hides action buttons; switched to standard MediaStyle)
-- [x] Play/Pause button works correctly (verified by user)
-- [x] Seek back/forward (-5/+5) buttons work correctly (verified by user)
+---
 
-## Phase 5 — Outstanding Issues (partially resolved)
+## Phase 3: QA & Polish (After Phase 2)
 
-- [x] **RESOLVED**: Seek bar is now visible (confirmed by user)
-  - _Note_: seek bar is read-only (standard notification limitation without MediaSession)
-- [x] **RESOLVED**: Prev/Next chapter buttons correctly start from paragraph 0 (confirmed by user)
-- [ ] **ISSUE**: "+5" and "Next" buttons are missing from notification view
-  - _Cause_: Standard notification style often limits actions to 3 in compact view. Without `MediaStyle`, we lose the expanded view media templates on some devices.
-- [x] Create automated test script for media control validation (`TTSMediaControl.test.ts`)
-- [x] ~~Restore MediaSessionCompat integration~~ **BLOCKED - see Phase 6**
+### Testing Checklist
+- [ ] TTS starts correctly
+- [ ] Notification shows with all controls
+- [ ] Seek bar displays chapter progress
+- [ ] Play/Pause works from notification
+- [ ] Prev/Next chapter works from notification
+- [ ] ±5 paragraph buttons work
+- [ ] Background playback continues
+- [ ] Chapter auto-advance works
+- [ ] Lock screen controls functional
+- [ ] Stop button removes notification
 
-## Phase 6 — MediaSessionCompat Dependency Blocker (2025-12-12)
+### Documentation
+- [ ] Update PRD with final state
+- [ ] Update TASKS marking all complete
+- [ ] Git commit with summary
 
-### CRITICAL ISSUE: Build Failure
+---
 
-- [x] **BLOCKER**: Cannot build release APK due to MediaSessionCompat dependency issues
-- [x] Investigation: Tested `androidx.media:media:1.7.0, 1.7.1` and `androidx.media3:media3-session:1.5.0`
-- [x] Result: All approaches fail - Kotlin compiler cannot resolve classes
-- [x] Time invested: 90+ minutes across multiple build attempts
+## Quick Reference
 
-### Implemented Workaround (TEMPORARY)
+### Build Commands
+```bash
+# Full clean build
+pnpm run clean:full && pnpm run build:release:android
 
-- [x] Comment out `MediaSessionCompat` initialization in `TTSForegroundService.kt`
-- [x] Comment out `PlaybackStateCompat` usage
-- [x] Comment out `MediaMetadataCompat` usage
-- [x] Remove `androidx.media:media` dependency from `build.gradle`
-- [x] ✅ **Verify build succeeds after workaround** - BUILD SUCCESSFUL in 50s!
+# Quick rebuild (no clean)
+cd android && ./gradlew assembleRelease
 
-### Impact Assessment
+# Type check & lint
+pnpm run type-check && pnpm run lint
+```
 
-**Features Still Working** ✅:
+### APK Location
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
 
-- [x] TTS background playback continues normally
-- [x] All 5 notification actions (prev chapter, ±5 paragraphs, play/pause, next chapter)
-- [x] Novel name + chapter title display
-- [x] Progress percentage display (as text)
-- [x] Foreground service lifecycle
-
-**Features Temporarily Disabled** ❌:
-
-- [ ] MediaSession lock screen integration
-- [ ] PlaybackState broadcasting to Android system
-- [ ] MediaMetadata for system media UIs
-- [ ] Enhanced media controls on Android Auto (bonus feature)
-
-### Future Resolution Tasks (Priority: P2)
-
-#### Investigation Phase (Estimated: 4-8 hours)
-
-- [ ] Download `androidx.media:media:1.7.0` AAR and inspect package structure
-- [ ] Test with different `compileSdk`/`targetSdk` versions
-- [ ] Try legacy support library: `com.android.support:support-media-compat:28.0.0`
-- [ ] Review React Native + AndroidX compatibility matrices
-- [ ] Check for Expo module conflicts with androidx.media
-- [ ] Search React Native GitHub issues for similar problems
-
-#### Alternative Solutions
-
-- [ ] **Option A**: Migrate to Media3 (requires 4-8 hour code rewrite)
-  - Use `androidx.media3.session.MediaSession` (not Compat)
-  - Modern API, officially recommended by Google
-  - Breaking changes from MediaSessionCompat API
-- [ ] **Option B**: Use support-media-compat directly
-  - Test `com.android.support:support-media-compat:28.0.0`
-  - May bypass androidx migration issues
-- [ ] **Option C**: Implement custom minimal MediaSession wrapper
-  - Write minimal implementation for lock screen only
-  - Avoid dependency conflicts entirely
-
-#### Re-enablement Tasks (After resolution)
-
-- [ ] Uncomment MediaSessionCompat code in `TTSForegroundService.kt`
-- [ ] Add verified working dependency to `build.gradle`
-- [ ] Test lock screen media controls
-- [ ] Verify notification behavior unchanged
-- [ ] Update PRD with final solution and learnings
-
-### Testing Verification After Workaround
-
-- [ ] Manual: Verify all notification actions still functional
-- [ ] Manual: Confirm TTS background playback unaffected
-- [ ] Manual: Test pause/resume from notification
-- [ ] Manual: Test chapter navigation from notification
-- [ ] Manual: Verify notification visibility when paused
-- [ ] Manual: Check lock screen behavior (may have reduced functionality)
-- [ ] Automated: Ensure Jest tests still pass
-- [ ] Automated: Verify TypeScript compilation succeeds
-- [ ] Build: Confirm `pnpm run build:release:android` completes successfully
-
-### Decision Rationale
-
-**Why comment out instead of continuing investigation?**
-
-1. ⏱️ **Time ROI**: 90+ minutes invested with no progress
-2. ❓ **Uncertainty**: Root cause unclear, could require days to resolve
-3. 🎯 **Priority**: MediaSession is enhancement, not core functionality
-4. ✅ **Preservation**: All critical TTS features remain functional
-5. 🔄 **Reversibility**: Easy to uncomment once dependency resolved
-6. 🚀 **Unblock**: Allows team to continue development/releases
-
-### Notes
-
-- Full investigation details in `brain/<conversation-id>/walkthrough.md`
-- See PRD "CRITICAL BLOCKER" section for comprehensive analysis
-- This is a temporary measure - MediaSession integration should be restored when feasible
+### Key Files
+```
+android/app/build.gradle                         # Dependencies
+android/app/src/main/.../TTSForegroundService.kt # Notification code
+specs/Enhanced-media-control/PRD.md              # Specification
+specs/Enhanced-media-control/TASKS.md            # This file
+```

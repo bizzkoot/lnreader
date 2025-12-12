@@ -17,11 +17,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-// TEMPORARY: Commented out due to dependency resolution failure
-// import androidx.media.app.NotificationCompat.MediaStyle
-// import androidx.media.session.MediaSessionCompat
-// import androidx.media.session.PlaybackStateCompat
-// import androidx.media.session.MediaMetadataCompat
+import androidx.media.app.NotificationCompat.MediaStyle
 import java.util.Locale
 
 class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
@@ -30,8 +26,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var isTtsInitialized = false
     private val binder = TTSBinder()
     private var ttsListener: TTSListener? = null
-    // TEMPORARY: Commented out due to dependency resolution failure
-    // private var mediaSession: MediaSessionCompat? = null
+    //private var mediaSession: MediaSessionCompat? = null  // MediaSession removed
 
     // Notification-driven state (set by RN)
     private var mediaNovelName: String = "LNReader"
@@ -74,8 +69,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun getService(): TTSForegroundService = this@TTSForegroundService
     }
 
-    // TEMPORARY: Commented out MediaSessionCallback due to dependency resolution failure
-    /*
+    /* MediaSession removed - keeping simple notification
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
         override fun onPlay() {
             ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
@@ -112,9 +106,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         createNotificationChannel()
         tts = TextToSpeech(this, this)
         
-        
-        // TEMPORARY: Commented out MediaSession initialization due to dependency resolution failure
-        /*
+        /* MediaSession initialization removed
         // Initialize MediaSessionCompat
         mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
             setCallback(MediaSessionCallback())
@@ -411,7 +403,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         currentBatchIndex = 0
         mediaIsPlaying = false
-        updatePlaybackState()
+        //updatePlaybackState()  // MediaSession removed
         updateNotification()
     }
 
@@ -542,6 +534,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         val title = if (mediaNovelName.isNotBlank()) mediaNovelName else "LNReader"
         val chapterText = if (mediaChapterLabel.isNotBlank()) mediaChapterLabel else ""
 
+        // Calculate progress percentage and paragraph position
         val progressPercent = if (mediaTotalParagraphs > 0) {
             val safeIndex = mediaParagraphIndex.coerceIn(0, mediaTotalParagraphs - 1)
             (((safeIndex + 1).toDouble() / mediaTotalParagraphs.toDouble()) * 100.0).toInt().coerceIn(0, 100)
@@ -549,41 +542,48 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             0
         }
 
+        // Enhanced progress text: "28% • Paragraph 42 of 150"
+        val progressText = if (mediaTotalParagraphs > 0) {
+            val currentParagraph = (mediaParagraphIndex + 1).coerceIn(1, mediaTotalParagraphs)
+            "$progressPercent% • Paragraph $currentParagraph of $mediaTotalParagraphs"
+        } else {
+            "$progressPercent%"
+        }
+
         val playPauseIcon = if (mediaIsPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         val playPauseLabel = if (mediaIsPlaying) "Pause" else "Play"
 
-        // TEMPORARY: Commented out MediaStyle due to dependency resolution failure
-        /*
-        // Use standard MediaStyle notification with progress bar and action buttons
-        // Connect to MediaSessionCompat for native progress support
-        val mediaStyle = MediaStyle()
-            .setShowActionsInCompactView(1, 2, 3) // Show seek back, play/pause, seek forward in compact
-        
-        // Set the media session token to enable native progress bar
-        mediaSession?.let { session ->
-            mediaStyle.setMediaSession(session.sessionToken)
-        }
-        */
-        
+        // Icon references for media controls (using standard Android drawables)
+        // These icons are built into Android and work across all devices
+        val prevIcon = android.R.drawable.ic_media_previous      // ⏮ Previous Chapter
+        val rewindIcon = android.R.drawable.ic_media_rew         // ⏪ Rewind 5 paragraphs
+        val forwardIcon = android.R.drawable.ic_media_ff         // ⏩ Forward 5 paragraphs
+        val nextIcon = android.R.drawable.ic_media_next          // ⏭ Next Chapter  
+        val stopIcon = android.R.drawable.ic_delete              // 🗑 Stop/Close (cleaner than cancel icon)
+
+        // Build notification with all media control buttons using MediaStyle
+        // MediaStyle provides proper icon-based media buttons layout
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(chapterText)
-            .setSubText("$progressPercent%") // Show progress as subtext
-            .setProgress(100, progressPercent, false) // Seek bar: max=100, current=progressPercent, indeterminate=false
+            .setSubText(progressText) // Enhanced: "28% • Paragraph 42 of 150"
             .setContentIntent(appPendingIntent)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            // TEMPORARY: Commented out .setStyle() due to MediaStyle dependency resolution failure
-            // .setStyle(mediaStyle)
-            .addAction(android.R.drawable.ic_media_previous, "Previous", prevChapterPI)
-            .addAction(android.R.drawable.ic_media_rew, "-5", seekBackPI)
-            .addAction(playPauseIcon, playPauseLabel, playPausePI)
-            .addAction(android.R.drawable.ic_media_ff, "+5", seekForwardPI)
-            .addAction(android.R.drawable.ic_media_next, "Next", nextChapterPI)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Close", stopPI)
+            // Action buttons with standard media icons
+            .addAction(prevIcon, "Previous Chapter", prevChapterPI)       // #0 ⏮
+            .addAction(rewindIcon, "Rewind 5", seekBackPI)                // #1 ⏪
+            .addAction(playPauseIcon, playPauseLabel, playPausePI)        // #2 ⏸/▶
+            .addAction(forwardIcon, "Forward 5", seekForwardPI)           // #3 ⏩
+            .addAction(nextIcon, "Next Chapter", nextChapterPI)           // #4 ⏭
+            .addAction(stopIcon, "Stop", stopPI)                          // #5 🗑
+            // Apply MediaStyle for icon-based media control buttons
+            // setShowActionsInCompactView specifies which action indices to show in compact view (max 3)
+            .setStyle(MediaStyle()
+                .setShowActionsInCompactView(0, 1, 2, 3, 4)) // Show first 5 actions in compact view
             .build()
     }
 
@@ -601,12 +601,11 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         mediaParagraphIndex = paragraphIndex
         mediaTotalParagraphs = totalParagraphs
         mediaIsPlaying = isPlaying
-        updatePlaybackState()
+        //updatePlaybackState()  // MediaSession removed
         updateNotification()
     }
 
-    // TEMPORARY: Commented out updatePlaybackState due to dependency resolution failure
-    /*
+    /* MediaSession removed - simple notification only
     private fun updatePlaybackState() {
         mediaSession?.let { session ->
             val state = if (mediaIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
@@ -644,10 +643,6 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
     }
     */
-    
-    private fun updatePlaybackState() {
-        // TEMPORARY: No-op until MediaSessionCompat dependency is resolved
-    }
 
     private fun updateNotification() {
         if (!isServiceForeground) return
@@ -662,9 +657,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         tts?.stop()
         tts?.shutdown()
-        // TEMPORARY: Commented out due to dependency resolution failure
-        // mediaSession?.release()
-        // mediaSession = null
+        //mediaSession?.release()  // MediaSession removed
+        //mediaSession = null
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
