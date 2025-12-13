@@ -17,4 +17,4 @@
 - **chore: Merge pull request #5 from bizzkoot/dev**
     * [3e2f7b0fe](https://github.com/bizzkoot/lnreader/commit/3e2f7b0fe)
 
-_This release includes 3 commits since v2.0.9. For full commit details, see the GitHub comparison._
+_This release includes 3 commits since v2.0.9. For full commit details, see the GitHub comparison: https://github.com/bizzkoot/lnreader/compare/v2.0.9...v2.0.10_
