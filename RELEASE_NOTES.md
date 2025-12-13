@@ -1,22 +1,17 @@
 ## What's New
 
 
-### v2.0.8 — 2025-12-11
+### v2.0.9 — 2025-12-13
 
-**UI scaling overhaul, improved accessibility, and major codebase modernization.**
+**Summary:** This patch improves TTS notification reliability, fixes Android build issues for enhanced media notifications, hardens the WebView bridge, and updates related documentation.
 
 ### ✨ Features
-- **Dynamic UI Scaling:** All major screens and components now support dynamic text and layout scaling for improved accessibility and device compatibility.
-- **AppText Component:** Unified text rendering with the new AppText component, ensuring consistent scaling and style across the app.
-- **Hybrid Update UI/UX:** In-app update flow with verified GitHub APK downloads and robust asset selection.
-- **Settings & Dialogs:** New dialogs and settings for TTS and UI scaling, plus improved user feedback and error handling.
+- **Enhanced TTS Media Notifications:** Added MediaStyle notification with five icon-based media control buttons and position sync between native TTS and the reader.
 
 ### 📜 Commits
-- **UI Scaling System:** Complete implementation of dynamic scaling for all major screens, settings, and shared components.
-- **Accessibility:** Replaced all core text elements with AppText for better scaling and accessibility.
-- **Hybrid Update:** Added in-app update UI/UX, robust GitHub release checker, and APK asset selection logic.
-- **Tooling & Modernization:** Upgraded React Native to 0.82.1, improved husky pre-commit hooks, and modernized project tooling.
-- **Documentation:** Updated and expanded UI scaling and TTS documentation, added demo assets and project guidance.
-- **Bug Fixes:** Resolved TypeScript errors, improved backup picker, and fixed various minor issues.
+- **Core Updates:** Added position sync between native TTS and reader; improved notification layouts and code quality for TTS features.
+- **Android Build Fixes:** Fixed Android build related to enhanced media notifications.
+- **WebView Hardening:** Hardened WebView bridge by adding nonce and allowlists to prevent regressions.
+- **Docs & Polishing:** Added media-player images, adjusted TTS docs and layout corrections; included a few targeted reverts for doc layout experiments.
 
-_This release includes 28 commits since v2.0.7. For full commit details, see the [GitHub comparison](https://github.com/bizzkoot/lnreader/compare/v2.0.7...v2.0.8)._
+_This release includes 14 commits since v2.0.8. For full commit details, see the GitHub comparison._
