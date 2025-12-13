@@ -259,3 +259,56 @@ _User looks back at a previous chapter._
 3.  **Expectation**:
     - **Alert**: "Confirm Reset All" warning appears.
     - Setting only applies if "Enable" is explicitly pressed.
+
+## 10. Media Notification Control Scenarios
+
+### A. Chapter Navigation via Notification
+
+**Goal**: Control chapter navigation while phone is locked or minimized.
+
+**PREV_CHAPTER Flow:**
+
+1.  **Pre-condition**: TTS playing in Chapter 5 at paragraph 30.
+2.  **Action**: User presses **Previous Chapter** in notification.
+3.  **System Behavior**:
+    - Navigation to Chapter 4 begins.
+    - TTS starts from **paragraph 0** (fresh start).
+    - `mediaNavSourceChapterIdRef` is set to Chapter 5's ID.
+4.  **After 5 paragraphs**: Chapter 5 is marked as **100% complete**.
+5.  **Use Case**: User wants to re-listen to previous chapter from the beginning.
+
+**NEXT_CHAPTER Flow:**
+
+1.  **Pre-condition**: TTS playing in Chapter 3 at paragraph 20.
+2.  **Action**: User presses **Next Chapter** in notification.
+3.  **System Behavior**:
+    - Navigation to Chapter 4 begins.
+    - TTS starts from **paragraph 0**.
+    - `mediaNavSourceChapterIdRef` is set to Chapter 3's ID.
+4.  **After 5 paragraphs**: Chapter 3 is marked as **100% complete**.
+5.  **Use Case**: User wants to skip to next chapter (marks current as read).
+
+### B. Pause via Notification
+
+**Goal**: Ensure progress is preserved when pausing from locked screen.
+
+1.  **Pre-condition**: TTS playing at paragraph 50.
+2.  **Action**: User presses **Play/Pause** button in notification.
+3.  **System Behavior**:
+    - Progress is saved **immediately** (paragraph 50).
+    - Grace period is activated (`ttsLastStopTime`).
+    - TTS pauses but service remains active.
+4.  **If app is killed**: Progress is preserved at paragraph 50.
+5.  **Resume**: Pressing Play resumes from paragraph 50.
+
+### C. Rapid Toggle Protection
+
+**Goal**: Prevent queue corruption from accidental rapid tapping.
+
+1.  **Action**: User rapidly taps Play/Pause multiple times.
+2.  **System Behavior**:
+    - First tap is processed.
+    - Subsequent taps within **500ms** are **ignored** (debounced).
+    - Console logs: `Media action debounced`.
+3.  **Result**: Queue integrity preserved, no duplicate actions.
+

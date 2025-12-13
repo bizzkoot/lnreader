@@ -175,15 +175,50 @@ Used when `ttsBackgroundPlayback` is **ON** (Default).
 - **Foreground**: `core.js` reaches end -> `reader.post({type: 'next'})` -> RN navigates.
 - **Background**: `onQueueEmpty` -> RN navigates -> RN starts new batch.
 
+### 8. Media Notification Controls
+
+The media player notification provides controls that operate at the native layer and interact with React Native state.
+
+**Available Actions:**
+
+| Action               | Identifier         | Description                  |
+| -------------------- | ------------------ | ---------------------------- |
+| **Play/Pause**       | `TTS.PLAY_PAUSE`   | Toggle playback state        |
+| **Seek Forward**     | `TTS.SEEK_FORWARD` | Skip +5 paragraphs           |
+| **Previous Chapter** | `TTS.PREV_CHAPTER` | Navigate to previous chapter |
+| **Next Chapter**     | `TTS.NEXT_CHAPTER` | Navigate to next chapter     |
+| **Stop**             | `TTS.STOP`         | Stop playback completely     |
+
+**Chapter Navigation Logic:**
+
+- **PREV/NEXT via notification** always starts from **paragraph 0** (fresh start)
+- After **5 paragraphs** in the new chapter, the source chapter is marked as **100% complete** via `updateChapterProgressDb(sourceChapterId, 100)`
+- Tracked via `mediaNavSourceChapterIdRef` which stores the source chapter ID
+
+**Pause/Save Behavior:**
+
+- When pausing via notification, progress is **saved immediately** to prevent data loss
+- Grace period (`ttsLastStopTime`) is set to prevent scroll-based saves from overwriting TTS position
+
+**Debounce:**
+
+- Media actions are debounced by **500ms** (`MEDIA_ACTION_DEBOUNCE_MS`) to prevent queue corruption from rapid toggling
+
 ## State Management & Persistence
 
-- **Progress**: Saved to Database (`ChapterQueries`) and MMKV (`chapter_progress_${id}`).
+- **Progress**: Saved to **both** Database (`ChapterQueries`) **and** MMKV (`chapter_progress_${id}`).
   - Updated on `onSpeechDone` (paragraph completion).
+  - Updated on **notification pause** (explicit save before pause).
   - Blocked during manual scroll if TTS is active.
+- **Progress Reconciliation on Load**:
+  - `initialSavedParagraphIndex` uses `Math.max(dbIndex, mmkvIndex, nativeIndex)` to reconcile all sources.
+  - This ensures the **most advanced** progress is used from any storage.
 - **Refs**: `WebViewReader` uses `currentParagraphIndexRef` as the source of truth for "active" TTS position to survive re-renders.
 - **Grace Periods**:
+  - `ttsLastStopTime`: 2-second window after TTS stops where scroll-based saves are blocked.
   - `wakeTransitionInProgressRef`: Ignores events during app wake-up.
   - `chapterTransitionTimeRef`: Ignores stale save events after chapter switch.
+  - `MEDIA_ACTION_DEBOUNCE_MS`: 500ms debounce for rapid media actions.
 
 ## TTS Dialogs & Popups
 

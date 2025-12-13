@@ -1139,8 +1139,37 @@ window.tts = new (function () {
 
     reader.post({ type: 'tts-state', data: { isReading: false } });
 
-    // NEW: Save progress when stopping
-    if (reader.saveProgress) {
+    // FIX Bug 12.2: Save TTS position (not scroll position) when stopping
+    // Previously called reader.saveProgress() which uses getVisibleElementIndex() (scroll-based)
+    // Now we save the actual TTS paragraph index from currentElement
+    const readableElements = reader.getReadableElements();
+    const ttsIndex = this.currentElement
+      ? readableElements.indexOf(this.currentElement)
+      : -1;
+
+    if (ttsIndex >= 0 && readableElements.length > 0) {
+      const percentage = Math.round(
+        ((ttsIndex + 1) / readableElements.length) * 100,
+      );
+      console.log(
+        'TTS stop: Saving TTS position',
+        ttsIndex,
+        'of',
+        readableElements.length,
+        '(' + percentage + '%)',
+      );
+      reader.post({
+        type: 'save',
+        data: percentage,
+        paragraphIndex: ttsIndex,
+        chapterId: reader.chapter.id,
+        source: 'tts-stop', // Debug: distinguish from scroll saves
+      });
+    } else if (reader.saveProgress) {
+      // Fallback: if no TTS element tracked, use scroll-based save
+      console.log(
+        'TTS stop: No TTS element tracked, falling back to scroll-based save',
+      );
       reader.saveProgress();
     }
 

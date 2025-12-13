@@ -56,6 +56,7 @@ import {
   markChaptersBeforePositionRead,
   resetFutureChaptersProgress,
   getRecentReadingChapters,
+  updateChapterProgress as updateChapterProgressDb,
 } from '@database/queries/ChapterQueries';
 import TTSExitDialog from './TTSExitDialog';
 import { useNavigation } from '@react-navigation/native';
@@ -291,6 +292,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const ttsSessionRef = useRef<number>(0);
   // NEW: Track when wake resume completed to add grace period for queue modifications
   const wakeResumeGracePeriodRef = useRef<number>(0);
+  // FIX Bug 12.8: Debounce rapid media actions to prevent queue corruption
+  const lastMediaActionTimeRef = useRef<number>(0);
+  const MEDIA_ACTION_DEBOUNCE_MS = 500;
+  // Track source chapter ID when navigating via media controls
+  // After 5 paragraphs in new chapter: NEXT marks this as 100%, PREV marks as "in progress"
+  const mediaNavSourceChapterIdRef = useRef<number | null>(null);
+  const PARAGRAPHS_TO_CONFIRM_NAVIGATION = 5;
 
   // State for TTS sync dialog (shown when screen wakes and chapter mismatch occurs)
   const [syncDialogVisible, setSyncDialogVisible] = useState(false);
@@ -1015,6 +1023,22 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 : (progressRef.current ?? 0);
             saveProgressRef.current(percentage, nextIndex);
 
+            // Check if we've read 5 paragraphs after media navigation
+            // If yes, mark the source chapter as 100% complete
+            if (
+              mediaNavSourceChapterIdRef.current &&
+              nextIndex >= PARAGRAPHS_TO_CONFIRM_NAVIGATION
+            ) {
+              const sourceChapterId = mediaNavSourceChapterIdRef.current;
+              console.log(
+                `WebViewReader: 5 paragraphs reached after media navigation, marking chapter ${sourceChapterId} as 100% complete`,
+              );
+              // Mark source chapter as 100% complete in database (don't use saveProgressRef as it targets current chapter)
+              updateChapterProgressDb(sourceChapterId, 100);
+              // Clear the ref so we don't mark it again
+              mediaNavSourceChapterIdRef.current = null;
+            }
+
             // Keep media notification progress updated
             updateTtsMediaNotificationState(isTTSReadingRef.current);
 
@@ -1227,6 +1251,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       'onMediaAction',
       async event => {
         const action = String(event?.action || '');
+
+        // FIX Bug 12.8: Debounce rapid media actions to prevent queue corruption
+        const now = Date.now();
+        if (now - lastMediaActionTimeRef.current < MEDIA_ACTION_DEBOUNCE_MS) {
+          console.log(
+            `WebViewReader: Media action debounced (${now - lastMediaActionTimeRef.current}ms < ${MEDIA_ACTION_DEBOUNCE_MS}ms)`,
+          );
+          return;
+        }
+        lastMediaActionTimeRef.current = now;
+
         try {
           // Always ensure we have latest notification state before acting
           updateTtsMediaNotificationState(isTTSReadingRef.current);
@@ -1234,6 +1269,24 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           if (action === 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE') {
             if (isTTSReadingRef.current) {
               // Pause (MVP): stop audio but keep service/notification
+
+              // FIX Bug 12.6: Save progress BEFORE pausing to prevent data loss if app is killed
+              const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
+              const total = totalParagraphsRef.current;
+              if (idx >= 0 && total > 0) {
+                const percentage = Math.round(((idx + 1) / total) * 100);
+                saveProgressRef.current(percentage, idx);
+                console.log(
+                  `WebViewReader: Saved progress before pause (paragraph ${idx}/${total}, ${percentage}%)`,
+                );
+              }
+
+              // FIX Bug 12.1: Set grace period in WebView to prevent scroll saves from overwriting TTS position
+              webViewRef.current?.injectJavaScript(`
+                window.ttsLastStopTime = Date.now();
+                if (window.tts) window.tts.reading = false;
+              `);
+
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               isTTSPausedRef.current = true;
@@ -1286,14 +1339,25 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               showToastMessage('No previous chapter');
               return;
             }
-            // Navigate to previous chapter; force start from paragraph 0
+
+            // User presses PREV: Start from paragraph 0 (fresh start for re-reading)
+            // The previous chapter (current one before navigation) will be marked
+            // as "in progress" after 5 paragraphs of the new chapter are read
+            console.log(
+              'WebViewReader: PREV_CHAPTER - starting from paragraph 0',
+            );
+
+            // Track the current chapter to mark as incomplete after navigation
+            mediaNavSourceChapterIdRef.current = chapter.id;
+
             isTTSReadingRef.current = true;
             isTTSPausedRef.current = false;
             autoStartTTSRef.current = true;
-            forceStartFromParagraphZeroRef.current = true; // Start from beginning
+            forceStartFromParagraphZeroRef.current = true;
             backgroundTTSPendingRef.current = true;
             currentParagraphIndexRef.current = 0;
             latestParagraphIndexRef.current = 0;
+
             navigateChapter('PREV');
             updateTtsMediaNotificationState(true);
             return;
@@ -1304,11 +1368,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               showToastMessage('No next chapter');
               return;
             }
-            // Navigate to next chapter; force start from paragraph 0
+
+            // User presses NEXT: Start from paragraph 0 (fresh start)
+            // After 5 paragraphs in new chapter, the source chapter will be marked as 100% complete
+            console.log(
+              'WebViewReader: NEXT_CHAPTER - starting from paragraph 0',
+            );
+
+            // Track the current chapter to mark as 100% complete after 5 paragraphs
+            mediaNavSourceChapterIdRef.current = chapter.id;
+
             isTTSReadingRef.current = true;
             isTTSPausedRef.current = false;
             autoStartTTSRef.current = true;
-            forceStartFromParagraphZeroRef.current = true; // Start from beginning
+            forceStartFromParagraphZeroRef.current = true;
             backgroundTTSPendingRef.current = true;
             currentParagraphIndexRef.current = 0;
             latestParagraphIndexRef.current = 0;
@@ -1787,7 +1860,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         );
       }
     };
-  }, [chapter.id, html, showToastMessage, webViewRef]);
+  }, [
+    chapter.id,
+    html,
+    showToastMessage,
+    webViewRef,
+    navigateChapter,
+    nextChapter,
+    prevChapter,
+    restartTtsFromParagraphIndex,
+    updateTtsMediaNotificationState,
+  ]);
 
   useEffect(() => {
     const mmkvListener = MMKVStorage.addOnValueChangedListener(key => {
