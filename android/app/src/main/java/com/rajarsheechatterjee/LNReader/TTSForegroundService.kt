@@ -15,6 +15,10 @@ import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+// MediaSession imports - kept for potential future use
+// import android.support.v4.media.MediaMetadataCompat
+// import android.support.v4.media.session.MediaSessionCompat
+// import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.media.app.NotificationCompat.MediaStyle
@@ -26,7 +30,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var isTtsInitialized = false
     private val binder = TTSBinder()
     private var ttsListener: TTSListener? = null
-    //private var mediaSession: MediaSessionCompat? = null  // MediaSession removed
+    // MediaSession disabled - causes regression (3 buttons instead of 5, missing text)
+    // private var mediaSession: MediaSessionCompat? = null
 
     // Notification-driven state (set by RN)
     private var mediaNovelName: String = "LNReader"
@@ -69,7 +74,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun getService(): TTSForegroundService = this@TTSForegroundService
     }
 
-    /* MediaSession removed - keeping simple notification
+    /* MediaSession disabled - causes regression (3 buttons instead of 5)
+    // MediaSession callback for hardware buttons and lock screen controls
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
         override fun onPlay() {
             ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
@@ -106,8 +112,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         createNotificationChannel()
         tts = TextToSpeech(this, this)
         
-        /* MediaSession initialization removed
-        // Initialize MediaSessionCompat
+        /* MediaSession disabled - causes regression
         mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
             setCallback(MediaSessionCallback())
             isActive = true
@@ -403,7 +408,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         currentBatchIndex = 0
         mediaIsPlaying = false
-        //updatePlaybackState()  // MediaSession removed
+        // updatePlaybackState()  // MediaSession disabled
         updateNotification()
     }
 
@@ -581,8 +586,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             .addAction(nextIcon, "Next Chapter", nextChapterPI)           // #4 ⏭
             .addAction(stopIcon, "Stop", stopPI)                          // #5 🗑
             // Apply MediaStyle for icon-based media control buttons
-            // setShowActionsInCompactView specifies which action indices to show in compact view (max 3)
+            // setShowActionsInCompactView specifies which action indices to show in compact view
+            // Note: MediaSession disabled - it causes regression (3 buttons instead of 5)
             .setStyle(MediaStyle()
+                // .setMediaSession(mediaSession?.sessionToken)  // Disabled - causes regression
                 .setShowActionsInCompactView(0, 1, 2, 3, 4)) // Show first 5 actions in compact view
             .build()
     }
@@ -601,11 +608,11 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         mediaParagraphIndex = paragraphIndex
         mediaTotalParagraphs = totalParagraphs
         mediaIsPlaying = isPlaying
-        //updatePlaybackState()  // MediaSession removed
+        // updatePlaybackState()  // MediaSession disabled
         updateNotification()
     }
 
-    /* MediaSession removed - simple notification only
+    /* MediaSession disabled - causes regression (3 buttons instead of 5)
     private fun updatePlaybackState() {
         mediaSession?.let { session ->
             val state = if (mediaIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
@@ -626,7 +633,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                     PlaybackStateCompat.ACTION_REWIND or
                     PlaybackStateCompat.ACTION_STOP
                 )
-                .setActiveQueueItemId(mediaChapterId?.toLong() ?: PlaybackStateCompat.UNKNOWN_QUEUE_ID)
+                .setActiveQueueItemId(mediaChapterId?.toLong() ?: MediaSessionCompat.QueueItem.UNKNOWN_ID.toLong())
                 .build()
                 
             session.setPlaybackState(playbackState)
@@ -657,8 +664,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         tts?.stop()
         tts?.shutdown()
-        //mediaSession?.release()  // MediaSession removed
-        //mediaSession = null
+        // mediaSession?.release()  // MediaSession disabled
+        // mediaSession = null
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }

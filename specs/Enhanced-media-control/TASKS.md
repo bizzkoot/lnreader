@@ -29,143 +29,77 @@
 
 ---
 
-## Phase 2: MediaSessionCompat Integration 🔄 IN PROGRESS
+## Phase 2: MediaSessionCompat Integration ❌ REVERTED
 
-### Goal
-Add visual seek bar showing chapter progress percentage.
+### Attempt Summary
+- [x] Add imports (MediaSessionCompat, PlaybackStateCompat, MediaMetadataCompat)
+- [x] Initialize MediaSession in onCreate()
+- [x] Implement MediaSessionCallback inner class
+- [x] Implement updatePlaybackState() function
+- [x] Connect MediaStyle to session token
+- [x] Add updatePlaybackState() calls
+- [x] Add cleanup in onDestroy()
+- [x] Build successful
 
-### Pre-Requisites
-- [x] Phase 1 committed as checkpoint (safe rollback point)
-- [x] PRD and TASKS documentation updated
+### Testing Result: ⚠️ REGRESSION
+| Issue | Description |
+|-------|-------------|
+| #1 | Only 3 buttons instead of 5 (Android MediaSession limitation) |
+| #2 | Missing "Paragraph xx of xx" text |
+| #3 | Missing chapter label "Chapter xx: xxx" |
+| #4 | Lock screen controls issues |
 
-### Implementation Tasks
-
-#### 2.1: Add Imports
-- [ ] Add to `TTSForegroundService.kt`:
-  ```kotlin
-  import android.support.v4.media.session.MediaSessionCompat
-  import android.support.v4.media.session.PlaybackStateCompat
-  import android.support.v4.media.MediaMetadataCompat
-  ```
-
-#### 2.2: Initialize MediaSession
-- [ ] Add private variable: `private var mediaSession: MediaSessionCompat? = null`
-- [ ] Initialize in `onCreate()`:
-  ```kotlin
-  mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
-      setCallback(MediaSessionCallback())
-      isActive = true
-  }
-  ```
-
-#### 2.3: Implement MediaSessionCallback
-- [ ] Create inner class `MediaSessionCallback` extending `MediaSessionCompat.Callback()`
-- [ ] Override methods:
-  - [ ] `onPlay()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)`
-  - [ ] `onPause()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)`
-  - [ ] `onSkipToNext()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_NEXT_CHAPTER)`
-  - [ ] `onSkipToPrevious()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_PREV_CHAPTER)`
-  - [ ] `onFastForward()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_SEEK_FORWARD)`
-  - [ ] `onRewind()` → call `ttsListener?.onMediaAction(ACTION_MEDIA_SEEK_BACK)`
-  - [ ] `onStop()` → call `stopTTS()`
-
-#### 2.4: Implement updatePlaybackState()
-- [ ] Create/uncomment `updatePlaybackState()` function:
-  ```kotlin
-  private fun updatePlaybackState() {
-      mediaSession?.let { session ->
-          val state = if (mediaIsPlaying) 
-              PlaybackStateCompat.STATE_PLAYING 
-          else 
-              PlaybackStateCompat.STATE_PAUSED
-          
-          val position = (mediaParagraphIndex * 1000).toLong()
-          val duration = (mediaTotalParagraphs * 1000).toLong()
-          
-          val playbackState = PlaybackStateCompat.Builder()
-              .setState(state, position, 1.0f)
-              .setActions(
-                  PlaybackStateCompat.ACTION_PLAY or
-                  PlaybackStateCompat.ACTION_PAUSE or
-                  PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                  PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                  PlaybackStateCompat.ACTION_FAST_FORWARD or
-                  PlaybackStateCompat.ACTION_REWIND or
-                  PlaybackStateCompat.ACTION_STOP
-              )
-              .build()
-          
-          session.setPlaybackState(playbackState)
-          
-          // Set metadata
-          val metadata = MediaMetadataCompat.Builder()
-              .putString(MediaMetadataCompat.METADATA_KEY_TITLE, mediaNovelName)
-              .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, mediaChapterLabel)
-              .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "LNReader TTS")
-              .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
-              .build()
-          
-          session.setMetadata(metadata)
-      }
-  }
-  ```
-
-#### 2.5: Connect MediaStyle to Session
-- [ ] Update `createNotification()` to include session token:
-  ```kotlin
-  .setStyle(MediaStyle()
-      .setMediaSession(mediaSession?.sessionToken)
-      .setShowActionsInCompactView(0, 1, 2, 3, 4))
-  ```
-
-#### 2.6: Call updatePlaybackState()
-- [ ] Uncomment/add calls in:
-  - [ ] `updateMediaState()` - called when RN updates state
-  - [ ] `stopAudioKeepService()` - called on pause
-
-#### 2.7: Cleanup in onDestroy()
-- [ ] Uncomment MediaSession cleanup:
-  ```kotlin
-  mediaSession?.release()
-  mediaSession = null
-  ```
-
-### Build & Verification
-- [ ] Run: `pnpm run build:release:android`
-- [ ] Verify: No compilation errors
-- [ ] Install APK and test:
-  - [ ] Seek bar visible in notification
-  - [ ] Seek bar shows progress (read-only)
-  - [ ] All 5 buttons still work
-  - [ ] Lock screen controls functional
-
-### Rollback (If Build Fails)
-If MediaSessionCompat compilation fails:
-1. Revert `TTSForegroundService.kt` to Phase 1 state
-2. Keep `androidx.media:media:1.7.0` (needed for MediaStyle)
-3. Document specific error in PRD
-4. Phase 1 functionality preserved
+### Decision
+**User chose**: Keep 5 buttons, no seek bar. MediaSession code reverted (commented out).
 
 ---
 
-## Phase 3: QA & Polish (After Phase 2)
+## Phase 3: TTS Progress Sync with Reader 🔜 NEW REQUIREMENT
 
-### Testing Checklist
-- [ ] TTS starts correctly
-- [ ] Notification shows with all controls
-- [ ] Seek bar displays chapter progress
-- [ ] Play/Pause works from notification
-- [ ] Prev/Next chapter works from notification
-- [ ] ±5 paragraph buttons work
-- [ ] Background playback continues
-- [ ] Chapter auto-advance works
-- [ ] Lock screen controls functional
-- [ ] Stop button removes notification
+### Goal
+Ensure TTS progress is properly synced with reader position in ALL scenarios.
 
-### Documentation
-- [ ] Update PRD with final state
-- [ ] Update TASKS marking all complete
-- [ ] Git commit with summary
+### Scenarios to Verify
+
+#### Scenario 1: Pause via Notification
+- [ ] User pauses TTS
+- [ ] User enters reader mode
+- [ ] Reader scrolls to last TTS paragraph
+
+#### Scenario 2: Stop/Close Notification
+- [ ] User closes TTS notification
+- [ ] User enters reader mode
+- [ ] Reader scrolls to last TTS paragraph
+
+#### Scenario 3: Resume After Background
+- [ ] App in background, TTS playing
+- [ ] User opens app
+- [ ] Reader shows current TTS paragraph
+
+### Implementation Tasks
+
+#### 3.1: Research Current State
+- [ ] How is TTS position currently saved?
+- [ ] What storage mechanism is used?
+- [ ] When is position synced to reader?
+- [ ] Find relevant code in WebViewReader.tsx
+
+#### 3.2: Identify Gaps
+- [ ] Test Scenario 1 (pause)
+- [ ] Test Scenario 2 (stop/close)
+- [ ] Test Scenario 3 (background)
+- [ ] Document what works and what doesn't
+
+#### 3.3: Implement Fixes (if needed)
+- [ ] Add position save on paragraph change
+- [ ] Add position save on pause
+- [ ] Add position save on stop/close
+- [ ] Ensure reader loads TTS position on entry
+
+#### 3.4: Verification
+- [ ] All 3 scenarios pass
+- [ ] No regression in existing TTS functionality
+- [ ] No regression in existing reader functionality
 
 ---
 
@@ -192,6 +126,12 @@ android/app/build/outputs/apk/release/app-release.apk
 ```
 android/app/build.gradle                         # Dependencies
 android/app/src/main/.../TTSForegroundService.kt # Notification code
+src/screens/reader/components/WebViewReader.tsx  # Reader + TTS state
 specs/Enhanced-media-control/PRD.md              # Specification
 specs/Enhanced-media-control/TASKS.md            # This file
+```
+
+### Git Checkpoints
+```
+bf843020 - Phase 1 complete (5 buttons working)
 ```

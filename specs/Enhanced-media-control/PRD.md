@@ -1,266 +1,180 @@
 # PRD: Enhanced TTS Media Control (Android Notification)
 
 > **Last Updated**: December 13, 2025  
-> **Status**: Phase 2 In Progress (MediaStyle ✅, MediaSessionCompat 🔄)
+> **Status**: ✅ COMPLETE (5-button MediaStyle - MediaSession disabled due to regressions)
 
 ---
 
 ## Summary
 
-Enhance LNReader's Android TTS notification to provide:
+Enhanced LNReader's Android TTS notification to provide:
 - **5 media control buttons** with proper icons (Previous, -5, Play/Pause, +5, Next)
-- **Visual seek bar** showing chapter progress
 - **Rich metadata** (Novel name, Chapter title, Progress text)
-- **Lock screen integration** via MediaSessionCompat
+- **Lock screen visibility** via NotificationCompat.VISIBILITY_PUBLIC
+
+**Note**: Visual seek bar feature was attempted but caused regressions. Decision made to keep 5 buttons.
 
 ---
 
 ## Current State (December 13, 2025)
 
-### ✅ What's Working
+### ✅ What's Working (Final State)
 
 | Feature | Status | Details |
 |---------|--------|---------|
-| MediaStyle notification | ✅ Working | `androidx.media:media:1.7.0` dependency resolved |
+| MediaStyle notification | ✅ Working | `androidx.media:media:1.7.0` dependency |
 | 5 action buttons | ✅ Working | All visible with proper icons |
 | Icon-based buttons | ✅ Working | Using `ic_media_previous`, `ic_media_rew`, etc. |
 | Novel name display | ✅ Working | Shown in notification title |
 | Chapter title display | ✅ Working | Shown in notification content |
 | Progress text | ✅ Working | SubText shows "28% • Paragraph 42 of 150" |
+| Lock screen visibility | ✅ Working | VISIBILITY_PUBLIC set |
 | All button functionality | ✅ Working | Prev/Next chapter, ±5 paragraphs, Play/Pause |
 
-### ❓ Pending Implementation
+### ❌ Not Implemented (By Design Decision)
 
-| Feature | Status | Details |
-|---------|--------|---------|
-| Visual seek bar | 🔄 Pending | Requires MediaSessionCompat integration |
-| Lock screen controls | 🔄 Pending | Requires MediaSessionCompat integration |
-
----
-
-## Technical Architecture
-
-### Files Involved
-
-```
-android/app/build.gradle                    # Dependencies
-android/app/src/main/java/.../TTSForegroundService.kt  # Notification + MediaSession
-android/app/src/main/java/.../TTSHighlightModule.kt    # RN bridge
-src/screens/reader/components/WebViewReader.tsx        # RN state management
-```
-
-### Dependencies
-
-```gradle
-// Currently enabled
-implementation 'androidx.media:media:1.7.0'  // MediaStyle + MediaSessionCompat
-
-// Core
-implementation 'androidx.core:core-ktx:1.15.0'
-implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-```
-
-### Data Flow
-
-```
-WebViewReader.tsx (RN)
-    │
-    ├─► updateMediaState() ─────────► TTSHighlightModule.kt
-    │                                      │
-    │                                      ▼
-    │                               TTSForegroundService.kt
-    │                                      │
-    │   ┌──────────────────────────────────┘
-    │   │
-    │   ├─► updateNotification() ─────► Android Notification
-    │   │                                    │
-    │   │                                    ├─► MediaStyle (5 icon buttons)
-    │   │                                    └─► MediaSessionCompat (seek bar) [TODO]
-    │   │
-    │   └─► onMediaAction() ──────────► RN event listener
-    │                                      │
-    ◄──────────────────────────────────────┘
-```
+| Feature | Status | Reason |
+|---------|--------|--------|
+| Visual seek bar | ❌ Not implemented | MediaSession causes regression (3 buttons, missing text) |
 
 ---
 
-## Implementation Phases
+## MediaSession Investigation Results
 
-### Phase 1: Basic Enhanced Notification ✅ COMPLETE
+### Why MediaSession Was Disabled
 
-**Goal**: Show all 5 buttons with icons
+We implemented MediaSessionCompat for seek bar. Results:
 
-**Completed**:
-- [x] Add `androidx.media:media:1.7.0` dependency
-- [x] Import `androidx.media.app.NotificationCompat.MediaStyle`
-- [x] Apply MediaStyle to notification builder
-- [x] Configure `setShowActionsInCompactView(0, 1, 2, 3, 4)`
-- [x] All 6 actions with standard Android icons
-- [x] Build successful
+| With MediaSession | Without MediaSession |
+|-------------------|---------------------|
+| ❌ Only 3 buttons (Android limitation) | ✅ 5 buttons |
+| ❌ Missing progress text | ✅ Progress text visible |
+| ❌ Missing chapter label | ✅ Chapter label visible |
+| ❌ Lock screen issues | ✅ Lock screen works |
+| ✅ Seek bar visible | ❌ No seek bar |
 
-### Phase 2: MediaSessionCompat Integration 🔄 IN PROGRESS
+**User Decision**: Keep 5 buttons. Seek bar is read-only anyway (TTS is paragraph-based).
 
-**Goal**: Add visual seek bar showing chapter progress
+### MediaSession Code Status
 
-**Required Changes**:
-
-1. **Add imports** in `TTSForegroundService.kt`:
-   ```kotlin
-   import android.support.v4.media.session.MediaSessionCompat
-   import android.support.v4.media.session.PlaybackStateCompat
-   import android.support.v4.media.MediaMetadataCompat
-   ```
-
-2. **Initialize MediaSession** in `onCreate()`:
-   ```kotlin
-   private var mediaSession: MediaSessionCompat? = null
-   
-   // In onCreate():
-   mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
-       setCallback(MediaSessionCallback())
-       isActive = true
-   }
-   ```
-
-3. **Update PlaybackState** for seek bar:
-   ```kotlin
-   private fun updatePlaybackState() {
-       val state = if (mediaIsPlaying) 
-           PlaybackStateCompat.STATE_PLAYING 
-       else 
-           PlaybackStateCompat.STATE_PAUSED
-       
-       // Map paragraph progress to milliseconds (paragraph * 1000)
-       val position = (mediaParagraphIndex * 1000).toLong()
-       val duration = (mediaTotalParagraphs * 1000).toLong()
-       
-       val playbackState = PlaybackStateCompat.Builder()
-           .setState(state, position, 1.0f)
-           .setActions(
-               PlaybackStateCompat.ACTION_PLAY or
-               PlaybackStateCompat.ACTION_PAUSE or
-               PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-               PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-               PlaybackStateCompat.ACTION_FAST_FORWARD or
-               PlaybackStateCompat.ACTION_REWIND
-           )
-           .build()
-       
-       mediaSession?.setPlaybackState(playbackState)
-   }
-   ```
-
-4. **Set MediaMetadata** for title display:
-   ```kotlin
-   val metadata = MediaMetadataCompat.Builder()
-       .putString(MediaMetadataCompat.METADATA_KEY_TITLE, mediaNovelName)
-       .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, mediaChapterLabel)
-       .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "LNReader TTS")
-       .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration)
-       .build()
-   
-   mediaSession?.setMetadata(metadata)
-   ```
-
-5. **Connect MediaStyle to session**:
-   ```kotlin
-   .setStyle(MediaStyle()
-       .setMediaSession(mediaSession?.sessionToken)
-       .setShowActionsInCompactView(0, 1, 2, 3, 4))
-   ```
+The MediaSession code is preserved in `TTSForegroundService.kt` as comments for potential future use.
 
 ---
 
-## Seek Bar Behavior
+## Technical Implementation
 
-### How It Works
+### Files Modified
 
-The seek bar displays **chapter progress** mapped to a time-like format:
-- Each paragraph = 1 second (1000ms)
-- Position = `paragraphIndex * 1000`
-- Duration = `totalParagraphs * 1000`
+```
+android/app/build.gradle                         # Added androidx.media:media:1.7.0
+android/app/src/main/.../TTSForegroundService.kt # MediaStyle notification
+```
 
-### User Interaction
+### Notification Layout
 
-| Action | Result |
-|--------|--------|
-| View seek bar | Shows visual progress through chapter |
-| Drag seek bar | **No effect** (read-only) - TTS is paragraph-based |
+```
+┌──────────────────────────────────────────────────────────────┐
+│ [App Icon] Novel Name                                        │
+│            Chapter xx: Title                                 │
+│            28% • Paragraph 42 of 150                        │
+│                                                              │
+│  [⏮] [⏪] [⏸/▶] [⏩] [⏭]  [🗑]                                │
+│  Prev  -5  Play   +5  Next  Stop                            │
+└──────────────────────────────────────────────────────────────┘
+```
 
-**Why read-only?**: TTS content is paragraph-based, not time-based. Users cannot meaningfully "scrub" to an arbitrary millisecond. The seek bar is purely for visual feedback.
-
----
-
-## Button Configuration
+### Button Configuration
 
 | Index | Icon | Label | Action |
 |-------|------|-------|--------|
-| 0 | `ic_media_previous` | Previous Chapter | Jump to previous chapter, paragraph 0 |
-| 1 | `ic_media_rew` | Rewind 5 | Go back 5 paragraphs (clamp at 0) |
-| 2 | `ic_media_pause/play` | Pause/Play | Toggle playback state |
-| 3 | `ic_media_ff` | Forward 5 | Go forward 5 paragraphs (clamp at max) |
-| 4 | `ic_media_next` | Next Chapter | Jump to next chapter, paragraph 0 |
-| 5 | `ic_delete` | Stop | Stop TTS and remove notification |
+| 0 | `ic_media_previous` | Previous Chapter | Jump to previous chapter |
+| 1 | `ic_media_rew` | Rewind 5 | Go back 5 paragraphs |
+| 2 | `ic_media_pause/play` | Pause/Play | Toggle playback |
+| 3 | `ic_media_ff` | Forward 5 | Go forward 5 paragraphs |
+| 4 | `ic_media_next` | Next Chapter | Jump to next chapter |
+| 5 | `ic_delete` | Stop | Stop TTS and dismiss notification |
 
 ---
 
-## Historical Context
+## NEW REQUIREMENT: TTS Progress Sync with Reader
 
-### Previous Blocker (RESOLVED)
+### Requirement (December 13, 2025)
 
-On December 12, 2025, we encountered compilation errors when trying to use `MediaSessionCompat`. The error was:
+**User Request**: Ensure TTS progress is properly synced with reader position in ALL scenarios.
+
+### Scenarios to Handle
+
+#### Scenario 1: Pause via Notification
 ```
-Unresolved reference: MediaSessionCompat
-Unresolved reference: PlaybackStateCompat
+User pauses TTS → User enters reader mode → Reader scrolls to last TTS paragraph
 ```
 
-**Resolution (December 13, 2025)**:
-- The `androidx.media:media:1.7.0` dependency now compiles successfully
-- `MediaStyle` import works: `import androidx.media.app.NotificationCompat.MediaStyle`
-- This suggests the full MediaSession classes should also be available
+#### Scenario 2: Stop/Close Notification
+```
+User closes TTS notification → User enters reader mode → Reader scrolls to last TTS paragraph
+```
 
-### What Changed
+#### Scenario 3: Resume After Background
+```
+App in background → TTS playing → User opens app → Reader shows current TTS paragraph
+```
 
-The previous investigation may have had:
-1. Incorrect import paths
-2. Gradle cache issues
-3. Partial builds that left stale artifacts
+### Implementation Requirements
 
-After a clean build with proper imports, the dependency resolves correctly.
+| Event | Action Required |
+|-------|----------------|
+| TTS paragraph change | Save `chapterId` + `paragraphIndex` to persistent storage |
+| TTS pause | Confirm position is saved |
+| TTS stop/close | Confirm position is saved |
+| Reader entry | Load saved position and scroll to paragraph |
+
+### Questions to Investigate
+
+1. **Current State**: Does the reader currently save/restore TTS position?
+2. **Storage Mechanism**: What storage is used? (MMKV, SQLite, etc.)
+3. **Sync Timing**: How often is position saved during playback?
+4. **Conflict Resolution**: What if reader has different position than TTS?
+
+### Proposed Data Flow
+
+```
+TTS Playback
+    │
+    ├─► onParagraphStart() ──► Save to TTS position storage
+    │
+    ├─► onPause() ──► Confirm saved (sync to chapter progress)
+    │
+    └─► onStop/Close() ──► Sync TTS position to chapter read progress
+                                    │
+                                    ▼
+                           Chapter Progress Storage
+                                    │
+                                    ▼
+                           Reader Entry
+                                    │
+                                    └─► Load position ──► Scroll to paragraph
+```
 
 ---
 
 ## Success Criteria
 
-### Phase 1 ✅
-- [x] All 5 buttons visible with icons
-- [x] Buttons functional (tested by user)
-- [x] Build succeeds
+### ✅ Phase 1: MediaStyle Notification (COMPLETE)
+- [x] 5 buttons visible with icons
+- [x] Novel name, chapter, progress text displayed
+- [x] Lock screen visible
+- [x] All buttons functional
 
-### Phase 2 (Target)
-- [ ] Seek bar visible in notification
-- [ ] Seek bar shows chapter progress
-- [ ] Lock screen media controls work
-- [ ] Build succeeds
-- [ ] No regressions in TTS functionality
-
----
-
-## Rollback Plan
-
-If Phase 2 (MediaSessionCompat) fails:
-
-1. Revert to Phase 1 state:
-   - Remove MediaSessionCompat code
-   - Keep MediaStyle for icon buttons
-   - Progress shown as text only
-
-2. Current Phase 1 commit provides safe checkpoint
+### 🔜 Phase 2: Progress Sync (NEW)
+- [ ] TTS position persisted on every paragraph change
+- [ ] Reader loads TTS position on entry
+- [ ] Stop/Close properly saves final position
+- [ ] Verified: Pause → Enter reader → Correct position
+- [ ] Verified: Close → Enter reader → Correct position
 
 ---
 
 ## References
 
 - [Android MediaStyle Docs](https://developer.android.com/reference/androidx/media/app/NotificationCompat.MediaStyle)
-- [MediaSessionCompat Docs](https://developer.android.com/reference/android/support/v4/media/session/MediaSessionCompat)
-- [Media Controls Guide](https://developer.android.com/media/implement/surfaces/mobile)
+- [Notification Best Practices](https://developer.android.com/develop/ui/views/notifications)
