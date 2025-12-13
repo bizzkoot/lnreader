@@ -1167,10 +1167,20 @@ window.tts = new (function () {
       });
     } else if (reader.saveProgress) {
       // Fallback: if no TTS element tracked, use scroll-based save
-      console.log(
-        'TTS stop: No TTS element tracked, falling back to scroll-based save',
-      );
-      reader.saveProgress();
+      // BUT: respect grace period to avoid overwriting TTS pause position
+      const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
+      if (timeSinceTTSStop < 2000) {
+        console.log(
+          'TTS stop: Skipping fallback save - grace period (' +
+            timeSinceTTSStop +
+            'ms)',
+        );
+      } else {
+        console.log(
+          'TTS stop: No TTS element tracked, falling back to scroll-based save',
+        );
+        reader.saveProgress();
+      }
     }
 
     // NEW: Reset TTS controller icon
@@ -1878,6 +1888,19 @@ function calculatePages() {
             reader.initialScrollPending = false; // Reset pending flag
             reader.hasPerformedInitialScroll = true;
             console.log('[calculatePages] Initial scroll complete');
+            try {
+              reader.post({
+                type: 'initial-scroll-complete',
+                paragraphIndex: initialReaderConfig.savedParagraphIndex,
+                chapterId: reader.chapter.id,
+                ts: Date.now(),
+              });
+            } catch (e) {
+              console.warn(
+                '[calculatePages] Failed to post initial-scroll-complete',
+                e,
+              );
+            }
           }, 300);
         }, 250); // Increased delay for layout stability
 

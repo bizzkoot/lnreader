@@ -152,6 +152,16 @@ class TTSHighlightService {
     return TTSHighlight.getSavedTTSPosition(chapterId);
   }
 
+  /**
+   * Clear saved TTS position for a chapter in native storage (SharedPreferences).
+   * Returns true on success.
+   */
+  clearSavedTTSPosition(chapterId: number): Promise<boolean> {
+    // Some platforms may not implement this; handle rejection upstream as best-effort
+    // @ts-ignore
+    return TTSHighlight.clearSavedTTSPosition(chapterId);
+  }
+
   addListener(
     eventType:
       | 'onWordRange'

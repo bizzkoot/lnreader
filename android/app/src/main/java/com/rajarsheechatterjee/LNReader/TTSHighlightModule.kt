@@ -215,6 +215,18 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun clearSavedTTSPosition(chapterId: Int, promise: Promise) {
+        try {
+            val key = "chapter_progress_$chapterId"
+            sharedPrefs.edit().remove(key).apply()
+            android.util.Log.d("TTSHighlight", "clearSavedTTSPosition: cleared chapter=$chapterId")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("CLEAR_POSITION_FAILED", e.message)
+        }
+    }
+
+    @ReactMethod
     fun addListener(eventName: String) {
         // Keep: Required for RN built-in Event Emitter Calls.
     }

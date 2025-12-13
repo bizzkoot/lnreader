@@ -135,6 +135,7 @@ jest.mock('@database/queries/ChapterQueries', () => ({
   markChaptersBeforePositionRead: jest.fn(),
   resetFutureChaptersProgress: jest.fn(),
   getRecentReadingChapters: jest.fn(),
+  updateChapterProgress: jest.fn(),
 }));
 
 // 3. Mock TTS Service & Dialogs
@@ -395,6 +396,88 @@ describe('WebViewReader Event Handlers', () => {
       const callArgs = (TTSHighlight.speakBatch as jest.Mock).mock.calls[0];
       const ids = callArgs[1]; // second argument is utterance ID array
       expect(ids[0]).toContain('chapter_10_utterance_2');
+    });
+  });
+
+  describe('onMediaAction - PREV/NEXT notification navigation resets storage', () => {
+    it('should clear MMKV and native saved position when PREV_CHAPTER is received', async () => {
+      const MMKV = require('@utils/mmkv/mmkv').MMKVStorage;
+
+      // Ensure updateChapterProgress exists on mocked ChapterQueries
+      const ChapterQueries = require('@database/queries/ChapterQueries');
+      (ChapterQueries.updateChapterProgress as jest.Mock).mockResolvedValue(
+        true,
+      );
+
+      // Provide a prevChapter in context
+      (useChapterContext as jest.Mock).mockReturnValue({
+        novel: { id: 1, name: 'Test Novel' },
+        chapter: { id: 10, name: 'Chapter 10', progress: 100 },
+        chapterText: '<p>Content</p>',
+        navigateChapter: jest.fn(),
+        saveProgress: jest.fn(),
+        nextChapter: { id: 11, name: 'Chapter 11' },
+        prevChapter: { id: 9, name: 'Chapter 9' },
+        webViewRef: webViewRefObject,
+        savedParagraphIndex: 189,
+        getChapter: jest.fn(),
+      });
+
+      // Mock native clear on TTSHighlight
+      (TTSHighlight.clearSavedTTSPosition as unknown) = jest
+        .fn()
+        .mockResolvedValue(true);
+
+      renderComponent();
+
+      const handler = listeners['onMediaAction'];
+      await handler({
+        action: 'com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER',
+      });
+
+      expect(ChapterQueries.updateChapterProgress).toHaveBeenCalledWith(9, 0);
+      expect(MMKV.set).toHaveBeenCalledWith('chapter_progress_9', 0);
+    });
+
+    it('should clear MMKV and native saved position when NEXT_CHAPTER is received', async () => {
+      const MMKV = require('@utils/mmkv/mmkv').MMKVStorage;
+      const ChapterQueries = require('@database/queries/ChapterQueries');
+      (ChapterQueries.updateChapterProgress as jest.Mock).mockResolvedValue(
+        true,
+      );
+
+      (useChapterContext as jest.Mock).mockReturnValue({
+        novel: { id: 1, name: 'Test Novel' },
+        chapter: { id: 10, name: 'Chapter 10', progress: 100 },
+        chapterText: '<p>Content</p>',
+        navigateChapter: jest.fn(),
+        saveProgress: jest.fn(),
+        nextChapter: { id: 11, name: 'Chapter 11' },
+        prevChapter: { id: 9, name: 'Chapter 9' },
+        webViewRef: webViewRefObject,
+        savedParagraphIndex: 189,
+        getChapter: jest.fn(),
+      });
+
+      (TTSHighlight.clearSavedTTSPosition as unknown) = jest
+        .fn()
+        .mockResolvedValue(true);
+
+      renderComponent();
+
+      const handler = listeners['onMediaAction'];
+      await handler({
+        action: 'com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER',
+      });
+
+      expect(ChapterQueries.updateChapterProgress).toHaveBeenCalledWith(11, 0);
+      expect(MMKV.set).toHaveBeenCalledWith('chapter_progress_11', 0);
+      // NOTE: We intentionally no longer clear native saved position on NEXT_CHAPTER
+      if (typeof TTSHighlight.clearSavedTTSPosition === 'function') {
+        expect(TTSHighlight.clearSavedTTSPosition).not.toHaveBeenCalled();
+      } else {
+        expect(TTSHighlight.clearSavedTTSPosition).toBeUndefined();
+      }
     });
   });
 });
