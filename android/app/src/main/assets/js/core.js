@@ -50,7 +50,14 @@ window.reader = new (function () {
   this.isUserScrolling = false;
   this.scrollTimeout = null;
 
-  this.post = obj => window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+  this.post = obj => {
+    try {
+      if (typeof window.__LNREADER_NONCE__ === 'string') {
+        obj.nonce = window.__LNREADER_NONCE__;
+      }
+    } catch (e) {}
+    window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+  };
   this.refresh = () => {
     if (this.generalSettings.val.pageReader) {
       this.chapterWidth = this.chapterElement.scrollWidth;
@@ -432,6 +439,28 @@ window.reader = new (function () {
         chapterId: this.chapter.id,
       });
     }
+  };
+
+  // Helper to get the index of the most visible paragraph
+  // Used by back button handler to check for TTS/scroll position gap
+  this.getVisibleElementIndex = () => {
+    const readableElements = this.getReadableElements();
+    const viewportHeight = window.innerHeight;
+    let maxVisibleRatio = 0;
+    let visibleIndex = 0;
+
+    for (let i = 0; i < readableElements.length; i++) {
+      const rect = readableElements[i].getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > viewportHeight) continue;
+
+      const visibleHeight =
+        Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+      if (visibleHeight > maxVisibleRatio) {
+        maxVisibleRatio = visibleHeight;
+        visibleIndex = i;
+      }
+    }
+    return visibleIndex;
   };
 
   document.addEventListener('scroll', this.onScroll, { passive: true });

@@ -53,6 +53,7 @@ const coverWidth = baseCoverWidth * uiScale; // Scaled!
 ### Phase 2: Remaining Components Implementation (100% Complete)
 
 #### P1: Settings Modals (9 files) ✅ COMPLETED
+
 - ConnectionModal.tsx - fontSize: 24 scaled
 - SelfHostModal.tsx - fontSize: 16, 24 scaled
 - GoogleDriveModal.tsx - fontSize: 12, 16, 24 scaled
@@ -64,6 +65,7 @@ const coverWidth = baseCoverWidth * uiScale; // Scaled!
 - ExportEpubModal.tsx - fontSize: 24 scaled
 
 #### P2: Novel Components (6 files) ✅ COMPLETED
+
 - NovelInfoComponents.tsx - All sub-components scaled
 - NovelInfoHeader.tsx - Layout and text scaled
 - NovelDrawer.tsx - Drawer dimensions and text scaled
@@ -72,15 +74,18 @@ const coverWidth = baseCoverWidth * uiScale; // Scaled!
 - TrackerCards.tsx - Card dimensions and icons scaled
 
 #### P2: Browse Components ✅ COMPLETED
+
 - Already completed in previous phases
 
 #### P3: Reader Controls (4 files) ✅ COMPLETED
+
 - ReaderFooter.tsx - 6 IconButton instances scaled
 - ReaderValueChange.tsx - Increment/decrement buttons scaled
 - ReaderTextSize.tsx - Text size controls scaled
 - ReaderBottomSheet.tsx - estimatedItemSize scaled
 
 #### P3: Error/Misc Views (7 files) ✅ COMPLETED
+
 - EmptyView/EmptyView.tsx - fontSize: 40 scaled
 - EmptyView.tsx (root) - fontSize: 45 scaled
 - ErrorView.tsx - fontSize: 45, 12 scaled
@@ -479,11 +484,13 @@ const styles = React.useMemo(
 ### Files Modified in Phase 3 (16 total)
 
 **Settings Tabs**:
+
 - `src/screens/settings/SettingsReaderScreen/tabs/AdvancedTab.tsx`
 - `src/screens/settings/SettingsReaderScreen/tabs/AccessibilityTab.tsx`
 - `src/screens/settings/SettingsReaderScreen/tabs/NavigationTab.tsx`
 
 **Settings Modals**:
+
 - `src/screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal.tsx`
 - `src/screens/settings/SettingsReaderScreen/Modals/AutoResumeModal.tsx`
 - `src/screens/settings/SettingsReaderScreen/Modals/VoicePickerModal.tsx`
@@ -499,6 +506,7 @@ const styles = React.useMemo(
 - `src/screens/novel/components/DownloadCustomChapterModal.tsx`
 
 **Shared Components**:
+
 - `src/components/Checkbox/Checkbox.tsx`
 
 ### Lint Fix (December 10, 2025)
@@ -508,6 +516,7 @@ const styles = React.useMemo(
 **Issue**: ESLint warning for inline style `{ width: '60%' }`
 
 **Solution**: Extracted inline style to separate constant:
+
 ```typescript
 const gradientStyle = {
   width: '60%' as const,
@@ -555,73 +564,18 @@ The following TypeScript errors exist in the codebase **before** our implementat
 10. `spec/UI-Scale/implementation-plan.md`
 11. `spec/UI-Scale/IMPLEMENTATION_SUMMARY.md`
 
-**Phase 3 - Settings Components** (17 files):
-12. `src/screens/settings/SettingsReaderScreen/tabs/AdvancedTab.tsx`
-13. `src/screens/settings/SettingsReaderScreen/tabs/AccessibilityTab.tsx`
-14. `src/screens/settings/SettingsReaderScreen/tabs/NavigationTab.tsx`
-15. `src/screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal.tsx`
-16. `src/screens/settings/SettingsReaderScreen/Modals/AutoResumeModal.tsx`
-17. `src/screens/settings/SettingsReaderScreen/Modals/VoicePickerModal.tsx`
-18. `src/screens/settings/SettingsReaderScreen/Modals/FontPickerModal.tsx`
-19. `src/screens/settings/SettingsGeneralScreen/modals/DisplayModeModal.tsx`
-20. `src/screens/settings/SettingsGeneralScreen/modals/NovelSortModal.tsx`
-21. `src/screens/settings/SettingsGeneralScreen/modals/AutoDownloadModal.tsx`
-22. `src/screens/settings/SettingsGeneralScreen/modals/GridSizeModal.tsx`
-23. `src/screens/settings/SettingsGeneralScreen/modals/NovelBadgesModal.tsx`
-24. `src/screens/Categories/components/AddCategoryModal.tsx`
-25. `src/screens/Categories/components/DeleteCategoryModal.tsx`
-26. `src/screens/settings/SettingsLibraryScreen/DefaultCategoryDialog.tsx`
-27. `src/screens/novel/components/DownloadCustomChapterModal.tsx`
-28. `src/components/Checkbox/Checkbox.tsx`
+**Phase 3 - Settings Components** (17 files): 12. `src/screens/settings/SettingsReaderScreen/tabs/AdvancedTab.tsx` 13. `src/screens/settings/SettingsReaderScreen/tabs/AccessibilityTab.tsx` 14. `src/screens/settings/SettingsReaderScreen/tabs/NavigationTab.tsx` 15. `src/screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal.tsx` 16. `src/screens/settings/SettingsReaderScreen/Modals/AutoResumeModal.tsx` 17. `src/screens/settings/SettingsReaderScreen/Modals/VoicePickerModal.tsx` 18. `src/screens/settings/SettingsReaderScreen/Modals/FontPickerModal.tsx` 19. `src/screens/settings/SettingsGeneralScreen/modals/DisplayModeModal.tsx` 20. `src/screens/settings/SettingsGeneralScreen/modals/NovelSortModal.tsx` 21. `src/screens/settings/SettingsGeneralScreen/modals/AutoDownloadModal.tsx` 22. `src/screens/settings/SettingsGeneralScreen/modals/GridSizeModal.tsx` 23. `src/screens/settings/SettingsGeneralScreen/modals/NovelBadgesModal.tsx` 24. `src/screens/Categories/components/AddCategoryModal.tsx` 25. `src/screens/Categories/components/DeleteCategoryModal.tsx` 26. `src/screens/settings/SettingsLibraryScreen/DefaultCategoryDialog.tsx` 27. `src/screens/novel/components/DownloadCustomChapterModal.tsx` 28. `src/components/Checkbox/Checkbox.tsx`
 
-**Phase 3d - Browse and Novel Screens** (Completed Dec 10) (8 files):
-29. `src/screens/browse/components/DiscoverCard.tsx`
-30. `src/screens/history/components/HistoryCard.tsx`
-31. `src/screens/browse/SourceScreen.tsx`
-32. `src/screens/BrowseSourceScreen/BrowseSourceScreen.tsx`
-33. `src/screens/GlobalSearchScreen/GlobalSearchScreen.tsx`
-34. `src/screens/novel/components/EditInfoModal.tsx`
-35. `src/screens/novel/components/JumpToChapterModal.tsx`
-36. `src/screens/novel/components/SetCategoriesModal.tsx`
+**Phase 3d - Browse and Novel Screens** (Completed Dec 10) (8 files): 29. `src/screens/browse/components/DiscoverCard.tsx` 30. `src/screens/history/components/HistoryCard.tsx` 31. `src/screens/browse/SourceScreen.tsx` 32. `src/screens/BrowseSourceScreen/BrowseSourceScreen.tsx` 33. `src/screens/GlobalSearchScreen/GlobalSearchScreen.tsx` 34. `src/screens/novel/components/EditInfoModal.tsx` 35. `src/screens/novel/components/JumpToChapterModal.tsx` 36. `src/screens/novel/components/SetCategoriesModal.tsx`
 
-**Phase 4 - Core Shared Components (Batch 2)** (Completed Dec 10) (13 files):
-37. `src/components/SegmentedControl/SegmentedControl.tsx`
-38. `src/screens/settings/SettingsReaderScreen/components/TabBar.tsx`
-39. `src/screens/novel/components/Chapter/ChapterDownloadButtons.tsx`
-40. `src/components/ThemePicker/ThemePicker.tsx`
-41. `src/components/ColorPreferenceItem/ColorPreferenceItem.tsx`
-42. `src/components/RadioButton.tsx`
-43. `src/components/Switch/SwitchItem.tsx`
-44. `src/components/Toast.tsx`
-45. `src/components/Chip/Chip.tsx`
-46. `src/components/DialogTitle/DialogTitle.tsx`
-47. `src/components/ConfirmationDialog/ConfirmationDialog.tsx`
-48. `src/components/SearchbarV2/SearchbarV2.tsx`
-49. `src/components/Menu/index.tsx`
+**Phase 4 - Core Shared Components (Batch 2)** (Completed Dec 10) (13 files): 37. `src/components/SegmentedControl/SegmentedControl.tsx` 38. `src/screens/settings/SettingsReaderScreen/components/TabBar.tsx` 39. `src/screens/novel/components/Chapter/ChapterDownloadButtons.tsx` 40. `src/components/ThemePicker/ThemePicker.tsx` 41. `src/components/ColorPreferenceItem/ColorPreferenceItem.tsx` 42. `src/components/RadioButton.tsx` 43. `src/components/Switch/SwitchItem.tsx` 44. `src/components/Toast.tsx` 45. `src/components/Chip/Chip.tsx` 46. `src/components/DialogTitle/DialogTitle.tsx` 47. `src/components/ConfirmationDialog/ConfirmationDialog.tsx` 48. `src/components/SearchbarV2/SearchbarV2.tsx` 49. `src/components/Menu/index.tsx`
 
-**Phase 5 - Library & Misc Screens** (Completed Dec 11) (16 files):
-50. `src/screens/library/components/Banner.tsx`
-51. `src/screens/library/LibraryScreen.tsx`
-52. `src/screens/updates/components/UpdateNovelCard.tsx`
-53. `src/screens/updates/UpdatesScreen.tsx`
-54. `src/screens/browse/components/InstalledTab.tsx`
-55. `src/screens/browse/components/AvailableTab.tsx`
-56. `src/screens/browse/migration/MigrationSourceItem.tsx`
-57. `src/screens/browse/migration/MigrationNovels.tsx`
-58. `src/screens/browse/components/PluginListItem.tsx`
-59. `src/screens/onboarding/ThemeSelectionStep.tsx`
-60. `src/screens/more/StatsScreen.tsx`
-61. `src/screens/WebviewScreen/components/Appbar.tsx`
-62. `src/components/NewUpdateDialog.tsx`
-63. `src/screens/more/components/RemoveDownloadsDialog.tsx`
-64. `src/screens/more/components/ClearHistoryDialog.tsx`
-65. `src/screens/browse/components/PluginListItemSkeleton.tsx`
+**Phase 5 - Library & Misc Screens** (Completed Dec 11) (16 files): 50. `src/screens/library/components/Banner.tsx` 51. `src/screens/library/LibraryScreen.tsx` 52. `src/screens/updates/components/UpdateNovelCard.tsx` 53. `src/screens/updates/UpdatesScreen.tsx` 54. `src/screens/browse/components/InstalledTab.tsx` 55. `src/screens/browse/components/AvailableTab.tsx` 56. `src/screens/browse/migration/MigrationSourceItem.tsx` 57. `src/screens/browse/migration/MigrationNovels.tsx` 58. `src/screens/browse/components/PluginListItem.tsx` 59. `src/screens/onboarding/ThemeSelectionStep.tsx` 60. `src/screens/more/StatsScreen.tsx` 61. `src/screens/WebviewScreen/components/Appbar.tsx` 62. `src/components/NewUpdateDialog.tsx` 63. `src/screens/more/components/RemoveDownloadsDialog.tsx` 64. `src/screens/more/components/ClearHistoryDialog.tsx` 65. `src/screens/browse/components/PluginListItemSkeleton.tsx`
 
 **Total Files Modified**: 65 files
 
-
-
 **Lint Fix**:
+
 - `src/components/Skeleton/Skeleton.tsx` (extracted inline style to constant)
 
 ## 📝 Next Steps

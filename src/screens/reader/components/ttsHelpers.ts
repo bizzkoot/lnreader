@@ -12,15 +12,12 @@ export function applyTtsUpdateToWebView(
             window.tts.applySettings(${JSON.stringify(settings)});
           }
         })();
+        true;
       `);
       return true;
     }
     return false;
   } catch (e) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error('applyTtsUpdateToWebView failed', e);
-    }
     return false;
   }
 }
@@ -42,22 +39,13 @@ export function safeInjectJS(
 ): boolean {
   try {
     if (!webViewRef?.current) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `safeInjectJS: WebView ref is null${context ? ` (${context})` : ''}`,
-        );
-      }
       return false;
     }
 
-    webViewRef.current.injectJavaScript(script);
+    const suffix = script.trimEnd().endsWith('true;') ? '' : '\ntrue;';
+    webViewRef.current.injectJavaScript(`${script}${suffix}`);
     return true;
   } catch (e) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error(`safeInjectJS failed${context ? ` (${context})` : ''}:`, e);
-    }
     return false;
   }
 }

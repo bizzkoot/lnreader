@@ -5,18 +5,19 @@ export function postTtsSettingsToWebView(settings: any) {
       (window as any).ReactNativeWebView &&
       (window as any).ReactNativeWebView.postMessage
     ) {
+      const nonce = (window as any).__LNREADER_NONCE__;
       (window as any).ReactNativeWebView.postMessage(
-        JSON.stringify({ type: 'tts-update-settings', data: settings }),
+        JSON.stringify({
+          type: 'tts-update-settings',
+          data: settings,
+          nonce: typeof nonce === 'string' ? nonce : undefined,
+        }),
       );
       return true;
     }
     // Not available - nothing to do
-    // eslint-disable-next-line no-console
-    console.warn('Reader/webview not available for TTS settings update');
     return false;
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to send TTS settings to Reader/webview:', e);
     return false;
   }
 }

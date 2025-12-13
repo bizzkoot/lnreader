@@ -1,4 +1,4 @@
-# Project Brief
+# LNReader TTS Media Control
 
 ## Purpose
 
@@ -51,3 +51,9 @@ This section should contain a short, consumable summary for stakeholders and new
   - No additional permissions required; uses existing foreground service and wake-lock handling.
 
 - **Files / Commits**: Changes across native and JS modules; see commit `e7aa3b86` on branch `dev` for details.
+
+
+## Project Summary
+
+Phase 1 delivered: NotificationCompat-based TTS control with enhanced progress and 6 actions. MediaSessionCompat integration deferred due to dependency issues; follow-up required to migrate to Media3 or resolve imports.
+

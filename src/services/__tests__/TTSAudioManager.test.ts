@@ -9,6 +9,8 @@ jest.mock('react-native', () => ({
       speakBatch: jest.fn(),
       addToBatch: jest.fn(),
       stop: jest.fn(),
+      pause: jest.fn(),
+      updateMediaState: jest.fn(),
       getVoices: jest.fn(),
     },
   },
@@ -174,13 +176,14 @@ describe('TTSHighlight Service', () => {
   });
 
   describe('pause', () => {
-    it('should call TTSAudioManager.stop', async () => {
-      const mockStop = TTSAudioManager.stop as jest.Mock;
-      mockStop.mockResolvedValue(true);
+    it('should call native pause', async () => {
+      const mockPause =
+        require('react-native').NativeModules.TTSHighlight.pause;
+      mockPause.mockResolvedValue(true);
 
       const result = await TTSHighlight.pause();
 
-      expect(mockStop).toHaveBeenCalled();
+      expect(mockPause).toHaveBeenCalled();
       expect(result).toBe(true);
     });
   });
