@@ -2,8 +2,7 @@
 
 ## Current Goals
 
-- ✅ Enhanced Media Control - Phase 1 & Phase 3 complete. MediaSessionCompat integration deferred due to 3-button limitation.
-- ✅ TTS Progress Sync - Native bridge solution implemented, reader loads TTS position from native SharedPreferences.
+- Fix manual scroll overwrite of TTS position; prefer native TTS saved position on resume. Added new flags `isTTSPlayingRef`, `hasUserScrolledRef` in WebViewReader for robust TTS position handling. Updated tests and memory bank.
 
 ## Key Files Modified (TTS Progress Sync)
 
