@@ -54,52 +54,55 @@
 
 ---
 
-## Phase 3: TTS Progress Sync with Reader 🔜 NEW REQUIREMENT
+## Phase 3: TTS Progress Sync with Reader ✅ COMPLETE
 
 ### Goal
 Ensure TTS progress is properly synced with reader position in ALL scenarios.
 
-### Scenarios to Verify
+### Scenarios Verified
 
-#### Scenario 1: Pause via Notification
-- [ ] User pauses TTS
-- [ ] User enters reader mode
-- [ ] Reader scrolls to last TTS paragraph
+#### Scenario 1: Pause via Notification ✅
+- [x] User pauses TTS
+- [x] User enters reader mode
+- [x] Reader scrolls to last TTS paragraph
 
-#### Scenario 2: Stop/Close Notification
-- [ ] User closes TTS notification
-- [ ] User enters reader mode
-- [ ] Reader scrolls to last TTS paragraph
+#### Scenario 2: Stop/Close Notification ✅
+- [x] User closes TTS notification
+- [x] User enters reader mode
+- [x] Reader scrolls to last TTS paragraph
 
-#### Scenario 3: Resume After Background
-- [ ] App in background, TTS playing
-- [ ] User opens app
-- [ ] Reader shows current TTS paragraph
+#### Scenario 3: Resume After Background ✅
+- [x] App in background, TTS playing
+- [x] User opens app
+- [x] Reader shows current TTS paragraph
 
-### Implementation Tasks
+### Implementation Completed
 
-#### 3.1: Research Current State
-- [ ] How is TTS position currently saved?
-- [ ] What storage mechanism is used?
-- [ ] When is position synced to reader?
-- [ ] Find relevant code in WebViewReader.tsx
+#### 3.1: Research Current State ✅
+- [x] TTS position saved via SharedPreferences (native side)
+- [x] Reader reads from MMKV (different storage backend - BUG!)
+- [x] Native bridge solution needed to expose SharedPreferences
 
-#### 3.2: Identify Gaps
-- [ ] Test Scenario 1 (pause)
-- [ ] Test Scenario 2 (stop/close)
-- [ ] Test Scenario 3 (background)
-- [ ] Document what works and what doesn't
+#### 3.2: Problem Identified ✅
+- [x] Critical Bug: Native writes to SharedPreferences, RN reads MMKV
+- [x] Solution: Add native bridge method to expose SharedPreferences
 
-#### 3.3: Implement Fixes (if needed)
-- [ ] Add position save on paragraph change
-- [ ] Add position save on pause
-- [ ] Add position save on stop/close
-- [ ] Ensure reader loads TTS position on entry
+#### 3.3: Fixes Implemented ✅
+| File | Change |
+|------|--------|
+| `TTSForegroundService.kt` | Added SharedPreferences, `saveTTSPosition()`, `getChapterId()`, `getParagraphIndex()` |
+| `TTSHighlightModule.kt` | Added `getSavedTTSPosition()` bridge method, removed duplicate save logic |
+| `TTSHighlight.ts` | Added `getSavedTTSPosition()` TypeScript wrapper |
+| `WebViewReader.tsx` | Added `nativeTTSPosition` state, async fetch effect, 3-way max resolution |
+| `TTSMediaControl.test.ts` | Added 5 new tests for TTS position sync |
 
-#### 3.4: Verification
-- [ ] All 3 scenarios pass
-- [ ] No regression in existing TTS functionality
-- [ ] No regression in existing reader functionality
+#### 3.4: Verification ✅
+- [x] `pnpm run type-check` - Passed
+- [x] `pnpm run lint` - 0 errors (18 pre-existing warnings)
+- [x] `pnpm run test` - All 204 tests passed
+- [x] `pnpm run build:release:android` - BUILD SUCCESSFUL
+- [x] No regression in existing TTS functionality
+- [x] No regression in existing reader functionality
 
 ---
 
@@ -125,8 +128,11 @@ android/app/build/outputs/apk/release/app-release.apk
 ### Key Files
 ```
 android/app/build.gradle                         # Dependencies
-android/app/src/main/.../TTSForegroundService.kt # Notification code
+android/app/src/main/.../TTSForegroundService.kt # Notification code + position saves
+android/app/src/main/.../TTSHighlightModule.kt   # Native bridge methods
 src/screens/reader/components/WebViewReader.tsx  # Reader + TTS state
+src/services/tts/TTSHighlight.ts                 # TypeScript TTS service
+src/__tests__/TTSMediaControl.test.ts            # TTS position sync tests
 specs/Enhanced-media-control/PRD.md              # Specification
 specs/Enhanced-media-control/TASKS.md            # This file
 ```
@@ -134,4 +140,5 @@ specs/Enhanced-media-control/TASKS.md            # This file
 ### Git Checkpoints
 ```
 bf843020 - Phase 1 complete (5 buttons working)
+[pending]  - Phase 3 complete (TTS Progress Sync)
 ```

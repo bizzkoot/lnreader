@@ -162,24 +162,54 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     [chapter.id],
   );
 
+  // Track native TTS position fetched async (fallback for background TTS saves)
+  const [nativeTTSPosition, setNativeTTSPosition] = useState<number>(-1);
+
   // FIX: Use a stable savedParagraphIndex that only updates when chapter changes.
   // This prevents the WebView from reloading (and resetting TTS) when progress is saved.
-  // NEW: Also check MMKV for the absolute latest progress (covers background TTS/manual scroll)
+  // NEW: Also check MMKV and native SharedPreferences for the absolute latest progress
   const initialSavedParagraphIndex = useMemo(
     () => {
       const mmkvIndex =
         MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
       const dbIndex = savedParagraphIndex ?? -1;
+      // Include native TTS position as fallback (covers background TTS saves)
+      const nativeIndex = nativeTTSPosition;
       console.log(
-        `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}`,
+        `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}, Native: ${nativeIndex}`,
       );
-      return Math.max(dbIndex, mmkvIndex);
+      return Math.max(dbIndex, mmkvIndex, nativeIndex);
     },
     // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
     // when progress is saved (which would update savedParagraphIndex)
+    // Include nativeTTSPosition to update when async fetch completes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chapter.id],
+    [chapter.id, nativeTTSPosition],
   );
+
+  // Fetch native TTS position on chapter change (async fallback for background TTS saves)
+  useEffect(() => {
+    const fetchNativeTTSPosition = async () => {
+      try {
+        const position = await TTSHighlight.getSavedTTSPosition(chapter.id);
+        if (position >= 0) {
+          console.log(
+            `WebViewReader: Native TTS position for chapter ${chapter.id}: ${position}`,
+          );
+          setNativeTTSPosition(position);
+        }
+      } catch (error) {
+        // Best-effort: if native call fails, fall back to MMKV/DB values
+        console.log(
+          'WebViewReader: Failed to fetch native TTS position, using MMKV/DB fallback',
+        );
+      }
+    };
+
+    // Reset state for new chapter
+    setNativeTTSPosition(-1);
+    fetchNativeTTSPosition();
+  }, [chapter.id]);
 
   // NEW: Create a stable chapter object that doesn't update on progress changes
   // This prevents the WebView from reloading when we save progress

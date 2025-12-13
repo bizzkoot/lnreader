@@ -22,6 +22,7 @@ import android.speech.tts.Voice
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.media.app.NotificationCompat.MediaStyle
+import android.content.SharedPreferences
 import java.util.Locale
 
 class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
@@ -47,6 +48,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     
     // Track if service is already in foreground state to avoid Android 12+ background start restriction
     private var isServiceForeground = false
+    
+    // SharedPreferences for TTS position sync (replaces MMKV to avoid native dependency issues)
+    private lateinit var sharedPrefs: SharedPreferences
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -73,6 +77,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     inner class TTSBinder : Binder() {
         fun getService(): TTSForegroundService = this@TTSForegroundService
     }
+
+    // Getter methods for TTS position sync
+    fun getChapterId(): Int? = mediaChapterId
+    fun getParagraphIndex(): Int = mediaParagraphIndex
 
     /* MediaSession disabled - causes regression (3 buttons instead of 5)
     // MediaSession callback for hardware buttons and lock screen controls
@@ -107,9 +115,21 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
     */
 
+    // Save TTS position to MMKV for reader sync
+    private fun saveTTSPosition() {
+        if (mediaChapterId != null && mediaParagraphIndex >= 0) {
+            // Save to same key as useChapter.ts uses
+            val key = "chapter_progress_$mediaChapterId"
+            sharedPrefs.edit().putInt(key, mediaParagraphIndex).apply()
+            
+            android.util.Log.d("TTSForegroundService", "Saved TTS position: chapter=$mediaChapterId, paragraph=$mediaParagraphIndex")
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        sharedPrefs = getSharedPreferences("tts_progress", Context.MODE_PRIVATE)
         tts = TextToSpeech(this, this)
         
         /* MediaSession disabled - causes regression
@@ -395,6 +415,13 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         currentBatchIndex = 0
         stopForegroundService()
+        
+        // Save TTS position for reader sync
+        saveTTSPosition()
+        ttsListener?.let { listener ->
+            // Call saveTTSPosition via listener to access MMKV
+            listener.onSpeechDone("save_position")
+        }
     }
 
     /**
@@ -410,6 +437,12 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         mediaIsPlaying = false
         // updatePlaybackState()  // MediaSession disabled
         updateNotification()
+        
+        // Save TTS position for reader sync
+        ttsListener?.let { listener ->
+            // Call saveTTSPosition via listener to access MMKV
+            listener.onSpeechDone("save_position")
+        }
     }
 
     fun getVoices(): List<Voice> {
@@ -666,6 +699,14 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         tts?.shutdown()
         // mediaSession?.release()  // MediaSession disabled
         // mediaSession = null
+        
+        // Save TTS position for reader sync
+        saveTTSPosition()
+        ttsListener?.let { listener ->
+            // Call saveTTSPosition via listener to access MMKV
+            listener.onSpeechDone("save_position")
+        }
+        
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }

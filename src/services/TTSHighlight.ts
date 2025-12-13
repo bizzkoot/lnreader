@@ -142,6 +142,16 @@ class TTSHighlightService {
     return TTSHighlight.getVoices();
   }
 
+  /**
+   * Get saved TTS position from native SharedPreferences.
+   * Returns -1 if no position is saved for the given chapter.
+   * Use this as a fallback when MMKV doesn't have the position
+   * (e.g., after background TTS saved position natively).
+   */
+  getSavedTTSPosition(chapterId: number): Promise<number> {
+    return TTSHighlight.getSavedTTSPosition(chapterId);
+  }
+
   addListener(
     eventType:
       | 'onWordRange'
