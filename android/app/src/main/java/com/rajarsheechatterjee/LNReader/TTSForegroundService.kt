@@ -23,6 +23,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import java.util.Locale
 
 class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
@@ -62,6 +63,17 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         const val ACTION_MEDIA_PLAY_PAUSE = "com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE"
         const val ACTION_MEDIA_SEEK_FORWARD = "com.rajarsheechatterjee.LNReader.TTS.SEEK_FORWARD"
         const val ACTION_MEDIA_NEXT_CHAPTER = "com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER"
+        
+        // PendingIntent request codes (must be unique per action)
+        const val REQUEST_PREV_CHAPTER = 101
+        const val REQUEST_SEEK_BACK = 102
+        const val REQUEST_PLAY_PAUSE = 103
+        const val REQUEST_SEEK_FORWARD = 104
+        const val REQUEST_NEXT_CHAPTER = 105
+        const val REQUEST_STOP = 106
+        
+        // Internal signal for TTS position save (not a real utterance ID)
+        const val INTERNAL_SAVE_POSITION_SIGNAL = "__INTERNAL_TTS_SAVE_POSITION__"
     }
 
     interface TTSListener {
@@ -115,7 +127,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
     */
 
-    // Save TTS position to MMKV for reader sync
+    // Save TTS position to SharedPreferences for reader sync
     private fun saveTTSPosition() {
         if (mediaChapterId != null && mediaParagraphIndex >= 0) {
             // Save to same key as useChapter.ts uses
@@ -208,59 +220,71 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         this.ttsListener = listener
     }
 
+    /**
+     * Sets the TTS voice with intelligent fallback.
+     * 1. Try to find exact voice by ID
+     * 2. If not found, refresh voice list and retry
+     * 3. If still not found, select best quality voice for same language
+     * 4. Notifies listener if fallback occurs
+     *
+     * @param ttsInstance The TextToSpeech instance
+     * @param voiceId The preferred voice identifier (can be null)
+     */
+    private fun setVoiceWithFallback(ttsInstance: TextToSpeech, voiceId: String?) {
+        if (voiceId == null) return
+        
+        try {
+            // Step 1: Try to find exact voice
+            for (voice in ttsInstance.voices) {
+                if (voice.name == voiceId) {
+                    ttsInstance.voice = voice
+                    return
+                }
+            }
+            
+            android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found, attempting fallback")
+            
+            // Step 2: Refresh voices and retry
+            val refreshedVoices = ttsInstance.voices
+            for (voice in refreshedVoices) {
+                if (voice.name == voiceId) {
+                    ttsInstance.voice = voice
+                    android.util.Log.i("TTSForegroundService", "Voice found on retry")
+                    return
+                }
+            }
+            
+            // Step 3: Select best quality voice for same language
+            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
+            var bestVoice: Voice? = null
+            var bestQuality = -1
+            
+            for (voice in refreshedVoices) {
+                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
+                    bestVoice = voice
+                    bestQuality = voice.quality
+                }
+            }
+            
+            if (bestVoice != null) {
+                ttsInstance.voice = bestVoice
+                android.util.Log.w("TTSForegroundService", "Using fallback voice: ${bestVoice.name} (quality: $bestQuality)")
+                // FIX Case 7.2: Notify listener about voice fallback
+                ttsListener?.onVoiceFallback(voiceId, bestVoice.name)
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("TTSForegroundService", "Voice setting error: ${e.message}")
+        }
+    }
+
     fun speak(text: String, utteranceId: String, rate: Float, pitch: Float, voiceId: String?): Boolean {
         if (!isTtsInitialized) return false
 
         tts?.let { ttsInstance ->
             ttsInstance.setSpeechRate(rate)
             ttsInstance.setPitch(pitch)
-            
-            if (voiceId != null) {
-                var voiceFound = false
-                try {
-                    for (voice in ttsInstance.voices) {
-                        if (voice.name == voiceId) {
-                            ttsInstance.voice = voice
-                            voiceFound = true
-                            break
-                        }
-                    }
-                    // If preferred voice not found, try to find a high-quality alternative
-                    if (!voiceFound) {
-                        android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found, attempting fallback")
-                        // Retry: refresh voices and try again
-                        val refreshedVoices = ttsInstance.voices
-                        for (voice in refreshedVoices) {
-                            if (voice.name == voiceId) {
-                                ttsInstance.voice = voice
-                                voiceFound = true
-                                android.util.Log.i("TTSForegroundService", "Voice found on retry")
-                                break
-                            }
-                        }
-                        // If still not found, select best quality voice for same language
-                        if (!voiceFound) {
-                            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
-                            var bestVoice: Voice? = null
-                            var bestQuality = -1
-                            for (voice in refreshedVoices) {
-                                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
-                                    bestVoice = voice
-                                    bestQuality = voice.quality
-                                }
-                            }
-                            if (bestVoice != null) {
-                                ttsInstance.voice = bestVoice
-                                android.util.Log.w("TTSForegroundService", "Using fallback voice: ${bestVoice.name} (quality: $bestQuality)")
-                                // FIX Case 7.2: Notify listener about voice fallback
-                                ttsListener?.onVoiceFallback(voiceId, bestVoice.name)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("TTSForegroundService", "Voice setting error: ${e.message}")
-                }
-            }
+            setVoiceWithFallback(ttsInstance, voiceId)
 
             val params = android.os.Bundle()
             params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
@@ -292,53 +316,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         tts?.let { ttsInstance ->
             ttsInstance.setSpeechRate(rate)
             ttsInstance.setPitch(pitch)
-            
-            if (voiceId != null) {
-                var voiceFound = false
-                try {
-                    for (voice in ttsInstance.voices) {
-                        if (voice.name == voiceId) {
-                            ttsInstance.voice = voice
-                            voiceFound = true
-                            break
-                        }
-                    }
-                    // If preferred voice not found, try to find a high-quality alternative
-                    if (!voiceFound) {
-                        android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found for batch, attempting fallback")
-                        // Retry: refresh voices and try again
-                        val refreshedVoices = ttsInstance.voices
-                        for (voice in refreshedVoices) {
-                            if (voice.name == voiceId) {
-                                ttsInstance.voice = voice
-                                voiceFound = true
-                                android.util.Log.i("TTSForegroundService", "Voice found on retry")
-                                break
-                            }
-                        }
-                        // If still not found, select best quality voice for same language
-                        if (!voiceFound) {
-                            val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
-                            var bestVoice: Voice? = null
-                            var bestQuality = -1
-                            for (voice in refreshedVoices) {
-                                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
-                                    bestVoice = voice
-                                    bestQuality = voice.quality
-                                }
-                            }
-                            if (bestVoice != null) {
-                                ttsInstance.voice = bestVoice
-                                android.util.Log.w("TTSForegroundService", "Using fallback voice for batch: ${bestVoice.name} (quality: $bestQuality)")
-                                // FIX Case 7.2: Notify listener about voice fallback
-                                ttsListener?.onVoiceFallback(voiceId, bestVoice.name)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("TTSForegroundService", "Voice setting error in batch: ${e.message}")
-                }
-            }
+            setVoiceWithFallback(ttsInstance, voiceId)
 
             // Clear queue and start fresh
             synchronized(queuedUtteranceIds) {
@@ -419,8 +397,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         // Save TTS position for reader sync
         saveTTSPosition()
         ttsListener?.let { listener ->
-            // Call saveTTSPosition via listener to access MMKV
-            listener.onSpeechDone("save_position")
+            // Notify RN about position save (filtered out in TTSHighlightModule)
+            listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)
         }
     }
 
@@ -440,8 +418,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         
         // Save TTS position for reader sync
         ttsListener?.let { listener ->
-            // Call saveTTSPosition via listener to access MMKV
-            listener.onSpeechDone("save_position")
+            // Notify RN about position save (filtered out in TTSHighlightModule)
+            listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)
         }
     }
 
@@ -558,16 +536,16 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             )
         }
 
-        val prevChapterPI = actionPendingIntent(ACTION_MEDIA_PREV_CHAPTER, 101)
-        val seekBackPI = actionPendingIntent(ACTION_MEDIA_SEEK_BACK, 102)
-        val playPausePI = actionPendingIntent(ACTION_MEDIA_PLAY_PAUSE, 103)
-        val seekForwardPI = actionPendingIntent(ACTION_MEDIA_SEEK_FORWARD, 104)
-        val nextChapterPI = actionPendingIntent(ACTION_MEDIA_NEXT_CHAPTER, 105)
+        val prevChapterPI = actionPendingIntent(ACTION_MEDIA_PREV_CHAPTER, REQUEST_PREV_CHAPTER)
+        val seekBackPI = actionPendingIntent(ACTION_MEDIA_SEEK_BACK, REQUEST_SEEK_BACK)
+        val playPausePI = actionPendingIntent(ACTION_MEDIA_PLAY_PAUSE, REQUEST_PLAY_PAUSE)
+        val seekForwardPI = actionPendingIntent(ACTION_MEDIA_SEEK_FORWARD, REQUEST_SEEK_FORWARD)
+        val nextChapterPI = actionPendingIntent(ACTION_MEDIA_NEXT_CHAPTER, REQUEST_NEXT_CHAPTER)
 
         val stopIntent = Intent(this, TTSForegroundService::class.java).apply {
             action = ACTION_STOP_TTS
         }
-        val stopPI = PendingIntent.getService(this, 106, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+        val stopPI = PendingIntent.getService(this, REQUEST_STOP, stopIntent, PendingIntent.FLAG_IMMUTABLE)
 
         val title = if (mediaNovelName.isNotBlank()) mediaNovelName else "LNReader"
         val chapterText = if (mediaChapterLabel.isNotBlank()) mediaChapterLabel else ""
@@ -599,10 +577,15 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         val nextIcon = android.R.drawable.ic_media_next          // ⏭ Next Chapter  
         val stopIcon = android.R.drawable.ic_delete              // 🗑 Stop/Close (cleaner than cancel icon)
 
+        // Create large icon from app launcher icon to fill the left area of notification
+        // This improves visual balance and prevents the "gap on left" appearance
+        val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+
         // Build notification with all media control buttons using MediaStyle
         // MediaStyle provides proper icon-based media buttons layout
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
+            .setLargeIcon(largeIcon)  // Fills the left area, improves visual balance
             .setContentTitle(title)
             .setContentText(chapterText)
             .setSubText(progressText) // Enhanced: "28% • Paragraph 42 of 150"
@@ -623,7 +606,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             // Note: MediaSession disabled - it causes regression (3 buttons instead of 5)
             .setStyle(MediaStyle()
                 // .setMediaSession(mediaSession?.sessionToken)  // Disabled - causes regression
-                .setShowActionsInCompactView(0, 1, 2, 3, 4)) // Show first 5 actions in compact view
+                .setShowActionsInCompactView(1, 2, 3)) // Show [⏪] [⏸/▶] [⏩] in compact view (most used)
             .build()
     }
 
@@ -703,8 +686,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         // Save TTS position for reader sync
         saveTTSPosition()
         ttsListener?.let { listener ->
-            // Call saveTTSPosition via listener to access MMKV
-            listener.onSpeechDone("save_position")
+            // Notify RN about position save (filtered out in TTSHighlightModule)
+            listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)
         }
         
         if (wakeLock?.isHeld == true) {

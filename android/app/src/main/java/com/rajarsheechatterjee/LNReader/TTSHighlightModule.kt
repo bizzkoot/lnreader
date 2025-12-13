@@ -232,9 +232,9 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun onSpeechDone(utteranceId: String) {
-        // Skip internal save_position signals from TTSForegroundService
+        // Skip internal save position signals from TTSForegroundService
         // Position saving is now centralized in the Service
-        if (utteranceId == "save_position") {
+        if (utteranceId == TTSForegroundService.INTERNAL_SAVE_POSITION_SIGNAL) {
             return
         }
         
