@@ -351,4 +351,50 @@ describe('WebViewReader Event Handlers', () => {
       expect(true).toBe(true); // Placeholder
     });
   });
+
+  describe('onMediaAction - PLAY_PAUSE resume priority', () => {
+    it('should prefer native saved TTS position over MMKV manual progress when resuming', async () => {
+      const MMKV = require('@utils/mmkv/mmkv').MMKVStorage;
+
+      // Set lastTTSChapterId to current chapter and manual progress to 5
+      (MMKV.getNumber as jest.Mock).mockImplementation(key => {
+        if (key === 'lastTTSChapterId') return 10;
+        if (key === `chapter_progress_10`) return 5;
+        return undefined;
+      });
+
+      // Ensure TTSHighlight.getSavedTTSPosition returns native position 2
+      // Ensure getSavedTTSPosition exists and returns native position 2
+      TTSHighlight.getSavedTTSPosition = jest.fn().mockResolvedValue(2);
+      // Ensure speakBatch exists and resolves
+      TTSHighlight.speakBatch = jest.fn().mockResolvedValue(undefined);
+      TTSHighlight.pause = jest.fn().mockResolvedValue(undefined);
+
+      // Reset listeners and re-render after reconfiguring mocks
+      jest.clearAllMocks();
+      listeners = {};
+      (TTSHighlight.addListener as jest.Mock).mockImplementation(
+        (event, callback) => {
+          listeners[event] = callback;
+          return { remove: jest.fn() };
+        },
+      );
+
+      renderComponent();
+
+      // Simulate media action: PLAY_PAUSE (which should trigger resume)
+      const handler = listeners['onMediaAction'];
+      expect(handler).toBeDefined();
+
+      await handler({
+        action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+      });
+
+      // Expect speakBatch to have been called and the first utteranceId indicates index 2
+      expect(TTSHighlight.speakBatch).toHaveBeenCalled();
+      const callArgs = (TTSHighlight.speakBatch as jest.Mock).mock.calls[0];
+      const ids = callArgs[1]; // second argument is utterance ID array
+      expect(ids[0]).toContain('chapter_10_utterance_2');
+    });
+  });
 });

@@ -2,15 +2,17 @@
 
 ## Current Goals
 
-- Performing comprehensive audit of LNReader app focusing on security, performance, code quality, and architecture after recent improvements
+- Fix manual scroll overwrite of TTS position; prefer native TTS saved position on resume. Added new flags `isTTSPlayingRef`, `hasUserScrolledRef` in WebViewReader for robust TTS position handling. Updated tests and memory bank.
 
-## Key Files Modified
+## Key Files Modified (TTS Progress Sync)
 
-- `src/screens/more/About.tsx`: Added Update check and fixed links.
-- `src/components/NewUpdateDialog.tsx`: Added download flow and progress UI.
-- `src/services/updates/downloadUpdate.ts`: New service for APK download/install.
-- `android/app/src/main/AndroidManifest.xml`: permission addition.
-- `strings/languages/en/strings.json`: Added update-related strings.
+- `android/app/src/main/.../TTSForegroundService.kt`: SharedPreferences, saveTTSPosition(), getters
+- `android/app/src/main/.../TTSHighlightModule.kt`: getSavedTTSPosition() bridge method
+- `src/services/tts/TTSHighlight.ts`: TypeScript wrapper for getSavedTTSPosition()
+- `src/screens/reader/components/WebViewReader.tsx`: nativeTTSPosition state, async fetch, 3-way max
+- `src/__tests__/TTSMediaControl.test.ts`: 5 new tests for TTS position sync
+- `specs/Enhanced-media-control/PRD.md`: Documentation updated
+- `specs/Enhanced-media-control/TASKS.md`: Phase 3 marked complete
 
 ## Test Commands
 
@@ -19,9 +21,18 @@
 pnpm test
 
 # Run specific TTS tests
-pnpm test -- --testPathPattern=ttsWakeUtils
+pnpm test -- --testPathPattern=TTSMediaControl
+
+# Type check
+pnpm run type-check
+
+# Lint
+pnpm run lint
+
+# Android release build
+pnpm run build:release:android
 ```
 
 ## Current Blockers
 
-- None (Ready for real-device verification)
+- None (Ready for git commit and manual verification)

@@ -21,6 +21,15 @@ import color from 'color';
 import { useBatteryLevel } from 'react-native-device-info';
 import * as Speech from 'expo-speech';
 
+import {
+  READER_WEBVIEW_ORIGIN_WHITELIST,
+  createMessageRateLimiter,
+  createWebViewNonce,
+  parseWebViewMessage,
+  shouldAllowReaderWebViewRequest,
+} from '@utils/webviewSecurity';
+import { safeInjectJS } from '@screens/reader/components/ttsHelpers';
+
 import TabBar, { Tab } from './components/TabBar';
 import DisplayTab from './tabs/DisplayTab';
 import ThemeTab from './tabs/ThemeTab';
@@ -45,6 +54,8 @@ const SettingsReaderScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation();
   const webViewRef = useRef<WebView>(null);
+  const webViewNonceRef = useRef<string>(createWebViewNonce());
+  const allowMessageRef = useRef(createMessageRateLimiter());
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const { bottom, right } = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
@@ -184,24 +195,55 @@ const SettingsReaderScreen = () => {
       <View style={styles.webViewContainer}>
         <WebView
           ref={webViewRef}
-          originWhitelist={['*']}
+          originWhitelist={READER_WEBVIEW_ORIGIN_WHITELIST}
           allowFileAccess={true}
           scalesPageToFit={true}
           showsVerticalScrollIndicator={false}
           javaScriptEnabled={true}
           style={[styles.webView, { backgroundColor: readerBackgroundColor }]}
           nestedScrollEnabled={true}
+          onShouldStartLoadWithRequest={shouldAllowReaderWebViewRequest}
+          onLoadStart={() => {
+            webViewNonceRef.current = createWebViewNonce();
+          }}
+          injectedJavaScriptBeforeContentLoaded={`
+            (function(){
+              try { window.__LNREADER_NONCE__ = ${JSON.stringify(
+                webViewNonceRef.current,
+              )}; } catch (e) {}
+            })();
+            true;
+          `}
           onMessage={(ev: { nativeEvent: { data: string } }) => {
-            const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
+            if (!allowMessageRef.current(Date.now())) {
+              return;
+            }
+
+            const msg = parseWebViewMessage<
+              'hide' | 'speak' | 'stop-speak',
+              WebViewPostEvent['data']
+            >(ev.nativeEvent.data, ['hide', 'speak', 'stop-speak'] as const);
+            if (!msg || msg.nonce !== webViewNonceRef.current) {
+              return;
+            }
+
+            const event: WebViewPostEvent = {
+              type: msg.type,
+              data: msg.data,
+            };
             switch (event.type) {
               case 'hide':
                 if (hidden) {
-                  webViewRef.current?.injectJavaScript(
-                    'reader.hidden.val = true',
+                  safeInjectJS(
+                    webViewRef,
+                    'reader.hidden.val = true; true;',
+                    'SettingsReaderScreen.hide(true)',
                   );
                 } else {
-                  webViewRef.current?.injectJavaScript(
-                    'reader.hidden.val = false',
+                  safeInjectJS(
+                    webViewRef,
+                    'reader.hidden.val = false; true;',
+                    'SettingsReaderScreen.hide(false)',
                   );
                 }
                 setHidden(!hidden);
@@ -210,14 +252,22 @@ const SettingsReaderScreen = () => {
                 if (event.data && typeof event.data === 'string') {
                   Speech.speak(event.data, {
                     onDone() {
-                      webViewRef.current?.injectJavaScript('tts.next?.()');
+                      safeInjectJS(
+                        webViewRef,
+                        'tts.next?.(); true;',
+                        'SettingsReaderScreen.speak.onDone',
+                      );
                     },
                     voice: readerSettings.tts?.voice?.identifier,
                     pitch: readerSettings.tts?.pitch || 1,
                     rate: readerSettings.tts?.rate || 1,
                   });
                 } else {
-                  webViewRef.current?.injectJavaScript('tts.next?.()');
+                  safeInjectJS(
+                    webViewRef,
+                    'tts.next?.(); true;',
+                    'SettingsReaderScreen.speak.skip',
+                  );
                 }
                 break;
               case 'stop-speak':
@@ -241,6 +291,7 @@ const SettingsReaderScreen = () => {
                 <div id="reader-ui"></div>
               </body>
               <script>
+                var __LNREADER_NONCE__ = window.__LNREADER_NONCE__;
                 var initialReaderConfig = ${JSON.stringify({
                   readerSettings,
                   chapterGeneralSettings,

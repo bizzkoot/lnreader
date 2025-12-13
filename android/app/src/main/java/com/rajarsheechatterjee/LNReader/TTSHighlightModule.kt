@@ -7,12 +7,17 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import android.content.SharedPreferences
 
 class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext), TTSForegroundService.TTSListener {
 
     private var ttsService: TTSForegroundService? = null
     private var isBound = false
+    
+    // SharedPreferences for TTS position sync (replaces MMKV to avoid native dependency issues)
+    private val sharedPrefs: SharedPreferences = 
+        reactContext.getSharedPreferences("tts_progress", Context.MODE_PRIVATE)
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
@@ -142,7 +147,38 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun pause(promise: Promise) {
-        stop(promise)
+        if (isBound && ttsService != null) {
+            ttsService?.stopAudioKeepService()
+            promise.resolve(true)
+        } else {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+        }
+    }
+
+    @ReactMethod
+    fun updateMediaState(state: ReadableMap, promise: Promise) {
+        if (!isBound || ttsService == null) {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+            return
+        }
+
+        val novelName = if (state.hasKey("novelName")) state.getString("novelName") else null
+        val chapterLabel = if (state.hasKey("chapterLabel")) state.getString("chapterLabel") else null
+        val chapterId = if (state.hasKey("chapterId") && !state.isNull("chapterId")) state.getInt("chapterId") else null
+        val paragraphIndex = if (state.hasKey("paragraphIndex")) state.getInt("paragraphIndex") else 0
+        val totalParagraphs = if (state.hasKey("totalParagraphs")) state.getInt("totalParagraphs") else 0
+        val isPlaying = if (state.hasKey("isPlaying")) state.getBoolean("isPlaying") else false
+
+        ttsService?.updateMediaState(
+            novelName,
+            chapterLabel,
+            chapterId,
+            paragraphIndex,
+            totalParagraphs,
+            isPlaying
+        )
+
+        promise.resolve(true)
     }
 
     @ReactMethod
@@ -170,6 +206,15 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun getSavedTTSPosition(chapterId: Int, promise: Promise) {
+        // Read TTS position from SharedPreferences for RN to use as fallback
+        val key = "chapter_progress_$chapterId"
+        val position = sharedPrefs.getInt(key, -1)
+        android.util.Log.d("TTSHighlight", "getSavedTTSPosition: chapter=$chapterId, position=$position")
+        promise.resolve(position)
+    }
+
+    @ReactMethod
     fun addListener(eventName: String) {
         // Keep: Required for RN built-in Event Emitter Calls.
     }
@@ -187,6 +232,12 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun onSpeechDone(utteranceId: String) {
+        // Skip internal save position signals from TTSForegroundService
+        // Position saving is now centralized in the Service
+        if (utteranceId == TTSForegroundService.INTERNAL_SAVE_POSITION_SIGNAL) {
+            return
+        }
+        
         val params = Arguments.createMap()
         params.putString("utteranceId", utteranceId)
         sendEvent("onSpeechDone", params)
@@ -218,6 +269,12 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         params.putString("originalVoice", originalVoice)
         params.putString("fallbackVoice", fallbackVoice)
         sendEvent("onVoiceFallback", params)
+    }
+
+    override fun onMediaAction(action: String) {
+        val params = Arguments.createMap()
+        params.putString("action", action)
+        sendEvent("onMediaAction", params)
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {

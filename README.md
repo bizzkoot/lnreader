@@ -49,6 +49,7 @@
 - [TTS Feature Demo](#tts-feature-demo)
 - [Key TTS Features Showcase](#key-tts-features-showcase)
 - [TTS Feature Highlights](#tts-feature-highlights)
+- [Enhanced TTS Media Notification (Android)](#enhanced-tts-media-notification-android)
 - [Architecture](#architecture)
 - [Plugins](#plugins)
 - [Building & Contributing](#building--contributing)
@@ -75,6 +76,7 @@
 | 🎚️ **Speed & Pitch Controls** | Fine-grained voice speed and pitch settings                   | ✅ Available              |
 | ⚡ **Auto Resume**            | Automatically resume playback after interruptions             | ✅ Added                  |
 | 🔄 **Direct Updates**         | Bottom panel updates instantly with new settings              | ✅ Optimized              |
+| 🎶 **Media Notification**     | 5-button MediaStyle notification (Prev, -5, Play/Pause, +5, Next) with rich metadata and native TTS progress sync | ✅ Implemented |
 | 📏 **UI-wide Scaling**       | UI-wide layout scaling via `uiScale` setting (scales icons, paddings, and component dimensions) | ✅ Implemented            |
 
 ## TTS Feature Demo
@@ -102,6 +104,60 @@
 | <div align="center"><img src="./.github/readme-images/TTS/Auto-Chapter-Download.gif" alt="Auto Chapter Download" width="220"><br><strong>Auto Chapter Download</strong><br>Seamless chapter fetching during reading to avoid interruptions.</div> | <div align="center"><img src="./.github/readme-images/TTS/TTS-Settings.gif" alt="TTS Settings Interface" width="220"><br><strong>TTS Settings Interface</strong><br>Comprehensive settings panel with auto-resume, scroll sync, and more.</div> | <div align="center"><img src="./.github/readme-images/UI_Scale/UI_Scaling.gif" alt="UI Scaling Demo" width="220"><br><strong>UI Scaling</strong><br>UI-wide scaling demo.</div> |
 
 </div>
+
+## Enhanced TTS Media Notification (Android)
+
+This release introduces a 5-button Android MediaStyle notification for the TTS foreground service. It provides rich metadata (novel name, chapter title, and paragraph-based progress), lock-screen visibility, and a native ⇄ React Native TTS progress sync — all while preserving visibility of the 5 action buttons.
+
+<div align="center">
+  <figure style="display:block; margin:0 auto; text-align:center; width:360px;">
+    <img src="./.github/readme-images/Media_Player/Media-Player_Compact.jpg" alt="Media Player Compact" width="360" style="border-radius:6px;" />
+    <figcaption style="font-size:14px; color:#666;">Compact notification layout with controls</figcaption>
+  </figure>
+  <figure style="display:block; margin:16px auto 0; text-align:center; width:360px;">
+    <img src="./.github/readme-images/Media_Player/Media-Player_Expanded.jpg" alt="Media Player Expanded" width="360" style="border-radius:6px;" />
+    <figcaption style="font-size:14px; color:#666;">Expanded notification with title, chapter and paragraph progress</figcaption>
+  </figure>
+</div>
+
+**Key features**
+
+- 5 media action buttons: `Previous` (chapter), `-5` (rewind paragraphs), `Play/Pause`, `+5` (forward paragraphs), `Next` (chapter), plus a `Stop` action.
+- Paragraph-based progress text displayed as "x% • Paragraph y of z".
+- Lock-screen visibility using `NotificationCompat.VISIBILITY_PUBLIC`.
+- TTS progress sync: Native saves playback position to SharedPreferences (`tts_progress`) and React Native falls back to this native position using `TTSHighlightModule.getSavedTTSPosition()` when loading chapters.
+- Centralized save logic in `TTSForegroundService` ensures position persists on pause/stop/destroy.
+
+**Button mapping**
+
+<div align="center">
+  <div style="display:inline-block; text-align:left;">
+
+| Icon | Label | Action |
+| --- | --- | --- |
+| ⏮ | Previous Chapter | Jump to previous chapter |
+| ⏪ | Rewind 5 | Go back 5 paragraphs |
+| ⏯️ | Play / Pause | Toggle playback |
+| ⏩ | Forward 5 | Go forward 5 paragraphs |
+| ⏭ | Next Chapter | Jump to next chapter |
+| 🗑️ | Stop | Stop TTS and dismiss notification |
+
+  </div>
+</div>
+
+**Design note**
+
+> We intentionally avoided `MediaSessionCompat` (seek bar) because it reduced visible action slots on some Android versions and removed progress and chapter labels. MediaSession code remains in `TTSForegroundService.kt` as a commented reference.
+
+**Files changed**
+
+- `android/app/src/main/.../TTSForegroundService.kt`
+- `android/app/src/main/.../TTSHighlightModule.kt`
+- `src/services/TTSHighlight.ts`
+- `src/screens/reader/components/WebViewReader.tsx`
+
+Read the full PRD: [specs/Enhanced-media-control/PRD.md](specs/Enhanced-media-control/PRD.md)
+
 
 ## Architecture
 
@@ -140,6 +196,8 @@ flowchart LR
 > Android 7.0 (API 24) is the minimum supported runtime.
 
 </details>
+
+
 
 ## Plugins
 

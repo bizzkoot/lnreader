@@ -39,6 +39,8 @@ applyTo: '**'
 
 - Cross-chapter progress updates (2025-12-07): DB and UI fixes to ensure consistent states when using TTS "Start Here" and reset flows: `markChaptersBeforePositionRead` sets `progress = 100` along with `unread = 0`; `resetFutureChaptersProgress` sets `unread = 1` with `progress = 0`; added `getRecentReadingChapters()` selector and improved `WebViewReader` + `TTSChapterSelectionDialog` UX to present up to 3 conflicting active chapters and overflow warning.
 
+- WebView security hardening (2025-12-12): Added `src/utils/webviewSecurity.ts` utilities for reader WebViews: strict local-only navigation (`onShouldStartLoadWithRequest`), nonce injection (`window.__LNREADER_NONCE__`) and nonce-validated message parsing + rate limiting. Updated `android/app/src/main/assets/js/core.js` to attach nonce to all bridge messages.
+
 Files modified in this set:
 
 - src/screens/reader/components/WebViewReader.tsx

@@ -24,6 +24,15 @@ export type TTSParams = {
   utteranceId?: string;
 };
 
+export type TTSMediaState = {
+  novelName: string;
+  chapterLabel: string;
+  chapterId: number | null;
+  paragraphIndex: number;
+  totalParagraphs: number;
+  isPlaying: boolean;
+};
+
 class TTSHighlightService {
   async speak(text: string, params: TTSParams = {}): Promise<string> {
     // Try preferred voice first, retry once if it fails, then fallback to system default
@@ -122,11 +131,25 @@ class TTSHighlightService {
   }
 
   pause(): Promise<boolean> {
-    return TTSAudioManager.stop();
+    return TTSHighlight.pause();
+  }
+
+  updateMediaState(state: TTSMediaState): Promise<boolean> {
+    return TTSHighlight.updateMediaState(state);
   }
 
   getVoices(): Promise<TTSVoice[]> {
     return TTSHighlight.getVoices();
+  }
+
+  /**
+   * Get saved TTS position from native SharedPreferences.
+   * Returns -1 if no position is saved for the given chapter.
+   * Use this as a fallback when MMKV doesn't have the position
+   * (e.g., after background TTS saved position natively).
+   */
+  getSavedTTSPosition(chapterId: number): Promise<number> {
+    return TTSHighlight.getSavedTTSPosition(chapterId);
   }
 
   addListener(
@@ -136,7 +159,8 @@ class TTSHighlightService {
       | 'onSpeechDone'
       | 'onSpeechError'
       | 'onQueueEmpty'
-      | 'onVoiceFallback', // FIX Case 7.2: Voice fallback notification
+      | 'onVoiceFallback' // FIX Case 7.2: Voice fallback notification
+      | 'onMediaAction',
     listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);

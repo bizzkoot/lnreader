@@ -18,6 +18,7 @@ These high-impact components are reused throughout the app.
 #### [IconButtonV2.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/IconButtonV2/IconButtonV2.tsx)
 
 **Changes Made:**
+
 - Added `useScaledDimensions` hook
 - Changed default `size = 24` to use `iconSize.md`
 - Scaled `padding` prop default from `8` to `padding.sm`
@@ -28,6 +29,7 @@ These high-impact components are reused throughout the app.
 #### [ToggleButton.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Common/ToggleButton.tsx)
 
 **Changes Made:**
+
 - Added `useScaledDimensions` hook
 - Scaled icon `size={24}` to `iconSize.md`
 - Converted static styles to dynamic styles with `useMemo`:
@@ -41,6 +43,7 @@ These high-impact components are reused throughout the app.
 #### [List.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/List/List.tsx)
 
 **Changes Made:**
+
 - Added `useScaledDimensions` hook to `InfoItem`, `ColorItem`, and `Item` components
 - Scaled `InfoItem` icon: `size={20}` → `iconSize.md - scaleDimension(4, uiScale)`
 - Scaled all hardcoded dimensions using `scaleDimension`:
@@ -54,6 +57,7 @@ These high-impact components are reused throughout the app.
 #### [Checkbox.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Checkbox/Checkbox.tsx)
 
 **Changes Made:**
+
 - Added `useScaledDimensions` hook
 - Scaled `SortItem` icon: `size={21}` → `iconSize.md - scaleDimension(3, uiScale)`
 - Scaled padding and margin values using `scaleDimension`
@@ -63,7 +67,8 @@ These high-impact components are reused throughout the app.
 #### [Switch.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Switch/Switch.tsx)
 
 **Changes Made:**
-- Added `useScaledDimensions` hook  
+
+- Added `useScaledDimensions` hook
 - Scaled default `size = 22` to `iconSize.md - scaleDimension(2, uiScale)`
 
 ---
@@ -126,6 +131,7 @@ All 13 screen components with hardcoded icon sizes now scaled.
 #### [Skeleton.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/components/Skeleton/Skeleton.tsx)
 
 **Major Refactor:**
+
 - Removed static `StyleSheet.create`
 - Converted all components to use dynamic styles with `useMemo`
 - Added `scaleDimension` from `@theme/scaling`
@@ -196,9 +202,11 @@ Completed December 10, 2025. This phase captured remaining high-usage components
 ---
 
 ### ✅ Phase 3d: Browse and Novel Screens (COMPLETE)
+
 Completed December 10, 2025.
 
 #### Components Scaled:
+
 12. **[Browse Cards](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/browse/components)**
     - `DiscoverCard`: Hardcoded dimensions (100x150, 48x48) scaled
     - `HistoryCard`: Cover dimensions and icon sizes scaled
@@ -213,6 +221,7 @@ Completed December 10, 2025.
 ---
 
 ### ✅ Phase 5: Library & Misc Screens (COMPLETE)
+
 Completed December 11, 2025. This phase captured remaining app screens.
 
 #### Components Scaled:
@@ -246,7 +255,7 @@ Completed December 11, 2025. This phase captured remaining app screens.
 Files with hardcoded `fontSize` values in modals:
 
 - [ ] `ConnectionModal.tsx` - fontSize: 24
-- [ ] `SelfHostModal.tsx` - fontSize: 16, 24  
+- [ ] `SelfHostModal.tsx` - fontSize: 16, 24
 - [ ] `GoogleDriveModal.tsx` - fontSize: 12, 16, 24
 - [ ] `MangaUpdatesLoginDialog.tsx` - fontSize: 14, 16, 24
 - [ ] `AddRepositoryModal.tsx` - fontSize: 24
@@ -287,14 +296,18 @@ import { scaleDimension } from '@theme/scaling';
 const { uiScale = 1.0 } = useAppSettings();
 
 // 3. Convert static styles to dynamic
-const styles = useMemo(() => StyleSheet.create({
-  title: {
-    fontSize: scaleDimension(24, uiScale),
-  },
-  subtitle: {
-    fontSize: scaleDimension(16, uiScale),
-  },
-}), [uiScale]);
+const styles = useMemo(
+  () =>
+    StyleSheet.create({
+      title: {
+        fontSize: scaleDimension(24, uiScale),
+      },
+      subtitle: {
+        fontSize: scaleDimension(16, uiScale),
+      },
+    }),
+  [uiScale],
+);
 ```
 
 ---
@@ -302,13 +315,15 @@ const styles = useMemo(() => StyleSheet.create({
 ## Verification Plan
 
 ### Automated Tests
+
 - [x] TypeScript compilation: `pnpm tsc --noEmit` ✅
 - [x] ESLint: `pnpm lint` ✅
 - [x] Jest tests: `pnpm test` ✅
 
 ### Manual Testing
+
 - [x] Test at 20% scale (0.2) - minimum density
-- [x] Test at 80% scale (0.8) - default 
+- [x] Test at 80% scale (0.8) - default
 - [x] Test at 150% scale (1.5) - maximum density
 - [x] Verify no layout breaks or overflow
 - [ ] Test on different screen sizes
@@ -318,6 +333,7 @@ const styles = useMemo(() => StyleSheet.create({
 ## Summary
 
 **Completed:**
+
 - ✅ Phase 1: 5/5 core shared components
 - ✅ Phase 2: 13/13 screen components
 - ✅ Phase 3a: 1/1 skeleton component
@@ -327,6 +343,7 @@ const styles = useMemo(() => StyleSheet.create({
 - **Total: 56 components fully scaled**
 
 **Remaining:**
+
 - Phase 3b: 11 settings modal files
 - Phase 3c: 10 settings screen files
 
