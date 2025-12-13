@@ -6,22 +6,26 @@ LNReader is a React Native application for reading light novels.
 
 ## Current Task
 
-Dependency Update Audit (Completed).
+TTS Position Sync Fix (Completed).
 
-- **Goal**: Audit the recent dependency update (React Native 0.82.1, ESLint 9, Jest 30, Prettier 3) for issues.
-- **Result**: All checks passed (TypeScript, ESLint, Jest 94/94, security audit).
-- **Fix Applied**: Updated Husky prepare script from `husky install` to `husky` for v9 compatibility.
+- **Goal**: Fix TTS position sync issue where background TTS paused at paragraph N resumed from wrong position.
+- **Result**: Fixed across 3 files. Verified for both PREV and NEXT chapter navigation.
 
-## Key Files
+## Key Files (TTS)
 
-- `src/screens/more/About.tsx`: "Check for Updates" and "What's New" logic.
-- `src/components/NewUpdateDialog.tsx`: Dialog with "Download & Install" and progress UI.
-- `src/services/updates/downloadUpdate.ts`: Service for downloading APK and triggering install.
-- `android/app/src/main/AndroidManifest.xml`: Added `REQUEST_INSTALL_PACKAGES` permission.
+- `src/screens/reader/components/WebViewReader.tsx`: Main TTS orchestration, pause handling, Smart Resume.
+- `android/app/src/main/assets/js/core.js`: WebView scroll/save logic, grace period checks.
+- `android/app/src/main/java/.../TTSForegroundService.kt`: Native TTS service, `saveTTSPosition()`.
+- `android/app/src/main/java/.../TTSHighlightModule.kt`: RN bridge for TTS position read/write.
+
+## Recent Fixes
+
+- **Native save on pause**: `stopAudioKeepService()` now calls `saveTTSPosition()`.
+- **Scroll correction**: `onLoadEnd` injects correct paragraph position when TTS paused.
+- **Grace period**: Blocks scroll-based saves for 2 seconds after TTS stops.
+- **Smart Resume**: Fixed false trigger by updating `latestParagraphIndexRef` during pause.
 
 ## Notes
 
-- Implemented a hybrid update flow: users can "Download & Install" (in-app) or "View on GitHub".
-- Uses `expo-file-system/legacy` for compatibility with v19.
-- Added "Check for Updates" button to About screen.
-- Fixed upstream vs fork link issues (Discord/Sources -> Upstream, Repo -> Fork).
+- TTS position stored in native SharedPreferences (`chapter_progress_{chapterId}`).
+- MMKV/DB also store progress, initial scroll uses `max(DB, MMKV)` with native as fallback.

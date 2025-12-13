@@ -56,6 +56,9 @@ import {
   markChaptersBeforePositionRead,
   resetFutureChaptersProgress,
   getRecentReadingChapters,
+  updateChapterProgress as updateChapterProgressDb,
+  markChapterUnread,
+  markChapterRead,
 } from '@database/queries/ChapterQueries';
 import TTSExitDialog from './TTSExitDialog';
 import { useNavigation } from '@react-navigation/native';
@@ -178,7 +181,13 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       console.log(
         `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}, Native: ${nativeIndex}`,
       );
-      return Math.max(dbIndex, mmkvIndex, nativeIndex);
+      // Priority: MMKV/DB values (JS-side, more accurate) over native.
+      // Native is useful as fallback when app was killed during background TTS.
+      // Use max of DB and MMKV if either is valid, otherwise fall back to native.
+      const jsMax = Math.max(dbIndex, mmkvIndex);
+      if (jsMax >= 0) return jsMax;
+      if (nativeIndex >= 0) return nativeIndex;
+      return 0;
     },
     // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
     // when progress is saved (which would update savedParagraphIndex)
@@ -247,6 +256,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const hasUserScrolledRef = useRef<boolean>(false);
   // NEW: Grace period timestamp to ignore stale save events after chapter change
   const chapterTransitionTimeRef = useRef<number>(0);
+  // NEW: Track last TTS pause time for Smart Resume grace period
+  const lastTTSPauseTimeRef = useRef<number>(0);
   // NEW: Track if WebView is synchronized with current chapter
   // During background TTS, WebView may still have old chapter loaded
   const isWebViewSyncedRef = useRef<boolean>(true);
@@ -291,6 +302,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const ttsSessionRef = useRef<number>(0);
   // NEW: Track when wake resume completed to add grace period for queue modifications
   const wakeResumeGracePeriodRef = useRef<number>(0);
+  // FIX Bug 12.8: Debounce rapid media actions to prevent queue corruption
+  const lastMediaActionTimeRef = useRef<number>(0);
+  const MEDIA_ACTION_DEBOUNCE_MS = 500;
+  // Track source chapter ID when navigating via media controls
+  // After 5 paragraphs in new chapter: NEXT marks this as 100%, PREV marks as "in progress"
+  const mediaNavSourceChapterIdRef = useRef<number | null>(null);
+  // Track the direction of the media navigation ('NEXT' | 'PREV')
+  const mediaNavDirectionRef = useRef<'NEXT' | 'PREV' | null>(null);
+  const PARAGRAPHS_TO_CONFIRM_NAVIGATION = 5;
 
   // State for TTS sync dialog (shown when screen wakes and chapter mismatch occurs)
   const [syncDialogVisible, setSyncDialogVisible] = useState(false);
@@ -1015,6 +1035,43 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 : (progressRef.current ?? 0);
             saveProgressRef.current(percentage, nextIndex);
 
+            // Check if we've read 5 paragraphs after media navigation
+            // If yes, mark the source chapter as 100% complete
+            if (
+              mediaNavSourceChapterIdRef.current &&
+              nextIndex >= PARAGRAPHS_TO_CONFIRM_NAVIGATION
+            ) {
+              const sourceChapterId = mediaNavSourceChapterIdRef.current;
+              const direction = mediaNavDirectionRef.current;
+              if (direction === 'NEXT') {
+                console.log(
+                  `WebViewReader: 5 paragraphs reached after NEXT navigation, marking chapter ${sourceChapterId} as 100% complete`,
+                );
+                // Mark source chapter as 100% complete in database
+                updateChapterProgressDb(sourceChapterId, 100);
+              } else if (direction === 'PREV') {
+                console.log(
+                  `WebViewReader: 5 paragraphs reached after PREV navigation, marking chapter ${sourceChapterId} as in-progress`,
+                );
+                try {
+                  // Mark as in-progress - choose a small progress value (1%)
+                  updateChapterProgressDb(sourceChapterId, 1);
+                } catch (e) {
+                  console.warn(
+                    'WebViewReader: Failed to mark source chapter in-progress',
+                    e,
+                  );
+                }
+              } else {
+                // Fallback: mark as 100% to preserve existing behavior
+                updateChapterProgressDb(sourceChapterId, 100);
+              }
+
+              // Clear the refs so we don't mark it again
+              mediaNavSourceChapterIdRef.current = null;
+              mediaNavDirectionRef.current = null;
+            }
+
             // Keep media notification progress updated
             updateTtsMediaNotificationState(isTTSReadingRef.current);
 
@@ -1227,6 +1284,20 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
       'onMediaAction',
       async event => {
         const action = String(event?.action || '');
+
+        // Debug: log every media action received
+        console.log(`WebViewReader: onMediaAction received -> ${action}`);
+
+        // FIX Bug 12.8: Debounce rapid media actions to prevent queue corruption
+        const now = Date.now();
+        if (now - lastMediaActionTimeRef.current < MEDIA_ACTION_DEBOUNCE_MS) {
+          console.log(
+            `WebViewReader: Media action debounced (${now - lastMediaActionTimeRef.current}ms < ${MEDIA_ACTION_DEBOUNCE_MS}ms)`,
+          );
+          return;
+        }
+        lastMediaActionTimeRef.current = now;
+
         try {
           // Always ensure we have latest notification state before acting
           updateTtsMediaNotificationState(isTTSReadingRef.current);
@@ -1234,6 +1305,33 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
           if (action === 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE') {
             if (isTTSReadingRef.current) {
               // Pause (MVP): stop audio but keep service/notification
+
+              // FIX Bug 12.6: Save progress BEFORE pausing to prevent data loss if app is killed
+              const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
+              const total = totalParagraphsRef.current;
+              if (idx >= 0 && total > 0) {
+                const percentage = Math.round(((idx + 1) / total) * 100);
+                saveProgressRef.current(percentage, idx);
+                console.log(
+                  `WebViewReader: Saved progress before pause (paragraph ${idx}/${total}, ${percentage}%)`,
+                );
+              }
+
+              // FIX Bug 12.1: Set grace period in WebView to prevent scroll saves from overwriting TTS position
+              webViewRef.current?.injectJavaScript(`
+                window.ttsLastStopTime = Date.now();
+                if (window.tts) window.tts.reading = false;
+              `);
+
+              // Track pause time for Smart Resume grace period
+              lastTTSPauseTimeRef.current = Date.now();
+
+              // FIX: Update latestParagraphIndexRef to the saved TTS position
+              // This prevents Smart Resume from misinterpreting the stale ref value (0 from chapter nav)
+              latestParagraphIndexRef.current = idx;
+
+              // Prevent auto-start when user re-enters reader after pausing from notification
+              autoStartTTSRef.current = false;
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               isTTSPausedRef.current = true;
@@ -1281,19 +1379,132 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             return;
           }
 
+          // SEEK_BACK: move backwards by 5 paragraphs (notification "-5 paragraph")
+          if (action === 'com.rajarsheechatterjee.LNReader.TTS.SEEK_BACK') {
+            const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
+            const target = Math.max(0, idx - 5);
+            console.log(
+              `WebViewReader: SEEK_BACK received (current=${idx}) -> restarting from ${target}`,
+            );
+
+            try {
+              await restartTtsFromParagraphIndex(target);
+            } catch (err) {
+              console.error(
+                'WebViewReader: SEEK_BACK restart failed, attempting fallback',
+                err,
+              );
+              try {
+                // Fallback: force stop and then start from target
+                TTSHighlight.fullStop();
+                // small delay to ensure native cleared
+                await new Promise(r => setTimeout(r, 120));
+                await restartTtsFromParagraphIndex(target);
+              } catch (err2) {
+                console.error(
+                  'WebViewReader: SEEK_BACK fallback also failed',
+                  err2,
+                );
+              }
+            }
+
+            return;
+          }
+
           if (action === 'com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER') {
             if (!prevChapter) {
               showToastMessage('No previous chapter');
               return;
             }
-            // Navigate to previous chapter; force start from paragraph 0
+
+            // User presses PREV: Prefer resuming at the media player's last known position
+            // for the destination chapter (prevChapter). Only fall back to paragraph 0
+            // if we have no saved progress for that chapter. This is MVP: minimal change
+            // to use existing persisted/native positions rather than forcing 0.
+            console.log(
+              `WebViewReader: PREV_CHAPTER - resolving start index for chapter ${prevChapter.id}`,
+            );
+
+            // Track the current chapter to mark as incomplete after navigation
+            mediaNavSourceChapterIdRef.current = chapter.id;
+            mediaNavDirectionRef.current = 'PREV';
+
+            // Immediately mark current (source) chapter as in-progress/unread so UI updates
+            try {
+              await updateChapterProgressDb(chapter.id, 1);
+              try {
+                await markChapterUnread(chapter.id);
+              } catch (e) {
+                // ignore
+              }
+            } catch (e) {
+              console.warn(
+                'WebViewReader: Failed to mark source chapter in-progress',
+                e,
+              );
+            }
+
+            // User presses PREV: Start from paragraph 0 (fresh start for re-reading)
+            // The previous chapter (current one before navigation) will be marked
+            // as "in progress" after 5 paragraphs of the new chapter are read
+            console.log(
+              'WebViewReader: PREV_CHAPTER - starting from paragraph 0',
+            );
+
+            // Track the current chapter to mark as incomplete after navigation
+            mediaNavSourceChapterIdRef.current = chapter.id;
+            mediaNavDirectionRef.current = 'PREV';
+
+            // Immediately mark current (source) chapter as in-progress/unread so UI updates
+            try {
+              await updateChapterProgressDb(chapter.id, 1);
+              try {
+                await markChapterUnread(chapter.id);
+              } catch (e) {
+                // ignore
+              }
+            } catch (e) {
+              console.warn(
+                'WebViewReader: Failed to mark source chapter in-progress',
+                e,
+              );
+            }
+
+            // Reset the destination chapter to unread/progress=0 so TTS starts fresh
+            try {
+              // prevChapter is the target we navigate into
+              await updateChapterProgressDb(prevChapter.id, 0);
+              // Also mark the destination chapter as unread so UI reflects it's not fully read
+              try {
+                await markChapterUnread(prevChapter.id);
+              } catch (e) {
+                // ignore
+              }
+              // Clear MMKV cached progress for the destination chapter so initialSavedParagraphIndex resolves to 0
+              try {
+                MMKVStorage.set(`chapter_progress_${prevChapter.id}`, 0);
+              } catch (e) {
+                // ignore MMKV errors - best effort
+              }
+              // NOTE: Do NOT clear native saved TTS position here. The native Foreground
+              // service saves the live playback position (SharedPreferences) on pause/stop.
+              // Clearing native saved position at navigation time would prevent the reader
+              // from restoring to the last-played paragraph when the user later opens the reader.
+            } catch (e) {
+              console.warn(
+                'WebViewReader: Failed to reset prev chapter progress',
+                e,
+              );
+            }
+
             isTTSReadingRef.current = true;
             isTTSPausedRef.current = false;
             autoStartTTSRef.current = true;
-            forceStartFromParagraphZeroRef.current = true; // Start from beginning
+            forceStartFromParagraphZeroRef.current = true;
             backgroundTTSPendingRef.current = true;
             currentParagraphIndexRef.current = 0;
             latestParagraphIndexRef.current = 0;
+
             navigateChapter('PREV');
             updateTtsMediaNotificationState(true);
             return;
@@ -1304,11 +1515,58 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               showToastMessage('No next chapter');
               return;
             }
-            // Navigate to next chapter; force start from paragraph 0
+
+            // User presses NEXT: Start from paragraph 0 (fresh start)
+            // After 5 paragraphs in new chapter, the source chapter will be marked as 100% complete
+            console.log(
+              'WebViewReader: NEXT_CHAPTER - starting from paragraph 0',
+            );
+
+            // Track the current chapter to mark as 100% complete after 5 paragraphs
+            mediaNavSourceChapterIdRef.current = chapter.id;
+            mediaNavDirectionRef.current = 'NEXT';
+
+            // Immediately mark current (source) chapter as read to update UI
+            try {
+              await updateChapterProgressDb(chapter.id, 100);
+              try {
+                await markChapterRead(chapter.id);
+              } catch (e) {
+                // ignore
+              }
+            } catch (e) {
+              console.warn(
+                'WebViewReader: Failed to mark source chapter read',
+                e,
+              );
+            }
+
+            // Reset the destination chapter to unread/progress=0 so TTS starts fresh
+            try {
+              await updateChapterProgressDb(nextChapter.id, 0);
+              try {
+                await markChapterUnread(nextChapter.id);
+              } catch (e) {
+                // ignore
+              }
+              try {
+                MMKVStorage.set(`chapter_progress_${nextChapter.id}`, 0);
+              } catch (e) {
+                // ignore MMKV errors
+              }
+              // NOTE: Do NOT clear native saved TTS position here. Keep native saved
+              // playback position intact so reader can restore to last-played paragraph.
+            } catch (e) {
+              console.warn(
+                'WebViewReader: Failed to reset next chapter progress',
+                e,
+              );
+            }
+
             isTTSReadingRef.current = true;
             isTTSPausedRef.current = false;
             autoStartTTSRef.current = true;
-            forceStartFromParagraphZeroRef.current = true; // Start from beginning
+            forceStartFromParagraphZeroRef.current = true;
             backgroundTTSPendingRef.current = true;
             currentParagraphIndexRef.current = 0;
             latestParagraphIndexRef.current = 0;
@@ -1787,7 +2045,17 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
         );
       }
     };
-  }, [chapter.id, html, showToastMessage, webViewRef]);
+  }, [
+    chapter.id,
+    html,
+    showToastMessage,
+    webViewRef,
+    navigateChapter,
+    nextChapter,
+    prevChapter,
+    restartTtsFromParagraphIndex,
+    updateTtsMediaNotificationState,
+  ]);
 
   useEffect(() => {
     const mmkvListener = MMKVStorage.addOnValueChangedListener(key => {
@@ -1939,8 +2207,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     // If the user has manually scrolled in this session (indicated by latestParagraphIndexRef being set and valid),
     // and that position is significantly different from the saved index, we assume the user intends to read
     // from their current position. In this case, we suppress the resume prompt.
+    //
+    // CRITICAL: Do NOT trigger Smart Resume if TTS was paused recently (still in grace period),
+    // as the scroll may be programmatic (position correction), not manual user action.
     const currentRef = latestParagraphIndexRef.current;
+    const timeSinceLastPause = Date.now() - (lastTTSPauseTimeRef.current || 0);
+    const inGracePeriod = timeSinceLastPause < 3000; // 3 second grace period for UI settle
+
     if (
+      !inGracePeriod &&
       currentRef !== undefined &&
       currentRef >= 0 &&
       Math.abs(currentRef - savedIndex) > 5
@@ -2064,6 +2339,28 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
           // Mark WebView as synced with current chapter
           isWebViewSyncedRef.current = true;
+
+          // FIX: If TTS was paused (from notification or otherwise), inject grace period
+          // to prevent scroll-based saves from overwriting the TTS position.
+          // ALSO: Override the savedParagraphIndex and trigger scroll to correct position.
+          // This is critical when background TTS was paused before WebView loaded.
+          if (isTTSPausedRef.current && currentParagraphIndexRef.current >= 0) {
+            const correctParagraphIndex = currentParagraphIndexRef.current;
+            webViewRef.current?.injectJavaScript(`
+              window.ttsLastStopTime = Date.now();
+              if (window.tts) window.tts.reading = false;
+              // Override the saved paragraph index with the correct TTS pause position
+              initialReaderConfig.savedParagraphIndex = ${correctParagraphIndex};
+              // Reset initial scroll flag to allow re-scroll to correct position
+              reader.hasPerformedInitialScroll = false;
+              reader.suppressSaveOnScroll = true;
+              console.log('TTS: Correcting scroll to paused position: ${correctParagraphIndex}');
+              // Trigger recalculation with correct position
+              if (typeof calculatePages === 'function') {
+                calculatePages();
+              }
+            `);
+          }
 
           // FIX Case 1.1: Log paragraph count for debugging sync issues
           const paragraphs = extractParagraphs(html);
@@ -2398,8 +2695,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
               'stop-speak',
               'tts-state',
               'request-tts-confirmation',
+              'tts-resume-location-prompt',
               'tts-scroll-prompt',
               'tts-manual-mode-prompt',
+              'tts-positioned',
+              'tts-queue',
               'tts-apply-settings',
               'save-tts-position',
               'show-toast',

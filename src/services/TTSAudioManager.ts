@@ -2,6 +2,8 @@ import {
   NativeModules,
   NativeEventEmitter,
   EmitterSubscription,
+  Platform,
+  ToastAndroid,
 } from 'react-native';
 
 const { TTSHighlight } = NativeModules;
@@ -47,6 +49,8 @@ class TTSAudioManager {
   // BUG FIX: Track if a refill operation is in progress to prevent
   // premature onQueueEmpty from triggering chapter navigation
   private refillInProgress = false;
+  // Optional callback to surface user notifications (tests can register a spy)
+  private notifyUserCallback?: (msg: string) => void;
   // BUG FIX: Track last successfully spoken paragraph index for monotonic enforcement
   private lastSpokenIndex = -1;
 
@@ -73,6 +77,10 @@ class TTSAudioManager {
   setRefillInProgress(value: boolean) {
     this.refillInProgress = value;
     logDebug(`TTSAudioManager: refillInProgress set to ${value}`);
+  }
+
+  setNotifyUserCallback(cb?: (msg: string) => void) {
+    this.notifyUserCallback = cb;
   }
 
   /**
@@ -168,8 +176,16 @@ class TTSAudioManager {
         // BUG FIX: Reset last spoken index for new session
         this.resetLastSpokenIndex();
         const batchTexts = texts.slice(0, BATCH_SIZE);
-
         const batchIds = utteranceIds.slice(0, BATCH_SIZE);
+
+        // Guard against empty batch (shouldn't happen, but be defensive)
+        if (batchTexts.length === 0) {
+          logDebug(
+            'TTSAudioManager: No items in initial batch, aborting speakBatch',
+          );
+          throw new Error('No items to speak in initial batch');
+        }
+
         await TTSHighlight.speakBatch(batchTexts, batchIds, {
           rate,
           pitch,
@@ -177,7 +193,8 @@ class TTSAudioManager {
         });
         this.currentQueue = texts;
         this.currentUtteranceIds = utteranceIds;
-        this.currentIndex = BATCH_SIZE;
+        // Set currentIndex to number of items already pushed to native queue
+        this.currentIndex = batchTexts.length;
         this.isPlaying = true;
         this.hasLoggedNoMoreItems = false;
         // BUG FIX: Clear restart flag now that new queue is populated
@@ -300,8 +317,9 @@ class TTSAudioManager {
             `TTSAudioManager: addToBatch failed (attempt ${attempt}):`,
             err,
           );
-          // small backoff
-          await new Promise(res => setTimeout(res, 150 * attempt));
+          // Exponential backoff: base 150ms * 2^(attempt-1)
+          const delayMs = 150 * Math.pow(2, attempt - 1);
+          await new Promise(res => setTimeout(res, delayMs));
         }
       }
 
@@ -317,8 +335,47 @@ class TTSAudioManager {
             logError(
               'TTSAudioManager: Queue empty after failed addToBatch — attempting speakBatch as fallback',
             );
-            await TTSHighlight.speakBatch(nextTexts, nextIds);
-            this.currentIndex += nextBatchSize;
+            // Guard: do not call speakBatch with zero items
+            if (nextTexts.length === 0) {
+              logError('TTSAudioManager: No next texts to speak in fallback');
+              this.refillInProgress = false;
+              // Notify user after repeated failures
+              const msg = 'TTS failed to queue audio. Playback may stop.';
+              if (this.notifyUserCallback) {
+                this.notifyUserCallback(msg);
+              } else if (Platform.OS === 'android') {
+                ToastAndroid.show(msg, ToastAndroid.SHORT);
+              } else {
+                logError(msg);
+              }
+              return false;
+            }
+
+            try {
+              await TTSHighlight.speakBatch(nextTexts, nextIds, {
+                rate: 1,
+                pitch: 1,
+                voice: undefined,
+              });
+              // Update currentIndex by the number of items we just queued
+              this.currentIndex += nextTexts.length;
+            } catch (fallbackErr) {
+              logError(
+                'TTSAudioManager: Fallback speakBatch also failed:',
+                fallbackErr,
+              );
+              // After fallback failure, surface user notification
+              const msg = 'TTS failed to queue audio. Playback may stop.';
+              if (this.notifyUserCallback) {
+                this.notifyUserCallback(msg);
+              } else if (Platform.OS === 'android') {
+                ToastAndroid.show(msg, ToastAndroid.SHORT);
+              } else {
+                logError(msg);
+              }
+              this.refillInProgress = false;
+              return false;
+            }
             logDebug(
               `TTSAudioManager: speakBatch fallback started ${nextBatchSize} items`,
             );

@@ -416,7 +416,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         // updatePlaybackState()  // MediaSession disabled
         updateNotification()
         
-        // Save TTS position for reader sync
+        // Save TTS position for reader sync (same as stopTTS)
+        saveTTSPosition()
+        // Notify RN about position save
         ttsListener?.let { listener ->
             // Notify RN about position save (filtered out in TTSHighlightModule)
             listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)

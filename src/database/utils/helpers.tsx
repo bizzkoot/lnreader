@@ -46,18 +46,33 @@ async function defaultQueryAsync<T = unknown, Array extends boolean = false>(
 ) {
   const [query, params = [], callback = noop, catchCallback = logError] =
     queryObject;
+  // Retry on transient 'database is locked' errors
+  const maxAttempts = 3;
+  let attempt = 0;
+  while (attempt < maxAttempts) {
+    try {
+      // @ts-ignore
+      const result = (await db[fn](query, params)) as Array extends true
+        ? T[]
+        : T;
+      callback(result);
+      return result;
+    } catch (e: any) {
+      const msg = String(e?.message || e || '');
+      // If it's a database locked error, retry with backoff
+      if (msg.includes('database is locked') && attempt < maxAttempts - 1) {
+        const wait = 50 * Math.pow(2, attempt); // 50ms, 100ms, 200ms
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise(r => setTimeout(r, wait));
+        attempt += 1;
+        continue;
+      }
 
-  try {
-    // @ts-ignore
-    const result = (await db[fn](query, params)) as Array extends true
-      ? T[]
-      : T;
-    callback(result);
-    return result;
-  } catch (e) {
-    catchCallback(e);
-    return errorReturn;
+      catchCallback(e);
+      return errorReturn;
+    }
   }
+  return errorReturn;
 }
 
 export async function runAsync(queryObjects: QueryObject<SQLiteRunResult>[]) {
@@ -95,8 +110,8 @@ type TransactionObject = [query, ...params];
 
 export async function transactionAsync(transactionObject: TransactionObject[]) {
   await db.withTransactionAsync(async () => {
-    const promises = transactionObject.map(async ([query, ...params]) => {
-      db.runAsync(query, ...params);
+    const promises = transactionObject.map(([query, ...params]) => {
+      return db.runAsync(query, ...params);
     });
     await Promise.all(promises);
   });

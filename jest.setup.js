@@ -30,3 +30,7 @@ jest.mock('../specs/NativeFile', () => ({
     getConstants: () => ({ ExternalDirectoryPath: '/mock/path' }),
   },
 }));
+
+// Provide a light DevMenu TurboModule mock to satisfy react-native internals
+// Note: Nightly/CI can mock required TurboModules in tests instead of globally.
+// Keep global setup minimal to avoid masking native integration issues.
