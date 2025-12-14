@@ -1,16 +1,17 @@
-# Progress (Updated: 2025-12-13)
+# Progress (Updated: 2025-12-14)
 
 ## Done
 
-- Researched backup code using getContentUriAsync in src/services/backup/local/index.ts
-- Researched update check feature in src/hooks/common/useGithubUpdateChecker.ts and src/components/NewUpdateDialog.tsx
-- Reviewed eslint.config.js configuration
-- Retrieved expo-file-system documentation from Context7
+- Fixed TTS WebView not loading during background chapter navigation (PREV/NEXT media controls)
+- Fixed screen wake causing TTS to restart from paragraph 0 instead of continuing
+- Prevented Smart Resume false triggers during wake sync scrolls
+- Verified all media controls working in background mode
+- Code formatting completed with pnpm format
 
 ## Doing
 
-- Finalizing research findings and synthesis
+- Preparing git commit for TTS background playback fixes
 
 ## Next
 
-- Provide comprehensive research report with exact file paths and implementation details
+- Push changes to git repository

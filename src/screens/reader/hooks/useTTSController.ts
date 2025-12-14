@@ -518,9 +518,14 @@ export function useTTSController(
     // Clear the flag immediately
     backgroundTTSPendingRef.current = false;
 
-    // CRITICAL: Mark WebView as NOT synced - it still has old chapter's HTML
-    // This prevents us from trying to inject JS into the wrong chapter context
-    isWebViewSyncedRef.current = false;
+    // CRITICAL FIX: When background TTS starts (app in background during chapter nav),
+    // WebView won't actually load/render until app returns to foreground.
+    // Mark as synced immediately so TTS events aren't blocked forever.
+    // The Chapter Change Effect's timer won't fire because WebView onLoadEnd never triggers.
+    isWebViewSyncedRef.current = true;
+    console.log(
+      'useTTSController: WebView marked as synced for background TTS (bypassing onLoadEnd)',
+    );
 
     // Extract paragraphs from HTML
     const paragraphs = extractParagraphs(html);
@@ -1571,6 +1576,34 @@ export function useTTSController(
 
     // Mark WebView as synced with current chapter
     isWebViewSyncedRef.current = true;
+
+    // CRITICAL FIX: If we're in the middle of a wake resume, re-inject the blocking flags
+    // IMMEDIATELY to prevent the WebView from treating the upcoming scroll as user input.
+    // This must happen BEFORE any other WebView JS processing.
+    if (autoResumeAfterWakeRef.current && wasReadingBeforeWakeRef.current) {
+      console.log(
+        'useTTSController: onLoadEnd detected pending wake resume, injecting blocking flags',
+      );
+      webViewRef.current?.injectJavaScript(`
+        try {
+          window.ttsScreenWakeSyncPending = true;
+          window.ttsOperationActive = true;
+          reader.suppressSaveOnScroll = true;
+          window.ttsIsBackgroundPlaybackActive = true;
+          // CRITICAL: Mark as already resumed to prevent Smart Resume prompt
+          if (window.tts) {
+            window.tts.hasAutoResumed = true;
+            window.tts.isBackgroundPlaybackActive = true;
+            window.tts.reading = true;
+            window.tts.started = true;
+          }
+          console.log('TTS: onLoadEnd - Re-injected wake sync blocking flags + hasAutoResumed');
+        } catch (e) {
+          console.error('TTS: onLoadEnd - Failed to inject wake sync flags', e);
+        }
+        true;
+      `);
+    }
 
     // Handle paused TTS state
     if (isTTSPausedRef.current && currentParagraphIndexRef.current >= 0) {

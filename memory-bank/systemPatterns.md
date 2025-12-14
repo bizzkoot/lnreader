@@ -92,3 +92,26 @@ Combines in-app native installation with web-based fallback:
 3. **Download**: Use `expo-file-system/legacy` to download APK to cache.
 4. **Install**: Use `expo-intent-launcher` to trigger `android.intent.action.VIEW` on the content URI.
    Requires `REQUEST_INSTALL_PACKAGES` permission and `FileProvider` (handled by Expo).
+
+
+## TTS Hook Architecture - Custom React Hook for Complex State Management
+
+useTTSController.ts demonstrates pattern for extracting complex stateful logic from large components into reusable hooks. Key aspects: (1) Multiple useRef hooks for imperative values that shouldn't trigger re-renders, (2) useEffect dependencies carefully managed to sync with chapter changes, (3) Native module event listeners lifecycle managed in effects, (4) Explicit interface with ~15 exported functions/state for component consumption, (5) Internal state machine (wake transitions, chapter sync) isolated from component, (6) Comprehensive logging with categorized tags ([WAKE], [SYNC], [STALE]) for debugging
+
+### Examples
+
+- src/screens/reader/hooks/useTTSController.ts - Full implementation (~2,000 lines)
+- src/screens/reader/components/WebViewReader.tsx - Hook consumption pattern (lines ~214-231)
+- Chapter change synchronization effect (useTTSController.ts lines ~489-609)
+- Wake handling state machine (useTTSController.ts lines ~2237-2516)
+
+
+## Android WebView Background Behavior
+
+Android optimizes battery by not rendering WebViews while app is backgrounded. This means: (1) WebView.onLoadEnd may never fire during background operations, (2) All JavaScript state (window.* globals) is lost on WebView reload after wake, (3) Refs must be used for coordination between native and WebView layers during background operations, (4) Critical flags must be re-injected in onLoadEnd handlers when resuming from background state.
+
+### Examples
+
+- Background TTS Effect bypasses WebView sync by setting isWebViewSyncedRef=true immediately
+- Wake resume handler injects blocking flags in handleWebViewLoadEnd before WebView JS initializes
+- Chapter Change Effect uses 300ms timer fallback for WebView sync, but Background TTS bypasses this entirely
