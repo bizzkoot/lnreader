@@ -420,6 +420,51 @@ export function useTTSController(
   }, [nextChapter, navigateChapter]);
 
   // ===========================================================================
+  // Chapter Change Effect
+  // ===========================================================================
+
+  /**
+   * Sync chapter ID ref and manage WebView state on chapter changes
+   * This is critical for:
+   * 1. Preventing stale event detection (native listeners check prevChapterIdRef)
+   * 2. Managing WebView sync state during transitions
+   * 3. Clearing media navigation tracking after successful transitions
+   */
+  useEffect(() => {
+    console.log(
+      `useTTSController: Chapter changed to ${chapter.id} (prev: ${prevChapterIdRef.current})`,
+    );
+
+    // Update chapter ID ref IMMEDIATELY
+    prevChapterIdRef.current = chapter.id;
+
+    // Mark WebView as unsynced initially (new WebView loading)
+    isWebViewSyncedRef.current = false;
+
+    // Short delay to allow WebView to stabilize, then mark as synced
+    const syncTimer = setTimeout(() => {
+      isWebViewSyncedRef.current = true;
+      console.log(
+        `useTTSController: WebView marked as synced for chapter ${chapter.id}`,
+      );
+
+      // Clear media navigation tracking after successful transition
+      if (mediaNavSourceChapterIdRef.current) {
+        console.log(
+          `useTTSController: Clearing media nav tracking (source: ${mediaNavSourceChapterIdRef.current})`,
+        );
+        // Small delay before clearing to allow confirmation logic to run
+        setTimeout(() => {
+          mediaNavSourceChapterIdRef.current = null;
+          mediaNavDirectionRef.current = null;
+        }, 2000);
+      }
+    }, 300);
+
+    return () => clearTimeout(syncTimer);
+  }, [chapter.id]);
+
+  // ===========================================================================
   // Utility Functions
   // ===========================================================================
 
@@ -1225,14 +1270,30 @@ export function useTTSController(
       `);
     }
 
-    // Skip if background TTS is pending
+    // Handle background TTS pending from media navigation
     if (backgroundTTSPendingRef.current) {
       if (__DEV__) {
         console.log(
-          'useTTSController: onLoadEnd skipped TTS start - background TTS pending',
+          'useTTSController: onLoadEnd detected background TTS pending',
         );
       }
-      return;
+
+      // Clear flag and start TTS if autoStart is also set
+      backgroundTTSPendingRef.current = false;
+
+      if (autoStartTTSRef.current) {
+        if (__DEV__) {
+          console.log(
+            'useTTSController: Starting TTS from background navigation',
+          );
+        }
+        // Will be handled by autoStartTTS logic below
+      } else {
+        if (__DEV__) {
+          console.log('useTTSController: Background TTS cleared, no autoStart');
+        }
+        return;
+      }
     }
 
     // Handle pending screen-wake sync
@@ -1310,6 +1371,14 @@ export function useTTSController(
         if (wakeTransitionInProgressRef.current) {
           console.log(
             'useTTSController: onSpeechDone ignored during wake transition',
+          );
+          return;
+        }
+
+        // Skip if WebView is not synced (during chapter transition)
+        if (!isWebViewSyncedRef.current) {
+          console.log(
+            'useTTSController: onSpeechDone skipped during WebView transition',
           );
           return;
         }
@@ -1452,11 +1521,14 @@ export function useTTSController(
           );
           if (chapterMatch) {
             const eventChapterId = Number(chapterMatch[1]);
-            if (eventChapterId !== Number(prevChapterIdRef.current)) {
+            const currentChapterId = Number(prevChapterIdRef.current);
+
+            // Strict chapter validation
+            if (eventChapterId !== currentChapterId) {
               const now = Date.now();
-              if (now - lastStaleLogTimeRef.current > 1000) {
+              if (now - lastStaleLogTimeRef.current > 500) {
                 console.log(
-                  `useTTSController: Ignoring stale onWordRange from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`,
+                  `useTTSController: [STALE] onWordRange chapter ${eventChapterId} != ${currentChapterId}`,
                 );
                 lastStaleLogTimeRef.current = now;
               }
@@ -1467,6 +1539,11 @@ export function useTTSController(
             const m = utteranceId.match(/utterance_(\d+)/);
             if (m) paragraphIndex = Number(m[1]);
           }
+        }
+
+        // Skip if WebView is not synced (during chapter transition)
+        if (!isWebViewSyncedRef.current) {
+          return;
         }
 
         const start = Number(event?.start) || 0;
@@ -1512,11 +1589,14 @@ export function useTTSController(
             );
             if (chapterMatch) {
               const eventChapterId = Number(chapterMatch[1]);
-              if (eventChapterId !== Number(prevChapterIdRef.current)) {
+              const currentChapterId = Number(prevChapterIdRef.current);
+
+              // Strict chapter validation
+              if (eventChapterId !== currentChapterId) {
                 const now = Date.now();
-                if (now - lastStaleLogTimeRef.current > 1000) {
+                if (now - lastStaleLogTimeRef.current > 500) {
                   console.log(
-                    `useTTSController: Ignoring stale onSpeechStart from chapter ${eventChapterId}, current is ${prevChapterIdRef.current}`,
+                    `useTTSController: [STALE] onSpeechStart chapter ${eventChapterId} != ${currentChapterId}`,
                   );
                   lastStaleLogTimeRef.current = now;
                 }
@@ -1527,6 +1607,14 @@ export function useTTSController(
               const m = utteranceId.match(/utterance_(\d+)/);
               if (m) paragraphIndex = Number(m[1]);
             }
+          }
+
+          // Skip if WebView is not synced (during chapter transition)
+          if (!isWebViewSyncedRef.current) {
+            console.log(
+              `useTTSController: Skipping onSpeechStart during WebView transition`,
+            );
+            return;
           }
 
           if (paragraphIndex >= 0) {
@@ -1684,8 +1772,11 @@ export function useTTSController(
             }
 
             console.log(
-              `useTTSController: PREV_CHAPTER - resolving start index for chapter ${prevChapter.id}`,
+              `useTTSController: PREV_CHAPTER - navigating to chapter ${prevChapter.id}`,
             );
+
+            // Mark WebView as unsynced BEFORE navigation
+            isWebViewSyncedRef.current = false;
 
             mediaNavSourceChapterIdRef.current = chapter.id;
             mediaNavDirectionRef.current = 'PREV';
@@ -1743,8 +1834,11 @@ export function useTTSController(
             }
 
             console.log(
-              'useTTSController: NEXT_CHAPTER - starting from paragraph 0',
+              `useTTSController: NEXT_CHAPTER - navigating to chapter ${nextChapter.id}`,
             );
+
+            // Mark WebView as unsynced BEFORE navigation
+            isWebViewSyncedRef.current = false;
 
             mediaNavSourceChapterIdRef.current = chapter.id;
             mediaNavDirectionRef.current = 'NEXT';
