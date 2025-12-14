@@ -94,3 +94,6 @@ flake.lock
 # Roo AI assistant configuration
 .roo/
 .roomodes
+
+# Backup files
+WebViewReader_Backup.tsx
