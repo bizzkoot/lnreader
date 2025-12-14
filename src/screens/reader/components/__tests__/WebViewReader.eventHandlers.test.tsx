@@ -242,8 +242,12 @@ describe('WebViewReader Event Handlers', () => {
   };
 
   describe('onSpeechStart', () => {
-    it('should inject highlightParagraph JS into WebView', () => {
+    it('should inject highlightParagraph JS into WebView', async () => {
       renderComponent();
+
+      // Wait for WebView sync effect (300ms timeout + buffer)
+      await new Promise(resolve => setTimeout(resolve, 350));
+
       const handler = listeners['onSpeechStart'];
       expect(handler).toBeDefined();
 
@@ -275,8 +279,12 @@ describe('WebViewReader Event Handlers', () => {
       }
     });
 
-    it('should handle legacy utterance IDs (backwards compatibility)', () => {
+    it('should handle legacy utterance IDs (backwards compatibility)', async () => {
       renderComponent();
+
+      // Wait for WebView sync effect (300ms timeout + buffer)
+      await new Promise(resolve => setTimeout(resolve, 350));
+
       const handler = listeners['onSpeechStart'];
 
       handler({ utteranceId: 'utterance_3' });
@@ -289,8 +297,12 @@ describe('WebViewReader Event Handlers', () => {
   });
 
   describe('onSpeechDone', () => {
-    it('should defer to WebView logic when queue is empty/missing', () => {
+    it('should defer to WebView logic when queue is empty/missing', async () => {
       renderComponent();
+
+      // Wait for WebView sync effect (300ms timeout + buffer)
+      await new Promise(resolve => setTimeout(resolve, 350));
+
       const handler = listeners['onSpeechDone'];
       expect(handler).toBeDefined();
 

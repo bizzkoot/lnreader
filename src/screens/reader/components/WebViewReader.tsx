@@ -563,7 +563,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               event.chapterId !== chapter.id
             ) {
               console.log(
-                `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}`,
+                `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
               );
               break;
             }

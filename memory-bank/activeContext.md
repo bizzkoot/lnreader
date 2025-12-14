@@ -2,7 +2,23 @@
 
 ## Current Goals
 
-- Fix manual scroll overwrite of TTS position; prefer native TTS saved position on resume. Added new flags `isTTSPlayingRef`, `hasUserScrolledRef` in WebViewReader for robust TTS position handling. Updated tests and memory bank.
+- WebViewReader Refactor - Phase 2 Planning Complete
+- ## Current State
+- - Phase 1 (TTS extraction + critical chapter sync fixes) ✅ COMPLETE
+- - Phase 2 (100% functional parity) 📋 PLANNED - awaiting implementation
+- ## Critical Gaps Identified
+- 1. **Background TTS Chapter Navigation Effect** (CRITICAL) - Media controls PREV/NEXT don't work during background playback
+- 2. **Full Wake Handling** (HIGH) - Screen wake during TTS causes WebView/position desync
+- 3. **Wake Sync Chapter Mismatch Handler** (HIGH) - Chapter mismatch after wake not auto-resolved
+- ## Implementation Plan Created
+- - Detailed 3-step plan in `docs/analysis/WebViewReader-refactor-fixes.md`
+- - Step 1: Background TTS effect (1-2 hours)
+- - Step 2: Full wake handling (3-4 hours)
+- - Step 3: Wake sync chapter mismatch (2-3 hours)
+- - Step 4: Testing & validation (2-3 hours)
+- - Total: ~8-12 hours for 100% parity
+- ## Next Action
+- Awaiting user approval to begin Step 1 implementation (Background TTS Chapter Navigation Effect)
 
 ## Key Files Modified (TTS Progress Sync)
 

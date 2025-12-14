@@ -27,3 +27,11 @@
 | 2025-12-12 | Enhanced TTS Media Control - Phase 1 delivered, Phase 2 (MediaSession) deferred | Delivered enhanced notification with progress and 6 action intents, using NotificationCompat only. MediaSessionCompat integration was attempted but deferred due to unresolved dependency/import errors; code was commented out and MediaSession removed from the build to unblock releases. Awaiting follow-up investigation to re-enable MediaSession in a separate sprint. |
 | 2025-12-12 | MediaSessionCompat integration deferred. Build unblocked by reverting MediaSession-related code and removing androidx.media dependency. | Multiple build attempts (90+ minutes) produced unresolved imports for MediaSessionCompat/PlaybackStateCompat/MediaMetadataCompat. To unblock release, we revert the experimental integration and keep Phase 1 improvements. MediaSession re-integration will be planned in a follow-up once we can reproduce/resolve the dependency issue. |
 | 2025-12-13 | Prefer native TTS saved position on resume when lastTTSChapterIdRef matches current chapter; added flags to detect TTS playing and manual scrolling to prevent manual saves from clobbering TTS resume position. | Manual scrolling can update MMKV and cause the app to resume TTS from the wrong paragraph. By preferring the native saved position (SharedPreferences) when resuming playback via notifications (or cross-chapter), we ensure the TTS engine continues from the previous TTS position rather than user manual reading progress. |
+| 2025-12-14 | Identified 3 critical gaps in WebViewReader refactor preventing 100% functional parity with original | Systematic comparison of original 3,379-line WebViewReader vs refactored version revealed:
+1. Missing background TTS chapter navigation effect (breaks media controls during background playback)
+2. Incomplete wake handling logic (~400 lines in original, ~40 lines in refactored)
+3. Missing wake sync chapter mismatch detection and auto-navigation
+
+These gaps were intentional simplifications in Phase 1 (basic TTS extraction) but must be implemented for Phase 2 (100% parity).
+
+Decision: Create detailed step-by-step implementation plan with code samples, testing criteria, and risk assessment before proceeding. |
