@@ -6,8 +6,8 @@ applyTo: '**'
 
 - Original Repo: https://github.com/lnreader/lnreader
 - Fork Repo: https://github.com/bizzkoot/lnreader
-- Last Sync Date: 2025-12-07
-- Last Sync Commit: 5422fc02
+- Last Sync Date: 2025-12-14
+- Last Sync Commit: 3d95c4927 (upstream 8d15e418e)
 
 # Custom Modifications Registry
 
@@ -35,6 +35,26 @@ applyTo: '**'
 - src/screens/reader/components/ReaderBottomSheet/TTSTab.tsx (Upstream file removed in favor of ReaderTTSTab.tsx)
 
 # Merge History
+
+## 2025-12-14 - Upstream Merge (PR #7)
+ - Strategy: Auto-merge (GREEN - zero conflicts)
+ - Commits: 2 from upstream/master
+   - 8d15e418e: Translation updates (Crowdin)
+   - 3849b797c: Plugin settings fix (closes upstream #1674)
+ - Merge Commit: 3d95c4927
+ - Conflicts: None (automatic merge succeeded)
+ - Affected Files: 
+   - src/hooks/persisted/usePlugins.ts (+1 line: hasSettings property)
+   - 34 translation JSON files (enhanced notifications/backup strings)
+ - Local Checks:
+   - type-check: ✅ Passed
+   - lint: ✅ Passed (18 warnings, 0 errors)
+   - format:check: ✅ Passed
+   - test: ✅ 23 suites, 241 tests passed
+   - TTS validation: ✅ All wake cycle tests passed
+ - PR: https://github.com/bizzkoot/lnreader/pull/7
+ - Result: PR created and mergeable
+ - Fork Features: All custom TTS, UI scaling, backup features validated and intact
 
 ## 2025-12-07 - Upstream Merge & Validation
 
