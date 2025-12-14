@@ -49,6 +49,8 @@ export interface StringMap {
   'appearanceScreen.pureBlackDarkMode': 'string';
   'appearanceScreen.showHistoryInTheNav': 'string';
   'appearanceScreen.showUpdatesInTheNav': 'string';
+  'appearanceScreen.uiScale': 'string';
+  'appearanceScreen.uiScaleDesc': 'string';
   'appearanceScreen.themeMode': 'string';
   'appearanceScreen.themeModeLight': 'string';
   'appearanceScreen.themeModeDark': 'string';
@@ -68,6 +70,13 @@ export interface StringMap {
   'backupScreen.backupCreated': 'string';
   'backupScreen.backupRestored': 'string';
   'backupScreen.savingBackup': 'string';
+  'backupScreen.defaultBackupFolder': 'string';
+  'backupScreen.notSet': 'string';
+  'backupScreen.folderSelected': 'string';
+  'backupScreen.folderSelectionFailed': 'string';
+  'backupScreen.backupSavedToFolder': 'string';
+  'backupScreen.defaultFolderFailed': 'string';
+  'backupScreen.folderCleared': 'string';
   'backupScreen.categoriesRestored': 'string';
   'backupScreen.categoriesRestoredWithErrors': 'string';
   'backupScreen.categoryRestoreFailed': 'string';

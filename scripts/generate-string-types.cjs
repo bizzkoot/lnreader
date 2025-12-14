@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const prettier = require('prettier');
-const prettierConfig = require('../.prettierrc');
+const prettierConfig = require('../.prettierrc.cjs');
 
 const flatten = (obj, target, prefix) => {
   ((target = target || {}), (prefix = prefix || ''));
@@ -28,17 +28,19 @@ export interface StringMap ${JSON.stringify(flatten(JSON.parse(strings)))}
 
 `;
 
-const formatContent = prettier.format(stringTypes, {
-  parser: 'typescript',
-  ...prettierConfig,
-});
-
-fs.writeFile(
-  path.resolve(process.cwd(), 'strings/types/index.ts'),
-  formatContent,
-  err => {
-    if (err) {
-      console.log(err);
-    }
-  },
-);
+prettier
+  .format(stringTypes, {
+    parser: 'typescript',
+    ...prettierConfig,
+  })
+  .then(formatContent => {
+    fs.writeFile(
+      path.resolve(process.cwd(), 'strings/types/index.ts'),
+      formatContent,
+      err => {
+        if (err) {
+          console.log(err);
+        }
+      },
+    );
+  });

@@ -12,6 +12,7 @@ module.exports = {
     '^expo-web-browser$': '<rootDir>/__mocks__/expo-web-browser.js',
     '^expo-document-picker$': '<rootDir>/__mocks__/expo-document-picker.js',
     '^expo-file-system$': '<rootDir>/__mocks__/expo-file-system.js',
+    '^expo-file-system/legacy$': '<rootDir>/__mocks__/expo-file-system.js',
     '^expo-notifications$': '<rootDir>/__mocks__/expo-notifications.js',
     '^react-native-background-actions$':
       '<rootDir>/__mocks__/react-native-background-actions.js',
