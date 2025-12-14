@@ -168,35 +168,8 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Track native TTS position fetched async (fallback for background TTS saves)
   const [nativeTTSPosition, setNativeTTSPosition] = useState<number>(-1);
 
-  // FIX: Use a stable savedParagraphIndex that only updates when chapter changes.
-  // This prevents the WebView from reloading (and resetting TTS) when progress is saved.
-  // NEW: Also check MMKV and native SharedPreferences for the absolute latest progress
-  const initialSavedParagraphIndex = useMemo(
-    () => {
-      const mmkvIndex =
-        MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
-      const dbIndex = savedParagraphIndex ?? -1;
-      // Include native TTS position as fallback (covers background TTS saves)
-      const nativeIndex = nativeTTSPosition;
-      console.log(
-        `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}, Native: ${nativeIndex}`,
-      );
-      // Priority: MMKV/DB values (JS-side, more accurate) over native.
-      // Native is useful as fallback when app was killed during background TTS.
-      // Use max of DB and MMKV if either is valid, otherwise fall back to native.
-      const jsMax = Math.max(dbIndex, mmkvIndex);
-      if (jsMax >= 0) return jsMax;
-      if (nativeIndex >= 0) return nativeIndex;
-      return 0;
-    },
-    // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
-    // when progress is saved (which would update savedParagraphIndex)
-    // Include nativeTTSPosition to update when async fetch completes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chapter.id, nativeTTSPosition],
-  );
-
-  // Fetch native TTS position on chapter change (async fallback for background TTS saves)
+  // Fetch native TTS position BEFORE calculating initialSavedParagraphIndex
+  // This ensures we have the native position available synchronously
   useEffect(() => {
     const fetchNativeTTSPosition = async () => {
       try {
@@ -206,12 +179,15 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
             `WebViewReader: Native TTS position for chapter ${chapter.id}: ${position}`,
           );
           setNativeTTSPosition(position);
+        } else {
+          setNativeTTSPosition(-1);
         }
       } catch (error) {
         // Best-effort: if native call fails, fall back to MMKV/DB values
         console.log(
           'WebViewReader: Failed to fetch native TTS position, using MMKV/DB fallback',
         );
+        setNativeTTSPosition(-1);
       }
     };
 
@@ -219,6 +195,35 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({ onPress }) => {
     setNativeTTSPosition(-1);
     fetchNativeTTSPosition();
   }, [chapter.id]);
+
+  // FIX: Use a stable savedParagraphIndex that only updates when chapter changes.
+  // This prevents the WebView from reloading (and resetting TTS) when progress is saved.
+  // NEW: Also check MMKV and native SharedPreferences for the absolute latest progress
+  const initialSavedParagraphIndex = useMemo(
+    () => {
+      const mmkvIndex =
+        MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+      const dbIndex = savedParagraphIndex ?? -1;
+      // Include native TTS position (covers background TTS saves and media navigation)
+      const nativeIndex = nativeTTSPosition;
+      console.log(
+        `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}, Native: ${nativeIndex}`,
+      );
+      // Priority: Native TTS position (most recent from foreground service) > MMKV/DB
+      // Native position is the most authoritative source because it's updated by the
+      // foreground service during background playback and media control navigation
+      if (nativeIndex >= 0) return nativeIndex;
+      // Fallback to MMKV/DB values if native is not available
+      const jsMax = Math.max(dbIndex, mmkvIndex);
+      if (jsMax >= 0) return jsMax;
+      return 0;
+    },
+    // CRITICAL FIX: Only calculate once per chapter to prevent WebView reloads
+    // when progress is saved (which would update savedParagraphIndex)
+    // Include nativeTTSPosition to update when async fetch completes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chapter.id, nativeTTSPosition],
+  );
 
   // NEW: Create a stable chapter object that doesn't update on progress changes
   // This prevents the WebView from reloading when we save progress

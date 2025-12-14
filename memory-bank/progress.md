@@ -2,14 +2,15 @@
 
 ## Done
 
-- TTS media notification alignment improvements (foreground service)
-- Refactored TTS voice fallback logic to helper function
-- Replaced magic strings in TTSHighlightModule and other code improvements
+- Researched backup code using getContentUriAsync in src/services/backup/local/index.ts
+- Researched update check feature in src/hooks/common/useGithubUpdateChecker.ts and src/components/NewUpdateDialog.tsx
+- Reviewed eslint.config.js configuration
+- Retrieved expo-file-system documentation from Context7
 
 ## Doing
 
-- Fix manual scroll overwriting TTS position (WebViewReader)
+- Finalizing research findings and synthesis
 
 ## Next
 
-- Update memory-bank docs and commit changes to Git
+- Provide comprehensive research report with exact file paths and implementation details

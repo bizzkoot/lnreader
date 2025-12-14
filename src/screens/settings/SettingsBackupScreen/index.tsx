@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTheme } from '@hooks/persisted';
+import { useTheme, useLocalBackupFolder } from '@hooks/persisted';
 import { Appbar, List, SafeAreaView } from '@components';
 import { useBoolean } from '@hooks';
 import { BackupSettingsScreenProps } from '@navigators/types';
@@ -8,10 +8,15 @@ import SelfHostModal from './Components/SelfHostModal';
 import ServiceManager from '@services/ServiceManager';
 import { ScrollView } from 'react-native-gesture-handler';
 import { getString } from '@strings/translations';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
+import { showToast } from '@utils/showToast';
 
 const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
   const theme = useTheme();
+  const { folderUri, setFolderUri, folderName, clearFolder } =
+    useLocalBackupFolder();
+
   const {
     value: googleDriveModalVisible,
     setFalse: closeGoogleDriveModal,
@@ -23,6 +28,26 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
     setFalse: closeSelfHostModal,
     setTrue: openSelfHostModal,
   } = useBoolean();
+
+  const selectDefaultBackupFolder = async () => {
+    try {
+      const permissions =
+        await StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (permissions.granted) {
+        setFolderUri(permissions.directoryUri);
+        showToast(getString('backupScreen.folderSelected'));
+      }
+    } catch (error) {
+      showToast(getString('backupScreen.folderSelectionFailed'));
+    }
+  };
+
+  const handleLongPressClearFolder = () => {
+    if (folderUri) {
+      clearFolder();
+      showToast(getString('backupScreen.folderCleared'));
+    }
+  };
 
   return (
     <SafeAreaView excludeTop>
@@ -52,6 +77,17 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
           <List.SubHeader theme={theme}>
             {getString('backupScreen.localBackup')}
           </List.SubHeader>
+          <Pressable
+            onPress={selectDefaultBackupFolder}
+            onLongPress={handleLongPressClearFolder}
+            android_ripple={{ color: theme.rippleColor }}
+          >
+            <List.Item
+              title={getString('backupScreen.defaultBackupFolder')}
+              description={folderName || getString('backupScreen.notSet')}
+              theme={theme}
+            />
+          </Pressable>
           <List.Item
             title={getString('backupScreen.createBackup')}
             description={getString('backupScreen.createBackupDesc')}

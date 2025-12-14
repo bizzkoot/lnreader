@@ -1,17 +1,29 @@
 import { showToast } from '@utils/showToast';
 // import dayjs from 'dayjs';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { Share } from 'react-native';
 
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { ROOT_STORAGE } from '@utils/Storages';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { ZipBackupName } from '../types';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import { sleep } from '@utils/sleep';
+import { LOCAL_BACKUP_FOLDER_URI } from '@hooks/persisted/useLocalBackupFolder';
+
+// Helper function to share backup file via Android share sheet
+const shareBackupFile = async (filePath: string) => {
+  const contentUri = await FileSystem.getContentUriAsync(filePath);
+  await Share.share({
+    url: contentUri,
+    title: getString('backupScreen.backupCreated'),
+  });
+};
 
 export const createBackup = async (
   setMeta?: (
@@ -57,17 +69,56 @@ export const createBackup = async (
       progressText: getString('backupScreen.savingBackup'),
     }));
 
-    // const datetime = dayjs().format('YYYY-MM-DD_HH_mm');
-    // const fileName = 'lnreader_backup_' + datetime + '.zip';
-    const fileUri = 'file://' + CACHE_DIR_PATH + '.zip';
+    // Copy the zip file to expo-file-system's cache directory
+    // This is necessary because getContentUriAsync only works with paths
+    // that expo-file-system created or knows about
+    const nativeZipPath = 'file://' + CACHE_DIR_PATH + '.zip';
+    const expoZipPath = FileSystem.cacheDirectory + 'lnreader_backup.zip';
 
-    // Get content URI for sharing on Android
-    const contentUri = await FileSystem.getContentUriAsync(fileUri);
-
-    await Share.share({
-      url: contentUri,
-      title: getString('backupScreen.backupCreated'),
+    await FileSystem.copyAsync({
+      from: nativeZipPath,
+      to: expoZipPath,
     });
+
+    // Check if default backup folder is set
+    const defaultFolderUri = MMKVStorage.getString(LOCAL_BACKUP_FOLDER_URI);
+
+    if (defaultFolderUri) {
+      // Save directly to default folder
+      try {
+        const timestamp = new Date()
+          .toISOString()
+          .replace(/[:.]/g, '-')
+          .slice(0, -5);
+        const fileName = `lnreader_backup_${timestamp}.zip`;
+
+        const destUri = await StorageAccessFramework.createFileAsync(
+          defaultFolderUri,
+          fileName,
+          'application/zip',
+        );
+
+        // Read the backup file and write to destination
+        const base64Content = await FileSystem.readAsStringAsync(expoZipPath, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        await StorageAccessFramework.writeAsStringAsync(
+          destUri,
+          base64Content,
+          { encoding: FileSystem.EncodingType.Base64 },
+        );
+
+        showToast(getString('backupScreen.backupSavedToFolder'));
+      } catch (error) {
+        // If default folder save fails, fall back to share sheet
+        showToast(getString('backupScreen.defaultFolderFailed'));
+        await shareBackupFile(expoZipPath);
+      }
+    } else {
+      // No default folder, use share sheet
+      await shareBackupFile(expoZipPath);
+    }
 
     setMeta?.(meta => ({
       ...meta,

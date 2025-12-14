@@ -9,6 +9,7 @@ import {
 import { Portal, ProgressBar } from 'react-native-paper';
 import * as Linking from 'expo-linking';
 import { ScrollView } from 'react-native-gesture-handler';
+import Markdown from 'react-native-markdown-display';
 import Button from './Button/Button';
 import { getString } from '@strings/translations';
 import { useTheme, useAppSettings } from '@hooks/persisted';
@@ -128,9 +129,112 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
       default:
         return (
           <ScrollView style={[styles.scrollView, { height: modalHeight }]}>
-            <Text style={[styles.body, { color: theme.onSurfaceVariant }]}>
-              {newVersion.body.split('\n').join('\n\n')}
-            </Text>
+            <Markdown
+              style={{
+                body: {
+                  color: theme.onSurfaceVariant,
+                  fontSize: scaleDimension(14, uiScale),
+                  lineHeight: scaleDimension(20, uiScale),
+                },
+                heading1: {
+                  color: theme.onSurface,
+                  fontSize: scaleDimension(22, uiScale),
+                  fontWeight: 'bold',
+                  marginTop: scaleDimension(16, uiScale),
+                  marginBottom: scaleDimension(8, uiScale),
+                },
+                heading2: {
+                  color: theme.onSurface,
+                  fontSize: scaleDimension(19, uiScale),
+                  fontWeight: 'bold',
+                  marginTop: scaleDimension(14, uiScale),
+                  marginBottom: scaleDimension(6, uiScale),
+                },
+                heading3: {
+                  color: theme.onSurface,
+                  fontSize: scaleDimension(17, uiScale),
+                  fontWeight: '600',
+                  marginTop: scaleDimension(12, uiScale),
+                  marginBottom: scaleDimension(4, uiScale),
+                },
+                paragraph: {
+                  marginTop: scaleDimension(4, uiScale),
+                  marginBottom: scaleDimension(4, uiScale),
+                },
+                link: {
+                  color: theme.primary,
+                  textDecorationLine: 'underline',
+                },
+                code_inline: {
+                  color: theme.onSurface,
+                  backgroundColor: theme.surfaceVariant,
+                  fontFamily: 'monospace',
+                  fontSize: scaleDimension(13, uiScale),
+                  paddingHorizontal: 4,
+                  paddingVertical: 2,
+                  borderRadius: 3,
+                },
+                code_block: {
+                  color: theme.onSurface,
+                  backgroundColor: theme.surfaceVariant,
+                  fontFamily: 'monospace',
+                  fontSize: scaleDimension(12, uiScale),
+                  padding: 10,
+                  borderRadius: 5,
+                  marginVertical: scaleDimension(8, uiScale),
+                },
+                fence: {
+                  color: theme.onSurface,
+                  backgroundColor: theme.surfaceVariant,
+                  fontFamily: 'monospace',
+                  fontSize: scaleDimension(12, uiScale),
+                  padding: 10,
+                  borderRadius: 5,
+                  marginVertical: scaleDimension(8, uiScale),
+                },
+                bullet_list: {
+                  marginVertical: scaleDimension(4, uiScale),
+                },
+                ordered_list: {
+                  marginVertical: scaleDimension(4, uiScale),
+                },
+                list_item: {
+                  color: theme.onSurfaceVariant,
+                  marginVertical: scaleDimension(2, uiScale),
+                  flexDirection: 'row',
+                },
+                bullet_list_icon: {
+                  color: theme.onSurfaceVariant,
+                  marginLeft: scaleDimension(8, uiScale),
+                  marginRight: scaleDimension(4, uiScale),
+                },
+                bullet_list_content: {
+                  flex: 1,
+                },
+                strong: {
+                  fontWeight: 'bold',
+                  color: theme.onSurface,
+                },
+                em: {
+                  fontStyle: 'italic',
+                },
+                hr: {
+                  backgroundColor: theme.outline,
+                  height: 1,
+                  marginVertical: scaleDimension(12, uiScale),
+                },
+                blockquote: {
+                  backgroundColor: theme.surfaceVariant,
+                  borderLeftColor: theme.primary,
+                  borderLeftWidth: 4,
+                  marginVertical: scaleDimension(8, uiScale),
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                },
+              }}
+            >
+              {newVersion.body}
+            </Markdown>
           </ScrollView>
         );
     }
@@ -197,10 +301,6 @@ export default NewUpdateDialog;
 
 const createStyles = (uiScale: number) =>
   StyleSheet.create({
-    body: {
-      fontSize: scaleDimension(15, uiScale),
-      fontWeight: '500',
-    },
     buttonCtn: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
