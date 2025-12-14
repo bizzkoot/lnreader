@@ -2,9 +2,13 @@
 ## Phase 1 & Phase 2 Hook Testing
 
 **Created:** 2025-01-XX  
-**Status:** 1/11 hooks tested (useDialogState ✅)  
+**Updated:** 2025-01-XX (Type safety fixes)  
+**Status:** 1/11 hooks tested (useDialogState ✅) - Type errors resolved ✅  
 **Library:** @testing-library/react-hooks@8.0.1 (Installed ✅)  
-**Project:** LNReader TTS Refactoring (React Native + TypeScript)
+**Project:** LNReader TTS Refactoring (React Native + TypeScript)  
+**Commits:** 
+- feat: Phase 1+2 Refactoring + Test Infrastructure (SHA: 7b4f4b2e8)
+- fix(tests): Correct type errors in test files (SHA: 2bee65ba5)
 
 ---
 
@@ -23,6 +27,16 @@
 - Hooks use refs, timers, async operations, and storage
 - Zero regression guarantee requires comprehensive testing
 - Tests serve as living documentation for future developers
+
+**⚠️ CRITICAL - TYPE SAFETY RESOLVED:**
+Initial commit had type errors in test files. These were fixed in commit 2bee65ba5:
+- ✅ Removed unused MMKVStorage import (TS6133)
+- ✅ Fixed SyncDialogInfo structure (requires 4 fields: chapterName, paragraphIndex, totalParagraphs, progress)
+- ✅ Fixed SyncDialogStatus values ('failed' not 'error')
+- ✅ Added "CRITICAL TYPE SAFETY NOTES" section below
+- ✅ All test files now pass `pnpm run type-check`
+
+**See "CRITICAL TYPE SAFETY NOTES" section for correct types to use in future tests.**
 
 ---
 
