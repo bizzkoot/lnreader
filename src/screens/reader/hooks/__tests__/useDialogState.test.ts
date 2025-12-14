@@ -223,8 +223,10 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
       const { result } = renderHook(() => useDialogState());
 
       const info = {
-        message: 'Syncing chapter...',
-        chapterId: 123,
+        chapterName: 'Test Chapter',
+        paragraphIndex: 0,
+        totalParagraphs: 100,
+        progress: 0,
       };
 
       act(() => {
@@ -239,8 +241,10 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
 
       act(() => {
         result.current.setSyncDialogInfo({
-          message: 'Test',
-          chapterId: 1,
+          chapterName: 'Test Chapter',
+          paragraphIndex: 0,
+          totalParagraphs: 100,
+          progress: 0,
         });
       });
 
@@ -254,10 +258,10 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
     it('should handle all sync dialog statuses', () => {
       const { result } = renderHook(() => useDialogState());
 
-      const statuses: Array<'syncing' | 'success' | 'error'> = [
+      const statuses: Array<'syncing' | 'success' | 'failed'> = [
         'syncing',
         'success',
-        'error',
+        'failed',
       ];
 
       statuses.forEach(status => {

@@ -95,10 +95,11 @@ pnpm run test -- src/screens/reader/hooks/__tests__/useTTSUtilities.test.ts
    - ✅ Initial state validation
    - ✅ Exit dialog toggle and data
    - ✅ Chapter selection dialog
-   - ✅ Sync dialog (3 statuses: syncing, success, error)
+   - ✅ Sync dialog (3 statuses: syncing, success, failed)
    - ✅ Multiple dialogs simultaneously
    - ✅ Re-render stability
    - **Status:** PASSING (all tests green)
+   - **Type Safety:** Fixed SyncDialogStatus ('failed' not 'error'), SyncDialogInfo structure
 
 ---
 
@@ -1246,7 +1247,75 @@ pnpm run test
 
 ---
 
-## 📝 FINAL NOTES FOR NEW SESSION AGENT
+## � CRITICAL TYPE SAFETY NOTES
+
+### Known Type Errors to Avoid
+
+**1. SyncDialogStatus Type (CORRECTED)**
+```typescript
+// ❌ WRONG (will cause type error)
+const statuses = ['syncing', 'success', 'error'];
+
+// ✅ CORRECT (matches src/screens/reader/types/tts.ts)
+const statuses: Array<'syncing' | 'success' | 'failed'> = ['syncing', 'success', 'failed'];
+```
+
+**2. SyncDialogInfo Structure (CORRECTED)**
+```typescript
+// ❌ WRONG (missing required fields)
+const info = {
+  message: 'Test',
+  chapterId: 1,
+};
+
+// ✅ CORRECT (matches type definition)
+const info: SyncDialogInfo = {
+  chapterName: 'Test Chapter',
+  paragraphIndex: 0,
+  totalParagraphs: 100,
+  progress: 0,
+};
+```
+
+**3. Import Hygiene**
+```typescript
+// ❌ WRONG (unused imports cause type-check errors)
+import { MMKVStorage } from '@utils/mmkv/mmkv';
+
+// ✅ CORRECT (only import what you use)
+import { renderHook } from '@testing-library/react-hooks';
+```
+
+### Type Safety Validation
+
+**Before committing ANY test file:**
+```bash
+# Run type-check (MUST pass)
+pnpm run type-check
+
+# Common errors to check:
+# - TS6133: Unused imports
+# - TS2345: Argument type mismatch
+# - TS2353: Unknown property in object literal
+```
+
+**If type-check fails:**
+1. Check src/screens/reader/types/tts.ts for correct type definitions
+2. Ensure all mock objects match real types exactly
+3. Remove unused imports
+4. Use explicit type annotations where needed
+
+### Known Issues
+
+**WebViewReader_Backup.tsx Type Errors (IGNORE)**
+- This is a backup file with missing imports
+- Does NOT affect your test implementation
+- Type errors in backup file are acceptable
+- Only NEW test files must pass type-check
+
+---
+
+## �📝 FINAL NOTES FOR NEW SESSION AGENT
 
 **Context Summary:**
 - User completed Phase 2 refactoring (5 hooks extracted, all validated)

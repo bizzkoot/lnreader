@@ -14,8 +14,6 @@
  * 5. Chapter transition synchronization
  */
 
-import { MMKVStorage } from '@utils/mmkv/mmkv';
-
 // Mock dependencies before imports
 jest.mock('@utils/mmkv/mmkv');
 jest.mock('@database/queries/ChapterQueries');
