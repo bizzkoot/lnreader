@@ -4,6 +4,7 @@ import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
 import ReaderAppbar from './components/ReaderAppbar';
 import ReaderFooter from './components/ReaderFooter';
 
+// Using refactored WebViewReader with TTS logic extracted to useTTSController hook
 import WebViewReader from './components/WebViewReader';
 import ReaderBottomSheetV2 from './components/ReaderBottomSheet/ReaderBottomSheet';
 import ChapterDrawer from './components/ChapterDrawer';
