@@ -4404,3 +4404,51 @@ Tests fall into these categories:
 
 **Estimated Completion**: 2-3 hours with implementation-first methodology
 
+---
+
+## SESSION 8 — 2025-12-15
+
+**Summary:** Continued implementation-first fixes focusing on `useTTSController` integration tests. Progress reduced failing tests from 13 → 2 by updating test expectations, initializing ref-backed state, correcting Android media intent strings, and improving timer control in tests.
+
+**Key Discoveries:**
+
+1. **TTS Media Intent Strings**: Tests were using simplified actions like 'PLAY_PAUSE' but actual implementation expects full Android intent strings:
+   ```typescript
+   'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE'
+   'com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER'
+   'com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER'
+   ```
+
+2. **Ref-Backed State Dependencies**: Functions like `saveProgress` check both `ttsStateRef.current` and `chapterGeneralSettingsRef.current.ttsContinueToNextChapter`. Tests must initialize these refs properly.
+
+3. **Background Playback Routing**: The 'tts-queue' message handler routes to `addToBatch()` when `ttsBackgroundPlayback` is true, not to `speakBatch()` as originally assumed.
+
+4. **Queue Boundary Logic**: `onSpeechDone` has complex queue boundary checking:
+   - Ignores events when `index < queueStartIndex`
+   - Defers to WebView when `index >= queueEndIndex`
+   - Only processes when within active queue range
+
+**Actions taken in Session 8:**
+- ✅ Fixed media action tests to use full Android intent strings
+- ✅ Added `ttsStateRef` initialization via `tts-state` message in tests requiring `saveProgress`
+- ✅ Updated test expectations for `addToBatch` vs `speakBatch` based on background playback setting
+- ✅ Enhanced mock clearing at deterministic points to avoid false positives
+- ✅ Added timer control and fake timers for stable WebView sync timing
+- ✅ Fixed onQueueEmpty test to set `ttsContinueToNextChapter: 'continuous'`
+
+**Remaining failures (2/534 tests):**
+
+1. **onSpeechDone Queue Boundary Tests**: Need to ensure tests manipulate the same ref objects (`currentParagraphIndexRef`, `queueStartIndexRef`, `queueEndIndexRef`) used by the hook.
+2. **WebView Routing Timing**: The 'tts-queue' test needs proper `isWebViewSyncedRef` state initialization.
+
+**Critical Implementation Details Found:**
+- `wakeTransitionInProgressRef` blocks `onSpeechDone` processing during wake cycles
+- `isWebViewSyncedRef` must be true before TTS operations accept queue messages
+- `saveProgress` requires both position data AND correct chapter settings
+
+**Next Steps:**
+- Fix the two remaining `onSpeechDone` tests by properly manipulating shared ref objects
+- Ensure `isWebViewSyncedRef` is set correctly for WebView routing tests
+- Re-run full test suite and commit changes once 534/534 tests pass
+
+

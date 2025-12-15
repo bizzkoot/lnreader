@@ -902,6 +902,18 @@ describe('useTTSController - Integration Tests', () => {
           queueFixtures.activeQueue.texts, // Has 5 paragraphs, can advance within bounds
         );
 
+        // Initialize ttsStateRef by sending tts-state message (as WebView would)
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: queueFixtures.activeQueue.startIndex,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
+        });
+
         // Clear Date.now mock calls from initialization
         (Date.now as jest.Mock).mockClear();
 
@@ -922,14 +934,18 @@ describe('useTTSController - Integration Tests', () => {
         // Create simulator
         const simulator = new WebViewMessageSimulator(result);
 
-        // Scenario: Start TTS at index 0, then jump to mid-chapter queue at index 50
-        // This simulates user jumping ahead while TTS is playing
+        // Start TTS at index 0
         await simulateTTSStart(
           simulator,
           queueFixtures.activeQueue.chapterId,
           0, // Start at beginning
           ['First paragraph'], // Single paragraph at start
         );
+
+        // Manually set currentParagraphIndex to 0 to ensure we're before queue start
+        await act(async () => {
+          result.current.currentParagraphIndex = 0;
+        });
 
         // Now post a mid-chapter queue (startIndex=50) without going through simulateTTSStart
         // This simulates jumping ahead in the chapter
@@ -941,7 +957,13 @@ describe('useTTSController - Integration Tests', () => {
           );
         });
 
-        const initialSaveCalls = mockSaveProgress.mock.calls.length;
+        // Manually set currentParagraphIndexRef to 0 to ensure we're before queue start
+        await act(async () => {
+          result.current.currentParagraphIndex = 0;
+        });
+
+        // Clear all previous saveProgress calls to get clean baseline
+        mockSaveProgress.mockClear();
 
         // Trigger onSpeechDone while currentIdx is still 0 (< queueStartIndex of 50)
         // This should be ignored because we're before the queue start
@@ -949,8 +971,8 @@ describe('useTTSController - Integration Tests', () => {
           triggerNativeEvent('onSpeechDone');
         });
 
-        // Should not cause additional progress save (queue bounds validation)
-        expect(mockSaveProgress.mock.calls.length).toBe(initialSaveCalls);
+        // Should not cause any progress save (queue bounds validation)
+        expect(mockSaveProgress).not.toHaveBeenCalled();
       });
 
       it('should defer to WebView when index >= queueEndIndex', async () => {
@@ -969,8 +991,12 @@ describe('useTTSController - Integration Tests', () => {
         // Clear previous WebView calls from initialization
         (mockWebViewRef.current?.injectJavaScript as jest.Mock).mockClear();
 
-        // Advance to end of queue using helper
-        await simulateParagraphAdvance(triggerNativeEvent, 1); // 0 → 1 (end)
+        // Trigger onSpeechDone to advance from index 0 to 1 (end of queue)
+        await act(async () => {
+          triggerNativeEvent('onSpeechDone');
+          // Advance timers to ensure any async operations complete
+          jest.advanceTimersByTime(0);
+        });
 
         // At end of queue, should defer to WebView for next batch
         // Production code injects 'tts.next?.()' (optional chaining)
@@ -990,8 +1016,19 @@ describe('useTTSController - Integration Tests', () => {
           queueFixtures.activeQueue.texts,
         );
 
-        // Simulate complete wake cycle (background → active)
-        await simulateWakeCycle(appStateListener);
+        // Go to background first
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('background');
+          }
+        });
+
+        // Then go to active (this sets wakeTransitionInProgressRef)
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('active');
+          }
+        });
 
         const saveBefore = mockSaveProgress.mock.calls.length;
 
@@ -1192,7 +1229,9 @@ describe('useTTSController - Integration Tests', () => {
         (TTSHighlight.pause as jest.Mock).mockClear();
 
         await act(async () => {
-          triggerNativeEvent('onMediaAction', { action: 'PLAY_PAUSE' });
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
         });
 
         expect(TTSHighlight.pause).toHaveBeenCalled();
@@ -1212,7 +1251,9 @@ describe('useTTSController - Integration Tests', () => {
         );
 
         await act(async () => {
-          triggerNativeEvent('onMediaAction', { action: 'PREV_CHAPTER' });
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER',
+          });
         });
 
         expect(mockNavigateChapter).toHaveBeenCalledWith('PREV');
@@ -1232,7 +1273,9 @@ describe('useTTSController - Integration Tests', () => {
         );
 
         await act(async () => {
-          triggerNativeEvent('onMediaAction', { action: 'NEXT_CHAPTER' });
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER',
+          });
         });
 
         expect(mockNavigateChapter).toHaveBeenCalledWith('NEXT');
@@ -1256,8 +1299,12 @@ describe('useTTSController - Integration Tests', () => {
 
         // Fire two rapid actions
         await act(async () => {
-          triggerNativeEvent('onMediaAction', { action: 'NEXT_CHAPTER' });
-          triggerNativeEvent('onMediaAction', { action: 'NEXT_CHAPTER' });
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER',
+          });
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.NEXT_CHAPTER',
+          });
         });
 
         // Second call should be debounced - only 1 navigation
@@ -1276,7 +1323,13 @@ describe('useTTSController - Integration Tests', () => {
       });
 
       it('should save progress when onQueueEmpty fires', async () => {
-        const params = createDefaultParams();
+        const params = createDefaultParams({
+          chapterGeneralSettingsRef: {
+            current: {
+              ttsContinueToNextChapter: 'continuous', // Enable continue to next chapter
+            } as ChapterGeneralSettings,
+          },
+        });
         const { result } = renderHook(() => useTTSController(params));
 
         // Start TTS first so onQueueEmpty has context
@@ -1287,6 +1340,23 @@ describe('useTTSController - Integration Tests', () => {
           queueFixtures.singleParagraphQueue.startIndex,
           queueFixtures.singleParagraphQueue.texts,
         );
+
+        // Initialize ttsStateRef by sending tts-state message (as WebView would)
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: queueFixtures.singleParagraphQueue.startIndex,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
+        });
+
+        // Mock TTSHighlight methods to allow onQueueEmpty to proceed
+        (TTSHighlight.isRestartInProgress as jest.Mock).mockReturnValue(false);
+        (TTSHighlight.isRefillInProgress as jest.Mock).mockReturnValue(false);
+        (TTSHighlight.hasRemainingItems as jest.Mock).mockReturnValue(false);
 
         // Clear previous save calls
         mockSaveProgress.mockClear();
@@ -1532,12 +1602,30 @@ describe('useTTSController - Integration Tests', () => {
 
     describe('Screen Sleep', () => {
       it('should pause TTS when screen goes to background', async () => {
-        const params = createDefaultParams();
+        const params = createDefaultParams({
+          chapterGeneralSettingsRef: {
+            current: {
+              ttsBackgroundPlayback: false, // Disable background playback to trigger stop
+            } as ChapterGeneralSettings,
+          },
+        });
         const { result } = renderHook(() => useTTSController(params));
 
         // Start TTS
         const simulator = new WebViewMessageSimulator(result);
         await simulateTTSStart(simulator, 100, 0, ['First']);
+
+        // Initialize ttsStateRef so saveProgress is called on background
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: 0,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
+        });
 
         (TTSHighlight.stop as jest.Mock).mockClear();
 
@@ -1552,12 +1640,30 @@ describe('useTTSController - Integration Tests', () => {
       });
 
       it('should save current position when sleeping', async () => {
-        const params = createDefaultParams();
+        const params = createDefaultParams({
+          chapterGeneralSettingsRef: {
+            current: {
+              ttsBackgroundPlayback: false, // Disable background playback
+            } as ChapterGeneralSettings,
+          },
+        });
         const { result } = renderHook(() => useTTSController(params));
 
         // Start TTS
         const simulator = new WebViewMessageSimulator(result);
         await simulateTTSStart(simulator, 100, 0, ['First']);
+
+        // Initialize ttsStateRef so saveProgress is called on background
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: 0,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
+        });
 
         mockSaveProgress.mockClear();
 
@@ -1572,12 +1678,32 @@ describe('useTTSController - Integration Tests', () => {
       });
 
       it('should preserve TTS state when sleeping', async () => {
-        const params = createDefaultParams();
+        const params = createDefaultParams({
+          chapterGeneralSettingsRef: {
+            current: {
+              ttsBackgroundPlayback: false, // Disable background playback
+            } as ChapterGeneralSettings,
+          },
+        });
         const { result } = renderHook(() => useTTSController(params));
 
         // Start TTS
         const simulator = new WebViewMessageSimulator(result);
         await simulateTTSStart(simulator, 100, 0, ['First']);
+
+        // Initialize ttsStateRef so saveProgress is called on background
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: 0,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
+        });
+
+        mockSaveProgress.mockClear();
 
         // Sleep
         await act(async () => {
@@ -1602,7 +1728,13 @@ describe('useTTSController - Integration Tests', () => {
 
   describe('WebView Message Routing', () => {
     it('should handle tts-queue message and initialize TTS', async () => {
-      const params = createDefaultParams();
+      const params = createDefaultParams({
+        chapterGeneralSettingsRef: {
+          current: {
+            ttsBackgroundPlayback: true, // Enable background playback to trigger addToBatch
+          } as ChapterGeneralSettings,
+        },
+      });
       const { result } = renderHook(() => useTTSController(params));
 
       jest.advanceTimersByTime(300); // Wait for isWebViewSyncedRef
@@ -1617,7 +1749,8 @@ describe('useTTSController - Integration Tests', () => {
         result.current.handleTTSMessage(queueMessage as any);
       });
 
-      expect(TTSHighlight.speakBatch).toHaveBeenCalled();
+      // Should call addToBatch (not speakBatch) when background playback is enabled
+      expect(TTSHighlight.addToBatch).toHaveBeenCalled();
     });
 
     it('should handle change-paragraph-position message', async () => {

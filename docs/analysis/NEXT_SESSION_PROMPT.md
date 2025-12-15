@@ -1,123 +1,125 @@
-# Next Session Prompt: Fix Remaining 13 Integration Tests
+# Next Session Prompt: Complete Final 2 Integration Tests
 
 ## Context
-**Current Status**: 521/534 tests passing (97.6%), 13 tests failing  
-**Test File**: `src/screens/reader/hooks/__tests__/useTTSController.integration.test.ts`  
-**Infrastructure**: ✅ FULLY FIXED (message structure + timing/async)  
-**Session 7 Progress**: 6 tests fixed (wake cycles + WebView routing)  
-**Key Breakthrough**: Implementation-first review reveals actual behavior vs test assumptions
+**Current Status**: 532/534 tests passing (99.6%), 2 tests failing
+**Test File**: `src/screens/reader/hooks/__tests__/useTTSController.integration.test.ts`
+**Infrastructure**: ✅ FULLY FIXED (message structure + timing/async)
+**Session 8 Progress**: Reduced failing tests from 13 → 2 by implementing implementation-first review methodology
+**Key Breakthrough**: Testing with actual implementation behavior, not assumptions
 
 ## Your Prompt for Next Session
 
 ```
-Continue fixing the remaining 13 failing integration tests in useTTSController.integration.test.ts using the implementation-first review methodology.
+Complete the final 2 failing integration tests in useTTSController.integration.test.ts using implementation-first review methodology.
 
 Current status:
-- Tests passing: 521/534 (97.6%)
-- Tests failing: 13/534 (2.4%)
-- Session 7 completed: Fixed 6 tests (wake cycles + WebView routing)
+- Tests passing: 532/534 (99.6%)
+- Tests failing: 2/534 (0.4%)
+- Session 8 completed: Fixed 11 tests (media actions, sleep tests, WebView routing, queue initialization)
 
-The 13 remaining failures need implementation code review first:
+The 2 remaining failures are:
+1. "should ignore onSpeechDone when index < queueStartIndex" (lines 949-972)
+2. "should defer to WebView when index >= queueEndIndex" (lines 978-1012)
 
-**Batch A: onSpeechDone (4 tests)** - Lines 889-967
-1. "should update ttsStateRef timestamp when onSpeechDone advances"
-2. "should ignore onSpeechDone when index < queueStartIndex"
-3. "should defer to WebView when index >= queueEndIndex"
-4. "should skip onSpeechDone during wake transition"
+Both tests need to manipulate the SAME ref objects that the hook uses.
 
-**Action**: Read useTTSController.ts lines 1359-1432 (onSpeechDone implementation) first
+Key findings from Session 8:
+- Full Android media intent strings are required:
+  'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE' not 'PLAY_PAUSE'
+- ttsStateRef must be initialized via 'tts-state' message before saveProgress works
+- Background playback routes 'tts-queue' to addToBatch, not speakBatch
+- Queue boundary logic in onSpeechDone is complex:
+  * ignores events when index < queueStartIndex
+  * defers to WebView when index >= queueEndIndex
 
-**Batch D: onMediaAction (4 tests)** - Lines 1178-1277
-1. "should pause TTS when PLAY_PAUSE received during reading"
-2. "should navigate to PREV_CHAPTER when media action received"
-3. "should navigate to NEXT_CHAPTER when media action received"
-4. "should debounce rapid media actions"
+Next session should:
+1. Run the failing tests to see exact error messages
+2. Read onSpeechDone implementation (useTTSController.ts lines 1359-1432)
+3. Fix tests to properly manipulate shared ref objects:
+   - Ensure currentParagraphIndexRef.current matches test expectations
+   - Verify queueStartIndexRef.current and queueEndIndexRef.current are correct
+   - Check if wakeTransitionInProgressRef affects behavior
+4. Validate isWebViewSyncedRef state if needed
+5. Re-run tests until 534/534 pass
 
-**Action**: Read useTTSController.ts lines 1652-1848 (media action handler) first
+Documentation: See test-implementation-plan.md SESSION 8 for detailed patterns and fixes.
 
-**Batch E: onQueueEmpty (1 test)** - Lines 1278-1297
-1. "should save progress when onQueueEmpty fires"
-
-**Action**: Read useTTSController.ts lines 1871-1938 (onQueueEmpty handler) first
-
-**Screen Sleep (3 tests)** - Lines 1527-1589
-1. "should pause TTS when screen goes to background"
-2. "should save current position when sleeping"
-3. "should preserve TTS state when sleeping"
-
-**Action**: Debug why tests fail despite checking TTSHighlight.stop (seems correct)
-
-**WebView Routing (1 test)** - Lines 1603-1614
-1. "should handle tts-queue message and initialize TTS"
-
-**Action**: Read 'tts-queue' handler (lines 881-988), check why speakBatch not called
-
-Key methodology from Session 7:
-1. **Read actual implementation code first** (useTTSController.ts specific lines)
-2. **Identify observable behaviors** (function calls, WebView injections, API calls)
-3. **Fix tests to match implementation reality** (not assumptions)
-4. **Verify one step at a time** (test after each fix)
-
-Documentation: See test-implementation-plan.md SESSION 7 for wake cycle patterns and examples.
-
-Goal: Achieve 534/534 passing (100%) by aligning all tests with actual implementation behavior.
+Goal: Achieve 534/534 passing (100%) by aligning final tests with actual implementation behavior.
 ```
 
-## Session 7 Key Discoveries
+## Session 8 Key Discoveries
 
-**Wake Cycle Real Implementation**:
-```
-AppState 'active' → Pause → Scroll sync injection (300ms) → 900ms delay → TTSHighlight.speakBatch()
-```
-- ❌ Does NOT use 'ttsRequestQueueSync' injection
-- ❌ Does NOT need queue message from WebView
-- ✅ Directly calls speakBatch after 1200ms total
+### TTS Media Intent Strings
+```typescript
+// ❌ WRONG (simplified actions)
+triggerNativeEvent('onMediaAction', { action: 'PLAY_PAUSE' });
 
-**Sleep Cycle Real Implementation**:
+// ✅ CORRECT (full Android intent strings)
+triggerNativeEvent('onMediaAction', {
+  action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE'
+});
 ```
-AppState 'background' → Save state → TTSHighlight.stop() → isTTSReadingRef = false
+
+### Ref-Backed State Dependencies
+```typescript
+// Functions like saveProgress check multiple refs:
+- ttsStateRef.current.paragraphIndex (must be set)
+- chapterGeneralSettingsRef.current.ttsContinueToNextChapter (must be configured)
+- isWebViewSyncedRef.current (must be true)
 ```
-- ✅ Uses stop(), not pause()
-- ✅ Immediate (no delays)
 
-**Non-existent Handlers**:
-- 'tts-sync-error' - not in implementation
-- 'change-paragraph-position' - not in implementation
-- 'ttsRequestQueueSync' - never injected
+### Background Playback Routing
+```typescript
+// When ttsBackgroundPlayback = true:
+'tts-queue' message → addToBatch() // ✅ correct
+'tts-queue' message → speakBatch()  // ❌ wrong
 
-**Real Handlers** (lines 691-991):
-- 'speak' → speakBatch
-- 'stop-speak' → fullStop
-- 'tts-queue' → addToBatch
-- 'tts-state' → update refs
-- (7 more dialog/prompt handlers)
+// When ttsBackgroundPlayback = false:
+'tts-queue' message → speakBatch() // ✅ correct
+'tts-queue' message → addToBatch() // ❌ wrong
+```
+
+### Queue Boundary Logic in onSpeechDone
+```typescript
+// Complex boundary checking:
+if (currentParagraphIndex < queueStartIndex) {
+  // IGNORE event - don't process
+  return;
+}
+
+if (currentParagraphIndex >= queueEndIndex) {
+  // DEFER to WebView - inject 'tts.next?.()'
+  return;
+}
+
+// Process event normally
+```
 
 ## What This Will Do
 
 The agent will:
-1. **Read onSpeechDone implementation** (lines 1359-1432)
-2. **Fix Batch A tests** (4 tests) based on actual behavior
-3. **Read onMediaAction implementation** (lines 1652-1848)
-4. **Fix Batch D tests** (4 tests) based on actual behavior
-5. **Read onQueueEmpty implementation** (lines 1871-1938)
-6. **Fix Batch E test** (1 test) based on actual behavior
-7. **Debug sleep tests** (3 tests) - implementation looks correct but tests fail
-8. **Debug tts-queue test** (1 test) - check handler conditions
+1. **Run failing tests** to get exact error messages
+2. **Read onSpeechDone implementation** (lines 1359-1432) to understand queue boundary logic
+3. **Analyze ref object sharing** - ensure tests manipulate same refs as hook
+4. **Fix test setup** to properly initialize refs before triggering events
+5. **Validate test assertions** match actual implementation behavior
+6. **Run full test suite** to confirm 534/534 tests pass
 
 ## Expected Outcome
 
-By the end of next session:
+By end of next session:
 - ✅ All 534 integration tests passing (100%)
-- ✅ Zero regressions in 521 passing tests
+- ✅ Zero regressions in 532 passing tests
 - ✅ All tests aligned with actual implementation
-- ✅ Clean test suite ready for CI/CD
+- ✅ Clean test suite ready for commit
 
 ## Files to Monitor
 
 - `src/screens/reader/hooks/__tests__/useTTSController.integration.test.ts` (test file being fixed)
 - `src/screens/reader/hooks/useTTSController.ts` (implementation reference)
-- `docs/analysis/test-implementation-plan.md` (SESSION 7 completed)
-- No production code changes expected (all fixes in test code)
+- `docs/analysis/test-implementation-plan.md` (SESSION 8 completed)
+
+No production code changes expected (all fixes in test code).
 
 ## Success Criteria
 
@@ -126,63 +128,47 @@ pnpm test -- useTTSController.integration.test.ts
 # Expected output: Tests: 0 failed, 534 passed, 534 total
 ```
 
-## Quick Reference: Session 7 Implementation-First Patterns
+## Quick Reference: Implementation-First Patterns
 
-**Methodology**:
-```
-1. Read implementation code (specific line ranges)
-2. Document actual behavior flow
-3. Identify observable behaviors (API calls, injections)
-4. Update test assertions to match reality
-5. Verify test passes
-```
-
-**Wake Cycle Example**:
+### Ref Manipulation Pattern
 ```typescript
-// ❌ WRONG (before implementation review)
-expect(mockInjectJavaScript).toHaveBeenCalledWith(
-  expect.stringContaining('ttsRequestQueueSync')
-);
+// ✅ CORRECT: Manipulate the same ref object
+await act(async () => {
+  result.current.currentParagraphIndex = 0; // Updates shared ref
+});
 
-// ✅ CORRECT (after reading implementation)
-await act(async () => { jest.advanceTimersByTime(1200); });
-expect(TTSHighlight.speakBatch).toHaveBeenCalled();
+// ❌ WRONG: Only update local state
+expect(result.current.currentParagraphIndex).toBe(0); // May not update shared ref
 ```
 
-**Observable Behaviors to Check**:
+### Message Initialization Pattern
 ```typescript
-// ✅ Function calls
-expect(TTSHighlight.speakBatch).toHaveBeenCalled();
-expect(TTSHighlight.stop).toHaveBeenCalled();
-expect(mockSaveProgress).toHaveBeenCalledWith(...);
-
-// ✅ WebView injections (if actually exist)
-expect(mockInjectJavaScript).toHaveBeenCalledWith(
-  expect.stringContaining('actualInjectedCode')
-);
-
-// ✅ State changes
-expect(result.current.showExitDialog).toBe(true);
-
-// ❌ Avoid stale refs
-expect(result.current.isTTSReadingRef.current).toBe(true); // May not reflect reality
+// ✅ Initialize ttsStateRef before testing
+await act(async () => {
+  const ttsStateEvent: any = {
+    type: 'tts-state',
+    data: {
+      paragraphIndex: 0,
+      timestamp: Date.now(),
+    },
+  };
+  simulator.result.current.handleTTSMessage(ttsStateEvent);
+});
 ```
 
-**Message Format** (already fixed in Session 7):
+### Observable Behaviors
 ```typescript
-// ✅ Correct (parsed WebViewPostEvent)
-const msg: any = {
-  type: 'tts-queue',
-  data: ['text1', 'text2'],
-  startIndex: 0,
-  chapterId: 100
-};
+// Check these actual behaviors:
+- mockSaveProgress.mock.calls.length (was saveProgress called?)
+- mockInjectJavaScript.mock.calls (was JS injected?)
+- TTSHighlight.speakBatch.mock.calls (was TTS called?)
 ```
 
-**Implementation Code Ranges to Review**:
-- onSpeechDone: lines 1359-1432
-- onMediaAction: lines 1652-1848
-- onQueueEmpty: lines 1871-1938
-- AppState sleep: lines 1988-2014
-- 'tts-queue' handler: lines 881-988
+## Final Implementation Notes
 
+- The hook uses shared refs extensively across functions
+- Queue boundary logic protects against invalid indices
+- WebView sync state affects message processing
+- Implementation-first approach prevents assuming behavior
+
+Focus on aligning tests with what the code ACTUALLY does, not what we think it should do.
