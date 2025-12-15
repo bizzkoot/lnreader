@@ -1636,6 +1636,51 @@ describe('useTTSController - Integration Tests', () => {
           (TTSHighlight.speakBatch as jest.Mock).mock.calls.length,
         ).toBeGreaterThanOrEqual(2);
       });
+
+      it('should update TTS button icon to Pause on wake during background TTS', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // Start TTS first to set isTTSReadingRef = true
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(simulator, 100, 0, ['First paragraph']);
+
+        // Clear previous WebView injection calls
+        (mockWebViewRef.current?.injectJavaScript as jest.Mock).mockClear();
+
+        // Simulate screen wake (background → active)
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('background');
+            appStateListener('active');
+          }
+          // Advance timers to allow wake sync to execute (300ms delay)
+          jest.advanceTimersByTime(400);
+        });
+
+        // Verify injectJavaScript was called during wake sync
+        const injectCalls = (
+          mockWebViewRef.current?.injectJavaScript as jest.Mock
+        ).mock.calls;
+        expect(injectCalls.length).toBeGreaterThan(0);
+
+        // Find the wake sync injection call that updates button icon
+        const wakeSyncCall = injectCalls.find((call: any[]) => {
+          const script = String(call[0] || '');
+          return (
+            script.includes('Screen wake sync') &&
+            script.includes("getElementById('TTS-Controller')") &&
+            script.includes('pauseIcon')
+          );
+        });
+
+        // Verify the button icon update code exists in the wake sync injection
+        expect(wakeSyncCall).toBeDefined();
+        expect(wakeSyncCall[0]).toContain(
+          'controller.firstElementChild.innerHTML',
+        );
+        expect(wakeSyncCall[0]).toContain('window.tts.pauseIcon');
+      });
     });
 
     describe('Screen Sleep', () => {

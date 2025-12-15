@@ -2200,6 +2200,14 @@ export function useTTSController(
                       window.tts.hasAutoResumed = true;
                       window.tts.started = true;
                       
+                      // BUG FIX: Update TTS button icon to show 'Pause' when TTS is running
+                      // This ensures the button reflects the actual state after resume from notification
+                      const controller = document.getElementById('TTS-Controller');
+                      if (controller && controller.firstElementChild && window.tts.pauseIcon) {
+                        controller.firstElementChild.innerHTML = window.tts.pauseIcon;
+                        console.log('TTS: Screen wake - updated button to Pause icon');
+                      }
+                      
                       // Update TTS internal state for proper continuation
                       const readableElements = reader.getReadableElements();
                       if (readableElements && readableElements[${syncIndex}]) {
