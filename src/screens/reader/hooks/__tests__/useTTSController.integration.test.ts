@@ -934,17 +934,27 @@ describe('useTTSController - Integration Tests', () => {
         // Create simulator
         const simulator = new WebViewMessageSimulator(result);
 
-        // Start TTS at index 0
-        await simulateTTSStart(
-          simulator,
-          queueFixtures.activeQueue.chapterId,
-          0, // Start at beginning
-          ['First paragraph'], // Single paragraph at start
-        );
-
-        // Manually set currentParagraphIndex to 0 to ensure we're before queue start
+        // Manually set up minimal initial state to avoid simulateTTSStart queue conflicts
+        // Send 'speak' message to start TTS reading without queue
         await act(async () => {
-          result.current.currentParagraphIndex = 0;
+          const speakEvent: any = {
+            type: 'speak',
+            data: 'Initial paragraph',
+            paragraphIndex: 0,
+          };
+          simulator.result.current.handleTTSMessage(speakEvent);
+        });
+
+        // Initialize ttsStateRef to set currentParagraphIndexRef to 0 (before queue start)
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: 0,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
         });
 
         // Now post a mid-chapter queue (startIndex=50) without going through simulateTTSStart
@@ -955,11 +965,6 @@ describe('useTTSController - Integration Tests', () => {
             queueFixtures.midChapterQueue.startIndex, // 50
             queueFixtures.midChapterQueue.texts,
           );
-        });
-
-        // Manually set currentParagraphIndexRef to 0 to ensure we're before queue start
-        await act(async () => {
-          result.current.currentParagraphIndex = 0;
         });
 
         // Clear all previous saveProgress calls to get clean baseline
@@ -979,28 +984,61 @@ describe('useTTSController - Integration Tests', () => {
         const params = createDefaultParams();
         const { result } = renderHook(() => useTTSController(params));
 
-        // Create simulator and initialize with single paragraph queue (0-1)
+        // Create simulator
         const simulator = new WebViewMessageSimulator(result);
-        await simulateTTSStart(
-          simulator,
-          queueFixtures.singleParagraphQueue.chapterId,
-          queueFixtures.singleParagraphQueue.startIndex,
-          queueFixtures.singleParagraphQueue.texts, // Only 1 paragraph
-        );
 
-        // Clear previous WebView calls from initialization
+        // Skip speak message to avoid automatic queue setup that conflicts with manual queue
+        // Manually set up minimal TTS reading state
+        await act(async () => {
+          // Access isTTSReadingRef through simulator's refs
+          const refs = simulator.result.current.refs;
+          if (refs?.isTTSReadingRef) {
+            refs.isTTSReadingRef.current = true;
+          }
+        });
+
+        // Manually post the single paragraph queue
+        await act(async () => {
+          await simulator.postTTSQueue(
+            queueFixtures.singleParagraphQueue.chapterId,
+            queueFixtures.singleParagraphQueue.startIndex, // 0
+            queueFixtures.singleParagraphQueue.texts, // ['Single paragraph only']
+          );
+        });
+
+        // Set up current paragraph index to 0 to simulate initial state
+        await act(async () => {
+          const ttsStateEvent: any = {
+            type: 'tts-state',
+            data: {
+              paragraphIndex: 0,
+              timestamp: Date.now(),
+            },
+          };
+          simulator.result.current.handleTTSMessage(ttsStateEvent);
+        });
+
+        // Advance timers for WebView sync
+        await act(async () => {
+          jest.advanceTimersByTime(300); // isWebViewSyncedRef = true
+          // Fire onSpeechStart to set up playing state
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_${queueFixtures.singleParagraphQueue.chapterId}_utterance_0`,
+          });
+        });
+
+        // Clear all WebView calls to get clean baseline
         (mockWebViewRef.current?.injectJavaScript as jest.Mock).mockClear();
 
-        // Trigger onSpeechDone to advance from index 0 to 1 (end of queue)
+        // Trigger onSpeechDone when we're at the last paragraph (index 0 of 1)
+        // This should detect queue end and defer to WebView
         await act(async () => {
           triggerNativeEvent('onSpeechDone');
-          // Advance timers to ensure any async operations complete
           jest.advanceTimersByTime(0);
         });
 
-        // At end of queue, should defer to WebView for next batch
-        // Production code injects 'tts.next?.()' (optional chaining)
-        assertWebViewInjection(mockWebViewRef, 'tts.next');
+        // Should defer to WebView for next batch (tts.next?.() injection)
+        assertWebViewInjection(mockWebViewRef, 'tts.next?.()');
       });
 
       it('should skip onSpeechDone during wake transition', async () => {
