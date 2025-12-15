@@ -406,15 +406,22 @@ export function useTTSController(
   // Chapter Change Effect - Phase 2 Step 1: Extracted to useChapterTransition
   // ===========================================================================
 
-  useChapterTransition({
-    chapterId: chapter.id,
-    refs: {
+  // Memoize refs object to prevent useEffect re-runs
+  // (Creating a new object literal on every render causes dependency change)
+  const chapterTransitionRefs = useMemo(
+    () => ({
       prevChapterIdRef,
       chapterTransitionTimeRef,
       isWebViewSyncedRef,
       mediaNavSourceChapterIdRef,
       mediaNavDirectionRef,
-    },
+    }),
+    [], // Empty deps - refs are stable, this object should never change
+  );
+
+  useChapterTransition({
+    chapterId: chapter.id,
+    refs: chapterTransitionRefs,
   });
 
   // ===========================================================================

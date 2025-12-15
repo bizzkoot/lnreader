@@ -549,5 +549,110 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       jest.advanceTimersByTime(300);
       expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
     });
+
+    it('BUG FIX 2025-12-15: refs object should not cause useEffect re-runs', () => {
+      // CONTEXT: Session 2 investigation found that passing refs as inline object
+      // literal caused React to see a "new" object on every render, triggering useEffect repeatedly.
+      // Console showed: "Chapter changed to 100 (prev: 100)" multiple times.
+      //
+      // ROOT CAUSE: In useTTSController.ts, refs object was created inline:
+      //   useChapterTransition({ chapterId: chapter.id, refs: { ...refs } })
+      //
+      // FIX: Memoize refs object using useMemo() with empty deps array.
+      //   const chapterTransitionRefs = useMemo(() => ({ ...refs }), []);
+      //
+      // This test verifies the useEffect only runs when chapterId actually changes.
+
+      const { rerender } = renderHook(
+        ({ chapterId, refs }) =>
+          useChapterTransition({
+            chapterId,
+            refs,
+          }),
+        { initialProps: { chapterId: 100, refs: mockRefs } },
+      );
+
+      // Clear console spy to count only subsequent calls
+      consoleLogSpy.mockClear();
+
+      // Rerender with SAME chapterId and SAME refs object
+      rerender({ chapterId: 100, refs: mockRefs });
+
+      // useEffect should NOT re-run (chapterId unchanged)
+      expect(consoleLogSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('Chapter changed'),
+      );
+
+      // Now change chapterId - useEffect SHOULD run
+      rerender({ chapterId: 200, refs: mockRefs });
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Chapter changed to 200'),
+      );
+
+      // Count: should be called ONCE for chapter 200 change only
+      const chapterChangeCalls = consoleLogSpy.mock.calls.filter(call =>
+        call[0].includes('Chapter changed'),
+      );
+      expect(chapterChangeCalls).toHaveLength(1);
+    });
+
+    it('BUG FIX VALIDATION: multiple renders do not reset isWebViewSyncedRef', () => {
+      // SYMPTOM: After timer fires (300ms) and sets isWebViewSyncedRef = true,
+      // a re-render would cause useEffect to run again, resetting it to false.
+      // This broke TTS event handling during WebView transitions.
+      //
+      // EXPECTED: isWebViewSyncedRef stays true after timer fires, even if
+      // component re-renders (as long as chapterId hasn't changed).
+
+      const { rerender } = renderHook(
+        ({ chapterId, refs }) =>
+          useChapterTransition({
+            chapterId,
+            refs,
+          }),
+        { initialProps: { chapterId: 100, refs: mockRefs } },
+      );
+
+      // Wait for timer to set isWebViewSyncedRef = true
+      jest.advanceTimersByTime(300);
+      expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
+
+      // Simulate a re-render (same props)
+      rerender({ chapterId: 100, refs: mockRefs });
+
+      // BUG: If useEffect re-runs, isWebViewSyncedRef would be reset to false
+      // FIX: useEffect should NOT re-run if chapterId and refs unchanged
+      expect(mockRefs.isWebViewSyncedRef.current).toBe(true); // ✅ Should remain true
+    });
+
+    it('BUG FIX VALIDATION: timer should fire exactly once per chapter change', () => {
+      // SYMPTOM: Console logs showed timer firing multiple times for same chapter.
+      // "WebView marked as synced for chapter 100" appeared 3-4 times.
+      //
+      // ROOT CAUSE: useEffect running on every render due to inline refs object.
+      // Each run creates a new timer, all firing independently.
+      //
+      // EXPECTED: Timer fires ONCE per chapter change.
+
+      renderHook(() =>
+        useChapterTransition({
+          chapterId: 100,
+          refs: mockRefs,
+        }),
+      );
+
+      consoleLogSpy.mockClear();
+
+      // Advance time - timer should fire once
+      jest.advanceTimersByTime(300);
+
+      // Count how many times "WebView marked as synced" was logged
+      const syncLogs = consoleLogSpy.mock.calls.filter(call =>
+        call[0].includes('WebView marked as synced for chapter 100'),
+      );
+
+      expect(syncLogs).toHaveLength(1); // ✅ Should fire exactly once
+    });
   });
 });

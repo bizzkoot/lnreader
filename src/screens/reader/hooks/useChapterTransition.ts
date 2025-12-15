@@ -97,5 +97,5 @@ export function useChapterTransition(params: ChapterTransitionParams): void {
     }, 300);
 
     return () => clearTimeout(syncTimer);
-  }, [chapterId, refs]);
+  }, [chapterId, refs]); // refs now safe - memoized in useTTSController to prevent re-runs
 }
