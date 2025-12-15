@@ -1071,6 +1071,12 @@ window.tts = new (function () {
 
         this.speak();
         this.reading = true;
+
+        // Update TTS controller icon to show pause icon
+        const controller = document.getElementById('TTS-Controller');
+        if (controller?.firstElementChild) {
+          controller.firstElementChild.innerHTML = this.pauseIcon;
+        }
       } else {
         this.start();
       }
@@ -1107,6 +1113,12 @@ window.tts = new (function () {
         timestamp: Date.now(),
       },
     });
+
+    // Update TTS controller icon to show resume/play icon
+    const controller = document.getElementById('TTS-Controller');
+    if (controller?.firstElementChild) {
+      controller.firstElementChild.innerHTML = this.resumeIcon;
+    }
 
     // Clear operation flag after a brief delay
     setTimeout(() => {
@@ -1357,6 +1369,12 @@ window.tts = new (function () {
             timestamp: Date.now(),
           },
         });
+
+        // Update TTS controller icon to show pause icon when speaking
+        const controller = document.getElementById('TTS-Controller');
+        if (controller?.firstElementChild) {
+          controller.firstElementChild.innerHTML = this.pauseIcon;
+        }
 
         // NEW: Send lookahead queue for background playback
         const nextTexts = [];

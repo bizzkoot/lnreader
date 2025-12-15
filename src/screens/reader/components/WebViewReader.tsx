@@ -234,41 +234,50 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   const { tts: liveReaderTts } = useChapterReaderSettings();
 
+  // Track previous TTS values to detect genuine changes
+  const previousTtsRef = useRef(liveReaderTts);
+
   useEffect(() => {
     if (liveReaderTts) {
-      const oldTts = readerSettingsRef.current.tts;
+      // Compare against PREVIOUS values, not current ref
+      const oldTts = previousTtsRef.current;
+
+      // Compare actual values BEFORE updating the ref
       const voiceChanged =
         oldTts?.voice?.identifier !== liveReaderTts.voice?.identifier;
       const rateChanged = oldTts?.rate !== liveReaderTts.rate;
       const pitchChanged = oldTts?.pitch !== liveReaderTts.pitch;
       const settingsChanged = voiceChanged || rateChanged || pitchChanged;
 
-      readerSettingsRef.current = {
-        ...readerSettingsRef.current,
-        tts: liveReaderTts,
-      } as any;
-      applyTtsUpdateToWebView(liveReaderTts, webViewRef);
+      // Only proceed if settings actually changed
+      if (settingsChanged) {
+        // Update both refs with new settings
+        previousTtsRef.current = liveReaderTts;
+        readerSettingsRef.current = {
+          ...readerSettingsRef.current,
+          tts: liveReaderTts,
+        } as any;
 
-      // Restart TTS if settings changed during playback
-      if (
-        settingsChanged &&
-        tts.isTTSReading &&
-        tts.currentParagraphIndex >= 0
-      ) {
-        console.log(
-          'WebViewReader: TTS settings changed while playing, restarting with new settings',
-        );
+        // Apply to WebView
+        applyTtsUpdateToWebView(liveReaderTts, webViewRef);
 
-        TTSHighlight.setRestartInProgress(true);
-        TTSHighlight.stop();
+        // Restart TTS if currently playing
+        if (tts.isTTSReading && tts.currentParagraphIndex >= 0) {
+          console.log(
+            'WebViewReader: TTS settings changed while playing, restarting with new settings',
+          );
 
-        const idx = tts.currentParagraphIndex;
-        const paragraphs = extractParagraphs(html);
+          TTSHighlight.setRestartInProgress(true);
+          TTSHighlight.stop();
 
-        if (paragraphs && paragraphs.length > idx) {
-          tts.restartTtsFromParagraphIndex(idx);
-        } else {
-          TTSHighlight.setRestartInProgress(false);
+          const idx = tts.currentParagraphIndex;
+          const paragraphs = extractParagraphs(html);
+
+          if (paragraphs && paragraphs.length > idx) {
+            tts.restartTtsFromParagraphIndex(idx);
+          } else {
+            TTSHighlight.setRestartInProgress(false);
+          }
         }
       }
     }

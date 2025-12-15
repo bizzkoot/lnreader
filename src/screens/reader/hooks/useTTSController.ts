@@ -1677,7 +1677,14 @@ export function useTTSController(
 
               webViewRef.current?.injectJavaScript(`
                 window.ttsLastStopTime = Date.now();
-                if (window.tts) window.tts.reading = false;
+                if (window.tts) {
+                  window.tts.reading = false;
+                  // Update button icon to show resume/play icon
+                  const controller = document.getElementById('TTS-Controller');
+                  if (controller?.firstElementChild && window.tts.resumeIcon) {
+                    controller.firstElementChild.innerHTML = window.tts.resumeIcon;
+                  }
+                }
               `);
 
               lastTTSPauseTimeRef.current = Date.now();
