@@ -127,6 +127,18 @@ export interface StringMap {
   'backupScreen.selfHostDesc': 'string';
   'backupScreen.uploadingData': 'string';
   'backupScreen.uploadingDownloadedFiles': 'string';
+  'backupScreen.automaticBackups': 'string';
+  'backupScreen.backupFrequency': 'string';
+  'backupScreen.backupFrequencyManual': 'string';
+  'backupScreen.backupFrequency6h': 'string';
+  'backupScreen.backupFrequency12h': 'string';
+  'backupScreen.backupFrequencyDaily': 'string';
+  'backupScreen.backupFrequency2days': 'string';
+  'backupScreen.backupFrequencyWeekly': 'string';
+  'backupScreen.maxAutoBackups': 'string';
+  'backupScreen.autoBackupWarning': 'string';
+  'backupScreen.autoBackupStarting': 'string';
+  'backupScreen.autoBackupPending': 'string';
   'browse': 'string';
   'browseScreen.addedToLibrary': 'string';
   'browseScreen.available': 'string';
@@ -183,6 +195,7 @@ export interface StringMap {
   'common.categories': 'string';
   'common.chapters': 'string';
   'common.clear': 'string';
+  'common.close': 'string';
   'common.copiedToClipboard': 'string';
   'common.delete': 'string';
   'common.deleted': 'string';

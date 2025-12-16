@@ -26,7 +26,7 @@ import AppErrorBoundary, {
   ErrorFallback,
 } from '@components/AppErrorBoundary/AppErrorBoundary';
 import { useDatabaseInitialization } from '@hooks';
-import { useAppSettings, useTheme } from '@hooks/persisted';
+import { useAppSettings, useTheme, useAutoBackup } from '@hooks/persisted';
 import { getScaledFonts } from '@theme/fonts';
 
 import Main from './src/navigators/Main';
@@ -135,6 +135,12 @@ const ThemedPaperProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { uiScale = 1.0 } = useAppSettings();
   const appTheme = useTheme();
+  const { checkAndTriggerBackup } = useAutoBackup();
+
+  // Check for automatic backup on app launch
+  useEffect(() => {
+    checkAndTriggerBackup();
+  }, [checkAndTriggerBackup]);
 
   const paperTheme = useMemo(() => {
     const baseTheme = appTheme.isDark ? MD3DarkTheme : MD3LightTheme;

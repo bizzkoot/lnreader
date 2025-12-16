@@ -26,6 +26,8 @@ interface NewUpdateDialogProps {
     body: string;
     downloadUrl: string;
   };
+  type?: 'update' | 'whatsNew';
+  onDismiss?: () => void;
 }
 
 type DialogState =
@@ -34,7 +36,11 @@ type DialogState =
   | { status: 'installing' }
   | { status: 'error'; message: string };
 
-const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
+const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({
+  newVersion,
+  type = 'update',
+  onDismiss,
+}) => {
   const [visible, setVisible] = useState(true);
   const [state, setState] = useState<DialogState>({ status: 'idle' });
 
@@ -77,8 +83,9 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
   const handleDismiss = useCallback(() => {
     if (state.status !== 'downloading') {
       setVisible(false);
+      onDismiss?.();
     }
-  }, [state.status]);
+  }, [state.status, onDismiss]);
 
   const renderContent = () => {
     switch (state.status) {
@@ -135,6 +142,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
                   color: theme.onSurfaceVariant,
                   fontSize: scaleDimension(14, uiScale),
                   lineHeight: scaleDimension(20, uiScale),
+                  padding: 8,
                 },
                 heading1: {
                   color: theme.onSurface,
@@ -257,6 +265,18 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
       );
     }
 
+    if (type === 'whatsNew') {
+      return (
+        <View style={styles.buttonCtn}>
+          <Button title={getString('common.close')} onPress={handleDismiss} />
+          <Button
+            title={getString('common.viewOnGithub')}
+            onPress={handleViewOnGithub}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.buttonCtn}>
         <Button title={getString('common.later')} onPress={handleDismiss} />
@@ -273,11 +293,18 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({ newVersion }) => {
     );
   };
 
+  const getTitle = () => {
+    if (type === 'whatsNew') {
+      return `${getString('aboutScreen.whatsNew')} ${newVersion.tag_name}`;
+    }
+    return `${getString('common.newUpdateAvailable')} ${newVersion.tag_name}`;
+  };
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={handleDismiss}>
         <Text style={[styles.modalHeader, { color: theme.onSurface }]}>
-          {`${getString('common.newUpdateAvailable')} ${newVersion.tag_name}`}
+          {getTitle()}
         </Text>
         {renderContent()}
         {renderButtons()}

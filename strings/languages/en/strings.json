@@ -137,7 +137,19 @@
     "selfHost": "Self Host",
     "selfHostDesc": "Backup to your server",
     "uploadingData": "Uploading Data",
-    "uploadingDownloadedFiles": "Uploading Downloaded Files"
+    "uploadingDownloadedFiles": "Uploading Downloaded Files",
+    "automaticBackups": "Automatic backups",
+    "backupFrequency": "Backup frequency",
+    "backupFrequencyManual": "Manual",
+    "backupFrequency6h": "Every 6 hours",
+    "backupFrequency12h": "Every 12 hours",
+    "backupFrequencyDaily": "Daily",
+    "backupFrequency2days": "Every 2 days",
+    "backupFrequencyWeekly": "Weekly",
+    "maxAutoBackups": "Max automatic backups",
+    "autoBackupWarning": "Backups are created when you open the app after the set interval. Keep copies in other places as well.",
+    "autoBackupStarting": "Starting automatic backup...",
+    "autoBackupPending": "Backup pending"
   },
   "browse": "Browse",
   "browseScreen": {
@@ -210,6 +222,7 @@
     "categories": "Categories",
     "chapters": "Chapters",
     "clear": "Clear",
+    "close": "Close",
     "copiedToClipboard": "Copied to clipboard: %{name}",
     "delete": "Delete",
     "deleted": "Deleted %{name}",

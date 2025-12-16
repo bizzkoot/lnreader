@@ -25,6 +25,11 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
     body: string;
     downloadUrl: string;
   } | null>(null);
+  const [whatsNewInfo, setWhatsNewInfo] = useState<{
+    tag_name: string;
+    body: string;
+    downloadUrl: string;
+  } | null>(null);
 
   function getBuildName() {
     if (!GIT_HASH || !RELEASE_DATE || !BUILD_TYPE) {
@@ -39,6 +44,42 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
       return `${BUILD_TYPE} ${version} (${localDateTime}) Commit: ${GIT_HASH}`;
     }
   }
+
+  const checkWhatsNew = async () => {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/bizzkoot/lnreader/releases/tags/v${version}`,
+      );
+
+      if (!res.ok) {
+        // If specific tag not found, might mean custom build or unreleased version.
+        // Fallback to latest just to show something? No, better show toast or open browser.
+        Linking.openURL(
+          `https://github.com/bizzkoot/lnreader/releases/tag/v${version}`,
+        );
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!data || !data.tag_name) {
+        Linking.openURL(
+          `https://github.com/bizzkoot/lnreader/releases/tag/v${version}`,
+        );
+        return;
+      }
+
+      setWhatsNewInfo({
+        tag_name: data.tag_name,
+        body: data.body || '',
+        downloadUrl: '', // Not needed for whatsNew
+      });
+    } catch {
+      Linking.openURL(
+        `https://github.com/bizzkoot/lnreader/releases/tag/v${version}`,
+      );
+    }
+  };
 
   const checkForUpdates = async () => {
     setIsCheckingUpdate(true);
@@ -101,12 +142,9 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
           />
           <List.Item
             title={getString('aboutScreen.whatsNew')}
-            onPress={() =>
-              Linking.openURL(
-                `https://github.com/bizzkoot/lnreader/releases/tag/v${version}`,
-              )
-            }
+            onPress={checkWhatsNew}
             theme={theme}
+            right="open-in-new"
           />
           <List.Item
             title={getString('common.checkForUpdates')}
@@ -161,7 +199,20 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
       {/* Update Dialog Portal */}
       {updateInfo && (
         <Portal>
-          <NewUpdateDialog newVersion={updateInfo} />
+          <NewUpdateDialog
+            newVersion={updateInfo}
+            type="update"
+            onDismiss={() => setUpdateInfo(null)}
+          />
+        </Portal>
+      )}
+      {whatsNewInfo && (
+        <Portal>
+          <NewUpdateDialog
+            newVersion={whatsNewInfo}
+            type="whatsNew"
+            onDismiss={() => setWhatsNewInfo(null)}
+          />
         </Portal>
       )}
     </SafeAreaView>
