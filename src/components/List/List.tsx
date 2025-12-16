@@ -144,12 +144,15 @@ const InfoItem = ({
   const dynamicStyles = useMemo(
     () => ({
       infoCtn: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
         paddingHorizontal: scaleDimension(16, uiScale),
         paddingVertical: scaleDimension(12, uiScale),
       },
       infoMsg: {
+        flex: 1,
         fontSize: scaleDimension(12, uiScale),
-        marginTop: scaleDimension(12, uiScale),
+        marginLeft: scaleDimension(12, uiScale),
       },
     }),
     [uiScale],
