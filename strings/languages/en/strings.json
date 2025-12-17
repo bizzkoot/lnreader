@@ -149,7 +149,13 @@
     "maxAutoBackups": "Max automatic backups",
     "autoBackupWarning": "Backups are created when you open the app after the set interval. Keep copies in other places as well.",
     "autoBackupStarting": "Starting automatic backup...",
-    "autoBackupPending": "Backup pending"
+    "autoBackupPending": "Backup pending",
+    "restoringRepositories": "Restoring Repositories",
+    "repositoriesRestored": "Restored %{count} repositories",
+    "repositoriesRestoredWithErrors": "Restored %{count} repositories (%{failedCount} failed)",
+    "repositoryRestoreFailed": "Failed to restore repository: %{url} - %{error}",
+    "repositoryFileReadFailed": "Failed to read repository file: %{error}",
+    "repositoryFileWriteFailed": "Failed to write repository file: %{error}"
   },
   "browse": "Browse",
   "browseScreen": {

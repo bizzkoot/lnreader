@@ -72,7 +72,7 @@ const AvailablePluginCard = ({
             ]}
           />
           <Animated.View style={styles.details}>
-            <AppText
+            <Animated.Text
               numberOfLines={1}
               style={[
                 {
@@ -83,8 +83,8 @@ const AvailablePluginCard = ({
               ]}
             >
               {plugin.name}
-            </AppText>
-            <AppText
+            </Animated.Text>
+            <Animated.Text
               numberOfLines={1}
               style={[
                 { color: theme.onSurfaceVariant },
@@ -93,7 +93,7 @@ const AvailablePluginCard = ({
               ]}
             >
               {`${getLocaleLanguageName(plugin.lang)} - ${plugin.version}`}
-            </AppText>
+            </Animated.Text>
           </Animated.View>
         </Animated.View>
         <IconButtonV2

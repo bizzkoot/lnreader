@@ -139,6 +139,12 @@ export interface StringMap {
   'backupScreen.autoBackupWarning': 'string';
   'backupScreen.autoBackupStarting': 'string';
   'backupScreen.autoBackupPending': 'string';
+  'backupScreen.restoringRepositories': 'string';
+  'backupScreen.repositoriesRestored': 'string';
+  'backupScreen.repositoriesRestoredWithErrors': 'string';
+  'backupScreen.repositoryRestoreFailed': 'string';
+  'backupScreen.repositoryFileReadFailed': 'string';
+  'backupScreen.repositoryFileWriteFailed': 'string';
   'browse': 'string';
   'browseScreen.addedToLibrary': 'string';
   'browseScreen.available': 'string';
