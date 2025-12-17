@@ -206,7 +206,7 @@ const initialAppSettings: AppSettings = {
   showLabelsInNav: true,
   useFabForContinueReading: false,
   disableLoadingAnimations: false,
-  uiScale: 0.8,
+  uiScale: 1.0,
 
   /**
    * Library settings
