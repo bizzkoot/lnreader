@@ -53,6 +53,20 @@ const languageMap: Record<string, string> = {
   'zh-TW': '繁體中文',
 };
 
+const TTSFeatureItem = ({ icon, title, desc, theme, uiScale, styles }: any) => (
+  <View style={styles.ttsFeatureItem}>
+    <MaterialCommunityIcons
+      name={icon}
+      size={scaleDimension(24, uiScale)}
+      color={theme.primary}
+    />
+    <View>
+      <AppText style={styles.ttsFeatureTitle}>{title}</AppText>
+      <AppText style={styles.ttsFeatureDesc}>{desc}</AppText>
+    </View>
+  </View>
+);
+
 export default function OnboardingScreen() {
   const theme = useTheme();
   const { uiScale = 1.0, setAppSettings } = useAppSettings();
@@ -335,6 +349,98 @@ export default function OnboardingScreen() {
           </Pressable>
         </View>
 
+        {/* TTS Section */}
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <View style={styles.restoreHeader}>
+            <MaterialCommunityIcons
+              name="volume-high"
+              size={scaleDimension(24, uiScale)}
+              color={theme.primary}
+            />
+            <AppText style={[styles.sectionTitle, { color: theme.onSurface }]}>
+              {getString('onboardingScreen.ttsTitle')}
+            </AppText>
+          </View>
+          <AppText
+            style={[styles.restoreDesc, { color: theme.onSurfaceVariant }]}
+          >
+            {getString('onboardingScreen.ttsDesc')}
+          </AppText>
+
+          <View style={styles.instructionBox}>
+            <View style={styles.instructionRow}>
+              <MaterialCommunityIcons
+                name="book-open-page-variant"
+                size={scaleDimension(20, uiScale)}
+                color={theme.primary}
+              />
+              <MaterialCommunityIcons
+                name="arrow-right"
+                size={scaleDimension(16, uiScale)}
+                color={theme.onSurfaceVariant}
+              />
+              <MaterialCommunityIcons
+                name="cog-outline"
+                size={scaleDimension(20, uiScale)}
+                color={theme.primary}
+              />
+              <MaterialCommunityIcons
+                name="arrow-right"
+                size={scaleDimension(16, uiScale)}
+                color={theme.onSurfaceVariant}
+              />
+              <AppText
+                style={[styles.instructionStep, { color: theme.primary }]}
+              >
+                TTS
+              </AppText>
+            </View>
+            <AppText
+              style={[
+                styles.instructionText,
+                { color: theme.onSurfaceVariant },
+              ]}
+            >
+              {getString('onboardingScreen.ttsInstruction')}
+            </AppText>
+          </View>
+
+          <View style={styles.ttsGrid}>
+            <TTSFeatureItem
+              icon="account-voice"
+              title={getString('onboardingScreen.ttsVoice')}
+              desc={getString('onboardingScreen.ttsVoiceDesc')}
+              theme={theme}
+              uiScale={uiScale}
+              styles={styles}
+            />
+            <TTSFeatureItem
+              icon="play-circle-outline"
+              title={getString('onboardingScreen.ttsBackground')}
+              desc={getString('onboardingScreen.ttsBackgroundDesc')}
+              theme={theme}
+              uiScale={uiScale}
+              styles={styles}
+            />
+            <TTSFeatureItem
+              icon="sync"
+              title={getString('onboardingScreen.ttsSync')}
+              desc={getString('onboardingScreen.ttsSyncDesc')}
+              theme={theme}
+              uiScale={uiScale}
+              styles={styles}
+            />
+            <TTSFeatureItem
+              icon="download-outline"
+              title={getString('onboardingScreen.ttsOffline')}
+              desc={getString('onboardingScreen.ttsOfflineDesc')}
+              theme={theme}
+              uiScale={uiScale}
+              styles={styles}
+            />
+          </View>
+        </View>
+
         {/* Start Fresh Note */}
         <AppText
           style={[styles.startFreshNote, { color: theme.onSurfaceVariant }]}
@@ -375,6 +481,7 @@ const createStyles = (uiScale: number, theme: any) =>
     },
     header: {
       marginBottom: 20,
+      alignItems: 'center',
     },
     logo: {
       width: scaleDimension(80, uiScale),
@@ -507,5 +614,60 @@ const createStyles = (uiScale: number, theme: any) =>
       paddingHorizontal: 16,
       paddingBottom: 16,
       paddingTop: 8,
+    },
+    ttsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      marginTop: scaleDimension(16, uiScale),
+    },
+    ttsFeatureItem: {
+      width: '48%',
+      padding: scaleDimension(12, uiScale),
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(0,0,0,0.05)',
+      borderRadius: scaleDimension(12, uiScale),
+      gap: scaleDimension(8, uiScale),
+      marginBottom: scaleDimension(12, uiScale),
+      alignItems: 'center',
+    },
+    ttsFeatureTitle: {
+      fontSize: scaleDimension(13, uiScale),
+      fontWeight: '700',
+      color: theme.onSurface,
+      marginBottom: scaleDimension(2, uiScale),
+      textAlign: 'center',
+    },
+    ttsFeatureDesc: {
+      fontSize: scaleDimension(12, uiScale),
+      color: theme.onSurfaceVariant,
+      lineHeight: scaleDimension(16, uiScale),
+      textAlign: 'center',
+    },
+    instructionBox: {
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(0,0,0,0.05)',
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 8,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.primary,
+    },
+    instructionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      marginBottom: 8,
+    },
+    instructionStep: {
+      fontWeight: 'bold',
+      fontSize: scaleDimension(14, uiScale),
+    },
+    instructionText: {
+      fontSize: scaleDimension(13, uiScale),
+      lineHeight: scaleDimension(18, uiScale),
     },
   });
