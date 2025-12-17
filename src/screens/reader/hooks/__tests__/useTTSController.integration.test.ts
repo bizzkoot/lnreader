@@ -93,6 +93,22 @@ jest.mock('react-native-webview', () => ({
   default: jest.fn(),
 }));
 
+// Mock NativeFile
+jest.mock('@specs/NativeFile', () => ({
+  __esModule: true,
+  default: {
+    exists: jest.fn().mockReturnValue(true), // Default to downloaded
+    getConstants: jest.fn().mockReturnValue({
+      ExternalCachesDirectoryPath: '/mock/cache/path',
+    }),
+  },
+}));
+
+// Mock Storages
+jest.mock('@utils/Storages', () => ({
+  NOVEL_STORAGE: '/mock/storage/path',
+}));
+
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
