@@ -548,6 +548,33 @@ export function useTTSController(
   }, [chapter.id, html, showToastMessage, updateTtsMediaNotificationState]);
 
   // ===========================================================================
+  // Pending Resume Check Effect
+  // ===========================================================================
+
+  useEffect(() => {
+    const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
+    if (pendingResumeId === chapter.id) {
+      console.log(
+        'useTTSController: Found pending resume flag for chapter',
+        chapter.id,
+      );
+      MMKVStorage.delete('pendingTTSResumeChapterId');
+
+      // Force show resume dialog if saved progress exists
+      const savedIndex =
+        MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+
+      if (savedIndex >= 0) {
+        pendingResumeIndexRef.current = savedIndex;
+        // Small timeout to ensure listeners/components are ready
+        setTimeout(() => {
+          dialogState.showResumeDialog();
+        }, 100);
+      }
+    }
+  }, [chapter.id, dialogState]);
+
+  // ===========================================================================
   // Utility Functions
   // ===========================================================================
 

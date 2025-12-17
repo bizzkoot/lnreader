@@ -7,6 +7,7 @@ import {
 } from '@database/queries/ChapterQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { ChapterGeneralSettings } from '@hooks/persisted/useSettings';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 
 interface ChapterSelectionHandlerParams {
   novel: NovelInfo;
@@ -91,6 +92,9 @@ export const useChapterSelectionHandler = ({
               resetMode,
             );
           }
+
+          // Set pending resume flag for the next chapter
+          MMKVStorage.set('pendingTTSResumeChapterId', targetChapter.id);
 
           updateLastTTSChapter(targetChapter.id);
           getChapter(targetChapter);

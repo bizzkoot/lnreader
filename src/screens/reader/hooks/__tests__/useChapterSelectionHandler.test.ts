@@ -9,6 +9,13 @@ import {
 
 // Mock dependencies
 jest.mock('@database/queries/ChapterQueries');
+jest.mock('@utils/mmkv/mmkv', () => ({
+  MMKVStorage: {
+    set: jest.fn(),
+  },
+}));
+
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 
 describe('useChapterSelectionHandler', () => {
   // Common test data
@@ -205,6 +212,22 @@ describe('useChapterSelectionHandler', () => {
       });
 
       expect(mockUpdateLastTTSChapter).toHaveBeenCalledWith(20);
+    });
+
+    it('should set pending resume flag for target chapter', async () => {
+      const targetChapter = { id: 20, position: 10 } as any;
+      (getChapterFromDb as jest.Mock).mockResolvedValue(targetChapter);
+
+      const { result } = renderTestHook();
+
+      await act(async () => {
+        await result.current.handleSelectChapter(20);
+      });
+
+      expect(MMKVStorage.set).toHaveBeenCalledWith(
+        'pendingTTSResumeChapterId',
+        20,
+      );
     });
 
     it('should call getChapter to navigate to target chapter', async () => {
