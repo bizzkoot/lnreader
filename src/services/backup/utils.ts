@@ -2,6 +2,7 @@ import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { OLD_TRACKED_NOVEL_PREFIX } from '@hooks/persisted/migrations/trackerMigration';
 import { LAST_UPDATE_TIME } from '@hooks/persisted/useUpdates';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { LOCAL_BACKUP_FOLDER_URI } from '@hooks/persisted/useLocalBackupFolder';
 import { version } from '../../../package.json';
 import {
   _restoreNovelAndChapters,
@@ -37,6 +38,8 @@ const backupMMKVData = () => {
     OLD_TRACKED_NOVEL_PREFIX,
     SELF_HOST_BACKUP,
     LAST_UPDATE_TIME,
+    'LAST_AUTO_BACKUP_TIME', // Device-specific, should not be restored
+    LOCAL_BACKUP_FOLDER_URI, // Device-specific folder URIs
   ];
   const keys = MMKVStorage.getAllKeys().filter(
     key => !excludeKeys.includes(key),

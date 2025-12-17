@@ -6,8 +6,27 @@
 - **Lint**: `pnpm run lint` (fix with `pnpm run lint:fix`)
 - **Type Check**: `pnpm run type-check`
 - **Format**: `pnpm run format` (check with `pnpm run format:check`)
-- **Dev**: `pnpm run dev:start` + `pnpm run dev:android`
-- **Clean**: `pnpm run clean:full`
+
+## Current Task
+
+Share Panel Bug Fix (Completed).
+
+- **Goal**: Fix share panel appearing after restore during onboarding.
+- **Result**: Fixed by excluding `LAST_AUTO_BACKUP_TIME` and `LOCAL_BACKUP_FOLDER_URI` from backup/restore.
+
+## Key Files (Backup/Restore)
+
+- `src/services/backup/utils.ts`: Backup/restore logic, MMKV key exclusions.
+- `src/services/backup/local/index.ts`: Local backup create/restore, share functionality.
+- `src/screens/onboarding/OnboardingScreen.tsx`: Onboarding with restore option.
+- `src/hooks/persisted/useAutoBackup.ts`: Auto backup trigger logic.
+
+## Recent Fixes
+
+- **Share panel bug**: Excluded device-specific keys (`LAST_AUTO_BACKUP_TIME`, `LOCAL_BACKUP_FOLDER_URI`) from restore to prevent auto backup trigger.
+- **False success toast**: Removed unconditional success message after backup. Now shows success only for folder saves (confirmed), not share flow (Android can't detect cancel).
+- **TTS position sync**: Fixed background TTS pause/resume position tracking.
+- **Onboarding**: Enhanced single-screen setup wizard with theme, display, language, and restore options.
 
 ## Code Style
 
