@@ -452,6 +452,9 @@ export interface StringMap {
   'readerScreen.bottomSheet.tts.disabled': 'string';
   'readerScreen.bottomSheet.tts.chapters5': 'string';
   'readerScreen.bottomSheet.tts.chapters10': 'string';
+  'readerScreen.tts.downloadingNextChapter': 'string';
+  'readerScreen.tts.downloadComplete': 'string';
+  'readerScreen.tts.downloadTimeout': 'string';
   'readerScreen.drawer.scrollToBottom': 'string';
   'readerScreen.drawer.scrollToCurrentChapter': 'string';
   'readerScreen.drawer.scrollToTop': 'string';

@@ -534,7 +534,10 @@
         "autoDownloadAmount": "Chapters to download",
         "disabled": "Disabled (use app setting)",
         "chapters5": "When 5 chapters remain",
-        "chapters10": "When 10 chapters remain"
+        "chapters10": "When 10 chapters remain",
+        "downloadingNextChapter": "Downloading next chapter...",
+        "downloadComplete": "Download complete, continuing...",
+        "downloadTimeout": "Download timed out, TTS stopped"
       }
     },
     "drawer": {

@@ -28,6 +28,9 @@ import {
   ChapterReaderSettings,
 } from '@hooks/persisted/useSettings';
 import { validateAndClampParagraphIndex } from '../components/ttsHelpers';
+import NativeFile from '@specs/NativeFile';
+import { NOVEL_STORAGE } from '@utils/Storages';
+import { getString } from '@strings/translations';
 
 // Phase 1 Extracted Hooks
 import { useDialogState } from './useDialogState';
@@ -1892,7 +1895,7 @@ export function useTTSController(
     // onQueueEmpty - Handle end of TTS queue
     const queueEmptySubscription = TTSHighlight.addListener(
       'onQueueEmpty',
-      () => {
+      async () => {
         console.log('useTTSController: onQueueEmpty event received');
 
         if (TTSHighlight.isRestartInProgress()) {
@@ -1953,6 +1956,66 @@ export function useTTSController(
         }
 
         if (nextChapterRef.current) {
+          const nextChap = nextChapterRef.current;
+          const filePath = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}/${nextChap.id}/index.html`;
+
+          // Check if next chapter is already downloaded
+          const isDownloaded = NativeFile.exists(filePath);
+
+          if (!isDownloaded) {
+            console.log(
+              'useTTSController: Next chapter not downloaded, waiting...',
+            );
+            showToastMessage(
+              getString('readerScreen.tts.downloadingNextChapter'),
+            );
+
+            // Update notification to show downloading status
+            TTSHighlight.updateMediaState({
+              novelName: novel.name,
+              chapterLabel: `${getString('readerScreen.tts.downloadingNextChapter')}`,
+              chapterId: chapter.id,
+              paragraphIndex: totalParagraphsRef.current - 1,
+              totalParagraphs: totalParagraphsRef.current,
+              isPlaying: true,
+            });
+
+            // Wait for download to complete (poll every 1.5s, 30s timeout)
+            const checkInterval = 1500;
+            const timeoutMs = 30000;
+            const startTime = Date.now();
+            let downloaded = false;
+
+            while (Date.now() - startTime < timeoutMs) {
+              await new Promise(r => setTimeout(r, checkInterval));
+              if (NativeFile.exists(filePath)) {
+                downloaded = true;
+                break;
+              }
+            }
+
+            if (!downloaded) {
+              console.log(
+                'useTTSController: Download timeout for next chapter',
+              );
+              showToastMessage(getString('readerScreen.tts.downloadTimeout'));
+              isTTSReadingRef.current = false;
+              isTTSPlayingRef.current = false;
+              TTSHighlight.updateMediaState({
+                novelName: novel.name,
+                chapterLabel: chapter.name,
+                chapterId: chapter.id,
+                paragraphIndex: totalParagraphsRef.current - 1,
+                totalParagraphs: totalParagraphsRef.current,
+                isPlaying: false,
+              });
+              return;
+            }
+
+            console.log('useTTSController: Next chapter download complete');
+            showToastMessage(getString('readerScreen.tts.downloadComplete'));
+          }
+
           console.log(
             'useTTSController: Navigating to next chapter via onQueueEmpty',
           );
@@ -1961,6 +2024,9 @@ export function useTTSController(
 
           autoStartTTSRef.current = true;
           backgroundTTSPendingRef.current = true;
+          forceStartFromParagraphZeroRef.current = true;
+          currentParagraphIndexRef.current = 0;
+          latestParagraphIndexRef.current = 0;
           chaptersAutoPlayedRef.current += 1;
           nextChapterScreenVisibleRef.current = true;
           navigateChapterRef.current('NEXT');
