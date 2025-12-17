@@ -529,6 +529,11 @@ export interface StringMap {
   'onboardingScreen.ttsBackground': 'string';
   'onboardingScreen.ttsBackgroundDesc': 'string';
   'onboardingScreen.ttsInstruction': 'string';
+  'onboardingScreen.ttsInstructionQuick': 'string';
+  'onboardingScreen.ttsInstructionGlobal': 'string';
+  'onboardingScreen.ttsGlobalFeatures': 'string';
+  'onboardingScreen.ttsLabel': 'string';
+  'onboardingScreen.ttsInstantNote': 'string';
   'onboardingScreen.ttsSync': 'string';
   'onboardingScreen.ttsSyncDesc': 'string';
   'onboardingScreen.ttsOffline': 'string';

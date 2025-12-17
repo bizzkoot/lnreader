@@ -79,6 +79,14 @@ export default function OnboardingScreen() {
   const [localUiScale, setLocalUiScale] = useState(uiScale);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [themeScrollX, setThemeScrollX] = useState(0);
+  const [themeContentWidth, setThemeContentWidth] = useState(0);
+  const [themeLayoutWidth, setThemeLayoutWidth] = useState(0);
+
+  const showLeftArrow = themeScrollX > 0;
+  const showRightArrow =
+    themeContentWidth > themeLayoutWidth &&
+    themeScrollX + themeLayoutWidth < themeContentWidth - 10; // -10 for tolerance
 
   const currentMode = themeMode as ThemeMode;
 
@@ -170,23 +178,51 @@ export default function OnboardingScreen() {
             theme={theme}
           />
 
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={availableThemes}
-            keyExtractor={item => item.id.toString()}
-            renderItem={({ item }: { item: ThemeColors }) => (
-              <View style={styles.themeItem}>
-                <ThemePicker
-                  currentTheme={theme}
-                  theme={item}
-                  horizontal={true}
-                  onPress={() => handleThemeSelect(item)}
+          <View style={styles.themeListContainer}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={availableThemes}
+              keyExtractor={item => item.id.toString()}
+              onScroll={e => setThemeScrollX(e.nativeEvent.contentOffset.x)}
+              scrollEventThrottle={16}
+              onContentSizeChange={w => setThemeContentWidth(w)}
+              onLayout={e => setThemeLayoutWidth(e.nativeEvent.layout.width)}
+              renderItem={({ item }: { item: ThemeColors }) => (
+                <View style={styles.themeItem}>
+                  <ThemePicker
+                    currentTheme={theme}
+                    theme={item}
+                    horizontal={true}
+                    onPress={() => handleThemeSelect(item)}
+                  />
+                </View>
+              )}
+              contentContainerStyle={styles.themeScrollContent}
+            />
+            {showLeftArrow && (
+              <View
+                style={[styles.scrollIndicator, styles.scrollIndicatorLeft]}
+              >
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={24}
+                  color={theme.onSurface}
                 />
               </View>
             )}
-            contentContainerStyle={styles.themeScrollContent}
-          />
+            {showRightArrow && (
+              <View
+                style={[styles.scrollIndicator, styles.scrollIndicatorRight]}
+              >
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={24}
+                  color={theme.onSurface}
+                />
+              </View>
+            )}
+          </View>
 
           {theme.isDark && (
             <Pressable
@@ -368,40 +404,108 @@ export default function OnboardingScreen() {
           </AppText>
 
           <View style={styles.instructionBox}>
+            {/* Quick Access */}
             <View style={styles.instructionRow}>
-              <MaterialCommunityIcons
-                name="book-open-page-variant"
-                size={scaleDimension(20, uiScale)}
-                color={theme.primary}
-              />
-              <MaterialCommunityIcons
-                name="arrow-right"
-                size={scaleDimension(16, uiScale)}
-                color={theme.onSurfaceVariant}
-              />
-              <MaterialCommunityIcons
-                name="cog-outline"
-                size={scaleDimension(20, uiScale)}
-                color={theme.primary}
-              />
-              <MaterialCommunityIcons
-                name="arrow-right"
-                size={scaleDimension(16, uiScale)}
-                color={theme.onSurfaceVariant}
-              />
+              <View style={styles.instructionIcons}>
+                <MaterialCommunityIcons
+                  name="book-open-page-variant"
+                  size={scaleDimension(20, uiScale)}
+                  color={theme.primary}
+                />
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={scaleDimension(16, uiScale)}
+                  color={theme.onSurfaceVariant}
+                />
+                <MaterialCommunityIcons
+                  name="cog-outline"
+                  size={scaleDimension(20, uiScale)}
+                  color={theme.primary}
+                />
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={scaleDimension(16, uiScale)}
+                  color={theme.onSurfaceVariant}
+                />
+                <AppText
+                  style={[styles.instructionStep, { color: theme.primary }]}
+                >
+                  {getString('onboardingScreen.ttsLabel')}
+                </AppText>
+              </View>
               <AppText
-                style={[styles.instructionStep, { color: theme.primary }]}
+                style={[
+                  styles.instructionText,
+                  { color: theme.onSurfaceVariant },
+                ]}
               >
-                TTS
+                {getString('onboardingScreen.ttsInstructionQuick')}
               </AppText>
             </View>
+
+            {/* Global Access */}
+            <View style={[styles.instructionRow, styles.instructionRowGlobal]}>
+              <View style={styles.instructionIcons}>
+                <MaterialCommunityIcons
+                  name="dots-horizontal"
+                  size={scaleDimension(20, uiScale)}
+                  color={theme.primary}
+                />
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={scaleDimension(16, uiScale)}
+                  color={theme.onSurfaceVariant}
+                />
+                <MaterialCommunityIcons
+                  name="cog-outline"
+                  size={scaleDimension(20, uiScale)}
+                  color={theme.primary}
+                />
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={scaleDimension(16, uiScale)}
+                  color={theme.onSurfaceVariant}
+                />
+                <MaterialCommunityIcons
+                  name="book-open-outline"
+                  size={scaleDimension(20, uiScale)}
+                  color={theme.primary}
+                />
+                <MaterialCommunityIcons
+                  name="arrow-right"
+                  size={scaleDimension(16, uiScale)}
+                  color={theme.onSurfaceVariant}
+                />
+                <MaterialCommunityIcons
+                  name="account-voice"
+                  size={scaleDimension(20, uiScale)}
+                  color={theme.primary}
+                />
+              </View>
+              <View>
+                <AppText
+                  style={[
+                    styles.instructionText,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
+                  {getString('onboardingScreen.ttsInstructionGlobal')}
+                </AppText>
+                <AppText
+                  style={[styles.instructionSubText, { color: theme.primary }]}
+                >
+                  {getString('onboardingScreen.ttsGlobalFeatures')}
+                </AppText>
+              </View>
+            </View>
+
             <AppText
               style={[
-                styles.instructionText,
+                styles.instructionNote,
                 { color: theme.onSurfaceVariant },
               ]}
             >
-              {getString('onboardingScreen.ttsInstruction')}
+              {getString('onboardingScreen.ttsInstantNote')}
             </AppText>
           </View>
 
@@ -656,18 +760,60 @@ const createStyles = (uiScale: number, theme: any) =>
       borderLeftColor: theme.primary,
     },
     instructionRow: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      marginBottom: 8,
+    },
+    instructionRowGlobal: {
+      marginTop: 8,
+    },
+    instructionIcons: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
-      marginBottom: 8,
+      gap: 8,
     },
     instructionStep: {
       fontWeight: 'bold',
       fontSize: scaleDimension(14, uiScale),
     },
     instructionText: {
-      fontSize: scaleDimension(13, uiScale),
-      lineHeight: scaleDimension(18, uiScale),
+      fontSize: scaleDimension(12, uiScale),
+      lineHeight: scaleDimension(16, uiScale),
+      textAlign: 'center',
+      opacity: 0.8,
+    },
+    instructionSubText: {
+      fontSize: scaleDimension(11, uiScale),
+      textAlign: 'center',
+      marginTop: 2,
+      fontWeight: '600',
+    },
+    instructionNote: {
+      fontSize: scaleDimension(11, uiScale),
+      fontStyle: 'italic',
+      textAlign: 'center',
+      marginTop: 4,
+      opacity: 0.7,
+    },
+    themeListContainer: {
+      position: 'relative',
+      marginHorizontal: -16, // To stretch full width if needed, or adjust padding
+    },
+    scrollIndicator: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      paddingHorizontal: 4,
+      backgroundColor: 'transparent',
+    },
+    scrollIndicatorLeft: {
+      left: 0,
+    },
+    scrollIndicatorRight: {
+      right: 0,
     },
   });
