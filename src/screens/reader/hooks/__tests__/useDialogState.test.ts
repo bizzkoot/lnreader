@@ -43,6 +43,7 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
       expect(result.current.exitDialogData).toEqual({
         ttsParagraph: 0,
         readerParagraph: 0,
+        totalParagraphs: 0,
       });
     });
 
@@ -94,6 +95,7 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
       const newData = {
         ttsParagraph: 42,
         readerParagraph: 45,
+        totalParagraphs: 100,
       };
 
       act(() => {
@@ -106,7 +108,11 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
     it('should preserve exit dialog data when toggling visibility', () => {
       const { result } = renderHook(() => useDialogState());
 
-      const data = { ttsParagraph: 10, readerParagraph: 15 };
+      const data = {
+        ttsParagraph: 10,
+        readerParagraph: 15,
+        totalParagraphs: 50,
+      };
 
       act(() => {
         result.current.setExitDialogData(data);
@@ -384,6 +390,7 @@ describe('useDialogState (Phase 1 - Step 1)', () => {
         result.current.setExitDialogData({
           ttsParagraph: 100,
           readerParagraph: 105,
+          totalParagraphs: 200,
         });
       });
 

@@ -865,6 +865,7 @@ export function useTTSController(
             dialogState.setExitDialogData({
               ttsParagraph: Number(ttsIndex) || 0,
               readerParagraph: Number(visible) || 0,
+              totalParagraphs: totalParagraphsRef.current,
             });
             dialogState.setShowExitDialog(true);
           }
@@ -1738,28 +1739,11 @@ export function useTTSController(
               return;
             }
 
-            let idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
-            try {
-              const nativePos = await TTSHighlight.getSavedTTSPosition(
-                chapter.id,
-              );
-              if (
-                nativePos >= 0 &&
-                lastTTSChapterIdRef.current === chapter.id
-              ) {
-                console.log(
-                  `useTTSController: Resuming from native saved TTS position ${nativePos}`,
-                );
-                idx = nativePos;
-              } else {
-                idx = Math.max(idx, latestParagraphIndexRef.current ?? idx);
-              }
-            } catch (e) {
-              console.warn(
-                'useTTSController: Failed to read native TTS position',
-                e,
-              );
-            }
+            const idx = Math.max(
+              0,
+              currentParagraphIndexRef.current ?? 0,
+              latestParagraphIndexRef.current ?? 0,
+            );
 
             await restartTtsFromParagraphIndex(idx);
             return;

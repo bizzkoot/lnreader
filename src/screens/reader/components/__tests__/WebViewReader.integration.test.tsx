@@ -217,7 +217,9 @@ describe('WebViewReader Integration - native restore on PREV', () => {
     });
   });
 
-  it('prefers native saved position when opening after PREV and pause', async () => {
+  it('uses MMKV saved position when opening chapter', async () => {
+    const { MMKVStorage } = require('@utils/mmkv/mmkv');
+
     const res = render(<WebViewReader onPress={jest.fn()} />);
     // Wait for useEffect async work to settle
     await act(async () => {
@@ -239,13 +241,11 @@ describe('WebViewReader Integration - native restore on PREV', () => {
     // navigateChapter should have been called (component triggers navigation)
     expect(mockNavigateChapter).toBeDefined();
 
-    // Now simulate native saved position for destination chapter (id:9)
-    (TTSHighlight.getSavedTTSPosition as jest.Mock).mockImplementation(
-      async id => {
-        if (id === 9) return 3;
-        return -1;
-      },
-    );
+    // Now simulate MMKV having saved position for destination chapter (id:9)
+    (MMKVStorage.getNumber as jest.Mock).mockImplementation((key: string) => {
+      if (key === 'chapter_progress_9') return 3;
+      return -1;
+    });
 
     // Simulate that the app opens the reader for chapter 9 (prev)
     (useChapterContext as jest.Mock).mockReturnValue({
@@ -264,15 +264,13 @@ describe('WebViewReader Integration - native restore on PREV', () => {
     // Re-render to simulate opening the reader for chapter 9
     await act(async () => {
       rerender(<WebViewReader onPress={jest.fn()} />);
-      // Allow async useEffect fetching native TTS position to resolve
       await Promise.resolve();
     });
 
     // The webview ref should now be populated by the mocked webview
     const webviewProps = webViewRefObject.current?.props;
 
-    // Instead of waiting for onLoadEnd side-effects, verify that the HTML
-    // provided to the WebView contains savedParagraphIndex matching native position
+    // Verify that the HTML contains savedParagraphIndex from MMKV
     const html = webviewProps?.source?.html || '';
     expect(html).toContain('"savedParagraphIndex":3');
   });

@@ -7,17 +7,13 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
-import android.content.SharedPreferences
+
 
 class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext), TTSForegroundService.TTSListener {
 
     private var ttsService: TTSForegroundService? = null
     private var isBound = false
-    
-    // SharedPreferences for TTS position sync (replaces MMKV to avoid native dependency issues)
-    private val sharedPrefs: SharedPreferences = 
-        reactContext.getSharedPreferences("tts_progress", Context.MODE_PRIVATE)
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
@@ -205,26 +201,6 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
-    @ReactMethod
-    fun getSavedTTSPosition(chapterId: Int, promise: Promise) {
-        // Read TTS position from SharedPreferences for RN to use as fallback
-        val key = "chapter_progress_$chapterId"
-        val position = sharedPrefs.getInt(key, -1)
-        android.util.Log.d("TTSHighlight", "getSavedTTSPosition: chapter=$chapterId, position=$position")
-        promise.resolve(position)
-    }
-
-    @ReactMethod
-    fun clearSavedTTSPosition(chapterId: Int, promise: Promise) {
-        try {
-            val key = "chapter_progress_$chapterId"
-            sharedPrefs.edit().remove(key).apply()
-            android.util.Log.d("TTSHighlight", "clearSavedTTSPosition: cleared chapter=$chapterId")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            promise.reject("CLEAR_POSITION_FAILED", e.message)
-        }
-    }
 
     @ReactMethod
     fun addListener(eventName: String) {

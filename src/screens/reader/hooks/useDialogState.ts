@@ -88,6 +88,7 @@ export function useDialogState(): DialogState {
   const [exitDialogData, setExitDialogData] = useState<ExitDialogData>({
     ttsParagraph: 0,
     readerParagraph: 0,
+    totalParagraphs: 0,
   });
 
   // Chapter selection dialog

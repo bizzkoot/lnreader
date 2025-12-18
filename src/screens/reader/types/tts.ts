@@ -89,6 +89,8 @@ export type ExitDialogData = {
   ttsParagraph: number;
   /** Current reader scroll position */
   readerParagraph: number;
+  /** Total paragraphs in the chapter */
+  totalParagraphs: number;
 };
 
 /**

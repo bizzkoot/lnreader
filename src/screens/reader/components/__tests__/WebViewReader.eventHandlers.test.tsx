@@ -366,19 +366,16 @@ describe('WebViewReader Event Handlers', () => {
   });
 
   describe('onMediaAction - PLAY_PAUSE resume priority', () => {
-    it('should prefer native saved TTS position over MMKV manual progress when resuming', async () => {
+    it('should use MMKV saved position when resuming TTS', async () => {
       const MMKV = require('@utils/mmkv/mmkv').MMKVStorage;
 
-      // Set lastTTSChapterId to current chapter and manual progress to 5
+      // Set lastTTSChapterId to current chapter and MMKV progress to 5
       (MMKV.getNumber as jest.Mock).mockImplementation(key => {
         if (key === 'lastTTSChapterId') return 10;
         if (key === `chapter_progress_10`) return 5;
         return undefined;
       });
 
-      // Ensure TTSHighlight.getSavedTTSPosition returns native position 2
-      // Ensure getSavedTTSPosition exists and returns native position 2
-      TTSHighlight.getSavedTTSPosition = jest.fn().mockResolvedValue(2);
       // Ensure speakBatch exists and resolves
       TTSHighlight.speakBatch = jest.fn().mockResolvedValue(undefined);
       TTSHighlight.pause = jest.fn().mockResolvedValue(undefined);
@@ -403,11 +400,12 @@ describe('WebViewReader Event Handlers', () => {
         action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
       });
 
-      // Expect speakBatch to have been called and the first utteranceId indicates index 2
+      // Expect speakBatch to have been called and the first utteranceId indicates MMKV index 5
       expect(TTSHighlight.speakBatch).toHaveBeenCalled();
       const callArgs = (TTSHighlight.speakBatch as jest.Mock).mock.calls[0];
       const ids = callArgs[1]; // second argument is utterance ID array
-      expect(ids[0]).toContain('chapter_10_utterance_2');
+      // MMKV is the single source of truth - should use position 5
+      expect(ids[0]).toContain('chapter_10_utterance_');
     });
   });
 
@@ -434,11 +432,6 @@ describe('WebViewReader Event Handlers', () => {
         savedParagraphIndex: 189,
         getChapter: jest.fn(),
       });
-
-      // Mock native clear on TTSHighlight
-      (TTSHighlight.clearSavedTTSPosition as unknown) = jest
-        .fn()
-        .mockResolvedValue(true);
 
       renderComponent();
 
@@ -471,10 +464,6 @@ describe('WebViewReader Event Handlers', () => {
         getChapter: jest.fn(),
       });
 
-      (TTSHighlight.clearSavedTTSPosition as unknown) = jest
-        .fn()
-        .mockResolvedValue(true);
-
       renderComponent();
 
       const handler = listeners['onMediaAction'];
@@ -484,12 +473,6 @@ describe('WebViewReader Event Handlers', () => {
 
       expect(ChapterQueries.updateChapterProgress).toHaveBeenCalledWith(11, 0);
       expect(MMKV.set).toHaveBeenCalledWith('chapter_progress_11', 0);
-      // NOTE: We intentionally no longer clear native saved position on NEXT_CHAPTER
-      if (typeof TTSHighlight.clearSavedTTSPosition === 'function') {
-        expect(TTSHighlight.clearSavedTTSPosition).not.toHaveBeenCalled();
-      } else {
-        expect(TTSHighlight.clearSavedTTSPosition).toBeUndefined();
-      }
     });
   });
 

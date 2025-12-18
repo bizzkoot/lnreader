@@ -16,6 +16,7 @@ import DownloadCustomChapterModal from './components/DownloadCustomChapterModal'
 import { useBoolean } from '@hooks';
 import NovelScreenLoading from './components/LoadingAnimation/NovelScreenLoading';
 import { NovelScreenProps } from '@navigators/types';
+import { useFocusEffect } from '@react-navigation/native';
 import { ChapterInfo } from '@database/types';
 import { getString } from '@strings/translations';
 import { isNumber, noop } from 'lodash-es';
@@ -70,7 +71,11 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
   //   }
   // }, [chapters.length, downloadQueue.length, fetching, refreshChapters]);
 
-  // useFocusEffect(refreshChapters);
+  useFocusEffect(
+    useCallback(() => {
+      refreshChapters();
+    }, [refreshChapters]),
+  );
 
   const downloadChs = useCallback(
     async (amount: number | 'all' | 'unread') => {

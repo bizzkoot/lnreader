@@ -503,7 +503,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   );
 
   const refreshChapters = useCallback(() => {
-    if (novel?.id && !fetching) {
+    if (novel?.id) {
       _getPageChapters(
         novel.id,
         settingsSort,
@@ -513,14 +513,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
         setChapters(chs);
       });
     }
-  }, [
-    novel?.id,
-    fetching,
-    settingsSort,
-    novelSettings.filter,
-    currentPage,
-    setChapters,
-  ]);
+  }, [novel?.id, settingsSort, novelSettings.filter, currentPage, setChapters]);
 
   // #endregion
   // #region useEffects

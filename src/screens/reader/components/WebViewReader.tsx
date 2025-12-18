@@ -7,14 +7,7 @@
  * @module reader/components/WebViewReader
  */
 
-import React, {
-  memo,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useCallback,
-} from 'react';
+import React, { memo, useEffect, useMemo, useRef, useCallback } from 'react';
 import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
 import WebView from 'react-native-webview';
 import {
@@ -149,51 +142,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
   }, [readerSettings, chapterGeneralSettings]);
 
-  // Native TTS position fetch
-  const [nativeTTSPosition, setNativeTTSPosition] = useState<number>(-1);
-
-  useEffect(() => {
-    const fetchNativeTTSPosition = async () => {
-      try {
-        const position = await TTSHighlight.getSavedTTSPosition(chapter.id);
-        if (position >= 0) {
-          console.log(
-            `WebViewReader: Native TTS position for chapter ${chapter.id}: ${position}`,
-          );
-          setNativeTTSPosition(position);
-        } else {
-          setNativeTTSPosition(-1);
-        }
-      } catch (error) {
-        console.log(
-          'WebViewReader: Failed to fetch native TTS position, using MMKV/DB fallback',
-        );
-        setNativeTTSPosition(-1);
-      }
-    };
-
-    setNativeTTSPosition(-1);
-    fetchNativeTTSPosition();
+  // Calculate initial saved paragraph index - MMKV is single source of truth
+  const initialSavedParagraphIndex = useMemo(() => {
+    const mmkvIndex =
+      MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+    console.log(`WebViewReader: Initializing scroll from MMKV: ${mmkvIndex}`);
+    return mmkvIndex >= 0 ? mmkvIndex : 0;
   }, [chapter.id]);
-
-  // Calculate initial saved paragraph index
-  const initialSavedParagraphIndex = useMemo(
-    () => {
-      const mmkvIndex =
-        MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
-      const dbIndex = savedParagraphIndex ?? -1;
-      const nativeIndex = nativeTTSPosition;
-      console.log(
-        `WebViewReader: Initializing scroll. DB: ${dbIndex}, MMKV: ${mmkvIndex}, Native: ${nativeIndex}`,
-      );
-      if (nativeIndex >= 0) return nativeIndex;
-      const jsMax = Math.max(dbIndex, mmkvIndex);
-      if (jsMax >= 0) return jsMax;
-      return 0;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chapter.id, nativeTTSPosition],
-  );
 
   // Stable chapter object
   const stableChapter = useMemo(

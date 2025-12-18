@@ -15,7 +15,7 @@ import { ExitDialogData } from '../types/tts';
  */
 export interface ExitDialogHandlersParams {
   exitDialogData: ExitDialogData;
-  saveProgress: (progress: number) => void;
+  saveProgress: (progress: number, paragraphIndex?: number) => void;
   navigation: any; // NavigationProp type
   callbacks: {
     handleStopTTS: () => void;
@@ -53,12 +53,18 @@ export function useExitDialogHandlers(
   const handleExitTTS = useCallback(() => {
     setShowExitDialog(false);
     handleStopTTS();
-    saveProgress(exitDialogData.ttsParagraph);
+    // Calculate progress percentage from paragraph index
+    const progress = Math.round(
+      ((exitDialogData.ttsParagraph + 1) / exitDialogData.totalParagraphs) *
+        100,
+    );
+    saveProgress(progress, exitDialogData.ttsParagraph);
     navigation.goBack();
   }, [
     handleStopTTS,
     saveProgress,
     exitDialogData.ttsParagraph,
+    exitDialogData.totalParagraphs,
     navigation,
     setShowExitDialog,
   ]);
@@ -69,12 +75,18 @@ export function useExitDialogHandlers(
   const handleExitReader = useCallback(() => {
     setShowExitDialog(false);
     handleStopTTS();
-    saveProgress(exitDialogData.readerParagraph);
+    // Calculate progress percentage from paragraph index
+    const progress = Math.round(
+      ((exitDialogData.readerParagraph + 1) / exitDialogData.totalParagraphs) *
+        100,
+    );
+    saveProgress(progress, exitDialogData.readerParagraph);
     navigation.goBack();
   }, [
     handleStopTTS,
     saveProgress,
     exitDialogData.readerParagraph,
+    exitDialogData.totalParagraphs,
     navigation,
     setShowExitDialog,
   ]);
