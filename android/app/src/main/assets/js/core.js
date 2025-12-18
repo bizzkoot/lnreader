@@ -288,6 +288,14 @@ window.reader = new (function () {
 
     // ENHANCED: Detect user manual scroll during TTS
     if (window.tts && window.tts.reading) {
+      // CASE 5.3 FIX: Block all scroll processing while Manual Mode Dialog is active
+      // This prevents auto-scroll from being detected as "user scrolled forward"
+      // which would reset the dialog state
+      if (window.tts.dialogActive) {
+        this.accumulatedScrollDelta = 0;
+        return;
+      }
+
       // Check if TTS has completed its auto-scroll before processing user scroll
       const timeSinceAutoScroll =
         Date.now() - (window.tts.lastAutoScrollTime || 0);

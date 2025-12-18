@@ -77,7 +77,7 @@ export function useManualModeHandlers(
   ]);
 
   /**
-   * Handle continue following - keep TTS following user scroll
+   * Handle continue following - resume TTS and keep following
    */
   const handleContinueFollowing = useCallback(() => {
     webViewRef.current?.injectJavaScript(`

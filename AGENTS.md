@@ -6,6 +6,8 @@
 - **Lint**: `pnpm run lint` (fix with `pnpm run lint:fix`)
 - **Type Check**: `pnpm run type-check`
 - **Format**: `pnpm run format` (check with `pnpm run format:check`)
+- **Dev**: `pnpm run dev:start` + `pnpm run dev:android`
+- **Clean**: `pnpm run clean:full`
 
 ## Current Task
 

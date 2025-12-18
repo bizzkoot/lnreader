@@ -334,6 +334,8 @@ export function useTTSController(
   // Dialog data refs
   const pendingResumeIndexRef = useRef<number>(-1);
   const ttsScrollPromptDataRef = useRef<TTSScrollPromptData | null>(null);
+  // Track manual mode dialog visibility to avoid stale closure in AppState listener
+  const manualModeDialogVisibleRef = useRef<boolean>(false);
 
   // Timing refs
   const lastTTSPauseTimeRef = useRef<number>(0);
@@ -373,6 +375,12 @@ export function useTTSController(
       navigateChapterRef,
     },
   });
+
+  // Keep manual mode dialog visibility ref synced for AppState listener
+  // (avoids stale closure issue - Case 5.3 fix)
+  useEffect(() => {
+    manualModeDialogVisibleRef.current = dialogState.manualModeDialogVisible;
+  }, [dialogState.manualModeDialogVisible]);
 
   // ===========================================================================
   // Utility Functions (Phase 1: Extracted)
@@ -888,6 +896,8 @@ export function useTTSController(
           return true;
 
         case 'tts-manual-mode-prompt':
+          // Show dialog to ask user if they want to stop TTS or continue following
+          // Note: TTS continues playing while dialog is shown - user can read ahead
           dialogState.showManualModeDialog();
           return true;
 
@@ -2086,6 +2096,32 @@ export function useTTSController(
       'change',
       (nextAppState: AppStateStatus) => {
         if (nextAppState === 'background') {
+          // =====================================================================
+          // Case 5.3 Fix: Auto-dismiss Manual Mode Dialog on background
+          // =====================================================================
+          // If the Manual Mode Dialog is visible when the app goes to background,
+          // auto-dismiss it. TTS continues playing in background - we just need
+          // to clear the dialog state so it doesn't persist across wake cycles.
+          if (manualModeDialogVisibleRef.current) {
+            console.log(
+              'useTTSController: Auto-dismissing Manual Mode Dialog on background',
+            );
+
+            // Clear dialog state in React
+            dialogState.hideManualModeDialog();
+
+            // Clear dialogActive in WebView when it unfreezes
+            // (This injects JS that will execute when WebView becomes active again)
+            webViewRef.current?.injectJavaScript(`
+              if (window.tts) {
+                window.tts.dialogActive = false;
+                window.tts.lockedCurrentElement = null;
+                window.tts.lockedParagraphIndex = null;
+              }
+              true;
+            `);
+          }
+
           if (ttsStateRef.current) {
             console.log(
               'useTTSController: Saving TTS state on background',
