@@ -8,7 +8,13 @@
  */
 
 import React, { memo, useEffect, useMemo, useRef, useCallback } from 'react';
-import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
+import {
+  NativeEventEmitter,
+  NativeModules,
+  StatusBar,
+  View,
+  Pressable,
+} from 'react-native';
 import WebView from 'react-native-webview';
 import {
   READER_WEBVIEW_ORIGIN_WHITELIST,
@@ -18,6 +24,7 @@ import {
   shouldAllowReaderWebViewRequest,
 } from '@utils/webviewSecurity';
 import color from 'color';
+import AppText from '@components/AppText';
 
 import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
@@ -106,6 +113,15 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     },
     [showToast],
   );
+
+  // Continuous scroll confirmation banner state
+  const {
+    value: scrollConfirmVisible,
+    setTrue: showScrollConfirm,
+    setFalse: hideScrollConfirm,
+  } = useBoolean();
+
+  const nextChapterNameRef = useRef<string>('');
 
   // Settings
   const readerSettings = useMemo(
@@ -467,6 +483,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'save-tts-position',
         'show-toast',
         'console',
+        'continuous-scroll-ask',
       ] as const);
       if (!msg || msg.nonce !== webViewNonceRef.current) {
         return;
@@ -640,6 +657,16 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
           }
           break;
+        case 'continuous-scroll-ask':
+          // Show confirmation banner at bottom (non-blocking)
+          if (event.data && typeof event.data === 'object') {
+            const { nextChapterName } = event.data as {
+              nextChapterName: string;
+            };
+            nextChapterNameRef.current = nextChapterName;
+            showScrollConfirm();
+          }
+          break;
       }
     },
     [
@@ -754,6 +781,101 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         theme={theme}
         onHide={hideToast}
       />
+
+      {/* Continuous scroll confirmation banner */}
+      {scrollConfirmVisible && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: theme.surface,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            borderTopWidth: 1,
+            borderTopColor: color(theme.onSurface).alpha(0.1).string(),
+          }}
+        >
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <AppText
+              style={{
+                fontSize: 16,
+                fontWeight: '500',
+                color: theme.onSurface,
+                marginBottom: 4,
+              }}
+            >
+              Continue reading?
+            </AppText>
+            <AppText
+              style={{
+                fontSize: 14,
+                color: theme.onSurfaceVariant,
+              }}
+            >
+              Next: {nextChapterNameRef.current}
+            </AppText>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              android_ripple={{ color: theme.rippleColor }}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                borderRadius: 4,
+              }}
+              onPress={() => {
+                hideScrollConfirm();
+                // Reset navigation flag in WebView
+                webViewRef.current?.injectJavaScript(
+                  'if (window.reader) { window.reader.isNavigating = false; }',
+                );
+              }}
+            >
+              <AppText
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.onSurfaceVariant,
+                }}
+              >
+                Cancel
+              </AppText>
+            </Pressable>
+            <Pressable
+              android_ripple={{ color: theme.rippleColor }}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                borderRadius: 4,
+                backgroundColor: theme.primary,
+              }}
+              onPress={() => {
+                hideScrollConfirm();
+                navigateChapter('NEXT');
+              }}
+            >
+              <AppText
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.onPrimary,
+                }}
+              >
+                Continue
+              </AppText>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </>
   );
 };

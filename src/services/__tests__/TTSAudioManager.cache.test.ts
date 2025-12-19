@@ -1,94 +1,102 @@
-// Mutate the real react-native NativeModules in test scope so module-level
-// construction of NativeEventEmitter in `TTSAudioManager` succeeds without
-// requiring global test environment changes.
-const RN = require('react-native');
-RN.NativeModules = RN.NativeModules || {};
-RN.NativeModules.TTSHighlight = RN.NativeModules.TTSHighlight || {
-  addToBatch: jest.fn(),
-  speakBatch: jest.fn(),
-  getQueueSize: jest.fn(),
-  stop: jest.fn(),
-  speak: jest.fn(),
-  addListener: jest.fn(),
-  removeListeners: jest.fn(),
-};
-RN.NativeModules.DevMenu = RN.NativeModules.DevMenu || { show: jest.fn() };
-RN.NativeModules.SettingsManager = RN.NativeModules.SettingsManager || {
-  getSettings: jest.fn(() => ({})),
-  getConstants: jest.fn(() => ({})),
-};
-RN.NativeModules.NativeSettingsManager = RN.NativeModules
-  .NativeSettingsManager || { getConstants: jest.fn(() => ({})) };
+// @ts-nocheck
+// Scoped setup to avoid global variable conflicts with other test files
+(function setupMocks() {
+  // Mutate the real react-native NativeModules in test scope so module-level
+  // construction of NativeEventEmitter in `TTSAudioManager` succeeds without
+  // requiring global test environment changes.
+  const RN = require('react-native');
+  RN.NativeModules = RN.NativeModules || {};
+  RN.NativeModules.TTSHighlight = RN.NativeModules.TTSHighlight || {
+    addToBatch: jest.fn(),
+    speakBatch: jest.fn(),
+    getQueueSize: jest.fn(),
+    stop: jest.fn(),
+    speak: jest.fn(),
+    addListener: jest.fn(),
+    removeListeners: jest.fn(),
+  };
+  RN.NativeModules.DevMenu = RN.NativeModules.DevMenu || { show: jest.fn() };
+  RN.NativeModules.SettingsManager = RN.NativeModules.SettingsManager || {
+    getSettings: jest.fn(() => ({})),
+    getConstants: jest.fn(() => ({})),
+  };
+  RN.NativeModules.NativeSettingsManager = RN.NativeModules
+    .NativeSettingsManager || { getConstants: jest.fn(() => ({})) };
 
-// Provide a tolerant NativeEventEmitter if the environment doesn't supply it
-if (!RN.NativeEventEmitter) {
-  class MockNativeEventEmitter {
-    constructor(_nativeModule?: any) {}
-    addListener(_event: string, _cb: (...args: any[]) => void) {
-      return { remove: () => {} };
+  // Provide a tolerant NativeEventEmitter if the environment doesn't supply it
+  if (!RN.NativeEventEmitter) {
+    class MockNativeEventEmitter {
+      constructor(_nativeModule?: any) {}
+      addListener(_event: string, _cb: (...args: any[]) => void) {
+        return { remove: () => {} };
+      }
     }
+    RN.NativeEventEmitter = MockNativeEventEmitter;
   }
-  RN.NativeEventEmitter = MockNativeEventEmitter;
-}
+})();
 
-const { NativeModules } = require('react-native');
-const { TTSHighlight } = NativeModules as any;
+const { NativeModules: NativeModulesCache } = require('react-native');
+const { TTSHighlight: TTSHighlightCache } = NativeModulesCache as any;
 
-const TTSAudioManager =
+const TTSAudioManagerCache =
   require('../TTSAudioManager').default || require('../TTSAudioManager');
 
 afterEach(() => {
   jest.clearAllMocks();
   // reset internal manager state
-  (TTSAudioManager as any).currentQueue = [];
-  (TTSAudioManager as any).currentUtteranceIds = [];
-  (TTSAudioManager as any).currentIndex = 0;
-  (TTSAudioManager as any).lastKnownQueueSize = 0;
-  (TTSAudioManager as any).devCounters.cacheDriftDetections = 0;
-  (TTSAudioManager as any).speechDoneCounter = 0;
+  (TTSAudioManagerCache as any).currentQueue = [];
+  (TTSAudioManagerCache as any).currentUtteranceIds = [];
+  (TTSAudioManagerCache as any).currentIndex = 0;
+  (TTSAudioManagerCache as any).lastKnownQueueSize = 0;
+  (TTSAudioManagerCache as any).devCounters.cacheDriftDetections = 0;
+  (TTSAudioManagerCache as any).speechDoneCounter = 0;
 });
 
 describe('TTSAudioManager Cache Calibration', () => {
   test('calibrateQueueCache updates lastKnownQueueSize when drift > 5', async () => {
     // Set cached size
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
 
     // Mock actual queue size with significant drift
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(17);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(17);
 
     // Call calibration
-    await (TTSAudioManager as any).calibrateQueueCache();
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify cache was updated
-    expect((TTSAudioManager as any).lastKnownQueueSize).toBe(17);
+    expect((TTSAudioManagerCache as any).lastKnownQueueSize).toBe(17);
   });
 
   test('calibrateQueueCache increments devCounters.cacheDriftDetections when drift > 5', async () => {
     // Set cached size
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
 
     // Mock actual queue size with significant drift
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(16);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(16);
 
     // Initial counter should be 0
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(0);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      0,
+    );
 
     // Call calibration
-    await (TTSAudioManager as any).calibrateQueueCache();
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify counter was incremented
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(1);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      1,
+    );
   });
 
   test('calibrateQueueCache does not update when drift <= 5', async () => {
     // Set cached size
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
 
     // Mock actual queue size with small drift
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(13);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(13);
 
     // Call calibration
-    await (TTSAudioManager as any).calibrateQueueCache();
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify cache was NOT updated (drift is only 3)
     expect((TTSAudioManager as any).lastKnownQueueSize).toBe(10);

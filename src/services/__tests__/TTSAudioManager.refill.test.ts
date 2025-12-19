@@ -1,35 +1,39 @@
-// Mutate the real react-native NativeModules in test scope so module-level
-// construction of NativeEventEmitter in `TTSAudioManager` succeeds without
-// requiring global test environment changes.
-const RN = require('react-native');
-RN.NativeModules = RN.NativeModules || {};
-RN.NativeModules.TTSHighlight = RN.NativeModules.TTSHighlight || {
-  addToBatch: jest.fn(),
-  speakBatch: jest.fn(),
-  getQueueSize: jest.fn(),
-  stop: jest.fn(),
-  speak: jest.fn(),
-  addListener: jest.fn(),
-  removeListeners: jest.fn(),
-};
-RN.NativeModules.DevMenu = RN.NativeModules.DevMenu || { show: jest.fn() };
-RN.NativeModules.SettingsManager = RN.NativeModules.SettingsManager || {
-  getSettings: jest.fn(() => ({})),
-  getConstants: jest.fn(() => ({})),
-};
-RN.NativeModules.NativeSettingsManager = RN.NativeModules
-  .NativeSettingsManager || { getConstants: jest.fn(() => ({})) };
+// @ts-nocheck
+// Scoped setup to avoid global variable conflicts with other test files
+(function setupMocks() {
+  // Mutate the real react-native NativeModules in test scope so module-level
+  // construction of NativeEventEmitter in `TTSAudioManager` succeeds without
+  // requiring global test environment changes.
+  const RN = require('react-native');
+  RN.NativeModules = RN.NativeModules || {};
+  RN.NativeModules.TTSHighlight = RN.NativeModules.TTSHighlight || {
+    addToBatch: jest.fn(),
+    speakBatch: jest.fn(),
+    getQueueSize: jest.fn(),
+    stop: jest.fn(),
+    speak: jest.fn(),
+    addListener: jest.fn(),
+    removeListeners: jest.fn(),
+  };
+  RN.NativeModules.DevMenu = RN.NativeModules.DevMenu || { show: jest.fn() };
+  RN.NativeModules.SettingsManager = RN.NativeModules.SettingsManager || {
+    getSettings: jest.fn(() => ({})),
+    getConstants: jest.fn(() => ({})),
+  };
+  RN.NativeModules.NativeSettingsManager = RN.NativeModules
+    .NativeSettingsManager || { getConstants: jest.fn(() => ({})) };
 
-// Provide a tolerant NativeEventEmitter if the environment doesn't supply it
-if (!RN.NativeEventEmitter) {
-  class MockNativeEventEmitter {
-    constructor(_nativeModule?: any) {}
-    addListener(_event: string, _cb: (...args: any[]) => void) {
-      return { remove: () => {} };
+  // Provide a tolerant NativeEventEmitter if the environment doesn't supply it
+  if (!RN.NativeEventEmitter) {
+    class MockNativeEventEmitter {
+      constructor(_nativeModule?: any) {}
+      addListener(_event: string, _cb: (...args: any[]) => void) {
+        return { remove: () => {} };
+      }
     }
+    RN.NativeEventEmitter = MockNativeEventEmitter;
   }
-  RN.NativeEventEmitter = MockNativeEventEmitter;
-}
+})();
 
 const { NativeModules } = require('react-native');
 const { TTSHighlight } = NativeModules as any;

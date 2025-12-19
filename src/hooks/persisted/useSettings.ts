@@ -160,6 +160,27 @@ export interface ChapterGeneralSettings {
     | 'reset-until-5'
     | 'reset-until-10'
     | 'reset-all';
+  /**
+   * Automatically mark short chapters (that fit entirely on screen) as 100% read
+   * when navigating to the next chapter.
+   * - true: Auto-mark short chapters (default)
+   * - false: Don't auto-mark
+   */
+  autoMarkShortChapters: boolean;
+  /**
+   * Continuous scrolling mode - automatically load next chapter when scrolling near the end
+   * - 'disabled': Manual navigation only (default)
+   * - 'always': Auto-load next chapter at 95% scroll
+   * - 'ask': Show confirmation dialog before loading
+   */
+  continuousScrolling: 'disabled' | 'always' | 'ask';
+  /**
+   * Chapter boundary display style for continuous scrolling
+   * Only applies when continuousScrolling is not 'disabled'
+   * - 'bordered': Show chapter markers with gap (default)
+   * - 'stitched': Seamless flow without visual separation
+   */
+  continuousScrollBoundary: 'stitched' | 'bordered';
 }
 
 export interface ReaderTheme {
@@ -276,6 +297,9 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsAutoDownload: 'disabled',
   ttsAutoDownloadAmount: '10',
   ttsForwardChapterReset: 'none',
+  autoMarkShortChapters: true,
+  continuousScrolling: 'disabled',
+  continuousScrollBoundary: 'bordered',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

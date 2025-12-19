@@ -12,6 +12,9 @@ import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import { List, Button } from '@components/index';
 import SettingSwitch from '../../components/SettingSwitch';
+import { useBoolean } from '@hooks';
+import ContinuousScrollingModal from '../Modals/ContinuousScrollingModal';
+import ChapterBoundaryModal from '../Modals/ChapterBoundaryModal';
 
 const NavigationTab: React.FC = () => {
   const theme = useTheme();
@@ -24,6 +27,9 @@ const NavigationTab: React.FC = () => {
     autoScrollInterval = 10,
     autoScrollOffset = null,
     tapToScroll = false,
+    autoMarkShortChapters = true,
+    continuousScrolling = 'disabled',
+    continuousScrollBoundary = 'bordered',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -33,6 +39,18 @@ const NavigationTab: React.FC = () => {
     autoScrollInterval === 10 && autoScrollOffset === null;
 
   const { uiScale = 1.0 } = useAppSettings();
+
+  const {
+    value: continuousScrollingModalVisible,
+    setTrue: showContinuousScrollingModal,
+    setFalse: hideContinuousScrollingModal,
+  } = useBoolean();
+
+  const {
+    value: chapterBoundaryModalVisible,
+    setTrue: showChapterBoundaryModal,
+    setFalse: hideChapterBoundaryModal,
+  } = useBoolean();
 
   const styles = React.useMemo(
     () =>
@@ -121,6 +139,45 @@ const NavigationTab: React.FC = () => {
       </View>
 
       <View style={styles.section}>
+        <List.SubHeader theme={theme}>Chapter Navigation</List.SubHeader>
+        <SettingSwitch
+          label="Auto-mark short chapters as read"
+          description="Automatically mark chapters that fit on one screen as 100% read when navigating"
+          value={autoMarkShortChapters}
+          onPress={() =>
+            setChapterGeneralSettings({
+              autoMarkShortChapters: !autoMarkShortChapters,
+            })
+          }
+          theme={theme}
+        />
+        <List.Item
+          title="Continuous scrolling"
+          description={
+            continuousScrolling === 'disabled'
+              ? 'Disabled (tap/swipe to navigate)'
+              : continuousScrolling === 'always'
+                ? 'Always load next chapter automatically'
+                : 'Ask before loading next chapter'
+          }
+          onPress={showContinuousScrollingModal}
+          theme={theme}
+        />
+        {continuousScrolling !== 'disabled' && (
+          <List.Item
+            title="Chapter boundary"
+            description={
+              continuousScrollBoundary === 'bordered'
+                ? 'Bordered: Shows chapter markers with gap'
+                : 'Stitched: Seamless flow without gaps'
+            }
+            onPress={showChapterBoundaryModal}
+            theme={theme}
+          />
+        )}
+      </View>
+
+      <View style={styles.section}>
         <List.SubHeader theme={theme}>
           {getString('readerScreen.bottomSheet.autoscroll')}
         </List.SubHeader>
@@ -186,6 +243,23 @@ const NavigationTab: React.FC = () => {
       </View>
 
       <View style={styles.bottomSpacing} />
+
+      <ContinuousScrollingModal
+        visible={continuousScrollingModalVisible}
+        onDismiss={hideContinuousScrollingModal}
+        currentValue={continuousScrolling}
+        onSelect={value => {
+          setChapterGeneralSettings({ continuousScrolling: value });
+        }}
+      />
+      <ChapterBoundaryModal
+        visible={chapterBoundaryModalVisible}
+        onDismiss={hideChapterBoundaryModal}
+        currentValue={continuousScrollBoundary}
+        onSelect={value => {
+          setChapterGeneralSettings({ continuousScrollBoundary: value });
+        }}
+      />
     </BottomSheetScrollView>
   );
 };

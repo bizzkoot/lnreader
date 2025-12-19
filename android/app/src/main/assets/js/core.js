@@ -50,6 +50,10 @@ window.reader = new (function () {
   this.isUserScrolling = false;
   this.scrollTimeout = null;
 
+  // Reader Enhancements: Auto-mark short chapters & Continuous scrolling
+  this.hasAutoMarkedShortChapter = false; // Flag to prevent duplicate auto-mark
+  this.isNavigating = false; // Flag to prevent duplicate navigation in continuous scroll
+
   this.post = obj => {
     try {
       if (typeof window.__LNREADER_NONCE__ === 'string') {
@@ -64,6 +68,141 @@ window.reader = new (function () {
     } else {
       this.chapterHeight = this.chapterElement.scrollHeight + this.paddingTop;
     }
+  };
+
+  // Reader Enhancements: Auto-mark short chapters (Phase 2)
+  this.checkShortChapterAutoMark = function () {
+    // Only auto-mark if feature is enabled
+    if (!this.generalSettings.val.autoMarkShortChapters) {
+      return;
+    }
+
+    // Prevent duplicate auto-mark (already done for this chapter)
+    if (this.hasAutoMarkedShortChapter) {
+      return;
+    }
+
+    // Skip if TTS is active (let TTS control progression)
+    if (window.tts && window.tts.reading) {
+      return;
+    }
+
+    // Wait for layout to stabilize (fonts + images)
+    const attemptAutoMark = () => {
+      // Refresh dimensions
+      this.chapterHeight = this.chapterElement.scrollHeight + this.paddingTop;
+
+      // Check if chapter is shorter than screen (no scrolling possible)
+      const isShortChapter = this.chapterHeight <= this.layoutHeight;
+
+      if (isShortChapter) {
+        // Get final paragraph index for TTS state
+        const paragraphs = Array.from(
+          this.chapterElement.querySelectorAll('p'),
+        );
+        const finalParagraphIndex = Math.max(0, paragraphs.length - 1);
+
+        // Mark chapter as 100% read
+        this.post({
+          type: 'save',
+          data: 100, // 100% progress
+          chapterId: this.chapter.id,
+          paragraphIndex: finalParagraphIndex,
+        });
+
+        this.hasAutoMarkedShortChapter = true;
+        if (DEBUG) {
+          console.log(
+            `Reader: Auto-marked short chapter (height: ${this.chapterHeight}px, screen: ${this.layoutHeight}px)`,
+          );
+        }
+      }
+    };
+
+    // Delay for image loading (500ms is safe for most images)
+    setTimeout(attemptAutoMark, 500);
+  };
+
+  // Reader Enhancements: Continuous scrolling (Phase 3)
+  this.checkContinuousScroll = function () {
+    // Only if continuous scrolling is enabled
+    if (this.generalSettings.val.continuousScrolling === 'disabled') {
+      return;
+    }
+
+    // Skip if TTS is reading (TTS has own chapter progression)
+    if (window.tts && window.tts.reading) {
+      return;
+    }
+
+    // Skip if no next chapter
+    if (!this.nextChapter) {
+      return;
+    }
+
+    // Prevent duplicate navigation (debounce)
+    if (this.isNavigating) {
+      return;
+    }
+
+    // Calculate scroll percentage
+    const scrollY = window.scrollY;
+    const scrollHeight = this.chapterElement.scrollHeight;
+    const clientHeight = window.innerHeight;
+    const scrollableDistance = scrollHeight - clientHeight;
+
+    if (scrollableDistance <= 0) {
+      // Chapter is shorter than screen, no scrolling possible
+      return;
+    }
+
+    const scrollPercentage = (scrollY / scrollableDistance) * 100;
+
+    // Trigger at 95% scroll
+    if (scrollPercentage >= 95) {
+      this.performContinuousNavigation();
+    }
+  };
+
+  this.performContinuousNavigation = function () {
+    const mode = this.generalSettings.val.continuousScrolling;
+
+    // Set navigation flag to prevent duplicate triggers
+    this.isNavigating = true;
+
+    // Save 100% progress before navigating
+    this.post({
+      type: 'save',
+      data: 100,
+      chapterId: this.chapter.id,
+      paragraphIndex: this.getReadableElements().length - 1,
+    });
+
+    if (DEBUG) {
+      console.log(
+        `Reader: Continuous scroll triggered (mode: ${mode}, next: ${this.nextChapter.name})`,
+      );
+    }
+
+    if (mode === 'always') {
+      // Auto-navigate immediately
+      setTimeout(() => {
+        this.post({ type: 'next' });
+      }, 100); // Small delay for save to complete
+    } else if (mode === 'ask') {
+      // Show confirmation dialog (handled by React Native)
+      this.post({
+        type: 'continuous-scroll-ask',
+        data: {
+          nextChapterName: this.nextChapter.name,
+        },
+      });
+    }
+
+    // Reset navigation flag after delay (prevents re-trigger during transition)
+    setTimeout(() => {
+      this.isNavigating = false;
+    }, 2000);
   };
 
   van.derive(() => {
@@ -426,6 +565,9 @@ window.reader = new (function () {
 
     if (!this.generalSettings.val.pageReader) {
       this.saveProgress();
+
+      // Check for continuous scroll after saving progress
+      this.checkContinuousScroll();
     }
   };
 
@@ -2165,6 +2307,11 @@ ro.observe(reader.chapterElement);
 window.addEventListener('load', () => {
   document.fonts.ready.then(() => {
     requestAnimationFrame(() => setTimeout(calculatePages, 0));
+
+    // Check if short chapter should be auto-marked after layout ready
+    requestAnimationFrame(() => {
+      reader.checkShortChapterAutoMark();
+    });
   });
 });
 
