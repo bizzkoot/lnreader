@@ -1,21 +1,15 @@
 ## What's New
 
-This release brings important updates from the upstream LNReader project, including enhanced translation support and critical plugin settings improvements. The merge integrates the latest internationalization updates and fixes a significant bug where plugin settings would fail to display when new configuration options were added through updates.
+**v2.0.12 Release** focuses on a major TTS stabilization effort, including a full refactor into a dedicated hook, comprehensive integration testing, and enhanced background navigation. It also introduces a revamped onboarding experience and automated backup features.
 
 ### ✨ Features
-
-* **Backup Management**: Added default backup folder functionality with an intuitive folder picker interface, improving user control over backup storage locations
-* **Translation Updates**: Integrated comprehensive translation updates from upstream, enhancing multilingual support across the application
-
-### 🐛 Bug Fixes
-
-* **Plugin Settings Display**: Fixed critical issue where plugin settings would not appear when updates introduced new configuration options (Closes upstream #1674)
+* **TTS Hook Refactor**: Successfully migrated TTS logic from `WebViewReader` to `useTTSController`, improving maintainability and wake-handling.
+* **Enhanced Onboarding**: A new single-screen onboarding flow with real-time theme previews and clearer TTS configuration instructions.
+* **Automatic Backups**: Introduced recurring automatic backups with configurable frequency and retention limits.
+* **Technical Testing**: Achieved 100% hook test coverage (465 tests) and added robust integration tests for complex TTS scenarios.
 
 ### 📜 Commits
-
-* **Upstream Integration**: Successfully merged changes from upstream/master including translation updates (#1631) and plugin settings fix (#1674), ensuring compatibility with the main LNReader project while maintaining custom enhancements
-* **Backup Feature Enhancement**: Implemented default backup folder selection with folder picker UI, streamlining backup management workflow
-* **Memory Bank Updates**: Updated memory records for PR #7 merge tracking and release documentation improvements
-* **Release Documentation**: Added version comparison link for v2.0.10 for better change tracking
-
-**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.0.10...v2.0.11
+* **TTS Stabilization**: Resolved critical issues with auto-advance, download polling, button icon synchronization, and background chapter navigation. Improved wake/sleep handling and media session integration.
+* **Onboarding & UI Improvements**: Redesigned the onboarding screen for better clarity and accessibility. Optimized `InfoItem` layouts for a more compact side-by-side presentation of icons and messages.
+* **Backup & Restore Enhancements**: Added support for repository-based backup/restore and fixed edge cases in the restore flow that previously triggered unintended share panels.
+* **Infrastructure & Reliability**: Comprehensive refactoring of the test suite, achieving full coverage for core hooks and validating complex state transitions in TTS playback.
