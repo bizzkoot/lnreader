@@ -338,6 +338,40 @@ This is actually handled correctly, but the `max()` logic assumes higher = bette
 
 ---
 
+### Case 6.4: Queue Size Cache Drift ✅ RESOLVED
+
+**Description**: The `lastKnownQueueSize` cache in `TTSAudioManager` is used to avoid excessive native bridge calls during refills. However, rare fallback scenarios (e.g., `addToBatch` failures followed by `speakBatch`) can cause drift between the cached size and actual native queue size.
+
+**Specification**: [specs/tts-cache-calibration.md](file:///Users/muhammadfaiz/Custom%20APP/LNreader/specs/tts-cache-calibration.md)
+
+**Code Location**:
+- [TTSAudioManager.ts:207-223](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/services/TTSAudioManager.ts#L207-223) - `calibrateQueueCache()` method
+- [TTSAudioManager.ts:641-658](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/services/TTSAudioManager.ts#L641-658) - Periodic calibration in `onSpeechDone`
+
+**Scenario**:
+1. TTS refill attempts `addToBatch` with 25 items
+2. Native service rejects repeatedly (transient failure)
+3. Fallback path uses `speakBatch` to restart queue
+4. Cache still thinks there are 15 items, but actual queue has 25
+5. Drift of 10 items causes premature or delayed `onQueueEmpty`
+
+**Current Mitigation**: ✅ **Resolved** - Calibration mechanism added to detect and correct cache drift:
+
+1. **`calibrateQueueCache()` method**: Compares cached size with actual native queue size via `TTSHighlight.getQueueSize()`
+2. **Drift threshold**: Updates cache only when drift > 5 items
+3. **Strategic calibration points**:
+   - After successful `speakBatch()` (initial and fallback paths)
+   - After successful `addToBatch()` refill
+   - Periodic check every 10 spoken items in `onSpeechDone`
+4. **Dev telemetry**: `devCounters.cacheDriftDetections` tracks occurrences for QA monitoring
+5. **Defensive**: Errors caught gracefully, doesn't affect playback
+
+**Impact**: Prevents queue exhaustion or delayed refills in edge cases while maintaining performance optimization (reduces 60+ native calls to ~10 per chapter).
+
+**Test Coverage**: `src/services/__tests__/TTSAudioManager.cache.test.ts` - 9 unit tests covering drift detection, periodic calibration, error handling, and boundary cases.
+
+---
+
 ## 7. Settings Synchronization
 
 ### Case 7.1: Settings Change During Screen Off 📝 BY DESIGN
@@ -1006,6 +1040,10 @@ lastMediaActionTimeRef.current = now;
 3. ~~**Media Notification Pause/Save Gap**~~: ✅ Resolved - All critical cases (12.1, 12.2, 12.4, 12.5, 12.6, 12.8) now fixed.
 
 4. **Wake Sync Race Condition** (12.3): ⚠️ Still partially resolved - blocking flags exist but timing edge cases may allow brief bypass window. Low likelihood.
+
+5. **Queue Size Cache Drift** (NEW): ⚠️ Planned - The `lastKnownQueueSize` cache used to avoid excessive native calls can drift during fallback scenarios (e.g., `addToBatch` failures followed by `speakBatch`). This can cause premature or delayed refills.
+
+   - Mitigation / Plan: implement `calibrateQueueCache()` to periodically call `TTSHighlight.getQueueSize()`, detect drift > 5 items, log a dev-only warning, and increment `devCounters.cacheDriftDetections`. See `/specs/tts-cache-calibration.md` for full implementation plan and tests.
 
 ---
 

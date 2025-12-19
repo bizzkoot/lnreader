@@ -31,6 +31,9 @@ const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
 // - EMERGENCY_THRESHOLD: if we get very low, attempt immediate refill.
 const PREFETCH_THRESHOLD = Math.max(REFILL_THRESHOLD, 12);
 const EMERGENCY_THRESHOLD = 4;
+// Cache calibration: detect and correct drift in lastKnownQueueSize
+const CACHE_DRIFT_THRESHOLD = 5;
+const CALIBRATION_INTERVAL = 10; // Calibrate every N spoken items
 
 // eslint-disable-next-line no-console
 const logDebug = __DEV__ ? console.log : () => {};
@@ -73,11 +76,15 @@ class TTSAudioManager {
     addToBatchFailures: 0,
     fallbackSpeakBatchUsed: 0,
     fallbackSystemVoiceUsed: 0,
+    cacheDriftDetections: 0,
   };
   private hasLoggedSessionFallback = false;
 
   // Tracks whether we've successfully queued any audio to native in the current session.
   private hasQueuedNativeThisSession = false;
+
+  // Counter for periodic cache calibration (every N spoken items)
+  private speechDoneCounter = 0;
 
   /**
    * Mark that a restart operation is beginning.
@@ -192,6 +199,30 @@ class TTSAudioManager {
     logError(message);
   }
 
+  /**
+   * Calibrate the queue size cache to prevent drift.
+   * Compares cached size with actual native queue size and corrects if drift > threshold.
+   * This is a defensive measure for rare scenarios where fallback paths cause cache drift.
+   */
+  private async calibrateQueueCache() {
+    try {
+      const actualSize = await TTSHighlight.getQueueSize();
+      const drift = Math.abs(actualSize - this.lastKnownQueueSize);
+      if (drift > CACHE_DRIFT_THRESHOLD) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `TTSAudioManager: Cache drift detected (cached=${this.lastKnownQueueSize}, actual=${actualSize}, drift=${drift})`,
+          );
+        }
+        this.devCounters.cacheDriftDetections += 1;
+        this.lastKnownQueueSize = actualSize;
+      }
+    } catch (err) {
+      logError('TTSAudioManager: calibrateQueueCache failed:', err);
+    }
+  }
+
   async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
     try {
       const rate = params.rate || 1;
@@ -281,6 +312,8 @@ class TTSAudioManager {
         this.lastKnownQueueSize = batchTexts.length;
         // BUG FIX: Clear restart flag now that new queue is populated
         this.restartInProgress = false;
+        // Calibrate cache after successful batch start
+        await this.calibrateQueueCache();
         logDebug(
           `TTSAudioManager: Started batch playback with ${
             batchTexts.length
@@ -336,6 +369,9 @@ class TTSAudioManager {
       this.currentIndex = BATCH_SIZE;
       this.isPlaying = true;
       this.hasLoggedNoMoreItems = false;
+      // Update cache and calibrate after fallback batch start
+      this.lastKnownQueueSize = batchTexts.length;
+      await this.calibrateQueueCache();
       logDebug(
         `TTSAudioManager: Started batch playback with fallback voice, ${
           batchTexts.length
@@ -493,6 +529,9 @@ class TTSAudioManager {
               }
               // Update currentIndex by the number of items we just queued
               this.currentIndex += nextTexts.length;
+              // Update cache and calibrate after fallback (critical drift scenario)
+              this.lastKnownQueueSize = nextTexts.length;
+              await this.calibrateQueueCache();
             } catch (fallbackErr) {
               logError(
                 'TTSAudioManager: Fallback speakBatch also failed:',
@@ -533,6 +572,9 @@ class TTSAudioManager {
 
       // Update queue size cache after successful refill
       this.lastKnownQueueSize += nextBatchSize;
+
+      // Calibrate cache after successful refill
+      await this.calibrateQueueCache();
 
       logDebug(
         `TTSAudioManager: Refilled queue with ${nextBatchSize} items, ${
@@ -608,6 +650,15 @@ class TTSAudioManager {
       // Each spoken item reduces the native queue by 1
       if (this.lastKnownQueueSize > 0) {
         this.lastKnownQueueSize--;
+      }
+
+      // Periodic cache calibration to detect drift
+      this.speechDoneCounter++;
+      if (this.speechDoneCounter >= CALIBRATION_INTERVAL) {
+        this.speechDoneCounter = 0;
+        this.calibrateQueueCache().catch(err => {
+          logError('TTSAudioManager: Periodic calibration failed:', err);
+        });
       }
 
       // Auto-refill queue - but only if we're approaching the threshold
