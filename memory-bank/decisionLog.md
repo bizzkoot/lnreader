@@ -72,3 +72,4 @@ Key architectural improvements:
 - Type safety (full TypeScript interfaces for all parameters)
 
 Recommendation: STOP here. Further refactoring (Phase 3) has HIGH RISK due to complex wake cycle, WebView message handler, and native event listeners. Current state is production-ready. |
+| 2025-12-18 | Force Novel chapter list to refresh on progress changes by adding a progress-derived aggregate to LegendList `extraData` (`chaptersProgressSum`). | LegendList virtualization + possibly stable `chapters` reference prevented frequent re-renders; progress updates were saved correctly but UI stayed stale. Using a cheap aggregate avoids heavy refetch and keeps ChapterItem memoization. |

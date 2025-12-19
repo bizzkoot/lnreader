@@ -2,7 +2,7 @@
 
 ## Current Goals
 
-- TTS refactor complete. WebViewReader.tsx successfully extracted into useTTSController.ts hook with 100% feature parity. All tests passing (241/241), committed (9d21c0941), ready for device testing.
+- TTS progress regression (release Android): standardized progress % to paragraph-based for all WebView TTS save events; ensured Novel chapter list re-renders on progress updates; tests/type-check passing. Preparing commit + push.
 
 ## Key Files Modified (TTS Progress Sync)
 

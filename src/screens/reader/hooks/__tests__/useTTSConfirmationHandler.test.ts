@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook } from '@testing-library/react-hooks';
 import { useTTSConfirmationHandler } from '../useTTSConfirmationHandler';
 import { getRecentReadingChapters } from '@database/queries/ChapterQueries';

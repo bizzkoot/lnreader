@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useCallback, MutableRefObject } from 'react';
 import {
   getChapter as getChapterFromDb,

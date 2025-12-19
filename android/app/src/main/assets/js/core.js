@@ -1118,12 +1118,17 @@ window.tts = new (function () {
     const paragraphIndex = readableElements.indexOf(this.currentElement);
 
     // Save with explicit paragraph index
+    const totalParagraphs = readableElements.length;
+    const progress = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(((paragraphIndex + 1) / (totalParagraphs || 1)) * 100),
+      ),
+    );
     reader.post({
       type: 'save',
-      data: parseInt(
-        ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
-        10,
-      ),
+      data: progress,
       paragraphIndex: paragraphIndex,
       chapterId: reader.chapter.id,
     });
@@ -1356,13 +1361,17 @@ window.tts = new (function () {
       const readableElements = reader.getReadableElements();
       const paragraphIndex = readableElements.indexOf(this.currentElement);
       if (paragraphIndex !== -1) {
+        const totalParagraphs = readableElements.length;
+        const progress = Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(((paragraphIndex + 1) / (totalParagraphs || 1)) * 100),
+          ),
+        );
         reader.post({
           type: 'save',
-          data: parseInt(
-            ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) *
-              100,
-            10,
-          ),
+          data: progress,
           paragraphIndex,
           chapterId: reader.chapter.id,
         });
@@ -1553,12 +1562,17 @@ window.tts = new (function () {
       this.started = true; // Ensure next() works from here
 
       // NEW: Save progress when state is updated from Native (Background TTS)
+      const totalParagraphs = readableElements.length;
+      const progress = Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(((paragraphIndex + 1) / (totalParagraphs || 1)) * 100),
+        ),
+      );
       reader.post({
         type: 'save',
-        data: parseInt(
-          ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
-          10,
-        ),
+        data: progress,
         paragraphIndex,
         chapterId: reader.chapter.id,
       });

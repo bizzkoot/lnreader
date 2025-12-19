@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useSyncDialogHandlers } from '../useSyncDialogHandlers';
 import { getChapter as getChapterFromDb } from '@database/queries/ChapterQueries';

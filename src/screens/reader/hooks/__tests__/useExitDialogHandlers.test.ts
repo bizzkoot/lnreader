@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useExitDialogHandlers } from '../useExitDialogHandlers';
 
@@ -7,6 +6,7 @@ describe('useExitDialogHandlers', () => {
   const mockExitDialogData = {
     ttsParagraph: 42,
     readerParagraph: 25,
+    totalParagraphs: 100,
   };
 
   // Mocks
@@ -31,6 +31,7 @@ describe('useExitDialogHandlers', () => {
     exitDialogData: {
       ttsParagraph: number;
       readerParagraph: number;
+      totalParagraphs: number;
     } = mockExitDialogData,
   ) => {
     return renderHook(() =>
@@ -91,9 +92,7 @@ describe('useExitDialogHandlers', () => {
         result.current.handleExitTTS();
       });
 
-      expect(mockSaveProgress).toHaveBeenCalledWith(
-        mockExitDialogData.ttsParagraph,
-      );
+      expect(mockSaveProgress).toHaveBeenCalledWith(43, 42);
     });
 
     it('should navigate back after saving', () => {
@@ -140,6 +139,7 @@ describe('useExitDialogHandlers', () => {
       const customDialogData = {
         ttsParagraph: 100,
         readerParagraph: 50,
+        totalParagraphs: 200,
       };
 
       const { result } = renderTestHook(customDialogData);
@@ -148,8 +148,8 @@ describe('useExitDialogHandlers', () => {
         result.current.handleExitTTS();
       });
 
-      expect(mockSaveProgress).toHaveBeenCalledWith(100); // TTS position
-      expect(mockSaveProgress).not.toHaveBeenCalledWith(50); // Reader position
+      expect(mockSaveProgress).toHaveBeenCalledWith(51, 100); // TTS percentage + index
+      expect(mockSaveProgress).not.toHaveBeenCalledWith(26, 50); // Reader position
     });
   });
 
@@ -184,9 +184,7 @@ describe('useExitDialogHandlers', () => {
         result.current.handleExitReader();
       });
 
-      expect(mockSaveProgress).toHaveBeenCalledWith(
-        mockExitDialogData.readerParagraph,
-      );
+      expect(mockSaveProgress).toHaveBeenCalledWith(26, 25);
     });
 
     it('should navigate back after saving', () => {
@@ -233,6 +231,7 @@ describe('useExitDialogHandlers', () => {
       const customDialogData = {
         ttsParagraph: 100,
         readerParagraph: 50,
+        totalParagraphs: 200,
       };
 
       const { result } = renderTestHook(customDialogData);
@@ -241,8 +240,8 @@ describe('useExitDialogHandlers', () => {
         result.current.handleExitReader();
       });
 
-      expect(mockSaveProgress).toHaveBeenCalledWith(50); // Reader position
-      expect(mockSaveProgress).not.toHaveBeenCalledWith(100); // TTS position
+      expect(mockSaveProgress).toHaveBeenCalledWith(26, 50); // Reader percentage + index
+      expect(mockSaveProgress).not.toHaveBeenCalledWith(51, 100); // TTS position
     });
   });
 

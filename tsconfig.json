@@ -5,7 +5,8 @@
     "**/node_modules",
     "**/Pods",
     "babel.config.js",
-    "metro.config.js"
+    "metro.config.js",
+    "WebViewReader_Backup.tsx"
   ],
   "compilerOptions": {
     "baseUrl": ".",

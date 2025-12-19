@@ -476,6 +476,61 @@ describe('WebViewReader Event Handlers', () => {
     });
   });
 
+  describe("WebView 'save' event persists percentage", () => {
+    it('should update chapter progress using event.data percentage (not paragraph index)', async () => {
+      const ChapterQueries = require('@database/queries/ChapterQueries');
+      (ChapterQueries.updateChapterProgress as jest.Mock).mockResolvedValue(
+        true,
+      );
+
+      const saveProgressMock = jest.fn();
+
+      (useChapterContext as jest.Mock).mockReturnValue({
+        novel: { id: 1, name: 'Test Novel' },
+        chapter: { id: 10, name: 'Chapter 10', progress: 0 },
+        chapterText: '<p>Content</p>',
+        navigateChapter: jest.fn(),
+        saveProgress: saveProgressMock,
+        nextChapter: { id: 11, name: 'Chapter 11' },
+        prevChapter: { id: 9, name: 'Chapter 9' },
+        webViewRef: webViewRefObject,
+        savedParagraphIndex: 0,
+        getChapter: jest.fn(),
+      });
+
+      renderComponent();
+
+      const onMessage = (webViewRefObject.current.props as any).onMessage;
+      expect(onMessage).toBeDefined();
+
+      const injected = (webViewRefObject.current.props as any)
+        .injectedJavaScriptBeforeContentLoaded as string;
+      const nonce = (injected.match(/__LNREADER_NONCE__\s*=\s*("[^"]+")/) ||
+        [])[1]
+        ? JSON.parse(
+            (injected.match(/__LNREADER_NONCE__\s*=\s*("[^"]+")/) || [
+              ,
+              '""',
+            ])[1],
+          )
+        : undefined;
+
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'save',
+            data: 37,
+            paragraphIndex: 123,
+            chapterId: 10,
+            nonce,
+          }),
+        },
+      });
+
+      expect(saveProgressMock).toHaveBeenCalledWith(37, 123);
+    });
+  });
+
   describe('TTS Restart Prevention on Re-renders', () => {
     it('should NOT restart TTS when re-rendered without actual TTS setting changes', async () => {
       const { useChapterReaderSettings } = require('@hooks/persisted');

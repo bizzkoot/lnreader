@@ -1,17 +1,11 @@
-# Progress (Updated: 2025-12-14)
+# Progress (Updated: 2025-12-18)
 
 ## Done
 
-- Batch 3 testing complete - 86 tests added (465 total)
-- useSyncDialogHandlers tested (21 tests)
-- useScrollSyncHandlers tested (17 tests)
-- useChapterSelectionHandler tested (22 tests)
-- useBackHandler tested (26 tests)
-- 100% hook coverage achieved (10/10)
-- Zero regressions maintained
-- Documentation updated with completion summary
-- Git commit created (SHA: 12b938814)
-- Changes pushed to remote (dev branch)
+- Fix TTS WebView save to use paragraph-based percentage (matches unified save)
+- Add Jest coverage for WebView save handler + update exit dialog handler tests
+- Fix chapter list refresh to reflect live progress updates during TTS
+- Unblock TS type-check by excluding legacy WebViewReader_Backup.tsx
 
 ## Doing
 
@@ -19,6 +13,5 @@
 
 ## Next
 
-- Monitor test suite stability
-- Consider integration tests for hook interactions
-- Review test coverage reports
+- Commit and push changes
+- (Optional) Remove noisy ResizeObserver console logs before release
