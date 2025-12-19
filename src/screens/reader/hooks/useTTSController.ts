@@ -1940,6 +1940,18 @@ export function useTTSController(
           return;
         }
 
+        // If we never successfully queued audio for this session, treat this as a failure-to-start
+        // rather than end-of-chapter. This prevents accidental chapter jumps.
+        if (!TTSHighlight.hasQueuedNativeInCurrentSession()) {
+          console.warn(
+            'useTTSController: Queue empty but no native audio was queued (batch start likely failed). Stopping without advancing.',
+          );
+          isTTSReadingRef.current = false;
+          isTTSPlayingRef.current = false;
+          showToastMessage('TTS failed to start. Not advancing chapter.');
+          return;
+        }
+
         if (!isTTSReadingRef.current) {
           console.log(
             'useTTSController: Queue empty but TTS was not reading, ignoring',

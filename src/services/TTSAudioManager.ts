@@ -13,7 +13,7 @@ const ttsEmitter = new NativeEventEmitter(TTSHighlight);
 export type TTSAudioParams = {
   rate?: number;
   pitch?: number;
-  voice?: string;
+  voice?: unknown;
   utteranceId?: string;
 };
 
@@ -25,6 +25,12 @@ export type TTSAudioParams = {
 // Larger margins give more buffer time.
 const BATCH_SIZE = 25; // Number of paragraphs to queue at once (was 15)
 const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
+// Additional safety margins:
+// - PREFETCH_THRESHOLD: start refilling earlier to avoid queue drain and reduce pressure
+//   that can trigger fallback paths.
+// - EMERGENCY_THRESHOLD: if we get very low, attempt immediate refill.
+const PREFETCH_THRESHOLD = Math.max(REFILL_THRESHOLD, 12);
+const EMERGENCY_THRESHOLD = 4;
 
 // eslint-disable-next-line no-console
 const logDebug = __DEV__ ? console.log : () => {};
@@ -46,6 +52,9 @@ class TTSAudioManager {
   // BUG FIX: Track if a restart operation is in progress to prevent
   // onQueueEmpty from firing during intentional stop/restart cycles
   private restartInProgress = false;
+  // PERFORMANCE: Cache last known queue size to avoid excessive refill attempts
+  // Updated after speak/refill operations and checked before triggering refill
+  private lastKnownQueueSize = 0;
   // BUG FIX: Track if a refill operation is in progress to prevent
   // premature onQueueEmpty from triggering chapter navigation
   private refillInProgress = false;
@@ -53,6 +62,22 @@ class TTSAudioManager {
   private notifyUserCallback?: (msg: string) => void;
   // BUG FIX: Track last successfully spoken paragraph index for monotonic enforcement
   private lastSpokenIndex = -1;
+
+  // Lock chosen voice for the duration of a batch session to avoid mid-run voice drift.
+  // If a fallback path is needed, we prefer this locked voice before using system default.
+  private lockedVoice?: string;
+
+  // Dev-only counters (non-spammy diagnostics)
+  private devCounters = {
+    refillAttempts: 0,
+    addToBatchFailures: 0,
+    fallbackSpeakBatchUsed: 0,
+    fallbackSystemVoiceUsed: 0,
+  };
+  private hasLoggedSessionFallback = false;
+
+  // Tracks whether we've successfully queued any audio to native in the current session.
+  private hasQueuedNativeThisSession = false;
 
   /**
    * Mark that a restart operation is beginning.
@@ -131,12 +156,50 @@ class TTSAudioManager {
     logDebug('TTSAudioManager: lastSpokenIndex reset to -1');
   }
 
+  private lockVoiceIfProvided(voice?: string) {
+    if (voice) {
+      this.lockedVoice = voice;
+    }
+  }
+
+  private sanitizeVoice(input: unknown): string | undefined {
+    if (!input) {
+      return undefined;
+    }
+    if (typeof input === 'string') {
+      return input;
+    }
+    if (typeof input === 'object') {
+      const candidate = (input as any)?.identifier;
+      if (typeof candidate === 'string') {
+        return candidate;
+      }
+    }
+    return undefined;
+  }
+
+  private getPreferredVoiceForFallback(
+    explicitVoice?: string,
+  ): string | undefined {
+    return explicitVoice || this.lockedVoice;
+  }
+
+  private logFallbackOncePerSession(message: string) {
+    if (this.hasLoggedSessionFallback) {
+      return;
+    }
+    this.hasLoggedSessionFallback = true;
+    logError(message);
+  }
+
   async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
     try {
       const rate = params.rate || 1;
       const pitch = params.pitch || 1;
-      const voice = params.voice;
+      const voice = this.sanitizeVoice(params.voice);
       const utteranceId = params.utteranceId || Date.now().toString();
+
+      this.lockVoiceIfProvided(voice);
 
       await TTSHighlight.speak(text, {
         utteranceId,
@@ -166,13 +229,20 @@ class TTSAudioManager {
     const maxAttempts = 2;
     const rate = params.rate || 1;
     const pitch = params.pitch || 1;
-    const voice = params.voice;
+    const voice = this.sanitizeVoice(params.voice);
+
+    // Lock voice at session start so refills/fallbacks keep consistent voice.
+    this.lockVoiceIfProvided(voice);
+    // New session -> allow one fallback log again.
+    this.hasLoggedSessionFallback = false;
+    this.hasQueuedNativeThisSession = false;
     while (attempts < maxAttempts) {
       try {
         // Clear any existing queue state before starting new batch
         this.currentQueue = [];
         this.currentUtteranceIds = [];
         this.currentIndex = 0;
+        this.lastKnownQueueSize = 0;
         // BUG FIX: Reset last spoken index for new session
         this.resetLastSpokenIndex();
         const batchTexts = texts.slice(0, BATCH_SIZE);
@@ -191,12 +261,24 @@ class TTSAudioManager {
           pitch,
           voice,
         });
+
+        // DEV: Log voice used for initial batch (helps verify no voice drift)
+        if (__DEV__ && voice) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `TTSAudioManager: Started batch with voice: ${voice.substring(0, 40)}`,
+          );
+        }
+
+        this.hasQueuedNativeThisSession = true;
         this.currentQueue = texts;
         this.currentUtteranceIds = utteranceIds;
         // Set currentIndex to number of items already pushed to native queue
         this.currentIndex = batchTexts.length;
         this.isPlaying = true;
         this.hasLoggedNoMoreItems = false;
+        // Update queue size cache with initial batch size
+        this.lastKnownQueueSize = batchTexts.length;
         // BUG FIX: Clear restart flag now that new queue is populated
         this.restartInProgress = false;
         logDebug(
@@ -209,7 +291,14 @@ class TTSAudioManager {
           const subscription = ttsEmitter.addListener(
             'onSpeechDone',
             async _event => {
-              await this.refillQueue();
+              // Decrement cache as native consumes items
+              if (this.lastKnownQueueSize > 0) {
+                this.lastKnownQueueSize--;
+              }
+              // Only refill when approaching threshold
+              if (this.lastKnownQueueSize <= PREFETCH_THRESHOLD + 3) {
+                await this.refillQueue();
+              }
             },
           );
           this.eventListeners.push(subscription);
@@ -220,19 +309,28 @@ class TTSAudioManager {
         attempts++;
       }
     }
-    // Fallback: try batch with system default voice
+    // Fallback: try again, but prefer locked voice first.
     try {
       const batchTexts = texts.slice(0, BATCH_SIZE);
       const batchIds = utteranceIds.slice(0, BATCH_SIZE);
+      const fallbackVoice = this.getPreferredVoiceForFallback(voice);
       await TTSHighlight.speakBatch(batchTexts, batchIds, {
         rate,
         pitch,
-        voice: undefined,
+        voice: this.sanitizeVoice(fallbackVoice),
       });
-      // Fallback notification: log warning
-      logError(
-        'Preferred TTS voice unavailable for batch, using system default.',
-      );
+      this.hasQueuedNativeThisSession = true;
+      this.devCounters.fallbackSpeakBatchUsed += 1;
+      if (!fallbackVoice) {
+        this.devCounters.fallbackSystemVoiceUsed += 1;
+        this.logFallbackOncePerSession(
+          'Preferred TTS voice unavailable for batch, using system default.',
+        );
+      } else {
+        this.logFallbackOncePerSession(
+          'Preferred TTS voice failed for batch, retrying with locked voice.',
+        );
+      }
       this.currentQueue = texts;
       this.currentUtteranceIds = utteranceIds;
       this.currentIndex = BATCH_SIZE;
@@ -275,12 +373,20 @@ class TTSAudioManager {
 
     // BUG FIX: Set refill in progress flag to prevent premature onQueueEmpty
     this.refillInProgress = true;
+    this.devCounters.refillAttempts += 1;
     logDebug('TTSAudioManager: Starting refill operation');
 
     try {
       const queueSize = await TTSHighlight.getQueueSize();
 
-      if (queueSize > REFILL_THRESHOLD) {
+      // Extra safety: if queue is low or near-empty, refill more aggressively.
+      // Prefetch threshold helps avoid queue drain and the fallback paths.
+      const thresholdToUse =
+        queueSize <= EMERGENCY_THRESHOLD
+          ? EMERGENCY_THRESHOLD
+          : PREFETCH_THRESHOLD;
+
+      if (queueSize > thresholdToUse) {
         // Still enough items in queue
         this.refillInProgress = false;
         return false;
@@ -309,10 +415,20 @@ class TTSAudioManager {
             `TTSAudioManager: addToBatch attempt ${attempt} (${nextBatchSize} items)`,
           );
           await TTSHighlight.addToBatch(nextTexts, nextIds);
+
+          // DEV: Log successful refill (voice is implicit from initial batch or fallback)
+          if (__DEV__ && attempt === 1) {
+            // eslint-disable-next-line no-console
+            console.log(
+              `TTSAudioManager: Refilled +${nextBatchSize} items (voice: locked=${this.lockedVoice?.substring(0, 30) || 'none'})`,
+            );
+          }
+
           addSucceeded = true;
           break;
         } catch (err) {
           addError = err;
+          this.devCounters.addToBatchFailures += 1;
           logError(
             `TTSAudioManager: addToBatch failed (attempt ${attempt}):`,
             err,
@@ -352,11 +468,29 @@ class TTSAudioManager {
             }
 
             try {
+              const fallbackVoice = this.sanitizeVoice(
+                this.getPreferredVoiceForFallback(undefined),
+              );
+
               await TTSHighlight.speakBatch(nextTexts, nextIds, {
                 rate: 1,
                 pitch: 1,
-                voice: undefined,
+                voice: fallbackVoice,
               });
+
+              // DEV: Log fallback voice to track voice stability
+              if (__DEV__ && fallbackVoice) {
+                // eslint-disable-next-line no-console
+                console.log(
+                  `TTSAudioManager: Fallback batch with voice: ${fallbackVoice.substring(0, 40)}`,
+                );
+              }
+
+              this.hasQueuedNativeThisSession = true;
+              this.devCounters.fallbackSpeakBatchUsed += 1;
+              if (!this.getPreferredVoiceForFallback(undefined)) {
+                this.devCounters.fallbackSystemVoiceUsed += 1;
+              }
               // Update currentIndex by the number of items we just queued
               this.currentIndex += nextTexts.length;
             } catch (fallbackErr) {
@@ -397,6 +531,9 @@ class TTSAudioManager {
 
       this.currentIndex += nextBatchSize;
 
+      // Update queue size cache after successful refill
+      this.lastKnownQueueSize += nextBatchSize;
+
       logDebug(
         `TTSAudioManager: Refilled queue with ${nextBatchSize} items, ${
           this.currentQueue.length - this.currentIndex
@@ -420,6 +557,7 @@ class TTSAudioManager {
       this.currentQueue = [];
       this.currentUtteranceIds = [];
       this.currentIndex = 0;
+      this.lastKnownQueueSize = 0;
       // NOTE: Do NOT clear restartInProgress here - it's managed by the caller
       // to prevent onQueueEmpty from firing during intentional restart cycles
 
@@ -466,8 +604,18 @@ class TTSAudioManager {
         this.onDoneCallback(event.utteranceId);
       }
 
-      // Auto-refill queue
-      this.refillQueue();
+      // PERFORMANCE: Decrement cached queue size (approximate tracking)
+      // Each spoken item reduces the native queue by 1
+      if (this.lastKnownQueueSize > 0) {
+        this.lastKnownQueueSize--;
+      }
+
+      // Auto-refill queue - but only if we're approaching the threshold
+      // This avoids 60+ unnecessary native bridge calls per chapter
+      // Use PREFETCH_THRESHOLD + small buffer to account for cache drift
+      if (this.lastKnownQueueSize <= PREFETCH_THRESHOLD + 3) {
+        this.refillQueue();
+      }
     });
 
     this.eventListeners.push(subscription);
@@ -541,6 +689,10 @@ class TTSAudioManager {
 
   isCurrentlyPlaying(): boolean {
     return this.isPlaying;
+  }
+
+  hasQueuedNativeInCurrentSession(): boolean {
+    return this.hasQueuedNativeThisSession;
   }
 }
 

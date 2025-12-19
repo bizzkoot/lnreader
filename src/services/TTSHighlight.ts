@@ -130,6 +130,10 @@ class TTSHighlightService {
     return TTSAudioManager.hasRemainingItems();
   }
 
+  hasQueuedNativeInCurrentSession(): boolean {
+    return TTSAudioManager.hasQueuedNativeInCurrentSession();
+  }
+
   pause(): Promise<boolean> {
     return TTSHighlight.pause();
   }

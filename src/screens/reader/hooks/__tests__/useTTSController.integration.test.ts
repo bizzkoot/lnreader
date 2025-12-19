@@ -67,6 +67,7 @@ jest.mock('@services/TTSHighlight', () => ({
     setRestartInProgress: jest.fn(),
     addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
     hasRemainingItems: jest.fn().mockReturnValue(false),
+    hasQueuedNativeInCurrentSession: jest.fn().mockReturnValue(true),
   },
 }));
 

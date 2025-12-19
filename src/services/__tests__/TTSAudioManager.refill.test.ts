@@ -68,6 +68,54 @@ test('refillQueue falls back to speakBatch after addToBatch failures', async () 
   );
 });
 
+test('refillQueue fallback uses locked voice (not system default)', async () => {
+  // Simulate addToBatch failure and empty native queue
+  (TTSHighlight.addToBatch as jest.Mock).mockRejectedValue(
+    new Error('Failed to add'),
+  );
+  (TTSHighlight.getQueueSize as jest.Mock)
+    .mockResolvedValueOnce(0) // initial queue size check
+    .mockResolvedValueOnce(0); // queue size after addToBatch failures
+  (TTSHighlight.speakBatch as jest.Mock).mockResolvedValue(true);
+
+  // Lock voice by starting a batch with explicit voice
+  await (TTSAudioManager as any).speakBatch(['t1'], ['id1'], {
+    voice: 'en-us-x-foo-network',
+    rate: 1,
+    pitch: 1,
+  });
+
+  (TTSAudioManager as any).currentQueue = ['a'];
+  (TTSAudioManager as any).currentUtteranceIds = ['u1'];
+  (TTSAudioManager as any).currentIndex = 0;
+
+  const res = await (TTSAudioManager as any).refillQueue();
+
+  expect(res).toBe(true);
+  expect(TTSHighlight.speakBatch).toHaveBeenLastCalledWith(
+    ['a'],
+    ['u1'],
+    expect.objectContaining({ voice: 'en-us-x-foo-network' }),
+  );
+});
+
+test('speakBatch sanitizes voice object into identifier string', async () => {
+  (TTSHighlight.speakBatch as jest.Mock).mockResolvedValue(true);
+
+  await (TTSAudioManager as any).speakBatch(['t1'], ['id1'], {
+    // Simulate a bad caller passing the whole voice object
+    voice: { identifier: 'en-us-x-bar-network', name: 'Bar' },
+    rate: 1,
+    pitch: 1,
+  });
+
+  expect(TTSHighlight.speakBatch).toHaveBeenCalledWith(
+    ['t1'],
+    ['id1'],
+    expect.objectContaining({ voice: 'en-us-x-bar-network' }),
+  );
+});
+
 test('refillQueue notifies user when fallback speakBatch also fails', async () => {
   (TTSHighlight.addToBatch as jest.Mock).mockRejectedValue(
     new Error('Failed to add'),
