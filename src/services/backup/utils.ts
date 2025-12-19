@@ -2,6 +2,7 @@ import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { OLD_TRACKED_NOVEL_PREFIX } from '@hooks/persisted/migrations/trackerMigration';
 import { LAST_UPDATE_TIME } from '@hooks/persisted/useUpdates';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { LOCAL_BACKUP_FOLDER_URI } from '@hooks/persisted/useLocalBackupFolder';
 import { version } from '../../../package.json';
 import {
   _restoreNovelAndChapters,
@@ -13,7 +14,12 @@ import {
   getAllNovelCategories,
   getCategoriesFromDb,
 } from '@database/queries/CategoryQueries';
-import { BackupCategory, BackupNovel } from '@database/types';
+import {
+  getRepositoriesFromDb,
+  createRepository,
+  isRepoUrlDuplicated,
+} from '@database/queries/RepositoryQueries';
+import { BackupCategory, BackupNovel, Repository } from '@database/types';
 import { BackupEntryName } from './types';
 import { ROOT_STORAGE } from '@utils/Storages';
 import ServiceManager from '@services/ServiceManager';
@@ -32,6 +38,8 @@ const backupMMKVData = () => {
     OLD_TRACKED_NOVEL_PREFIX,
     SELF_HOST_BACKUP,
     LAST_UPDATE_TIME,
+    'LAST_AUTO_BACKUP_TIME', // Device-specific, should not be restored
+    LOCAL_BACKUP_FOLDER_URI, // Device-specific folder URIs
   ];
   const keys = MMKVStorage.getAllKeys().filter(
     key => !excludeKeys.includes(key),
@@ -137,6 +145,21 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   } catch (error: any) {
     showToast(
       getString('backupScreen.settingsFileWriteFailed', {
+        error: error?.message || String(error),
+      }),
+    );
+  }
+
+  // repositories
+  try {
+    const repositories = getRepositoriesFromDb();
+    NativeFile.writeFile(
+      cacheDirPath + '/' + BackupEntryName.REPOSITORY,
+      JSON.stringify(repositories),
+    );
+  } catch (error: any) {
+    showToast(
+      getString('backupScreen.repositoryFileWriteFailed', {
         error: error?.message || String(error),
       }),
     );
@@ -268,6 +291,61 @@ export const restoreData = async (cacheDirPath: string) => {
     } catch (error: any) {
       showToast(
         getString('backupScreen.settingsRestoreFailed', {
+          error: error?.message || String(error),
+        }),
+      );
+    }
+  }
+
+  // repositories
+  showToast(getString('backupScreen.restoringRepositories'));
+  const repositoryFilePath = cacheDirPath + '/' + BackupEntryName.REPOSITORY;
+  let repositoryCount = 0;
+  let failedRepositoryCount = 0;
+
+  if (!NativeFile.exists(repositoryFilePath)) {
+    // Backwards compatibility: old backups don't have Repository.json
+    // Skip silently without showing error
+  } else {
+    try {
+      const fileContent = NativeFile.readFile(repositoryFilePath);
+      const repositories: Repository[] = JSON.parse(fileContent);
+
+      for (const repository of repositories) {
+        try {
+          // Check if repository URL already exists to avoid duplicates
+          if (!isRepoUrlDuplicated(repository.url)) {
+            createRepository(repository.url);
+            repositoryCount++;
+          }
+        } catch (error: any) {
+          failedRepositoryCount++;
+          showToast(
+            getString('backupScreen.repositoryRestoreFailed', {
+              url: repository.url,
+              error: error?.message || String(error),
+            }),
+          );
+        }
+      }
+
+      if (failedRepositoryCount > 0) {
+        showToast(
+          getString('backupScreen.repositoriesRestoredWithErrors', {
+            count: repositoryCount,
+            failedCount: failedRepositoryCount,
+          }),
+        );
+      } else if (repositoryCount > 0) {
+        showToast(
+          getString('backupScreen.repositoriesRestored', {
+            count: repositoryCount,
+          }),
+        );
+      }
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.repositoryFileReadFailed', {
           error: error?.message || String(error),
         }),
       );

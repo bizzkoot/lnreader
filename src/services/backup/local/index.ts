@@ -126,7 +126,9 @@ export const createBackup = async (
       isRunning: false,
     }));
 
-    showToast(getString('backupScreen.backupCreated'));
+    // Success toast only shown for folder saves (line 112: backupSavedToFolder)
+    // Share dialog provides its own feedback, no toast needed to avoid
+    // false success messages when user cancels (Android limitation)
   } catch (error: any) {
     setMeta?.(meta => ({
       ...meta,

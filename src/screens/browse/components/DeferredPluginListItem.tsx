@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { InteractionManager } from 'react-native';
 
 import { PluginItem } from '@plugins/types';
 import { ThemeColors } from '@theme/types';
@@ -21,10 +20,13 @@ export const DeferredPluginListItem = (props: DeferredPluginListItemProps) => {
   const [showReal, setShowReal] = useState(false);
 
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() =>
-      setShowReal(true),
-    );
-    return () => task.cancel();
+    // Use setTimeout as an alternative to deprecated InteractionManager
+    // This defers the rendering until after the current render cycle
+    const timeoutId = setTimeout(() => {
+      setShowReal(true);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   return showReal ? (

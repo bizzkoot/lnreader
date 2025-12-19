@@ -289,7 +289,7 @@ export const resetFutureChaptersProgress = async (
 
 export const getRecentReadingChapters = (novelId: number, limit: number = 4) =>
   db.getAllAsync<ChapterInfo>(
-    'SELECT * FROM Chapter WHERE novelId = ? AND progress > 0 AND progress < 100 ORDER BY updatedTime DESC LIMIT ?',
+    'SELECT * FROM Chapter WHERE novelId = ? AND progress > 0 AND progress < 100 AND unread = 1 ORDER BY updatedTime DESC LIMIT ?',
     novelId,
     limit,
   );

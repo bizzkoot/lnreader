@@ -113,6 +113,10 @@ const NovelScreenList = ({
   const [isFabExtended, setIsFabExtended] = useState(true);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
 
+  const chaptersProgressSum = React.useMemo(() => {
+    return chapters.reduce((sum, c) => sum + (c.progress ?? 0), 0);
+  }, [chapters]);
+
   const novelBottomSheetRef = useRef<BottomSheetModalMethods>(null);
   const trackerSheetRef = useRef<BottomSheetModalMethods>(null);
   const pageNavigationSheetRef = useRef<BottomSheetModalMethods>(null);
@@ -320,6 +324,7 @@ const NovelScreenList = ({
         recycleItems
         extraData={[
           chapters.length,
+          chaptersProgressSum,
           selected.length,
           novel.id,
           loading,

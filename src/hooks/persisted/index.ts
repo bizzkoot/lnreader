@@ -18,3 +18,4 @@ export { useNovel } from './useNovel';
 export { default as useDownload } from './useDownload';
 export { default as useUserAgent } from './useUserAgent';
 export { useLocalBackupFolder } from './useLocalBackupFolder';
+export { useAutoBackup } from './useAutoBackup';

@@ -73,6 +73,16 @@ export interface AppSettings {
    * Number of chapters to download when auto-download triggers
    */
   autoDownloadAmount: '5' | '10' | '15' | '20';
+
+  /**
+   * Automatic backup settings
+   * Backups are triggered when the app launches if enough time has passed
+   */
+  autoBackupFrequency: 'manual' | '6h' | '12h' | 'daily' | '2days' | 'weekly';
+  /**
+   * Maximum number of automatic backups to keep (oldest are deleted)
+   */
+  maxAutoBackups: 1 | 2 | 3 | 4 | 5;
 }
 
 export interface BrowseSettings {
@@ -196,7 +206,7 @@ const initialAppSettings: AppSettings = {
   showLabelsInNav: true,
   useFabForContinueReading: false,
   disableLoadingAnimations: false,
-  uiScale: 0.8,
+  uiScale: 1.0,
 
   /**
    * Library settings
@@ -227,6 +237,12 @@ const initialAppSettings: AppSettings = {
 
   autoDownloadOnRemaining: 'disabled',
   autoDownloadAmount: '10',
+
+  /**
+   * Automatic backup settings
+   */
+  autoBackupFrequency: 'manual',
+  maxAutoBackups: 2,
 };
 
 const initialBrowseSettings: BrowseSettings = {

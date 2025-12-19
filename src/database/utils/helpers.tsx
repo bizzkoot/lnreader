@@ -62,7 +62,7 @@ async function defaultQueryAsync<T = unknown, Array extends boolean = false>(
       // If it's a database locked error, retry with backoff
       if (msg.includes('database is locked') && attempt < maxAttempts - 1) {
         const wait = 50 * Math.pow(2, attempt); // 50ms, 100ms, 200ms
-        // eslint-disable-next-line no-await-in-loop
+
         await new Promise(r => setTimeout(r, wait));
         attempt += 1;
         continue;

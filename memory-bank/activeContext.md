@@ -2,7 +2,7 @@
 
 ## Current Goals
 
-- Fix manual scroll overwrite of TTS position; prefer native TTS saved position on resume. Added new flags `isTTSPlayingRef`, `hasUserScrolledRef` in WebViewReader for robust TTS position handling. Updated tests and memory bank.
+- TTS progress regression (release Android): standardized progress % to paragraph-based for all WebView TTS save events; ensured Novel chapter list re-renders on progress updates; tests/type-check passing. Preparing commit + push.
 
 ## Key Files Modified (TTS Progress Sync)
 

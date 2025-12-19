@@ -49,9 +49,6 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     
     // Track if service is already in foreground state to avoid Android 12+ background start restriction
     private var isServiceForeground = false
-    
-    // SharedPreferences for TTS position sync (replaces MMKV to avoid native dependency issues)
-    private lateinit var sharedPrefs: SharedPreferences
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -127,21 +124,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
     */
 
-    // Save TTS position to SharedPreferences for reader sync
-    private fun saveTTSPosition() {
-        if (mediaChapterId != null && mediaParagraphIndex >= 0) {
-            // Save to same key as useChapter.ts uses
-            val key = "chapter_progress_$mediaChapterId"
-            sharedPrefs.edit().putInt(key, mediaParagraphIndex).apply()
-            
-            android.util.Log.d("TTSForegroundService", "Saved TTS position: chapter=$mediaChapterId, paragraph=$mediaParagraphIndex")
-        }
-    }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        sharedPrefs = getSharedPreferences("tts_progress", Context.MODE_PRIVATE)
         tts = TextToSpeech(this, this)
         
         /* MediaSession disabled - causes regression
@@ -393,19 +379,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         currentBatchIndex = 0
         stopForegroundService()
-        
-        // Save TTS position for reader sync
-        saveTTSPosition()
-        ttsListener?.let { listener ->
-            // Notify RN about position save (filtered out in TTSHighlightModule)
-            listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)
-        }
     }
 
-    /**
-     * MVP pause semantics: stop audio output but keep service + notification.
-     * Resume is handled by RN via speakBatch from last known paragraph.
-     */
     fun stopAudioKeepService() {
         tts?.stop()
         synchronized(queuedUtteranceIds) {
@@ -415,14 +390,6 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         mediaIsPlaying = false
         // updatePlaybackState()  // MediaSession disabled
         updateNotification()
-        
-        // Save TTS position for reader sync (same as stopTTS)
-        saveTTSPosition()
-        // Notify RN about position save
-        ttsListener?.let { listener ->
-            // Notify RN about position save (filtered out in TTSHighlightModule)
-            listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)
-        }
     }
 
     fun getVoices(): List<Voice> {
@@ -684,13 +651,6 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         tts?.shutdown()
         // mediaSession?.release()  // MediaSession disabled
         // mediaSession = null
-        
-        // Save TTS position for reader sync
-        saveTTSPosition()
-        ttsListener?.let { listener ->
-            // Notify RN about position save (filtered out in TTSHighlightModule)
-            listener.onSpeechDone(INTERNAL_SAVE_POSITION_SIGNAL)
-        }
         
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()

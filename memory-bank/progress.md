@@ -1,16 +1,17 @@
-# Progress (Updated: 2025-12-13)
+# Progress (Updated: 2025-12-18)
 
 ## Done
 
-- Researched backup code using getContentUriAsync in src/services/backup/local/index.ts
-- Researched update check feature in src/hooks/common/useGithubUpdateChecker.ts and src/components/NewUpdateDialog.tsx
-- Reviewed eslint.config.js configuration
-- Retrieved expo-file-system documentation from Context7
+- Fix TTS WebView save to use paragraph-based percentage (matches unified save)
+- Add Jest coverage for WebView save handler + update exit dialog handler tests
+- Fix chapter list refresh to reflect live progress updates during TTS
+- Unblock TS type-check by excluding legacy WebViewReader_Backup.tsx
 
 ## Doing
 
-- Finalizing research findings and synthesis
+
 
 ## Next
 
-- Provide comprehensive research report with exact file paths and implementation details
+- Commit and push changes
+- (Optional) Remove noisy ResizeObserver console logs before release

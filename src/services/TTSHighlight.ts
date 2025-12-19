@@ -130,6 +130,10 @@ class TTSHighlightService {
     return TTSAudioManager.hasRemainingItems();
   }
 
+  hasQueuedNativeInCurrentSession(): boolean {
+    return TTSAudioManager.hasQueuedNativeInCurrentSession();
+  }
+
   pause(): Promise<boolean> {
     return TTSHighlight.pause();
   }
@@ -140,26 +144,6 @@ class TTSHighlightService {
 
   getVoices(): Promise<TTSVoice[]> {
     return TTSHighlight.getVoices();
-  }
-
-  /**
-   * Get saved TTS position from native SharedPreferences.
-   * Returns -1 if no position is saved for the given chapter.
-   * Use this as a fallback when MMKV doesn't have the position
-   * (e.g., after background TTS saved position natively).
-   */
-  getSavedTTSPosition(chapterId: number): Promise<number> {
-    return TTSHighlight.getSavedTTSPosition(chapterId);
-  }
-
-  /**
-   * Clear saved TTS position for a chapter in native storage (SharedPreferences).
-   * Returns true on success.
-   */
-  clearSavedTTSPosition(chapterId: number): Promise<boolean> {
-    // Some platforms may not implement this; handle rejection upstream as best-effort
-    // @ts-ignore
-    return TTSHighlight.clearSavedTTSPosition(chapterId);
   }
 
   addListener(

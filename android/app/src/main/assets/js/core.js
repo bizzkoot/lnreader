@@ -288,6 +288,14 @@ window.reader = new (function () {
 
     // ENHANCED: Detect user manual scroll during TTS
     if (window.tts && window.tts.reading) {
+      // CASE 5.3 FIX: Block all scroll processing while Manual Mode Dialog is active
+      // This prevents auto-scroll from being detected as "user scrolled forward"
+      // which would reset the dialog state
+      if (window.tts.dialogActive) {
+        this.accumulatedScrollDelta = 0;
+        return;
+      }
+
       // Check if TTS has completed its auto-scroll before processing user scroll
       const timeSinceAutoScroll =
         Date.now() - (window.tts.lastAutoScrollTime || 0);
@@ -390,6 +398,19 @@ window.reader = new (function () {
       return;
     }
 
+    // BUG FIX: Block saves for 1000ms after initial scroll completes
+    // This prevents stale scroll events from saving wrong positions
+    const timeSinceInitialScroll =
+      Date.now() - (reader.initialScrollCompleteTime || 0);
+    if (reader.initialScrollCompleteTime && timeSinceInitialScroll < 1000) {
+      console.log(
+        'processScroll: Skipping save - initial scroll grace period (' +
+          timeSinceInitialScroll +
+          'ms)',
+      );
+      return;
+    }
+
     // BUG FIX: Block saves shortly after TTS stops (grace period)
     // This prevents small scrolls from corrupting the TTS position
     const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
@@ -411,6 +432,7 @@ window.reader = new (function () {
   // New helper to save progress
   this.saveProgress = () => {
     const readableElements = this.getReadableElements();
+    const totalParagraphs = readableElements.length;
     let paragraphIndex = -1;
 
     // Use the same intersection logic for consistency
@@ -428,13 +450,14 @@ window.reader = new (function () {
       }
     }
 
-    if (paragraphIndex !== -1) {
+    if (paragraphIndex !== -1 && totalParagraphs > 0) {
+      // Calculate progress from paragraph position (unified with TTS)
+      const progress = Math.round(
+        ((paragraphIndex + 1) / totalParagraphs) * 100,
+      );
       this.post({
         type: 'save',
-        data: parseInt(
-          ((window.scrollY + this.layoutHeight) / this.chapterHeight) * 100,
-          10,
-        ),
+        data: progress,
         paragraphIndex,
         chapterId: this.chapter.id,
       });
@@ -1071,6 +1094,12 @@ window.tts = new (function () {
 
         this.speak();
         this.reading = true;
+
+        // Update TTS controller icon to show pause icon
+        const controller = document.getElementById('TTS-Controller');
+        if (controller?.firstElementChild) {
+          controller.firstElementChild.innerHTML = this.pauseIcon;
+        }
       } else {
         this.start();
       }
@@ -1089,12 +1118,17 @@ window.tts = new (function () {
     const paragraphIndex = readableElements.indexOf(this.currentElement);
 
     // Save with explicit paragraph index
+    const totalParagraphs = readableElements.length;
+    const progress = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(((paragraphIndex + 1) / (totalParagraphs || 1)) * 100),
+      ),
+    );
     reader.post({
       type: 'save',
-      data: parseInt(
-        ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
-        10,
-      ),
+      data: progress,
       paragraphIndex: paragraphIndex,
       chapterId: reader.chapter.id,
     });
@@ -1107,6 +1141,12 @@ window.tts = new (function () {
         timestamp: Date.now(),
       },
     });
+
+    // Update TTS controller icon to show resume/play icon
+    const controller = document.getElementById('TTS-Controller');
+    if (controller?.firstElementChild) {
+      controller.firstElementChild.innerHTML = this.resumeIcon;
+    }
 
     // Clear operation flag after a brief delay
     setTimeout(() => {
@@ -1321,13 +1361,17 @@ window.tts = new (function () {
       const readableElements = reader.getReadableElements();
       const paragraphIndex = readableElements.indexOf(this.currentElement);
       if (paragraphIndex !== -1) {
+        const totalParagraphs = readableElements.length;
+        const progress = Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(((paragraphIndex + 1) / (totalParagraphs || 1)) * 100),
+          ),
+        );
         reader.post({
           type: 'save',
-          data: parseInt(
-            ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) *
-              100,
-            10,
-          ),
+          data: progress,
           paragraphIndex,
           chapterId: reader.chapter.id,
         });
@@ -1357,6 +1401,12 @@ window.tts = new (function () {
             timestamp: Date.now(),
           },
         });
+
+        // Update TTS controller icon to show pause icon when speaking
+        const controller = document.getElementById('TTS-Controller');
+        if (controller?.firstElementChild) {
+          controller.firstElementChild.innerHTML = this.pauseIcon;
+        }
 
         // NEW: Send lookahead queue for background playback
         const nextTexts = [];
@@ -1512,12 +1562,17 @@ window.tts = new (function () {
       this.started = true; // Ensure next() works from here
 
       // NEW: Save progress when state is updated from Native (Background TTS)
+      const totalParagraphs = readableElements.length;
+      const progress = Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(((paragraphIndex + 1) / (totalParagraphs || 1)) * 100),
+        ),
+      );
       reader.post({
         type: 'save',
-        data: parseInt(
-          ((window.scrollY + reader.layoutHeight) / reader.chapterHeight) * 100,
-          10,
-        ),
+        data: progress,
         paragraphIndex,
         chapterId: reader.chapter.id,
       });
@@ -1884,10 +1939,17 @@ function calculatePages() {
               isVisible || isPartiallyVisible,
             );
 
-            reader.suppressSaveOnScroll = false;
-            reader.initialScrollPending = false; // Reset pending flag
-            reader.hasPerformedInitialScroll = true;
             console.log('[calculatePages] Initial scroll complete');
+
+            // Set a marker to block processScroll saves for a longer grace period
+            // This prevents stale scroll events from saving wrong positions
+            reader.initialScrollCompleteTime = Date.now();
+
+            // Reset flags
+            reader.suppressSaveOnScroll = false;
+            reader.initialScrollPending = false;
+            reader.hasPerformedInitialScroll = true;
+
             try {
               reader.post({
                 type: 'initial-scroll-complete',
