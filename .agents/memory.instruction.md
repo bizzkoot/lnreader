@@ -41,6 +41,21 @@ applyTo: '**'
 
 - WebView security hardening (2025-12-12): Added `src/utils/webviewSecurity.ts` utilities for reader WebViews: strict local-only navigation (`onShouldStartLoadWithRequest`), nonce injection (`window.__LNREADER_NONCE__`) and nonce-validated message parsing + rate limiting. Updated `android/app/src/main/assets/js/core.js` to attach nonce to all bridge messages.
 
+# 2025-12-20: Continuous Scrolling Bug Fixes
+
+- Fixed critical stack overflow in `manageStitchedChapters()` (android/app/src/main/assets/js/core.js): Replaced nested O(n²) loop with optimized O(n) "find first visible paragraph" approach with early exit. Added safety checks for empty boundaries and null elements.
+- Fixed missing boundaries initialization: Added boundary creation for first chapter after `hasPerformedInitialScroll` flag is set in `calculatePages()`. Handles both saved position and no-saved-position cases.
+- Added Settings UI for auto-trim threshold: Created `TransitionThresholdModal.tsx` component (cloned from ChapterBoundaryModal pattern) with options 5%, 10%, 15%, 20%. Updated `NavigationTab.tsx` to display threshold selector when continuous scrolling is enabled.
+- **Performance Pattern**: When checking DOM element visibility in scroll handlers, always use early exit strategy - find first visible element and stop. Avoid nested loops with `getBoundingClientRect()` calls (expensive at scale with 400+ paragraphs).
+- **Modal Pattern**: For new settings modals, clone existing modal components (ChapterBoundaryModal.tsx, ContinuousScrollingModal.tsx) which include Portal, RadioButton, theme support, and UI scaling.
+- **Boundary Initialization Pattern**: Initialize chapter boundaries after DOM is stable (after initial scroll completes) with check `if (chapterBoundaries.length === 0)` to prevent duplicate initialization.
+
+Files modified in this set:
+
+- android/app/src/main/assets/js/core.js
+- src/screens/settings/SettingsReaderScreen/tabs/NavigationTab.tsx
+- src/screens/settings/SettingsReaderScreen/Modals/TransitionThresholdModal.tsx (NEW)
+
 Files modified in this set:
 
 - src/screens/reader/components/WebViewReader.tsx

@@ -15,6 +15,7 @@ import SettingSwitch from '../../components/SettingSwitch';
 import { useBoolean } from '@hooks';
 import ContinuousScrollingModal from '../Modals/ContinuousScrollingModal';
 import ChapterBoundaryModal from '../Modals/ChapterBoundaryModal';
+import TransitionThresholdModal from '../Modals/TransitionThresholdModal';
 
 const NavigationTab: React.FC = () => {
   const theme = useTheme();
@@ -30,6 +31,7 @@ const NavigationTab: React.FC = () => {
     autoMarkShortChapters = true,
     continuousScrolling = 'disabled',
     continuousScrollBoundary = 'bordered',
+    continuousScrollTransitionThreshold = 15,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -50,6 +52,12 @@ const NavigationTab: React.FC = () => {
     value: chapterBoundaryModalVisible,
     setTrue: showChapterBoundaryModal,
     setFalse: hideChapterBoundaryModal,
+  } = useBoolean();
+
+  const {
+    value: transitionThresholdModalVisible,
+    setTrue: showTransitionThresholdModal,
+    setFalse: hideTransitionThresholdModal,
   } = useBoolean();
 
   const styles = React.useMemo(
@@ -164,16 +172,24 @@ const NavigationTab: React.FC = () => {
           theme={theme}
         />
         {continuousScrolling !== 'disabled' && (
-          <List.Item
-            title="Chapter boundary"
-            description={
-              continuousScrollBoundary === 'bordered'
-                ? 'Bordered: Shows chapter markers with gap'
-                : 'Stitched: Seamless flow without gaps'
-            }
-            onPress={showChapterBoundaryModal}
-            theme={theme}
-          />
+          <>
+            <List.Item
+              title="Chapter boundary"
+              description={
+                continuousScrollBoundary === 'bordered'
+                  ? 'Bordered: Shows chapter markers with gap'
+                  : 'Stitched: Seamless flow without gaps'
+              }
+              onPress={showChapterBoundaryModal}
+              theme={theme}
+            />
+            <List.Item
+              title="Auto-trim threshold"
+              description={`Remove previous chapter after scrolling ${continuousScrollTransitionThreshold}% into next chapter`}
+              onPress={showTransitionThresholdModal}
+              theme={theme}
+            />
+          </>
         )}
       </View>
 
@@ -258,6 +274,16 @@ const NavigationTab: React.FC = () => {
         currentValue={continuousScrollBoundary}
         onSelect={value => {
           setChapterGeneralSettings({ continuousScrollBoundary: value });
+        }}
+      />
+      <TransitionThresholdModal
+        visible={transitionThresholdModalVisible}
+        onDismiss={hideTransitionThresholdModal}
+        currentValue={continuousScrollTransitionThreshold}
+        onSelect={value => {
+          setChapterGeneralSettings({
+            continuousScrollTransitionThreshold: value,
+          });
         }}
       />
     </BottomSheetScrollView>

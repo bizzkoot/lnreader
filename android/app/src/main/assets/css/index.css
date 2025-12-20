@@ -181,3 +181,68 @@ td {
   display: block;
   width: 100%;
 }
+
+/* DOM Stitching: Chapter boundary styles */
+.stitched-chapter {
+  margin-top: 0;
+}
+
+/* Bordered mode: visible separator with chapter titles */
+.chapter-boundary-bordered {
+  padding: 24px var(--readerSettings-padding);
+  text-align: center;
+  margin: 32px 0;
+  border-top: 1px solid var(--readerSettings-textColor);
+  border-bottom: 1px solid var(--readerSettings-textColor);
+  opacity: 0.5;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--readerSettings-textColor) 5%, transparent) 50%,
+    transparent 100%
+  );
+}
+
+.chapter-boundary-end,
+.chapter-boundary-start {
+  font-size: 14px;
+  color: var(--readerSettings-textColor);
+  opacity: 0.7;
+  padding: 8px 0;
+}
+
+.chapter-boundary-end {
+  margin-bottom: 8px;
+}
+
+.chapter-boundary-start {
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+/* Stitched mode: floating chapter badge */
+.chapter-badge {
+  position: fixed;
+  top: calc(var(--StatusBar-currentHeight) + 48px);
+  right: 16px;
+  background: var(--theme-surface-0-9);
+  color: var(--theme-onSurface);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-badge.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

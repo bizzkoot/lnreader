@@ -745,6 +745,12 @@ export function useTTSController(
             return true;
           }
 
+          // CRITICAL: Clear any stitched chapters before TTS starts
+          // Multi-chapter DOM causes paragraph index misalignment
+          webViewRef.current?.injectJavaScript(
+            'if (window.reader && window.reader.clearStitchedChapters) { window.reader.clearStitchedChapters(); } true;',
+          );
+
           if (event.data && typeof event.data === 'string') {
             if (!isTTSReadingRef.current) {
               isTTSReadingRef.current = true;

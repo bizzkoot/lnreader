@@ -8,13 +8,7 @@
  */
 
 import React, { memo, useEffect, useMemo, useRef, useCallback } from 'react';
-import {
-  NativeEventEmitter,
-  NativeModules,
-  StatusBar,
-  View,
-  Pressable,
-} from 'react-native';
+import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
 import WebView from 'react-native-webview';
 import {
   READER_WEBVIEW_ORIGIN_WHITELIST,
@@ -24,7 +18,6 @@ import {
   shouldAllowReaderWebViewRequest,
 } from '@utils/webviewSecurity';
 import color from 'color';
-import AppText from '@components/AppText';
 
 import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
@@ -41,7 +34,9 @@ import {
 } from '@hooks/persisted/useSettings';
 import { getBatteryLevelSync } from 'react-native-device-info';
 import TTSHighlight from '@services/TTSHighlight';
-import { PLUGIN_STORAGE } from '@utils/Storages';
+import { fetchChapter } from '@services/plugin/fetch';
+import { PLUGIN_STORAGE, NOVEL_STORAGE } from '@utils/Storages';
+import NativeFile from '@specs/NativeFile';
 import { useChapterContext } from '../ChapterContext';
 import TTSResumeDialog from './TTSResumeDialog';
 import TTSScrollSyncDialog from './TTSScrollSyncDialog';
@@ -113,15 +108,6 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     },
     [showToast],
   );
-
-  // Continuous scroll confirmation banner state
-  const {
-    value: scrollConfirmVisible,
-    setTrue: showScrollConfirm,
-    setFalse: hideScrollConfirm,
-  } = useBoolean();
-
-  const nextChapterNameRef = useRef<string>('');
 
   // Settings
   const readerSettings = useMemo(
@@ -483,7 +469,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'save-tts-position',
         'show-toast',
         'console',
-        'continuous-scroll-ask',
+        'fetch-chapter-content',
+        'chapter-appended',
       ] as const);
       if (!msg || msg.nonce !== webViewNonceRef.current) {
         return;
@@ -657,14 +644,82 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
           }
           break;
-        case 'continuous-scroll-ask':
-          // Show confirmation banner at bottom (non-blocking)
+        case 'fetch-chapter-content':
+          // DOM Stitching: Fetch next chapter content and send back to WebView
           if (event.data && typeof event.data === 'object') {
-            const { nextChapterName } = event.data as {
-              nextChapterName: string;
+            const eventData = event.data as unknown as {
+              chapter: { id: number; name: string; path: string };
             };
-            nextChapterNameRef.current = nextChapterName;
-            showScrollConfirm();
+            const targetChapter = eventData.chapter;
+            console.log(
+              `WebViewReader: Fetching chapter content for ${targetChapter.name}`,
+            );
+
+            const getChapterContent = async () => {
+              try {
+                // 1. Try to read from local storage (downloaded)
+                if (novel?.pluginId && novel?.id) {
+                  const filePath = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}/${targetChapter.id}/index.html`;
+                  if (NativeFile.exists(filePath)) {
+                    console.log('WebViewReader: Reading from local file');
+                    return NativeFile.readFile(filePath);
+                  }
+                }
+              } catch (e) {
+                console.warn('WebViewReader: Error reading local file', e);
+              }
+
+              // 2. Fallback to network fetch
+              console.log(
+                'WebViewReader: Local file not found, fetching from network',
+              );
+              return await fetchChapter(
+                novel?.pluginId || '',
+                targetChapter.path,
+              );
+            };
+
+            // Use our new helper
+            getChapterContent()
+              .then(chapterHtml => {
+                console.log(
+                  `WebViewReader: Got chapter HTML (${chapterHtml.length} chars)`,
+                );
+                // Send chapter content back to WebView
+                webViewRef.current?.injectJavaScript(`
+                  if (window.reader && window.reader.receiveChapterContent) {
+                    window.reader.receiveChapterContent(
+                      ${targetChapter.id},
+                      ${JSON.stringify(targetChapter.name)},
+                      ${JSON.stringify(chapterHtml)}
+                    );
+                  }
+                  true;
+                `);
+              })
+              .catch(err => {
+                console.error('WebViewReader: Failed to fetch chapter', err);
+                webViewRef.current?.injectJavaScript(`
+                  if (window.reader) {
+                    window.reader.isNavigating = false;
+                    window.reader.pendingChapterFetch = false;
+                  }
+                  true;
+                `);
+              });
+          }
+          break;
+        case 'chapter-appended':
+          // DOM Stitching: Chapter was appended to DOM
+          if (event.data && typeof event.data === 'object') {
+            const eventData = event.data as unknown as {
+              chapterId: number;
+              chapterName: string;
+              loadedChapters: number[];
+            };
+            console.log(
+              `WebViewReader: Chapter appended - ${eventData.chapterName}, total: ${eventData.loadedChapters.length}`,
+            );
           }
           break;
       }
@@ -677,6 +732,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       chapter.id,
       saveProgress,
       showToastMessage,
+      novel?.pluginId,
+      novel?.id,
     ],
   );
 
@@ -781,101 +838,6 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         theme={theme}
         onHide={hideToast}
       />
-
-      {/* Continuous scroll confirmation banner */}
-      {scrollConfirmVisible && (
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: theme.surface,
-            padding: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            elevation: 8,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 4,
-            borderTopWidth: 1,
-            borderTopColor: color(theme.onSurface).alpha(0.1).string(),
-          }}
-        >
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <AppText
-              style={{
-                fontSize: 16,
-                fontWeight: '500',
-                color: theme.onSurface,
-                marginBottom: 4,
-              }}
-            >
-              Continue reading?
-            </AppText>
-            <AppText
-              style={{
-                fontSize: 14,
-                color: theme.onSurfaceVariant,
-              }}
-            >
-              Next: {nextChapterNameRef.current}
-            </AppText>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable
-              android_ripple={{ color: theme.rippleColor }}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 20,
-                borderRadius: 4,
-              }}
-              onPress={() => {
-                hideScrollConfirm();
-                // Reset navigation flag in WebView
-                webViewRef.current?.injectJavaScript(
-                  'if (window.reader) { window.reader.isNavigating = false; }',
-                );
-              }}
-            >
-              <AppText
-                style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: theme.onSurfaceVariant,
-                }}
-              >
-                Cancel
-              </AppText>
-            </Pressable>
-            <Pressable
-              android_ripple={{ color: theme.rippleColor }}
-              style={{
-                paddingVertical: 10,
-                paddingHorizontal: 20,
-                borderRadius: 4,
-                backgroundColor: theme.primary,
-              }}
-              onPress={() => {
-                hideScrollConfirm();
-                navigateChapter('NEXT');
-              }}
-            >
-              <AppText
-                style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: theme.onPrimary,
-                }}
-              >
-                Continue
-              </AppText>
-            </Pressable>
-          </View>
-        </View>
-      )}
     </>
   );
 };

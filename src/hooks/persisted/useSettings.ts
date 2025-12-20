@@ -181,6 +181,16 @@ export interface ChapterGeneralSettings {
    * - 'stitched': Seamless flow without visual separation
    */
   continuousScrollBoundary: 'stitched' | 'bordered';
+  /**
+   * Threshold for automatic chapter transition when using continuous scrolling.
+   * When user scrolls past this percentage into an appended chapter, the app
+   * automatically navigates to that chapter (clears previous chapter from DOM).
+   * This keeps DOM clean and prevents TTS issues.
+   *
+   * Options: 5, 10, 15, 20 (percent)
+   * Default: 15
+   */
+  continuousScrollTransitionThreshold: 5 | 10 | 15 | 20;
 }
 
 export interface ReaderTheme {
@@ -300,6 +310,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   autoMarkShortChapters: true,
   continuousScrolling: 'disabled',
   continuousScrollBoundary: 'bordered',
+  continuousScrollTransitionThreshold: 15,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {
