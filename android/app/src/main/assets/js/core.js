@@ -1,5 +1,9 @@
 /* eslint-disable no-console */
 window.reader = new (function () {
+  // Unique ID to track reader object instances
+  this._readerId = 'reader_' + Date.now() + '_' + Math.random();
+  console.log('[Reader] Created new reader instance:', this._readerId);
+
   const {
     readerSettings,
     chapterGeneralSettings,
@@ -208,6 +212,15 @@ window.reader = new (function () {
       return;
     }
 
+    // Check if next chapter is already loaded (prevent duplicates)
+    if (this.loadedChapters.includes(this.nextChapter.id)) {
+      console.log(
+        `Reader: Chapter ${this.nextChapter.id} already loaded, skipping`,
+      );
+      this.isNavigating = false;
+      return;
+    }
+
     this.pendingChapterFetch = true;
 
     // Show loading indicator
@@ -246,10 +259,20 @@ window.reader = new (function () {
     // Add boundary based on mode
     if (boundaryMode === 'bordered') {
       // Bordered mode: visible separator with chapter title
+      // Get previous chapter name from DOM (last loaded chapter)
+      const previousChapters =
+        this.chapterElement.querySelectorAll('[data-chapter-id]');
+      const previousChapterName =
+        previousChapters.length > 0
+          ? previousChapters[previousChapters.length - 1].getAttribute(
+              'data-chapter-name',
+            )
+          : this.chapter.name;
+
       const separator = document.createElement('div');
       separator.className = 'chapter-boundary-bordered';
       separator.innerHTML = `
-        <div class="chapter-boundary-end">— End of ${this.chapter.name} —</div>
+        <div class="chapter-boundary-end">— End of ${previousChapterName} —</div>
         <div class="chapter-boundary-start">— ${chapterName} —</div>
       `;
       chapterContainer.appendChild(separator);
@@ -268,11 +291,43 @@ window.reader = new (function () {
     this.chapterElement.appendChild(chapterContainer);
 
     // Calculate and store boundary for this chapter
+    // IMPORTANT: Must invalidate cache BEFORE getting elements so the new chapter's elements are included
+    this.invalidateCache();
     const allElements = this.getReadableElements();
-    const newChapterStart =
-      allElements.length -
-      chapterContainer.querySelectorAll('.readable:not(.hide)').length;
+
+    // Count readable elements in the new chapter container using the same logic as getReadableElements()
+    // NOTE: We can't use querySelectorAll('.readable') because elements don't have that class.
+    // Readable elements are identified by nodeName (P, DIV, H1-H6, etc.) via window.tts.readable()
+    const countReadableInContainer = container => {
+      let count = 0;
+      const traverse = node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (window.tts.readable(node) && !window.tts.isContainer(node)) {
+            count++;
+          } else {
+            for (let i = 0; i < node.children.length; i++) {
+              traverse(node.children[i]);
+            }
+          }
+        }
+      };
+      traverse(container);
+      return count;
+    };
+
+    const chapterElementCount = countReadableInContainer(chapterContainer);
+    const newChapterStart = allElements.length - chapterElementCount;
     const newChapterEnd = allElements.length - 1;
+
+    console.log(
+      `[receiveChapterContent] BOUNDARY DEBUG - ` +
+        `Chapter: ${chapterId}, ` +
+        `Total elements: ${allElements.length}, ` +
+        `Chapter elements: ${chapterElementCount}, ` +
+        `Calculated start: ${newChapterStart}, ` +
+        `Calculated end: ${newChapterEnd}, ` +
+        `Count: ${newChapterEnd - newChapterStart + 1}`,
+    );
 
     this.chapterBoundaries.push({
       chapterId: chapterId,
@@ -283,6 +338,9 @@ window.reader = new (function () {
 
     // Update tracking
     this.loadedChapters.push(chapterId);
+    console.log(
+      `[receiveChapterContent] ReaderId=${this._readerId}, After push: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}, hasPerformedInitialScroll = ${this.hasPerformedInitialScroll}`,
+    );
 
     // Update chapter reference for future navigation
     // Note: React Native side needs to update nextChapter/prevChapter
@@ -297,7 +355,13 @@ window.reader = new (function () {
 
     // Refresh layout calculations
     this.refresh();
+    console.log(
+      `[receiveChapterContent] Before invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+    );
     this.invalidateCache();
+    console.log(
+      `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+    );
 
     // Reset navigation flag after delay
     setTimeout(() => {
@@ -329,7 +393,7 @@ window.reader = new (function () {
     }, 3000);
   };
 
-  // DOM Stitching: Clear stitched chapters (call before TTS starts)
+  // DOM Stitching: Clear stitched chapters to currently visible chapter (for TTS)
   this.clearStitchedChapters = function () {
     if (this.loadedChapters.length <= 1) {
       return false; // Nothing to clear
@@ -339,13 +403,140 @@ window.reader = new (function () {
       `Reader: Clearing ${this.loadedChapters.length - 1} stitched chapters for TTS`,
     );
 
-    // Remove all stitched chapter elements from DOM
-    const stitchedElements =
-      this.chapterElement.querySelectorAll('.stitched-chapter');
-    stitchedElements.forEach(el => el.remove());
+    // CRITICAL FIX: Find which chapter is currently visible
+    const readableElements = this.getReadableElements();
+    let firstVisibleIndex = -1;
 
-    // Reset tracking to original chapter only
-    this.loadedChapters = [this.chapter.id];
+    for (let i = 0; i < readableElements.length; i++) {
+      const element = readableElements[i];
+      if (!element) continue;
+
+      const rect = element.getBoundingClientRect();
+      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+      if (isVisible) {
+        firstVisibleIndex = i;
+        break;
+      }
+    }
+
+    // Determine visible chapter from boundaries
+    let visibleChapterId = this.chapter.id;
+    let visibleChapterName = this.chapter.name;
+    let visibleChapterIndex = 0;
+    let foundBoundaryMatch = false;
+
+    if (firstVisibleIndex !== -1 && this.chapterBoundaries.length > 0) {
+      for (let i = 0; i < this.chapterBoundaries.length; i++) {
+        const boundary = this.chapterBoundaries[i];
+        if (
+          firstVisibleIndex >= boundary.startIndex &&
+          firstVisibleIndex <= boundary.endIndex
+        ) {
+          visibleChapterId = boundary.chapterId;
+          visibleChapterIndex = i;
+          foundBoundaryMatch = true;
+
+          // Get chapter name from DOM
+          const chapterEl = this.chapterElement.querySelector(
+            `[data-chapter-id="${visibleChapterId}"]`,
+          );
+          if (chapterEl) {
+            visibleChapterName =
+              chapterEl.getAttribute('data-chapter-name') || this.chapter.name;
+          }
+
+          console.log(
+            `Reader: Visible chapter is ${visibleChapterName} (ID: ${visibleChapterId}, index: ${i})`,
+          );
+          break;
+        }
+      }
+
+      // WARN if no boundary matched - this indicates a boundary calculation bug
+      if (!foundBoundaryMatch) {
+        console.warn(
+          `Reader: WARNING - Paragraph ${firstVisibleIndex} did not match any boundary! Boundaries: ${JSON.stringify(this.chapterBoundaries.map(b => ({ id: b.chapterId, start: b.startIndex, end: b.endIndex })))}`,
+        );
+      }
+    }
+
+    // Remove ALL chapter elements from DOM
+    const allStitchedElements =
+      this.chapterElement.querySelectorAll('.stitched-chapter');
+
+    console.log(
+      `Reader: Found ${allStitchedElements.length} stitched chapter elements`,
+    );
+    console.log(
+      `Reader: Visible chapter is at boundary index ${visibleChapterIndex} (ID: ${visibleChapterId})`,
+    );
+
+    if (visibleChapterIndex === 0) {
+      // Visible chapter is the ORIGINAL chapter (not stitched)
+      // Remove all stitched elements (Chapter 3, 4, etc.)
+      console.log(
+        'Reader: Visible chapter is original, removing all stitched chapters',
+      );
+      allStitchedElements.forEach(el => el.remove());
+      this.loadedChapters = [this.chapter.id];
+
+      // Keep original boundaries (just first chapter)
+      if (this.chapterBoundaries.length > 0) {
+        this.chapterBoundaries = [this.chapterBoundaries[0]];
+      }
+    } else {
+      // Visible chapter is a STITCHED chapter (Chapter 3 or 4)
+      // Find the stitched chapter element by ID
+      const visibleStitchedElement = Array.from(allStitchedElements).find(
+        el => el.getAttribute('data-chapter-id') === String(visibleChapterId),
+      );
+
+      if (!visibleStitchedElement) {
+        console.error(
+          `Reader: Could not find stitched chapter element for ID ${visibleChapterId}`,
+        );
+        // Fallback: keep original chapter
+        allStitchedElements.forEach(el => el.remove());
+        this.loadedChapters = [this.chapter.id];
+      } else {
+        console.log(
+          `Reader: Visible chapter is stitched (ID: ${visibleChapterId}), removing others`,
+        );
+
+        // Remove ORIGINAL chapter content (all non-stitched elements)
+        const originalElements = Array.from(
+          this.chapterElement.childNodes,
+        ).filter(
+          node =>
+            node.nodeType === 1 && !node.classList.contains('stitched-chapter'),
+        );
+        originalElements.forEach(el => el.remove());
+
+        // Remove all OTHER stitched chapters
+        allStitchedElements.forEach(el => {
+          if (el !== visibleStitchedElement) {
+            el.remove();
+          }
+        });
+
+        // Update tracking
+        this.loadedChapters = [visibleChapterId];
+
+        // Reset boundaries to just the visible chapter
+        // Recalculate since we removed content
+        const remainingElements = this.getReadableElements();
+        this.chapterBoundaries = [
+          {
+            chapterId: visibleChapterId,
+            startIndex: 0,
+            endIndex: remainingElements.length - 1,
+            paragraphCount: remainingElements.length,
+          },
+        ];
+      }
+    }
+
     this.pendingChapterFetch = false;
     this.isNavigating = false;
 
@@ -353,14 +544,17 @@ window.reader = new (function () {
     this.refresh();
     this.invalidateCache();
 
-    // Notify React Native
+    // Notify React Native to update chapter context
     this.post({
       type: 'stitched-chapters-cleared',
-      data: { chapterId: this.chapter.id },
+      data: {
+        chapterId: visibleChapterId,
+        chapterName: visibleChapterName,
+      },
     });
 
     console.log(
-      'Reader: Stitched chapters cleared, DOM reset to single chapter',
+      `Reader: Stitched chapters cleared, DOM reset to single chapter (${visibleChapterName})`,
     );
     return true;
   };
@@ -373,24 +567,67 @@ window.reader = new (function () {
 
     console.log('Reader: Trimming previous chapter from DOM');
 
-    // Remove the ORIGINAL chapter (not stitched ones)
-    // Original chapter is the one WITHOUT .stitched-chapter class
-    const originalChapterContent = this.chapterElement.querySelector(
-      ':scope > :not(.stitched-chapter)',
+    // SCROLL POSITION PRESERVATION: Find a reference element that will remain after trim
+    // We use the first visible paragraph in the CURRENT chapter (the one that stays)
+    const readableElements = this.getReadableElements();
+    let referenceElement = null;
+    let referenceOffsetFromTop = 0;
+
+    // Find the first visible element that's in the second chapter (will remain after trim)
+    const secondChapterBoundary = this.chapterBoundaries[1];
+    if (
+      secondChapterBoundary &&
+      readableElements.length > secondChapterBoundary.startIndex
+    ) {
+      for (
+        let i = secondChapterBoundary.startIndex;
+        i < readableElements.length && i <= secondChapterBoundary.endIndex;
+        i++
+      ) {
+        const el = readableElements[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          // Found a visible element in the remaining chapter
+          referenceElement = el;
+          referenceOffsetFromTop = rect.top;
+          console.log(
+            `Reader: Scroll lock - Reference element at index ${i}, offset ${referenceOffsetFromTop.toFixed(1)}px from top`,
+          );
+          break;
+        }
+      }
+    }
+
+    // Get the first (oldest) chapter ID to remove
+    const chapterToRemove = this.loadedChapters[0];
+
+    // Check if the chapter to remove is a stitched chapter or original content
+    const stitchedChapters = Array.from(
+      this.chapterElement.querySelectorAll('.stitched-chapter'),
     );
-    if (originalChapterContent && originalChapterContent.tagName !== 'DIV') {
-      // Original content is inline paragraphs, we need to wrap and remove
-      const wrapper = document.createElement('div');
-      wrapper.className = 'original-chapter-trimmed';
+    const originalElements = Array.from(this.chapterElement.children).filter(
+      child => !child.classList.contains('stitched-chapter'),
+    );
 
-      // Move all non-stitched elements to wrapper
-      const elementsToMove = Array.from(this.chapterElement.childNodes).filter(
-        node => !node.classList || !node.classList.contains('stitched-chapter'),
+    // Determine what to remove based on what exists
+    if (originalElements.length > 0) {
+      // Original chapter content exists - remove it
+      console.log(
+        `Reader: Removing ${originalElements.length} original chapter element(s)`,
       );
-      elementsToMove.forEach(el => wrapper.appendChild(el));
-
-      // Remove wrapper (and all original chapter content)
-      wrapper.remove();
+      originalElements.forEach(el => el.remove());
+    } else if (stitchedChapters.length > 0) {
+      // No original content, remove the first stitched chapter
+      const firstStitched = stitchedChapters[0];
+      const removedId = firstStitched.getAttribute('data-chapter-id');
+      console.log(
+        `Reader: Removing first stitched chapter element (ID: ${removedId})`,
+      );
+      firstStitched.remove();
+    } else {
+      console.warn('Reader: No content found to trim');
+      return false;
     }
 
     // Remove first chapter from tracking
@@ -408,8 +645,77 @@ window.reader = new (function () {
     this.refresh();
     this.invalidateCache();
 
+    // SCROLL POSITION RESTORATION: Restore the reference element to its original screen position
+    if (referenceElement && referenceElement.isConnected) {
+      const newRect = referenceElement.getBoundingClientRect();
+      const scrollAdjustment = newRect.top - referenceOffsetFromTop;
+
+      if (Math.abs(scrollAdjustment) > 5) {
+        // Only adjust if significant difference
+        window.scrollBy(0, scrollAdjustment);
+        console.log(
+          `Reader: Scroll position restored - adjusted by ${scrollAdjustment.toFixed(1)}px`,
+        );
+      } else {
+        console.log('Reader: Scroll position preserved (no adjustment needed)');
+      }
+    } else {
+      console.warn(
+        'Reader: Could not restore scroll position - reference element not found',
+      );
+    }
+
+    // Get the new current chapter info (first one after trim)
+    const newCurrentChapterId = this.loadedChapters[0];
+    const newCurrentBoundary = this.chapterBoundaries[0];
+
+    // Get chapter name from DOM if it's a stitched chapter
+    let newChapterName = this.chapter.name;
+    const stitchedEl = this.chapterElement.querySelector(
+      `[data-chapter-id="${newCurrentChapterId}"]`,
+    );
+    if (stitchedEl) {
+      newChapterName =
+        stitchedEl.getAttribute('data-chapter-name') || this.chapter.name;
+    }
+
+    // Calculate the current paragraph index relative to the NEW chapter
+    // The reference element's index within the new chapter
+    let currentLocalParagraphIndex = 0;
+    if (
+      referenceElement &&
+      referenceElement.isConnected &&
+      newCurrentBoundary
+    ) {
+      const readableElements = this.getReadableElements();
+      const globalIndex =
+        Array.from(readableElements).indexOf(referenceElement);
+      if (globalIndex >= 0) {
+        // Convert global index to local index within the new chapter
+        currentLocalParagraphIndex =
+          globalIndex - newCurrentBoundary.startIndex;
+        console.log(
+          `Reader: Reference element at global index ${globalIndex}, local index ${currentLocalParagraphIndex} (boundary start: ${newCurrentBoundary.startIndex})`,
+        );
+      }
+    }
+
+    // Notify React Native about the chapter transition
+    // This is critical for updating the header and saving progress correctly
+    this.post({
+      type: 'chapter-transition',
+      data: {
+        previousChapterId: removedChapterId,
+        currentChapterId: newCurrentChapterId,
+        currentChapterName: newChapterName,
+        loadedChapters: this.loadedChapters,
+        currentParagraphIndex: currentLocalParagraphIndex,
+        reason: 'trim',
+      },
+    });
+
     console.log(
-      `Reader: Trimmed chapter ${removedChapterId}, ${this.loadedChapters.length} chapter(s) remaining`,
+      `Reader: Trimmed chapter ${removedChapterId}, ${this.loadedChapters.length} chapter(s) remaining, current: ${newCurrentChapterId}`,
     );
     return true;
   };
@@ -418,6 +724,7 @@ window.reader = new (function () {
   this.manageStitchedChapters = function () {
     // Safety checks
     if (this.loadedChapters.length <= 1) {
+      console.log('[manageStitchedChapters] Only one chapter loaded, skipping');
       return; // Only one chapter, nothing to manage
     }
 
@@ -434,6 +741,7 @@ window.reader = new (function () {
     const readableElements = this.getReadableElements();
 
     if (!readableElements || readableElements.length === 0) {
+      console.log('[manageStitchedChapters] No readable elements found');
       return;
     }
 
@@ -453,8 +761,25 @@ window.reader = new (function () {
     }
 
     if (firstVisibleIndex === -1) {
+      console.log('[manageStitchedChapters] No visible paragraphs found');
       return; // No visible paragraphs found
     }
+
+    console.log(
+      `[manageStitchedChapters] First visible: ${firstVisibleIndex}, Boundaries: ${this.chapterBoundaries.length}, Threshold: ${threshold}%`,
+    );
+
+    // DEBUG: Log ALL boundaries
+    console.log(
+      `[manageStitchedChapters] BOUNDARIES DEBUG: ${JSON.stringify(
+        this.chapterBoundaries.map(b => ({
+          id: b.chapterId,
+          start: b.startIndex,
+          end: b.endIndex,
+          count: b.paragraphCount,
+        })),
+      )}`,
+    );
 
     // Find which chapter this paragraph belongs to
     for (let i = 0; i < this.chapterBoundaries.length; i++) {
@@ -470,12 +795,40 @@ window.reader = new (function () {
             boundary.paragraphCount) *
           100;
 
-        // If we're viewing second+ chapter and past threshold, trim previous
-        if (i > 0 && progressInChapter >= threshold) {
+        console.log(
+          `[manageStitchedChapters] Paragraph ${firstVisibleIndex} belongs to boundary ${i} (chapter ${boundary.chapterId}), progress: ${progressInChapter.toFixed(1)}%, i=${i}, threshold=${threshold}`,
+        );
+
+        // NEW CALCULATION: For 2nd+ chapter, calculate trim based on absolute paragraph numbers
+        if (i > 0) {
+          // Get previous chapter boundary
+          const prevBoundary = this.chapterBoundaries[i - 1];
+
+          // Calculate threshold paragraph number
+          // = previous chapter paragraphs + (threshold % of current chapter paragraphs)
+          const thresholdParagraphCount =
+            prevBoundary.paragraphCount +
+            Math.ceil((boundary.paragraphCount * threshold) / 100);
+
+          // firstVisibleIndex is global (0-based from first chapter)
+          // Compare against threshold paragraph count
+          const shouldTrim = firstVisibleIndex >= thresholdParagraphCount;
+
           console.log(
-            `Reader: User ${progressInChapter.toFixed(1)}% into chapter ${boundary.chapterId}, trimming previous`,
+            `[manageStitchedChapters] TRIM CHECK - ` +
+              `Prev chapter paras: ${prevBoundary.paragraphCount}, ` +
+              `Current chapter paras: ${boundary.paragraphCount}, ` +
+              `Threshold para: ${thresholdParagraphCount} (${prevBoundary.paragraphCount} + ${Math.ceil((boundary.paragraphCount * threshold) / 100)}), ` +
+              `Current visible: ${firstVisibleIndex}, ` +
+              `Should trim: ${shouldTrim}`,
           );
-          this.trimPreviousChapter();
+
+          if (shouldTrim) {
+            console.log(
+              `Reader: User at paragraph ${firstVisibleIndex} (>= ${thresholdParagraphCount}), trimming previous chapter ${prevBoundary.chapterId}`,
+            );
+            this.trimPreviousChapter();
+          }
         }
         return; // Exit after processing current chapter
       }
@@ -2324,15 +2677,32 @@ function calculatePages() {
     );
   } else {
     // NEW SCROLL LOGIC
+    console.log(
+      `[calculatePages START] ReaderId=${reader._readerId}, loadedChapters=${JSON.stringify(reader.loadedChapters)}, hasPerformedInitialScroll=${reader.hasPerformedInitialScroll}`,
+    );
+
+    // CRITICAL FIX: Skip initial scroll if DOM stitching is active (multiple chapters loaded)
+    const isStitchedMode =
+      reader.loadedChapters && reader.loadedChapters.length > 1;
+
+    console.log(
+      `[calculatePages] ReaderId=${reader._readerId}, Stitched mode check: loadedChapters=`,
+      reader.loadedChapters,
+      'length=',
+      reader.loadedChapters ? reader.loadedChapters.length : 0,
+      'isStitchedMode=',
+      isStitchedMode,
+    );
+
     if (
       !reader.hasPerformedInitialScroll &&
+      !isStitchedMode && // Don't re-scroll when chapters are stitched
       initialReaderConfig.savedParagraphIndex !== undefined &&
       initialReaderConfig.savedParagraphIndex >= 0
     ) {
       const readableElements = reader.getReadableElements();
       console.log(
-        '[calculatePages] readableElements length:',
-        readableElements.length,
+        `[calculatePages] ReaderId=${reader._readerId}, About to scroll to paragraph: ${initialReaderConfig.savedParagraphIndex}, readableElements length: ${readableElements.length}, hasPerformedInitialScroll: ${reader.hasPerformedInitialScroll}`,
       );
 
       if (readableElements[initialReaderConfig.savedParagraphIndex]) {
@@ -2357,6 +2727,9 @@ function calculatePages() {
               '[calculatePages] Target element disconnected, aborting scroll',
             );
             reader.initialScrollPending = false; // Reset pending flag
+            console.log(
+              `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (disconnected case, line 2396)`,
+            );
             reader.hasPerformedInitialScroll = true;
             reader.suppressSaveOnScroll = false;
             return;
@@ -2400,6 +2773,9 @@ function calculatePages() {
             // Reset flags
             reader.suppressSaveOnScroll = false;
             reader.initialScrollPending = false;
+            console.log(
+              `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (scroll complete, line 2439)`,
+            );
             reader.hasPerformedInitialScroll = true;
 
             // Initialize chapter boundary for first chapter (Bug #2 fix)
@@ -2440,10 +2816,83 @@ function calculatePages() {
           '[calculatePages] Paragraph not found at index',
           initialReaderConfig.savedParagraphIndex,
         );
+
+        // CRITICAL FIX: Skip recovery scroll if stitched mode (multiple chapters loaded)
+        const isStitchedMode =
+          reader.loadedChapters && reader.loadedChapters.length > 1;
+
+        if (isStitchedMode) {
+          console.log(
+            '[calculatePages] Skipping paragraph recovery - stitched mode active (paragraph belongs to different chapter)',
+          );
+          console.log(
+            `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip, line 2489)`,
+          );
+          reader.hasPerformedInitialScroll = true;
+          return;
+        }
+
+        // FIX: Graceful recovery - scroll to 0% or 100% based on saved progress
+        const savedProgress = reader.chapter.progress;
+        console.log(
+          `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (paragraph recovery, line 2495)`,
+        );
+        reader.hasPerformedInitialScroll = true;
+
+        if (savedProgress && savedProgress > 0.5) {
+          // Progress > 50%, likely near end - scroll to bottom
+          window.scrollTo(0, document.body.scrollHeight);
+          console.log(
+            `[calculatePages] Recovered from missing paragraph - scrolled to 100% (progress: ${savedProgress})`,
+          );
+        } else {
+          // Progress ≤ 50% or no progress, scroll to top
+          window.scrollTo(0, 0);
+          console.log(
+            `[calculatePages] Recovered from missing paragraph - scrolled to 0% (progress: ${savedProgress || 0})`,
+          );
+        }
+
+        // Initialize chapter boundary after recovery
+        if (reader.chapterBoundaries.length === 0) {
+          const allElements = reader.getReadableElements();
+          if (allElements && allElements.length > 0) {
+            reader.chapterBoundaries.push({
+              chapterId: reader.chapter.id,
+              startIndex: 0,
+              endIndex: allElements.length - 1,
+              paragraphCount: allElements.length,
+            });
+            console.log(
+              `Reader: Init boundary (after recovery) for chapter ${reader.chapter.id}: 0-${allElements.length - 1}`,
+            );
+          }
+        }
+
+        // CRITICAL: Return early to prevent progress scroll trigger below
+        return;
       }
     } else if (!reader.hasPerformedInitialScroll) {
+      // CRITICAL FIX: Skip if stitched mode (multiple chapters loaded)
+      const isStitchedMode =
+        reader.loadedChapters && reader.loadedChapters.length > 1;
+
+      if (isStitchedMode) {
+        console.log(
+          '[calculatePages] Skipping initial scroll - stitched mode active (multiple chapters loaded)',
+        );
+        console.log(
+          `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip no saved pos, line 2540)`,
+        );
+        reader.hasPerformedInitialScroll = true;
+        return;
+      }
+
       console.log(
         '[calculatePages] No valid savedParagraphIndex or already scrolled',
+      );
+      console.log(
+        `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (no saved pos, line 2547)`,
       );
       reader.hasPerformedInitialScroll = true;
 
@@ -2501,6 +2950,23 @@ function calculatePages() {
     } else {
       console.log(
         '[calculatePages] Skipping progress scroll - TTS currently reading',
+      );
+    }
+  }
+
+  // CRITICAL FIX: Initialize chapter boundaries unconditionally
+  // This ensures boundaries exist regardless of scroll path taken
+  if (reader.chapterBoundaries.length === 0) {
+    const allElements = reader.getReadableElements();
+    if (allElements && allElements.length > 0) {
+      reader.chapterBoundaries.push({
+        chapterId: reader.chapter.id,
+        startIndex: 0,
+        endIndex: allElements.length - 1,
+        paragraphCount: allElements.length,
+      });
+      console.log(
+        `Reader: Init boundary (fallback) for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paras)`,
       );
     }
   }

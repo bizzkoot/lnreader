@@ -73,3 +73,9 @@ Key architectural improvements:
 
 Recommendation: STOP here. Further refactoring (Phase 3) has HIGH RISK due to complex wake cycle, WebView message handler, and native event listeners. Current state is production-ready. |
 | 2025-12-18 | Force Novel chapter list to refresh on progress changes by adding a progress-derived aggregate to LegendList `extraData` (`chaptersProgressSum`). | LegendList virtualization + possibly stable `chapters` reference prevented frequent re-renders; progress updates were saved correctly but UI stayed stale. Using a cheap aggregate avoids heavy refetch and keeps ChapterItem memoization. |
+| 2025-12-20 | Added comprehensive debug logs to diagnose boundary mismatch bug instead of guessing at fixes | User tested DOM trim fix twice - both times failed. Logs revealed paragraphs 214+ (Ch3) were NOT matching any boundary, causing trim check to never run. Rather than guess at another fix, added debug logs to reveal:
+1. Exact boundary calculation during append (total elements, chapter elements, start/end indices)
+2. All boundary ranges before matching (to see if ranges are correct)
+3. Which boundary each paragraph matches (or if no match)
+
+This approach ensures we fix the ACTUAL root cause (boundary calculation or matching logic) instead of iterating blindly. Also discovered dev builds cache `core.js` - user's logs showed OLD format instead of NEW code. |

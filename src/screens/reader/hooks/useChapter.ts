@@ -315,6 +315,7 @@ export default function useChapter(
       setChapter,
       setLoading,
       getChapter,
+      setAdjacentChapter, // Expose for DOM stitching nextChapter updates
       savedParagraphIndex: MMKVStorage.getNumber(
         `chapter_progress_${chapter.id}`,
       ),
@@ -335,6 +336,7 @@ export default function useChapter(
       setChapter,
       setLoading,
       getChapter,
+      setAdjacentChapter,
     ],
   );
 }

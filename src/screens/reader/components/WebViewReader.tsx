@@ -7,8 +7,21 @@
  * @module reader/components/WebViewReader
  */
 
-import React, { memo, useEffect, useMemo, useRef, useCallback } from 'react';
-import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
+import React, {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  useState,
+} from 'react';
+import {
+  NativeEventEmitter,
+  NativeModules,
+  StatusBar,
+  View,
+  StyleSheet,
+} from 'react-native';
 import WebView from 'react-native-webview';
 import {
   READER_WEBVIEW_ORIGIN_WHITELIST,
@@ -24,6 +37,10 @@ import { getString } from '@strings/translations';
 
 import { getPlugin } from '@plugins/pluginManager';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
+import {
+  getChapter as getDbChapter,
+  getNextChapter,
+} from '@database/queries/ChapterQueries';
 import {
   CHAPTER_GENERAL_SETTINGS,
   CHAPTER_READER_SETTINGS,
@@ -86,11 +103,16 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     webViewRef,
     savedParagraphIndex,
     getChapter,
+    setAdjacentChapter,
   } = useChapterContext();
   const theme = useTheme();
 
   const webViewNonceRef = useRef<string>(createWebViewNonce());
   const allowMessageRef = useRef(createMessageRateLimiter());
+
+  // Chapter transition state for invisible reload
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionReadyRef = useRef(false);
 
   // Toast state
   const {
@@ -138,6 +160,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Settings refs (for stale closure prevention)
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
+
+  // CRITICAL FIX: Capture initial nextChapter/prevChapter to prevent HTML regeneration
+  // These values are only used for initial WebView load. Updates after that are via injectJavaScript.
+  const initialNextChapter = useRef(nextChapter);
+  const initialPrevChapter = useRef(prevChapter);
+
+  // Update adjacent chapter refs when they change (needed for chapter transitions)
+  useEffect(() => {
+    initialNextChapter.current = nextChapter;
+    initialPrevChapter.current = prevChapter;
+    console.log(
+      `WebViewReader: Updated initial adjacent refs - next: ${nextChapter?.id}, prev: ${prevChapter?.id}`,
+    );
+  }, [nextChapter, prevChapter]);
 
   useEffect(() => {
     readerSettingsRef.current = readerSettings;
@@ -388,15 +424,15 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             chapterGeneralSettings,
             novel,
             chapter: stableChapter,
-            nextChapter,
-            prevChapter,
+            nextChapter: initialNextChapter.current,
+            prevChapter: initialPrevChapter.current,
             batteryLevel,
             autoSaveInterval: 2222,
             DEBUG: __DEV__,
             strings: {
               finished: `${getString('readerScreen.finished')}: ${stableChapter.name.trim()}`,
               nextChapter: getString('readerScreen.nextChapter', {
-                name: nextChapter?.name,
+                name: initialNextChapter.current?.name,
               }),
               noNextChapter: getString('readerScreen.noNextChapter'),
             },
@@ -427,8 +463,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     stableChapter,
     html,
     novel,
-    nextChapter,
-    prevChapter,
+    // REMOVED: nextChapter, prevChapter - these are updated via injectJavaScript, don't regenerate HTML
     batteryLevel,
     initialSavedParagraphIndex,
     pluginCustomCSS,
@@ -471,6 +506,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'console',
         'fetch-chapter-content',
         'chapter-appended',
+        'stitched-chapters-cleared',
+        'chapter-transition',
       ] as const);
       if (!msg || msg.nonce !== webViewNonceRef.current) {
         return;
@@ -720,6 +757,219 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             console.log(
               `WebViewReader: Chapter appended - ${eventData.chapterName}, total: ${eventData.loadedChapters.length}`,
             );
+
+            // FIX: Update nextChapter after successful append
+            const appendedChapterId = eventData.chapterId;
+            getDbChapter(appendedChapterId)
+              .then(async appendedChapter => {
+                if (!appendedChapter) {
+                  console.error(
+                    `WebViewReader: Appended chapter ${appendedChapterId} not found in DB`,
+                  );
+                  return;
+                }
+
+                // Get next chapter after the appended one
+                const newNextChapter = await getNextChapter(
+                  appendedChapter.novelId,
+                  appendedChapter.position!,
+                  appendedChapter.page,
+                );
+
+                if (newNextChapter) {
+                  console.log(
+                    `WebViewReader: Updated nextChapter to ${newNextChapter.id} (${newNextChapter.name})`,
+                  );
+                  // Update React state
+                  setAdjacentChapter([newNextChapter, prevChapter!]);
+
+                  // Inject updated nextChapter to WebView
+                  webViewRef.current?.injectJavaScript(`
+                    if (window.reader) {
+                      window.reader.nextChapter = ${JSON.stringify({
+                        id: newNextChapter.id,
+                        name: newNextChapter.name,
+                      })};
+                      console.log('Reader: nextChapter updated to', window.reader.nextChapter);
+                    }
+                    true;
+                  `);
+                } else {
+                  console.log(
+                    `WebViewReader: No more chapters after ${appendedChapterId}`,
+                  );
+                  // Clear nextChapter - set both to undefined
+                  setAdjacentChapter([undefined, undefined]);
+                  webViewRef.current?.injectJavaScript(`
+                    if (window.reader) {
+                      window.reader.nextChapter = null;
+                      console.log('Reader: nextChapter cleared (end of novel)');
+                    }
+                    true;
+                  `);
+                }
+              })
+              .catch(err => {
+                console.error(
+                  `WebViewReader: Failed to get next chapter after ${appendedChapterId}:`,
+                  err,
+                );
+              });
+          }
+          break;
+        case 'stitched-chapters-cleared':
+          // TTS: Stitched chapters were cleared, update chapter context
+          if (event.data && typeof event.data === 'object') {
+            const eventData = event.data as unknown as {
+              chapterId: number;
+              chapterName: string;
+            };
+            console.log(
+              `WebViewReader: Stitched chapters cleared to ${eventData.chapterName} (${eventData.chapterId})`,
+            );
+
+            // Get the visible chapter from DB and update context
+            getDbChapter(eventData.chapterId)
+              .then(async visibleChapter => {
+                if (!visibleChapter) {
+                  console.error(
+                    `WebViewReader: Visible chapter ${eventData.chapterId} not found in DB`,
+                  );
+                  return;
+                }
+
+                // Update chapter context to the visible chapter
+                // This updates the main chapter state in useChapter hook
+                console.log(
+                  `WebViewReader: Updating chapter context to ${visibleChapter.name}`,
+                );
+                // TODO: Need to call setChapter from context
+                // For now, just update adjacent chapters
+                const newPrevChapter =
+                  visibleChapter.position! > 0
+                    ? await getDbChapter(visibleChapter.id - 1)
+                    : undefined;
+                const newNextChapter = await getNextChapter(
+                  visibleChapter.novelId,
+                  visibleChapter.position!,
+                  visibleChapter.page,
+                );
+
+                // Update adjacent chapters
+                if (newNextChapter && newPrevChapter) {
+                  setAdjacentChapter([newNextChapter, newPrevChapter]);
+                } else {
+                  setAdjacentChapter([undefined, undefined]);
+                }
+
+                // Inject updated nextChapter/prevChapter to WebView
+                webViewRef.current?.injectJavaScript(`
+                  if (window.reader) {
+                    window.reader.chapter = ${JSON.stringify({
+                      id: visibleChapter.id,
+                      name: visibleChapter.name,
+                    })};
+                    window.reader.nextChapter = ${JSON.stringify(
+                      newNextChapter
+                        ? {
+                            id: newNextChapter.id,
+                            name: newNextChapter.name,
+                          }
+                        : null,
+                    )};
+                    window.reader.prevChapter = ${JSON.stringify(
+                      newPrevChapter
+                        ? {
+                            id: newPrevChapter.id,
+                            name: newPrevChapter.name,
+                          }
+                        : null,
+                    )};
+                    console.log('Reader: Chapter context updated to', window.reader.chapter);
+                  }
+                  true;
+                `);
+              })
+              .catch(err => {
+                console.error(
+                  `WebViewReader: Failed to get visible chapter ${eventData.chapterId}:`,
+                  err,
+                );
+              });
+          }
+          break;
+        case 'chapter-transition':
+          // DOM Stitching: Chapter was trimmed and we've transitioned to a new chapter
+          // This handler saves position and calls getChapter() to properly update all state
+          if (event.data && typeof event.data === 'object') {
+            const eventData = event.data as unknown as {
+              previousChapterId: number;
+              currentChapterId: number;
+              currentChapterName: string;
+              loadedChapters: number[];
+              currentParagraphIndex: number;
+              reason: string;
+            };
+            console.log(
+              `WebViewReader: Chapter transition - ${eventData.previousChapterId} -> ${eventData.currentChapterId} (${eventData.currentChapterName}), paragraph: ${eventData.currentParagraphIndex}, reason: ${eventData.reason}`,
+            );
+
+            // Save current paragraph index to MMKV for the NEW chapter
+            // This ensures when getChapter() triggers HTML reload, the position is restored
+            if (
+              eventData.currentParagraphIndex !== undefined &&
+              eventData.currentParagraphIndex >= 0
+            ) {
+              MMKVStorage.set(
+                `chapter_progress_${eventData.currentChapterId}`,
+                eventData.currentParagraphIndex,
+              );
+              console.log(
+                `WebViewReader: Saved paragraph ${eventData.currentParagraphIndex} to MMKV for chapter ${eventData.currentChapterId}`,
+              );
+            }
+
+            // Mark the previous chapter as 100% read before switching
+            if (eventData.reason === 'trim') {
+              saveProgress(100);
+              console.log(
+                `WebViewReader: Marked previous chapter ${eventData.previousChapterId} as 100% read`,
+              );
+            }
+
+            // START INVISIBLE TRANSITION
+            // Hide WebView before reload to prevent visual flash
+            setIsTransitioning(true);
+            transitionReadyRef.current = false;
+            console.log('WebViewReader: Started invisible transition');
+
+            // Get the current chapter from DB and call getChapter() to properly update all state
+            // getChapter() updates: chapter, chapterText, nextChapter, prevChapter
+            getDbChapter(eventData.currentChapterId)
+              .then(async currentChapter => {
+                if (!currentChapter) {
+                  console.error(
+                    `WebViewReader: Current chapter ${eventData.currentChapterId} not found in DB`,
+                  );
+                  setIsTransitioning(false);
+                  return;
+                }
+
+                // Use getChapter() instead of setChapter() - this properly updates adjacent chapters
+                // The initialSavedParagraphIndex will read from MMKV and restore position
+                await getChapter(currentChapter);
+                console.log(
+                  `WebViewReader: getChapter() called for ${currentChapter.name} (${currentChapter.id})`,
+                );
+                // Note: setIsTransitioning(false) is called in onLoadEnd after scroll restoration
+              })
+              .catch(err => {
+                console.error(
+                  `WebViewReader: Failed to handle chapter transition to ${eventData.currentChapterId}:`,
+                  err,
+                );
+                setIsTransitioning(false);
+              });
           }
           break;
       }
@@ -734,6 +984,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       showToastMessage,
       novel?.pluginId,
       novel?.id,
+      getChapter,
     ],
   );
 
@@ -745,7 +996,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     <>
       <WebView
         ref={webViewRef}
-        style={{ backgroundColor: readerSettings.theme }}
+        style={{
+          backgroundColor: readerSettings.theme,
+          // During chapter transition, hide WebView to prevent visual flash
+          opacity: isTransitioning ? 0 : 1,
+        }}
         allowFileAccess={true}
         originWhitelist={READER_WEBVIEW_ORIGIN_WHITELIST}
         scalesPageToFit={true}
@@ -769,6 +1024,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               window.reader.batteryLevel.val = ${currentBatteryLevel};
             }`,
           );
+
+          // Sync nextChapter/prevChapter with React state
+          // This fixes the issue where HTML is generated before adjacent chapters are updated
+          webViewRef.current?.injectJavaScript(`
+            if (window.reader) {
+              window.reader.nextChapter = ${JSON.stringify(nextChapter ? { id: nextChapter.id, name: nextChapter.name } : null)};
+              window.reader.prevChapter = ${JSON.stringify(prevChapter ? { id: prevChapter.id, name: prevChapter.name } : null)};
+              console.log('Reader: Synced adjacent chapters on load - next:', ${nextChapter?.id || 'null'}, 'prev:', ${prevChapter?.id || 'null'});
+            }
+            true;
+          `);
+
+          // END INVISIBLE TRANSITION after a brief delay for scroll to complete
+          // The delay allows the initial scroll (to savedParagraphIndex) to finish
+          if (isTransitioning) {
+            setTimeout(() => {
+              setIsTransitioning(false);
+              console.log('WebViewReader: Invisible transition complete');
+            }, 350); // Brief delay for scroll animation to settle
+          }
 
           // Call hook's load end handler
           tts.handleWebViewLoadEnd();
