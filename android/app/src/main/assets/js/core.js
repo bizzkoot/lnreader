@@ -168,8 +168,10 @@ window.reader = new (function () {
 
     const scrollPercentage = (scrollY / scrollableDistance) * 100;
 
-    // Trigger at 95% scroll
-    if (scrollPercentage >= 95) {
+    // Trigger at configured stitch threshold (default 90%)
+    const stitchThreshold =
+      this.generalSettings.val.continuousScrollStitchThreshold || 90;
+    if (scrollPercentage >= stitchThreshold) {
       this.performContinuousNavigation();
     }
   };

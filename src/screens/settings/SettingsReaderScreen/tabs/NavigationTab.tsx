@@ -16,6 +16,7 @@ import { useBoolean } from '@hooks';
 import ContinuousScrollingModal from '../Modals/ContinuousScrollingModal';
 import ChapterBoundaryModal from '../Modals/ChapterBoundaryModal';
 import TransitionThresholdModal from '../Modals/TransitionThresholdModal';
+import StitchThresholdModal from '../Modals/StitchThresholdModal';
 
 const NavigationTab: React.FC = () => {
   const theme = useTheme();
@@ -32,6 +33,7 @@ const NavigationTab: React.FC = () => {
     continuousScrolling = 'disabled',
     continuousScrollBoundary = 'bordered',
     continuousScrollTransitionThreshold = 15,
+    continuousScrollStitchThreshold = 90,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -58,6 +60,12 @@ const NavigationTab: React.FC = () => {
     value: transitionThresholdModalVisible,
     setTrue: showTransitionThresholdModal,
     setFalse: hideTransitionThresholdModal,
+  } = useBoolean();
+
+  const {
+    value: stitchThresholdModalVisible,
+    setTrue: showStitchThresholdModal,
+    setFalse: hideStitchThresholdModal,
   } = useBoolean();
 
   const styles = React.useMemo(
@@ -173,6 +181,16 @@ const NavigationTab: React.FC = () => {
         />
         {continuousScrolling !== 'disabled' && (
           <>
+            <List.InfoItem
+              title={`When you scroll past ${continuousScrollTransitionThreshold}% in the next chapter, the previous chapter is removed. The screen will briefly fade out (~200ms) while the view redraws to your current reading position.`}
+              theme={theme}
+            />
+            <List.Item
+              title="Stitch next chapter threshold"
+              description={`Fetch and append next chapter at ${continuousScrollStitchThreshold}% scroll`}
+              onPress={showStitchThresholdModal}
+              theme={theme}
+            />
             <List.Item
               title="Chapter boundary"
               description={
@@ -283,6 +301,16 @@ const NavigationTab: React.FC = () => {
         onSelect={value => {
           setChapterGeneralSettings({
             continuousScrollTransitionThreshold: value,
+          });
+        }}
+      />
+      <StitchThresholdModal
+        visible={stitchThresholdModalVisible}
+        onDismiss={hideStitchThresholdModal}
+        currentValue={continuousScrollStitchThreshold}
+        onSelect={value => {
+          setChapterGeneralSettings({
+            continuousScrollStitchThreshold: value,
           });
         }}
       />

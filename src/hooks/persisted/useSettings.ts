@@ -191,6 +191,25 @@ export interface ChapterGeneralSettings {
    * Default: 15
    */
   continuousScrollTransitionThreshold: 5 | 10 | 15 | 20;
+  /**
+   * Threshold for automatic chapter stitching when using continuous scrolling.
+   * When user scrolls past this percentage in current chapter, automatically
+   * fetch and append the next chapter to the DOM.
+   *
+   * Options: 50, 55, 60, 65, 70, 75, 80, 85, 90, 95 (percent)
+   * Default: 90
+   */
+  continuousScrollStitchThreshold:
+    | 50
+    | 55
+    | 60
+    | 65
+    | 70
+    | 75
+    | 80
+    | 85
+    | 90
+    | 95;
 }
 
 export interface ReaderTheme {
@@ -311,6 +330,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   continuousScrolling: 'disabled',
   continuousScrollBoundary: 'bordered',
   continuousScrollTransitionThreshold: 15,
+  continuousScrollStitchThreshold: 90,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {
