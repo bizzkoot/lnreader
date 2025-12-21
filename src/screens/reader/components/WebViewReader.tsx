@@ -813,16 +813,18 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case 'stitched-chapters-cleared':
           // TTS: Stitched chapters were cleared, update chapter context
+          // COMPLETE FIX: Now calls getChapter() for full reload (like chapter-transition)
           if (event.data && typeof event.data === 'object') {
             const eventData = event.data as unknown as {
               chapterId: number;
               chapterName: string;
+              localParagraphIndex?: number; // The paragraph index in the cleared chapter
             };
             console.log(
               `WebViewReader: Stitched chapters cleared to ${eventData.chapterName} (${eventData.chapterId})`,
             );
 
-            // Get the visible chapter from DB and update context
+            // Get the visible chapter from DB
             getDbChapter(eventData.chapterId)
               .then(async visibleChapter => {
                 if (!visibleChapter) {
@@ -832,71 +834,55 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   return;
                 }
 
-                // Update chapter context to the visible chapter
-                // This updates the main chapter state in useChapter hook
                 console.log(
-                  `WebViewReader: Updating chapter context to ${visibleChapter.name}`,
-                );
-                // TODO: Need to call setChapter from context
-                // For now, just update adjacent chapters
-                const newPrevChapter =
-                  visibleChapter.position! > 0
-                    ? await getDbChapter(visibleChapter.id - 1)
-                    : undefined;
-                const newNextChapter = await getNextChapter(
-                  visibleChapter.novelId,
-                  visibleChapter.position!,
-                  visibleChapter.page,
+                  `WebViewReader: Performing full reload for ${visibleChapter.name}`,
                 );
 
-                // Update adjacent chapters
-                if (newNextChapter && newPrevChapter) {
-                  setAdjacentChapter([newNextChapter, newPrevChapter]);
-                } else {
-                  setAdjacentChapter([undefined, undefined]);
+                // Save current paragraph index to MMKV for the visible chapter
+                // This ensures when getChapter() triggers HTML reload, the position is restored
+                if (
+                  eventData.localParagraphIndex !== undefined &&
+                  eventData.localParagraphIndex >= 0
+                ) {
+                  MMKVStorage.set(
+                    `chapter_progress_${eventData.chapterId}`,
+                    eventData.localParagraphIndex,
+                  );
+                  console.log(
+                    `WebViewReader: Saved paragraph ${eventData.localParagraphIndex} to MMKV for chapter ${eventData.chapterId}`,
+                  );
                 }
 
-                // CRITICAL FIX: Update TTS controller's prevChapterIdRef to match the new chapter
-                // This ensures TTS commands (highlightParagraph, updateState) pass the correct
-                // chapterId parameter that matches window.reader.chapter.id in WebView
+                // CRITICAL: Update TTS controller's prevChapterIdRef BEFORE reload
+                // This ensures TTS commands use the correct chapterId during/after reload
                 console.log(
                   `WebViewReader: Updating TTS prevChapterIdRef from ${tts.prevChapterIdRef.current} to ${visibleChapter.id}`,
                 );
                 tts.prevChapterIdRef.current = visibleChapter.id;
 
-                // Inject updated nextChapter/prevChapter to WebView
-                webViewRef.current?.injectJavaScript(`
-                  if (window.reader) {
-                    window.reader.chapter = ${JSON.stringify({
-                      id: visibleChapter.id,
-                      name: visibleChapter.name,
-                    })};
-                    window.reader.nextChapter = ${JSON.stringify(
-                      newNextChapter
-                        ? {
-                            id: newNextChapter.id,
-                            name: newNextChapter.name,
-                          }
-                        : null,
-                    )};
-                    window.reader.prevChapter = ${JSON.stringify(
-                      newPrevChapter
-                        ? {
-                            id: newPrevChapter.id,
-                            name: newPrevChapter.name,
-                          }
-                        : null,
-                    )};
-                    console.log('Reader: Chapter context updated to', window.reader.chapter);
-                  }
-                  true;
-                `);
+                // START INVISIBLE TRANSITION
+                // Hide WebView before reload to prevent visual flash
+                setIsTransitioning(true);
+                transitionReadyRef.current = false;
+                console.log(
+                  'WebViewReader: Started invisible transition for TTS trim',
+                );
+
+                // Call getChapter() to properly update ALL state
+                // This matches the behavior of scroll-triggered trim (chapter-transition)
+                // getChapter() updates: chapter, chapterText, nextChapter, prevChapter
+                await getChapter(visibleChapter);
+                console.log(
+                  `WebViewReader: getChapter() called for ${visibleChapter.name} (${visibleChapter.id})`,
+                );
+                // Note: setIsTransitioning(false) is called in onLoadEnd after scroll restoration
               })
               .catch(err => {
                 console.error(
-                  `WebViewReader: Failed to get visible chapter ${eventData.chapterId}:`,
+                  `WebViewReader: Failed to handle TTS stitched clear for ${eventData.chapterId}:`,
                   err,
                 );
+                setIsTransitioning(false);
               });
           }
           break;

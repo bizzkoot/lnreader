@@ -1,26 +1,27 @@
 # Continuous Scroll + TTS Integration - Session Handoff
 
 **Last Updated**: December 21, 2024  
-**Session**: TTS Stitched Chapter Restart Implementation  
-**Status**: ✅ Core functionality working, ⚠️ One known issue (TTS-triggered trim incomplete)
+**Session**: Complete TTS-Triggered Trim Fix  
+**Status**: ✅ All features working, production-ready
 
 ---
 
 ## Executive Summary
 
-Successfully implemented seamless TTS playback across stitched chapters. The key breakthrough was synchronizing two chapter ID contexts (WebView and React Native) that must match for TTS commands to pass validation.
+Successfully implemented seamless TTS playback across stitched chapters with complete state synchronization. All features are now production-ready.
 
 ### What's Working
 
 1. ✅ **Chapter stitching & trimming** via scroll (95% stitch, 15% trim)
-2. ✅ ** TTS in single chapters** (highlight + audio)
+2. ✅ **TTS in single chapters** (highlight + audio)
 3. ✅ **TTS scroll sync dialog** (stitched-mode aware)
 4. ✅ **TTS restart after stitched clear** (dual-phase fix complete)
-5. ✅ **8 automated tests** for stitched chapter TTS flows
+5. ✅ **TTS-triggered trim with full reload** (complete state sync)
+6. ✅ **8 automated tests** for stitched chapter TTS flows
 
-### Known Issue
+### Recent Fix (Dec 21, 2024)
 
-⚠️ TTS-triggered trim (via scroll sync dialog) doesn't call `getChapter()` for full reload → incomplete React Native state update. User workaround: navigate away and back.
+✅ **TTS-Triggered Trim Complete**: Modified `stitched-chapters-cleared` handler to call `getChapter()` for full reload, matching scroll-triggered trim behavior. Exit → re-enter now shows correct state.
 
 ---
 

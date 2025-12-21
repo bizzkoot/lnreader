@@ -559,11 +559,13 @@ window.reader = new (function () {
     this.invalidateCache();
 
     // Notify React Native to update chapter context
+    // Include localParagraphIndex so React Native can restore scroll position after reload
     this.post({
       type: 'stitched-chapters-cleared',
       data: {
         chapterId: visibleChapterId,
         chapterName: visibleChapterName,
+        localParagraphIndex: this.ttsRestartParagraphInChapter, // The target paragraph in the cleared chapter
       },
     });
 

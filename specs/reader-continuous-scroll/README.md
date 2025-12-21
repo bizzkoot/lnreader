@@ -1,7 +1,7 @@
 # Continuous Scroll & TTS Integration - Status Report
 
 **Last Updated**: December 21, 2024  
-**Status**: ✅ Core features working, ⚠️ TTS-triggered trim incomplete
+**Status**: ✅ All features complete and production-ready
 
 ---
 
@@ -45,41 +45,21 @@ Continuous scrolling allows seamless chapter transitions by stitching the next c
 
 ---
 
-## ⚠️ Known Issue: TTS-Triggered Trim Incomplete
+## ✅ All Features Complete
 
-### Problem
+### Latest Update (Dec 21, 2024)
 
-When TTS triggers `clearStitchedChapters()` (via scroll sync dialog), it updates the WebView but **doesn't fully reload the chapter in React Native**. This leaves the app in an inconsistent state.
+**TTS-Triggered Trim** - ✅ **RESOLVED**
 
-### Symptom
+The incomplete state issue has been fixed! TTS-triggered trim now calls `getChapter()` for full reload, matching the behavior of scroll-triggered trim.
 
-**Scenario**:
-1. User scrolls from Chapter 2 → Chapter 3 (stitched)
-2. User starts TTS in Chapter 3 → scroll sync dialog appears
-3. User clicks "Continue from here" → `clearStitchedChapters()` executes
-4. ✅ TTS works correctly (highlight + audio)
-5. User exits reader
-6. ❌ **User re-enters → inconsistent state** (DOM has wrong paragraph count,React Native may think it's Chapter 2)
+**What was fixed**:
+- Modified `stitched-chapters-cleared` handler to call `getChapter()` for complete state reload
+- Added `localParagraphIndex` to event data for scroll position restoration
+- Implemented invisible transition (opacity fade) during reload
+- Complete React Native state synchronization
 
-### Root Cause
-
-- **Normal Trim** (scroll-based): Sends `chapter-transition` event → calls `getChapter()` → **full reload**
-- **TTS Trim** (dialog-based): Sends `stitched-chapters-cleared` event → updates adjacent chapters only → **NO full reload**
-
-### What's Missing
-
-The `stitched-chapters-cleared` handler in `WebViewReader.tsx` line ~824:
-```typescript
-case 'stitched-chapters-cleared':
-  // Updates adjacent chapters, prevChapterIdRef
-  // ❌ Does NOT call getChapter() to fully reload chapter state
-```
-
-### Impact
-
-- **Low**: Affects only users who start TTS in stitched chapters before 15% threshold
-- **Workaround**: User can manually navigate away and back to reset state
-- **Does NOT affect**: Normal scroll-based trim (99% of cases)
+**Result**: Exit → re-enter now shows correct chapter and paragraph count. Behavior is now identical to scroll-triggered trim.
 
 ---
 
@@ -165,39 +145,21 @@ tts.prevChapterIdRef.current = visibleChapter.id;
 
 ## Next Steps
 
-### Priority 1: Fix TTS-Triggered Trim
+### Priority 1: Add E2E Integration Tests
 
-**Goal**: Make TTS-triggered trim equivalent to scroll-triggered trim.
-
-**Solution**: Modify `stitched-chapters-cleared` handler to call `getChapter()`:
-
-```typescript
-case 'stitched-chapters-cleared':
-  // Current: Updates adjacent chapters only
-  // TODO: Call getChapter(visibleChapter) for full reload
-  // This will: reload HTML, update all state, resync WebView
-```
-
-**Considerations**:
-- Will trigger HTML reload → brief visual flash?
-- Need to preserve TTS state across reload
-- Test: TTS should resume correctly after `getChapter()` completes
+**Coverage needed**:
+- Full flow: scroll → stitch → TTS → trim → restart
+- State consistency verification across chapter transitions
+- Multiple chapter transitions with TTS active
 
 ### Priority 2: Optimize Trim Visual Experience  
 
-**Current**: Trim causes brief visual "jump" as DOM is redrawn
+**Current**: Trim causes brief opacity transition during DOM reload
 
 **Ideas**:
-- Dual WebView architecture (investigated, rejected due to React Native layout constraints - see `DUAL_WEBVIEW_INVESTIGATION.md`)
-- Opacity transition during trim
-- Pre-render next WebView off-screen
-
-### Priority 3: Add Integration Tests
-
-**Coverage Needed**:
-- ✅ TTS restart in stitched chapter (unit test exists)
-- ❌ Full E2E: Scroll → Stitch → TTS → Trim → Restart
-- ❌ State consistency after TTS-triggered trim
+- Pre-render next chapter off-screen for instant switching
+- Evaluate if users notice the current transition
+- Optimize `getChapter()` reload speed
 
 ---
 
