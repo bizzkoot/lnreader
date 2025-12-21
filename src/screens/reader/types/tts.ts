@@ -36,8 +36,12 @@ export type TTSScrollPromptData = {
   /** Current TTS paragraph index */
   currentIndex: number;
   /** Currently visible paragraph index in viewport */
-  visibleIndex: number;
-  /** Whether this prompt is for resume (vs initial start) */
+  visibleIndex: number; /** Chapter name at current TTS position (for stitched mode) */
+  currentChapterName?: string;
+  /** Chapter name at visible position (for stitched mode) */
+  visibleChapterName?: string;
+  /** Whether multiple chapters are stitched in DOM */
+  isStitched?: boolean; /** Whether this prompt is for resume (vs initial start) */
   isResume?: boolean;
 };
 

@@ -534,6 +534,20 @@ window.reader = new (function () {
             paragraphCount: remainingElements.length,
           },
         ];
+
+        // CRITICAL FIX: Update this.chapter IMMEDIATELY to match the visible chapter
+        // This allows TTS to work correctly during the 200ms auto-restart delay
+        // Without this, TTS commands fail with "stale chapter" errors because
+        // this.chapter.id is still the old chapter until React Native reloads
+        this.chapter = {
+          ...this.chapter,
+          id: visibleChapterId,
+          name: visibleChapterName,
+        };
+
+        console.log(
+          `Reader: Updated chapter context immediately - ID: ${visibleChapterId}, Name: ${visibleChapterName}`,
+        );
       }
     }
 
@@ -556,7 +570,181 @@ window.reader = new (function () {
     console.log(
       `Reader: Stitched chapters cleared, DOM reset to single chapter (${visibleChapterName})`,
     );
+
+    // AUTO-RESTART TTS: If TTS was paused and user chose to resume after clear
+    if (this.ttsRestartPending && this.ttsRestartTargetChapterId !== null) {
+      const targetChapterId = this.ttsRestartTargetChapterId;
+      const targetParagraphInChapter = this.ttsRestartParagraphInChapter;
+      const shouldResume = this.ttsRestartAfterClear;
+
+      // Clear flags before restart
+      this.ttsRestartPending = false;
+      this.ttsRestartTargetChapterId = null;
+      this.ttsRestartParagraphInChapter = null;
+      this.ttsRestartAfterClear = false;
+
+      console.log(
+        `Reader: Auto-restart pending for chapter ${targetChapterId}, paragraph ${targetParagraphInChapter}, resume: ${shouldResume}`,
+      );
+
+      // Verify we cleared to the correct chapter
+      if (visibleChapterId !== targetChapterId) {
+        console.error(
+          `Reader: Auto-restart aborted - cleared to wrong chapter. Expected: ${targetChapterId}, Got: ${visibleChapterId}`,
+        );
+        return true;
+      }
+
+      // Wait for DOM to stabilize after clear
+      setTimeout(() => {
+        const readableElements = this.getReadableElements();
+        console.log(
+          `Reader: Auto-restart executing - ${readableElements.length} paragraphs available`,
+        );
+
+        if (
+          targetParagraphInChapter >= 0 &&
+          targetParagraphInChapter < readableElements.length
+        ) {
+          // Update TTS position to the target paragraph
+          if (window.tts && window.tts.changeParagraphPosition) {
+            window.tts.changeParagraphPosition(targetParagraphInChapter);
+
+            // Only resume if flag was set AND TTS is not already reading
+            if (shouldResume && !window.tts.reading) {
+              console.log(
+                `Reader: Auto-resuming TTS at paragraph ${targetParagraphInChapter}`,
+              );
+              window.tts.resume(true); // forceResume=true to skip scroll check
+            } else if (shouldResume && window.tts.reading) {
+              console.log('Reader: TTS already reading, skipping resume call');
+            }
+          }
+        } else {
+          console.error(
+            `Reader: Invalid restart paragraph ${targetParagraphInChapter} (total: ${readableElements.length})`,
+          );
+        }
+      }, 200);
+    }
+
     return true;
+  };
+
+  /**
+   * Set TTS restart intent after stitched chapter clear
+   * Called by scroll sync dialog when user chooses to start TTS in a specific chapter
+   *
+   * @param {number} targetChapterId - The chapter ID to restart in (after clear, only this chapter remains)
+   * @param {number} paragraphInChapter - The paragraph index WITHIN that chapter (not global)
+   * @param {boolean} shouldResume - Whether to auto-resume after position change
+   */
+  this.setTTSRestartIntent = function (
+    targetChapterId,
+    paragraphInChapter,
+    shouldResume = false,
+  ) {
+    this.ttsRestartPending = true;
+    this.ttsRestartTargetChapterId = targetChapterId;
+    this.ttsRestartParagraphInChapter = paragraphInChapter;
+    this.ttsRestartAfterClear = shouldResume;
+    console.log(
+      `Reader: TTS restart intent stored - chapter ${targetChapterId}, paragraph ${paragraphInChapter}, resume: ${shouldResume}`,
+    );
+  };
+
+  /**
+   * Clear TTS restart intent
+   */
+  this.clearTTSRestartIntent = function () {
+    this.ttsRestartPending = false;
+    this.ttsRestartTargetChapterId = null;
+    this.ttsRestartParagraphInChapter = null;
+    this.ttsRestartAfterClear = false;
+    console.log('Reader: TTS restart intent cleared');
+  };
+
+  /**
+   * Get chapter name for a given paragraph index
+   * Used for TTS scroll sync dialog to show chapter context
+   */
+  this.getChapterNameAtParagraph = function (paragraphIndex) {
+    if (this.chapterBoundaries.length === 0) {
+      return this.chapter.name;
+    }
+
+    for (let i = 0; i < this.chapterBoundaries.length; i++) {
+      const boundary = this.chapterBoundaries[i];
+      if (
+        paragraphIndex >= boundary.startIndex &&
+        paragraphIndex <= boundary.endIndex
+      ) {
+        // Get chapter name from DOM element
+        const chapterEl = this.chapterElement.querySelector(
+          `[data-chapter-id="${boundary.chapterId}"]`,
+        );
+        if (chapterEl) {
+          return (
+            chapterEl.getAttribute('data-chapter-name') || this.chapter.name
+          );
+        }
+        return this.chapter.name;
+      }
+    }
+
+    return this.chapter.name;
+  };
+
+  /**
+   * Get chapter ID and local paragraph index for a global paragraph index
+   * Used for TTS restart after stitched chapter clear
+   *
+   * @param {number} globalParagraphIndex - The paragraph index in current stitched DOM
+   * @returns {{chapterId: number, localIndex: number, chapterName: string} | null}
+   */
+  this.getChapterInfoForParagraph = function (globalParagraphIndex) {
+    if (this.chapterBoundaries.length === 0) {
+      // Single chapter mode - paragraph index is already local
+      return {
+        chapterId: this.chapter.id,
+        localIndex: globalParagraphIndex,
+        chapterName: this.chapter.name,
+      };
+    }
+
+    for (let i = 0; i < this.chapterBoundaries.length; i++) {
+      const boundary = this.chapterBoundaries[i];
+      if (
+        globalParagraphIndex >= boundary.startIndex &&
+        globalParagraphIndex <= boundary.endIndex
+      ) {
+        // Convert global index to local index within this chapter
+        const localIndex = globalParagraphIndex - boundary.startIndex;
+
+        // Get chapter name
+        const chapterEl = this.chapterElement.querySelector(
+          `[data-chapter-id="${boundary.chapterId}"]`,
+        );
+        const chapterName = chapterEl
+          ? chapterEl.getAttribute('data-chapter-name') || this.chapter.name
+          : this.chapter.name;
+
+        console.log(
+          `Reader: Paragraph ${globalParagraphIndex} → Chapter ${boundary.chapterId} (${chapterName}), Local Index ${localIndex}`,
+        );
+
+        return {
+          chapterId: boundary.chapterId,
+          localIndex: localIndex,
+          chapterName: chapterName,
+        };
+      }
+    }
+
+    console.error(
+      `Reader: Paragraph ${globalParagraphIndex} not found in any boundary`,
+    );
+    return null;
   };
 
   // DOM Stitching: Auto-trim previous chapter when user scrolls into next
@@ -1877,12 +2065,17 @@ window.tts = new (function () {
                 `TTS: Resume requested but user scrolled away. TTS: ${currentTTSIndex}, Visible: ${visibleParagraphIndex}`,
               );
 
-              // Send prompt to React Native
+              // Send prompt to React Native with chapter context
               reader.post({
                 type: 'tts-resume-location-prompt',
                 data: {
                   currentIndex: currentTTSIndex,
                   visibleIndex: visibleParagraphIndex,
+                  currentChapterName: reader.chapter.name,
+                  visibleChapterName: reader.getChapterNameAtParagraph(
+                    visibleParagraphIndex,
+                  ),
+                  isStitched: reader.loadedChapters.length > 1,
                 },
               });
               return;

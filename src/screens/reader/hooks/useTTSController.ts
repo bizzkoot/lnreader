@@ -226,12 +226,14 @@ export interface UseTTSControllerReturn {
   isWebViewSyncedRef: RefObject<boolean>;
   /** TTS state ref */
   ttsStateRef: RefObject<TTSPersistenceState | null>;
-  /** Progress ref */
+  /**Progress ref */
   progressRef: RefObject<number>;
   /** Chapters auto played ref */
   chaptersAutoPlayedRef: RefObject<number>;
   /** Chapter transition time ref (for grace period validation) */
   chapterTransitionTimeRef: RefObject<number>;
+  /** Previous chapter ID ref (for TTS chapterId parameter in WebView commands) */
+  prevChapterIdRef: RefObject<number>;
 
   // === Utility Functions ===
   /** Resume TTS from stored state */
@@ -918,6 +920,9 @@ export function useTTSController(
             ttsScrollPromptDataRef.current = {
               currentIndex: Number((event.data as any).currentIndex),
               visibleIndex: Number((event.data as any).visibleIndex),
+              currentChapterName: (event.data as any).currentChapterName,
+              visibleChapterName: (event.data as any).visibleChapterName,
+              isStitched: Boolean((event.data as any).isStitched),
               isResume: true,
             };
             dialogState.showScrollSyncDialog();
@@ -2569,6 +2574,7 @@ export function useTTSController(
     progressRef,
     chaptersAutoPlayedRef,
     chapterTransitionTimeRef,
+    prevChapterIdRef,
 
     // Utility Functions (from utilities)
     resumeTTS,

@@ -15,13 +15,7 @@ import React, {
   useCallback,
   useState,
 } from 'react';
-import {
-  NativeEventEmitter,
-  NativeModules,
-  StatusBar,
-  View,
-  StyleSheet,
-} from 'react-native';
+import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
 import WebView from 'react-native-webview';
 import {
   READER_WEBVIEW_ORIGIN_WHITELIST,
@@ -862,6 +856,14 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   setAdjacentChapter([undefined, undefined]);
                 }
 
+                // CRITICAL FIX: Update TTS controller's prevChapterIdRef to match the new chapter
+                // This ensures TTS commands (highlightParagraph, updateState) pass the correct
+                // chapterId parameter that matches window.reader.chapter.id in WebView
+                console.log(
+                  `WebViewReader: Updating TTS prevChapterIdRef from ${tts.prevChapterIdRef.current} to ${visibleChapter.id}`,
+                );
+                tts.prevChapterIdRef.current = visibleChapter.id;
+
                 // Inject updated nextChapter/prevChapter to WebView
                 webViewRef.current?.injectJavaScript(`
                   if (window.reader) {
@@ -1042,7 +1044,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             setTimeout(() => {
               setIsTransitioning(false);
               console.log('WebViewReader: Invisible transition complete');
-            }, 350); // Brief delay for scroll animation to settle
+            }, 200); // Optimized delay (reduced from 350ms) for faster transitions
           }
 
           // Call hook's load end handler
@@ -1086,6 +1088,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         theme={theme}
         currentIndex={tts.ttsScrollPromptData?.currentIndex || 0}
         visibleIndex={tts.ttsScrollPromptData?.visibleIndex || 0}
+        currentChapterName={tts.ttsScrollPromptData?.currentChapterName}
+        visibleChapterName={tts.ttsScrollPromptData?.visibleChapterName}
+        isStitched={tts.ttsScrollPromptData?.isStitched}
         onSyncToVisible={tts.handleTTSScrollSyncConfirm}
         onKeepCurrent={tts.handleTTSScrollSyncCancel}
         onDismiss={tts.hideScrollSyncDialog}

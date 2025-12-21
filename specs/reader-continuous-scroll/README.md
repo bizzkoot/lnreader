@@ -1,202 +1,258 @@
-# Documentation Index: Continuous Scrolling Feature
+# Continuous Scroll & TTS Integration - Status Report
 
-**Last Updated**: December 21, 2024 14:37 GMT+8  
-**Status**: ✅ FULLY WORKING - All Features Validated
-
----
-
-## Quick Start - For Next Session
-
-**START HERE**: Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md) first!
-
-This gives you immediate context about what's working and potential enhancements.
+**Last Updated**: December 21, 2024  
+**Status**: ✅ Core features working, ⚠️ TTS-triggered trim incomplete
 
 ---
 
-## Current Implementation Status
+## Overview
 
-### ✅ ALL FEATURES WORKING
+Continuous scrolling allows seamless chapter transitions by stitching the next chapter to the current chapter's DOM. When combined with TTS, this creates a smooth reading experience without interruptions.
 
-1. **Chapter Stitching**: Chapters append properly to DOM
-2. **Auto-Trim at 15% Threshold**: Previous chapter removed on 15% read progression with smooth redraw
-3. **Continuous Stitching**: Can stitch indefinitely without stopping
-4. **TTS Integration**: TTS starts from correct paragraph after trim/redraw
-5. **Session Save**: Exit saves previous chapter as 100% read, current chapter with correct progress
+##✅ Working Features
 
-> [!IMPORTANT]
-> All implementations documented here represent WORKING solutions. Do NOT revert to approaches marked as ❌ WRONG APPROACHES in IMPLEMENTATION_PLAN.md.
+### 1. Chapter Stitching (95% Threshold)
+- ✅ Next chapter auto-fetches and appends to DOM at 95% scroll
+- ✅ Boundaries track paragraph ranges per chapter
+- ✅ Seamless scroll transition between chapters
+- ✅ `nextChapter` reference properly updated
 
----
+### 2. Chapter Trimming (15% Threshold  
+- ✅ Previous chapter removed from DOM at 15% scroll in next chapter
+- ✅ DOM fully redrawn via `getChapter()` → proper state sync
+- ✅ Scroll position preserved with pixel-perfect accuracy
+- ✅ Chapter progress saved correctly (100% for previous, current% for new)
+- ✅ `chapter-transition` event triggers full reload
 
-## Document Guide
+### 3. TTS in Single Chapter
+- ✅ TTS works perfectly in non-stitched chapters
+- ✅ Highlight paragraphs correctly
+- ✅ Scroll follows TTS position
+- ✅ Auto-advance to next chapter (with download wait)
 
-### 1. SESSION_HANDOFF.md ⭐ **READ THIS FIRST**
+### 4. TTS Scroll Sync Dialog
+- ✅ Detects when user scrolls away during TTS
+- ✅ Shows dialog with chapter context (stitched mode aware)
+- ✅ "Continue from here" option triggers stitched chapter clear
+- ✅ "Keep TTS position" option scrolls back and clears
 
-**Purpose**: Quick session resumption with current working state  
-**Use when**: Starting a new session, need immediate context  
-
-**Contains**:
-- Complete working implementation details
-- What's validated and working
-- Potential enhancement opportunities
-- Critical implementation decisions that MUST be maintained
-
-**Best for**: Understanding current state in 5 minutes
-
----
-
-### 2. IMPLEMENTATION_PLAN.md 📚 **COMPREHENSIVE REFERENCE**
-
-**Purpose**: Full feature documentation with architecture and history  
-**Use when**: Need deep understanding, implementation details  
-
-**Contains**:
-- Executive summary (all features ✅ WORKING)
-- Architecture overview (how stitching works)
-- ❌ **WRONG APPROACHES** section (critical - never return to these!)
-- Implementation details (5 sections - all validated)
-- Root cause fixes applied
-- Lessons learned
-
-**Best for**: Understanding implementation details and avoiding past mistakes
+### 5. TTS Restart After Stitched Clear  
+- ✅ `clearStitchedChapters()` removes other chapters from DOM
+- ✅ `window.reader.chapter.id` updated immediately (fix #1)
+- ✅ `prevChapterIdRef` synchronized in React Native (fix #2)
+- ✅ TTS auto-restart at correct paragraph in single chapter
+- ✅ TTS highlight and audio work correctly
 
 ---
 
-### 3. READER_ENHANCEMENTS.md 🚀 **ENHANCEMENT IDEAS**
+## ⚠️ Known Issue: TTS-Triggered Trim Incomplete
 
-**Purpose**: Future improvements and optimization opportunities  
-**Use when**: Planning next iterations  
+### Problem
 
-**Contains**:
-- Current feature capabilities
-- User experience flow
-- Enhancement proposals (e.g., dual WebView approach)
-- Performance optimization ideas
-- UX improvement suggestions
+When TTS triggers `clearStitchedChapters()` (via scroll sync dialog), it updates the WebView but **doesn't fully reload the chapter in React Native**. This leaves the app in an inconsistent state.
 
-**Best for**: Planning future enhancements
+### Symptom
 
----
+**Scenario**:
+1. User scrolls from Chapter 2 → Chapter 3 (stitched)
+2. User starts TTS in Chapter 3 → scroll sync dialog appears
+3. User clicks "Continue from here" → `clearStitchedChapters()` executes
+4. ✅ TTS works correctly (highlight + audio)
+5. User exits reader
+6. ❌ **User re-enters → inconsistent state** (DOM has wrong paragraph count,React Native may think it's Chapter 2)
 
-### 4. TASKS.md ✅ **COMPLETION STATUS**
+### Root Cause
 
-**Purpose**: Track what's been completed  
-**Use when**: Need to see what's done  
+- **Normal Trim** (scroll-based): Sends `chapter-transition` event → calls `getChapter()` → **full reload**
+- **TTS Trim** (dialog-based): Sends `stitched-chapters-cleared` event → updates adjacent chapters only → **NO full reload**
 
-**Contains**:
-- Phase completion status
-- All core features validated
-- Enhancement backlog
-- Future work items
+### What's Missing
 
-**Best for**: Quick status overview
-
----
-
-### 5. DEBUG_CHECKLIST.md 🔍 **ARCHIVED REFERENCE**
-
-**Purpose**: Historical debugging guide (kept for reference)  
-**Use when**: Investigating similar issues in future  
-
-**Contains**:
-- Debugging steps used to fix previous issues
-- Log patterns for validation
-- Troubleshooting flowcharts
-
-**Best for**: Learning from past debugging approach
-
----
-
-## Recommended Reading Order
-
-### 🚀 Quick Resume (5 min):
-1. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md)
-2. Understand what's working
-3. Review enhancement opportunities
-
-### 📚 Deep Dive (30 min):
-1. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md)
-2. Review [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) "WRONG APPROACHES" section
-3. Study working implementation details
-4. Check [READER_ENHANCEMENTS.md](./READER_ENHANCEMENTS.md) for future ideas
-
-### 🎯 First Time Reading (1 hour):
-1. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md) - Current state
-2. Read [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) - Architecture + working solutions
-3. Read [READER_ENHANCEMENTS.md](./READER_ENHANCEMENTS.md) - Future enhancements
-4. Reference [TASKS.md](./TASKS.md) - Completion status
-
----
-
-## File Locations
-
-All documentation in: `specs/reader-continuous-scroll/`
-
-```
-specs/reader-continuous-scroll/
-├── SESSION_HANDOFF.md       ← ⭐ START HERE
-├── IMPLEMENTATION_PLAN.md    ← 📚 WORKING SOLUTIONS
-├── READER_ENHANCEMENTS.md    ← 🚀 FUTURE IMPROVEMENTS
-├── TASKS.md                  ← ✅ COMPLETION STATUS
-└── DEBUG_CHECKLIST.md        ← 🔍 ARCHIVED (Historical Reference)
+The `stitched-chapters-cleared` handler in `WebViewReader.tsx` line ~824:
+```typescript
+case 'stitched-chapters-cleared':
+  // Updates adjacent chapters, prevChapterIdRef
+  // ❌ Does NOT call getChapter() to fully reload chapter state
 ```
 
----
+### Impact
 
-## Key Code Locations
-
-### Primary File:
-**`android/app/src/main/assets/js/core.js`** (3200+ lines)
-- Lines 236-318: `receiveChapterContent()` - Append chapter, calculate boundaries ✅
-- Lines 359-457: `clearStitchedChapters()` - TTS clearing logic ✅
-- Lines 459-510: `trimPreviousChapter()` - Remove first chapter ✅
-- Lines 515-630: `manageStitchedChapters()` - Auto-trim controller ✅
-
-### Supporting Files:
-- `src/screens/reader/components/WebViewReader.tsx`: React Native side
-  - Lines 143-150: Refs fix (WebView persistence) ✅
-  - Lines 663-694: `fetch-chapter-content` handler ✅
-  - Lines 787-855: `stitched-chapters-cleared` handler ✅
-  - Lines XXX: `chapter-transition` handler (reload with position preservation) ✅
-- `src/database/queries/ChapterQueries.ts`: MMKV unread fix ✅
-  - Lines 84-89, 91-98, 103-117, 203-221: 4 functions with `MMKVStorage.delete()`
+- **Low**: Affects only users who start TTS in stitched chapters before 15% threshold
+- **Workaround**: User can manually navigate away and back to reset state
+- **Does NOT affect**: Normal scroll-based trim (99% of cases)
 
 ---
 
-## Current Status Summary
+## Technical Architecture
 
-**Phase**: 5 - All Core Features Complete  
-**Status**: 🟢 FULLY WORKING
+### File Structure
 
-**Working** ✅:
-- DOM stitching (chapters append seamlessly)
-- WebView persistence (same reader ID)
-- MMKV unread bug fixed
-- Boundary tracking accurate
-- TTS clearing works correctly (keeps visible chapter)
-- **DOM auto-trim triggers at 15% threshold**
-- **Smooth redraw with position preservation**
-- **Perfect session save (previous 100%, current in-progress)**
+```
+android/app/src/main/assets/js/
+├── core.js                          # WebView logic
 
-**Enhancement Opportunities** 🚀:
-- Dual WebView approach for invisible trim (no redraw flash)
-- Reduce transition delay timing
-- Progressive loading optimization
-- Configurable threshold UI
+src/screens/reader/
+├── components/
+│   ├── WebViewReader.tsx            # Main WebView component, message handler
+│   ├── TTSScrollSyncDialog.tsx      # Stitched-aware dialog
+├── hooks/
+│   ├── useTTSController.ts          # TTS state, batch playback
+│   ├── useScrollSyncHandlers.ts     # Dialog confirm/cancel logic
+```
+
+### Key Functions
+
+#### `core.js` (WebView)
+
+| Function                       | Purpose                                                  |
+| ------------------------------ | -------------------------------------------------------- |
+| `manageStitchedChapters()`     | Monitors scroll, triggers stitch/trim at thresholds      |
+| `receiveChapterContent()`      | Appends next chapter HTML to DOM                         |
+| `clearStitchedChapters()`      | Removes other chapters, optionally auto-restarts TTS     |
+| `setTTSRestartIntent()`        | Stores restart parameters (chapterId, paragraph, resume) |
+| `getChapterInfoForParagraph()` | Converts global index → chapter-local index              |
+
+#### `WebViewReader.tsx` (React Native)
+
+| Event Handler               | Purpose                                                              |
+| --------------------------- | -------------------------------------------------------------------- |
+| `fetch-chapter-content`     | Fetches HTML from storage/network                                    |
+| `chapter-appended`          | Updates `nextChapter` state                                          |
+| `stitched-chapters-cleared` | Updates adjacent chapters + `prevChapterIdRef` ⚠️ **NO getChapter()** |
+| `chapter-transition`        | **Full reload** via `getChapter()` ✅ Correct                         |
+
+#### `useScrollSyncHandlers.ts`
+
+| Function                       | Purpose                                                   |
+| ------------------------------ | --------------------------------------------------------- |
+| `handleTTSScrollSyncConfirm()` | Calls `setTTSRestartIntent()` + `clearStitchedChapters()` |
+| `handleTTSScrollSyncCancel()`  | Scrolls to TTS position + `clearStitchedChapters()`       |
 
 ---
 
-## Critical Success Factors
+## Implementation Highlights
 
-> [!CAUTION]
-> The following implementation decisions are CRITICAL to the working solution. Do NOT change without thorough testing:
+### Fix #1: Immediate `window.reader.chapter.id` Update
 
-1. **Boundary Calculation**: Uses `countReadableInContainer()` helper, NOT direct `querySelectorAll('.readable')`
-2. **Cache Invalidation**: Must happen BEFORE `getReadableElements()` call
-3. **Chapter Transition**: Uses `getChapter()` NOT `setChapter()` to properly update adjacent chapters
-4. **WebView Reload**: Required for proper HTML regeneration, hidden via opacity transition
-5. **Trim Logic**: Handles both original chapter (no wrapper) AND stitched chapters (with wrapper)
+**File**: `core.js`, line ~537
+
+After `clearStitchedChapters()` removes chapters from DOM, it immediately updates the chapter context:
+
+```javascript
+// CRITICAL FIX: Update this.chapter IMMEDIATELY to match the visible chapter
+this.chapter = {
+  ...this.chapter,
+  id: visibleChapterId,
+  name: visibleChapterName,
+};
+```
+
+**Why**: TTS auto-restart executes 200ms later. Without this, `window.tts` would still check against the old chapter ID, causing "stale chapter" errors.
+
+### Fix #2: Synchronize `prevChapterIdRef`
+
+**File**: `WebViewReader.tsx` line ~865
+
+When `stitched-chapters-cleared` event is received, update the TTS controller's ref:
+
+```typescript
+tts.prevChapterIdRef.current = visibleChapter.id;
+```
+
+**Why**: React Native injects TTS commands like `highlightParagraph(index, chapterId)`. The `chapterId` comes from `prevChapterIdRef`. Without this sync, WebView would reject commands with "stale chapter 6082, current is 6083" errors.
 
 ---
 
-**Use this index** to navigate documentation efficiently based on your needs!
+## Next Steps
+
+### Priority 1: Fix TTS-Triggered Trim
+
+**Goal**: Make TTS-triggered trim equivalent to scroll-triggered trim.
+
+**Solution**: Modify `stitched-chapters-cleared` handler to call `getChapter()`:
+
+```typescript
+case 'stitched-chapters-cleared':
+  // Current: Updates adjacent chapters only
+  // TODO: Call getChapter(visibleChapter) for full reload
+  // This will: reload HTML, update all state, resync WebView
+```
+
+**Considerations**:
+- Will trigger HTML reload → brief visual flash?
+- Need to preserve TTS state across reload
+- Test: TTS should resume correctly after `getChapter()` completes
+
+### Priority 2: Optimize Trim Visual Experience  
+
+**Current**: Trim causes brief visual "jump" as DOM is redrawn
+
+**Ideas**:
+- Dual WebView architecture (investigated, rejected due to React Native layout constraints - see `DUAL_WEBVIEW_INVESTIGATION.md`)
+- Opacity transition during trim
+- Pre-render next WebView off-screen
+
+### Priority 3: Add Integration Tests
+
+**Coverage Needed**:
+- ✅ TTS restart in stitched chapter (unit test exists)
+- ❌ Full E2E: Scroll → Stitch → TTS → Trim → Restart
+- ❌ State consistency after TTS-triggered trim
+
+---
+
+## Testing Checklist
+
+### Manual Testing
+
+#### Normal Scroll-Based Trim
+1. ✅ Scroll to 95% in Chapter N
+2. ✅ Chapter N+1 stitches
+3. ✅ Scroll to 15% in Chapter N+1
+4. ✅ Chapter N trims, DOM redraws
+5. ✅ Scroll position preserved
+6. ✅ Exit → re-enter → correct state
+
+#### TTS-Triggered Trim (⚠️ Known Issue)
+1. ✅ Scroll to 95% in Chapter N
+2. ✅ Chapter N+1 stitches
+3. ✅ Start TTS in Chapter N+1 (before 15%)
+4. ✅ Scroll sync dialog → "Continue from here"
+5. ✅ TTS works (highlight + audio)
+6. ❌ **Exit → re-enter → inconsistent state**
+
+### Automated Tests
+
+| Test File                                | Coverage                         |
+| ---------------------------------------- | -------------------------------- |
+| `useScrollSyncHandlers.stitched.test.ts` | ✅ Unit tests for dialog handlers |
+| E2E tests                                | ❌ TODO                           |
+
+---
+
+## Lessons Learned
+
+### What Worked
+
+1. **Immediate `window.reader.chapter` update**: Crucial for TTS to work during the 200ms auto-restart window.
+2. **Synchronizing `prevChapterIdRef`**: React Native must pass correct chapterId to WebView commands.
+3. **Comprehensive logging**: Made debugging stale chapter errors much easier.
+
+### What Didn't Work
+
+1. **Dual WebView approach**: React Native's layout system doesn't support seamless WebView swapping.
+2. **Relying on React Native reload alone**: WebView needs its own internal chapter context for TTS.
+
+### Future Enhancements
+
+- **Smarter trim threshold**: Use viewport height instead of fixed 15%
+- **Predictive stitching**: Stitch at 90% if user is scrolling fast
+- **Background chapter caching**: Pre-fetch next 2-3 chapters for instant stitching
+
+---
+
+## Related Documentation
+
+- `SESSION_HANDOFF.md`: Original continuous scroll implementation notes
+- `DUAL_WEBVIEW_INVESTIGATION.md`: Why dual WebView was rejected
+- `archive/`: Old planning and implementation docs

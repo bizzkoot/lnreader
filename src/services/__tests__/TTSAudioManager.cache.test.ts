@@ -99,136 +99,152 @@ describe('TTSAudioManager Cache Calibration', () => {
     await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify cache was NOT updated (drift is only 3)
-    expect((TTSAudioManager as any).lastKnownQueueSize).toBe(10);
+    expect((TTSAudioManagerCache as any).lastKnownQueueSize).toBe(10);
 
     // Verify counter was NOT incremented
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(0);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      0,
+    );
   });
 
   test('multiple drifts accumulate cacheDriftDetections counter', async () => {
     // First drift
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(20);
-    await (TTSAudioManager as any).calibrateQueueCache();
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(1);
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(20);
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      1,
+    );
 
     // Second drift
-    (TTSAudioManager as any).lastKnownQueueSize = 5;
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(15);
-    await (TTSAudioManager as any).calibrateQueueCache();
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(2);
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 5;
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(15);
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      2,
+    );
 
     // Third drift
-    (TTSAudioManager as any).lastKnownQueueSize = 8;
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(2);
-    await (TTSAudioManager as any).calibrateQueueCache();
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(3);
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 8;
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(2);
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      3,
+    );
   });
 
   test('periodic calibration triggers every 10 spoken items', async () => {
     const calibrateSpy = jest.spyOn(
-      TTSAudioManager as any,
+      TTSAudioManagerCache as any,
       'calibrateQueueCache',
     );
 
     // Mock getQueueSize for calibration
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(10);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(10);
 
     // Simulate 9 speech done events
     for (let i = 0; i < 9; i++) {
-      (TTSAudioManager as any).speechDoneCounter++;
-      if ((TTSAudioManager as any).speechDoneCounter >= 10) {
-        (TTSAudioManager as any).speechDoneCounter = 0;
-        await (TTSAudioManager as any).calibrateQueueCache();
+      (TTSAudioManagerCache as any).speechDoneCounter++;
+      if ((TTSAudioManagerCache as any).speechDoneCounter >= 10) {
+        (TTSAudioManagerCache as any).speechDoneCounter = 0;
+        await (TTSAudioManagerCache as any).calibrateQueueCache();
       }
     }
 
     // Should not have triggered calibration yet
     expect(calibrateSpy).not.toHaveBeenCalled();
-    expect((TTSAudioManager as any).speechDoneCounter).toBe(9);
+    expect((TTSAudioManagerCache as any).speechDoneCounter).toBe(9);
 
     // 10th event should trigger calibration
-    (TTSAudioManager as any).speechDoneCounter++;
-    if ((TTSAudioManager as any).speechDoneCounter >= 10) {
-      (TTSAudioManager as any).speechDoneCounter = 0;
-      await (TTSAudioManager as any).calibrateQueueCache();
+    (TTSAudioManagerCache as any).speechDoneCounter++;
+    if ((TTSAudioManagerCache as any).speechDoneCounter >= 10) {
+      (TTSAudioManagerCache as any).speechDoneCounter = 0;
+      await (TTSAudioManagerCache as any).calibrateQueueCache();
     }
 
     expect(calibrateSpy).toHaveBeenCalledTimes(1);
-    expect((TTSAudioManager as any).speechDoneCounter).toBe(0);
+    expect((TTSAudioManagerCache as any).speechDoneCounter).toBe(0);
 
     calibrateSpy.mockRestore();
   });
 
   test('calibration is defensive and catches errors gracefully', async () => {
     // Mock getQueueSize to throw an error
-    (TTSHighlight.getQueueSize as jest.Mock).mockRejectedValue(
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockRejectedValue(
       new Error('Native call failed'),
     );
 
     // Set cached size
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
 
     // Should not throw
     await expect(
-      (TTSAudioManager as any).calibrateQueueCache(),
+      (TTSAudioManagerCache as any).calibrateQueueCache(),
     ).resolves.not.toThrow();
 
     // Cache should remain unchanged
-    expect((TTSAudioManager as any).lastKnownQueueSize).toBe(10);
+    expect((TTSAudioManagerCache as any).lastKnownQueueSize).toBe(10);
 
     // Counter should not increment on error
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(0);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      0,
+    );
   });
 
   test('calibration handles negative drift (actual < cached)', async () => {
     // Set cached size higher
-    (TTSAudioManager as any).lastKnownQueueSize = 20;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 20;
 
     // Mock actual queue size lower
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(12);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(12);
 
     // Call calibration (drift = |12 - 20| = 8 > 5)
-    await (TTSAudioManager as any).calibrateQueueCache();
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify cache was updated
-    expect((TTSAudioManager as any).lastKnownQueueSize).toBe(12);
+    expect((TTSAudioManagerCache as any).lastKnownQueueSize).toBe(12);
 
     // Verify counter was incremented
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(1);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      1,
+    );
   });
 
   test('calibration handles boundary case: drift exactly 5', async () => {
     // Set cached size
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
 
     // Mock actual queue size with drift exactly 5
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(15);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(15);
 
     // Call calibration (drift = 5, NOT > 5)
-    await (TTSAudioManager as any).calibrateQueueCache();
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify cache was NOT updated (drift must be GREATER than 5)
-    expect((TTSAudioManager as any).lastKnownQueueSize).toBe(10);
+    expect((TTSAudioManagerCache as any).lastKnownQueueSize).toBe(10);
 
     // Verify counter was NOT incremented
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(0);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      0,
+    );
   });
 
   test('calibration handles boundary case: drift exactly 6', async () => {
     // Set cached size
-    (TTSAudioManager as any).lastKnownQueueSize = 10;
+    (TTSAudioManagerCache as any).lastKnownQueueSize = 10;
 
     // Mock actual queue size with drift exactly 6
-    (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(16);
+    (TTSHighlightCache.getQueueSize as jest.Mock).mockResolvedValue(16);
 
     // Call calibration (drift = 6, which is > 5)
-    await (TTSAudioManager as any).calibrateQueueCache();
+    await (TTSAudioManagerCache as any).calibrateQueueCache();
 
     // Verify cache WAS updated
-    expect((TTSAudioManager as any).lastKnownQueueSize).toBe(16);
+    expect((TTSAudioManagerCache as any).lastKnownQueueSize).toBe(16);
 
     // Verify counter WAS incremented
-    expect((TTSAudioManager as any).devCounters.cacheDriftDetections).toBe(1);
+    expect((TTSAudioManagerCache as any).devCounters.cacheDriftDetections).toBe(
+      1,
+    );
   });
 });

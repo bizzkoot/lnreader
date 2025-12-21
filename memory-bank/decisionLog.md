@@ -87,3 +87,4 @@ This approach ensures we fix the ACTUAL root cause (boundary calculation or matc
 5. WebView opacity transition hides DOM regeneration (350ms)
 
 The feature is production-ready with documented enhancement opportunities for future improvements. |
+| 2025-12-21 | Abandoned dual WebView approach for reader transitions - React Native layout engine splits container 50/50 between two WebViews regardless of opacity/z-index | Investigation revealed React Native cannot properly layout two full-screen WebViews in same container. Researched Mihon (Tachiyomi) manga reader - they use RecyclerView/ViewPager with item recycling, NOT dual overlaying WebViews. Original single WebView with opacity transitions is the correct solution. Optimized transition timing from 350ms to 200ms (43% faster) for better UX. |
