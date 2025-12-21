@@ -1,7 +1,7 @@
 # Documentation Index: Continuous Scrolling Feature
 
-**Last Updated**: December 20, 2024 23:55 GMT+8  
-**Status**: Phase 4 - Bug Fixes In Progress
+**Last Updated**: December 21, 2024 14:37 GMT+8  
+**Status**: ✅ FULLY WORKING - All Features Validated
 
 ---
 
@@ -9,7 +9,22 @@
 
 **START HERE**: Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md) first!
 
-This gives you immediate context about what's broken, what I did this session, and what to do next.
+This gives you immediate context about what's working and potential enhancements.
+
+---
+
+## Current Implementation Status
+
+### ✅ ALL FEATURES WORKING
+
+1. **Chapter Stitching**: Chapters append properly to DOM
+2. **Auto-Trim at 15% Threshold**: Previous chapter removed on 15% read progression with smooth redraw
+3. **Continuous Stitching**: Can stitch indefinitely without stopping
+4. **TTS Integration**: TTS starts from correct paragraph after trim/redraw
+5. **Session Save**: Exit saves previous chapter as 100% read, current chapter with correct progress
+
+> [!IMPORTANT]
+> All implementations documented here represent WORKING solutions. Do NOT revert to approaches marked as ❌ WRONG APPROACHES in IMPLEMENTATION_PLAN.md.
 
 ---
 
@@ -17,95 +32,78 @@ This gives you immediate context about what's broken, what I did this session, a
 
 ### 1. SESSION_HANDOFF.md ⭐ **READ THIS FIRST**
 
-**Purpose**: Quick session resumption guide  
+**Purpose**: Quick session resumption with current working state  
 **Use when**: Starting a new session, need immediate context  
 
 **Contains**:
-- What's broken RIGHT NOW (boundary mismatch bug)
-- Critical dev build caching issue
-- What I did this session (debug logs added)
-- What user needs to do next (clean rebuild + test)
-- 3 hypotheses for root cause
-- Expected log patterns (correct vs wrong)
-- Quick reference - boundary structure
-- Critical lessons learned
+- Complete working implementation details
+- What's validated and working
+- Potential enhancement opportunities
+- Critical implementation decisions that MUST be maintained
 
-**Best for**: Getting up to speed in 5 minutes
+**Best for**: Understanding current state in 5 minutes
 
 ---
 
-### 2. DEBUG_CHECKLIST.md 🔍 **USE DURING TESTING**
-
-**Purpose**: Step-by-step log analysis guide  
-**Use when**: User provides test logs, need to diagnose bug  
-
-**Contains**:
-- Step 1: Check boundary calculation (during append)
-- Step 2: Check all boundaries (during scroll)
-- Step 3: Check boundary matching (paragraph 222)
-- Step 4: Check trim trigger (paragraph 250)
-- Decision tree flowchart
-- Expected vs wrong log patterns
-- Exact values to look for
-
-**Best for**: Quickly identifying which fix is needed based on logs
-
----
-
-### 3. IMPLEMENTATION_PLAN.md 📚 **COMPREHENSIVE REFERENCE**
+### 2. IMPLEMENTATION_PLAN.md 📚 **COMPREHENSIVE REFERENCE**
 
 **Purpose**: Full feature documentation with architecture and history  
-**Use when**: Need deep understanding, reviewing wrong approaches, checking implementation details  
+**Use when**: Need deep understanding, implementation details  
 
 **Contains**:
-- Executive summary (status, working features, in-progress)
+- Executive summary (all features ✅ WORKING)
 - Architecture overview (how stitching works)
-- ❌ **WRONG APPROACHES** section (4 major mistakes documented)
-- Implementation details (5 sections):
-  1. DOM Stitching ✅
-  2. MMKV Unread Bug Fix ✅
-  3. TTS Stitched Chapter Clearing 🔧
-  4. DOM Auto-Trim 🔧
-  5. Boundary Tracking
-- Files modified table
-- Next steps (priority order)
-- Testing checklist
+- ❌ **WRONG APPROACHES** section (critical - never return to these!)
+- Implementation details (5 sections - all validated)
+- Root cause fixes applied
 - Lessons learned
-- **UPDATE 1**: DOM trim calculation fix (Dec 20, 22:30)
-- **UPDATE 2**: Boundary mismatch root cause discovery (Dec 20, 23:45)
 
-**Best for**: Understanding full context, learning from mistakes, checking implementation
+**Best for**: Understanding implementation details and avoiding past mistakes
 
 ---
 
-### 4. READER_ENHANCEMENTS.md 📖 **FEATURE OVERVIEW**
+### 3. READER_ENHANCEMENTS.md 🚀 **ENHANCEMENT IDEAS**
 
-**Purpose**: High-level feature design and requirements  
-**Use when**: Need to understand feature goals, user experience, settings  
+**Purpose**: Future improvements and optimization opportunities  
+**Use when**: Planning next iterations  
 
 **Contains**:
-- Feature goals
+- Current feature capabilities
 - User experience flow
-- Settings (boundary modes, threshold)
-- Technical requirements
-- Edge cases to handle
+- Enhancement proposals (e.g., dual WebView approach)
+- Performance optimization ideas
+- UX improvement suggestions
 
-**Best for**: Understanding WHAT we're building and WHY
+**Best for**: Planning future enhancements
 
 ---
 
-### 5. TASKS.md ✅ **TASK TRACKING**
+### 4. TASKS.md ✅ **COMPLETION STATUS**
 
-**Purpose**: Track implementation progress  
-**Use when**: Need to see what's done, what's next  
+**Purpose**: Track what's been completed  
+**Use when**: Need to see what's done  
 
 **Contains**:
-- Phase breakdown (1-6)
-- Task status (✅ complete, 🔧 in progress, ⏸️ blocked)
-- Current blockers
-- Testing requirements
+- Phase completion status
+- All core features validated
+- Enhancement backlog
+- Future work items
 
 **Best for**: Quick status overview
+
+---
+
+### 5. DEBUG_CHECKLIST.md 🔍 **ARCHIVED REFERENCE**
+
+**Purpose**: Historical debugging guide (kept for reference)  
+**Use when**: Investigating similar issues in future  
+
+**Contains**:
+- Debugging steps used to fix previous issues
+- Log patterns for validation
+- Troubleshooting flowcharts
+
+**Best for**: Learning from past debugging approach
 
 ---
 
@@ -113,22 +111,20 @@ This gives you immediate context about what's broken, what I did this session, a
 
 ### 🚀 Quick Resume (5 min):
 1. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md)
-2. Wait for user logs
-3. Use [DEBUG_CHECKLIST.md](./DEBUG_CHECKLIST.md) to analyze
+2. Understand what's working
+3. Review enhancement opportunities
 
 ### 📚 Deep Dive (30 min):
 1. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md)
-2. Skim [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) "WRONG APPROACHES" section
-3. Read [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) "UPDATE 2" section
-4. Check [DEBUG_CHECKLIST.md](./DEBUG_CHECKLIST.md) for log patterns
-5. Reference [TASKS.md](./TASKS.md) for task status
+2. Review [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) "WRONG APPROACHES" section
+3. Study working implementation details
+4. Check [READER_ENHANCEMENTS.md](./READER_ENHANCEMENTS.md) for future ideas
 
 ### 🎯 First Time Reading (1 hour):
-1. Read [READER_ENHANCEMENTS.md](./READER_ENHANCEMENTS.md) - Understand goals
-2. Read [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) - Architecture + history
-3. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md) - Current state
-4. Bookmark [DEBUG_CHECKLIST.md](./DEBUG_CHECKLIST.md) - Use during testing
-5. Reference [TASKS.md](./TASKS.md) - Track progress
+1. Read [SESSION_HANDOFF.md](./SESSION_HANDOFF.md) - Current state
+2. Read [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) - Architecture + working solutions
+3. Read [READER_ENHANCEMENTS.md](./READER_ENHANCEMENTS.md) - Future enhancements
+4. Reference [TASKS.md](./TASKS.md) - Completion status
 
 ---
 
@@ -139,10 +135,10 @@ All documentation in: `specs/reader-continuous-scroll/`
 ```
 specs/reader-continuous-scroll/
 ├── SESSION_HANDOFF.md       ← ⭐ START HERE
-├── DEBUG_CHECKLIST.md        ← 🔍 USE DURING TESTING
-├── IMPLEMENTATION_PLAN.md    ← 📚 COMPREHENSIVE REFERENCE
-├── READER_ENHANCEMENTS.md    ← 📖 FEATURE OVERVIEW
-└── TASKS.md                  ← ✅ TASK TRACKING
+├── IMPLEMENTATION_PLAN.md    ← 📚 WORKING SOLUTIONS
+├── READER_ENHANCEMENTS.md    ← 🚀 FUTURE IMPROVEMENTS
+├── TASKS.md                  ← ✅ COMPLETION STATUS
+└── DEBUG_CHECKLIST.md        ← 🔍 ARCHIVED (Historical Reference)
 ```
 
 ---
@@ -150,58 +146,56 @@ specs/reader-continuous-scroll/
 ## Key Code Locations
 
 ### Primary File:
-**`android/app/src/main/assets/js/core.js`** (3200 lines)
-- Lines 236-318: `receiveChapterContent()` - Append chapter, calculate boundaries
-- Lines 290-305: **NEW DEBUG LOGS** - Boundary calculation
-- Lines 359-457: `clearStitchedChapters()` - TTS clearing logic
-- Lines 459-510: `trimPreviousChapter()` - Remove first chapter
-- Lines 515-630: `manageStitchedChapters()` - Auto-trim controller
-- Lines 589-595: **NEW DEBUG LOGS** - All boundaries display
+**`android/app/src/main/assets/js/core.js`** (3200+ lines)
+- Lines 236-318: `receiveChapterContent()` - Append chapter, calculate boundaries ✅
+- Lines 359-457: `clearStitchedChapters()` - TTS clearing logic ✅
+- Lines 459-510: `trimPreviousChapter()` - Remove first chapter ✅
+- Lines 515-630: `manageStitchedChapters()` - Auto-trim controller ✅
 
 ### Supporting Files:
 - `src/screens/reader/components/WebViewReader.tsx`: React Native side
-  - Lines 143-150: Refs fix (WebView persistence)
-  - Lines 663-694: `fetch-chapter-content` handler
-  - Lines 787-855: `stitched-chapters-cleared` handler
-- `src/database/queries/ChapterQueries.ts`: MMKV unread fix
+  - Lines 143-150: Refs fix (WebView persistence) ✅
+  - Lines 663-694: `fetch-chapter-content` handler ✅
+  - Lines 787-855: `stitched-chapters-cleared` handler ✅
+  - Lines XXX: `chapter-transition` handler (reload with position preservation) ✅
+- `src/database/queries/ChapterQueries.ts`: MMKV unread fix ✅
   - Lines 84-89, 91-98, 103-117, 203-221: 4 functions with `MMKVStorage.delete()`
 
 ---
 
 ## Current Status Summary
 
-**Phase**: 4 - Bug Fixes  
-**Status**: 🔴 BLOCKED - Awaiting user testing
+**Phase**: 5 - All Core Features Complete  
+**Status**: 🟢 FULLY WORKING
 
 **Working** ✅:
-- DOM stitching (chapters append)
+- DOM stitching (chapters append seamlessly)
 - WebView persistence (same reader ID)
 - MMKV unread bug fixed
-- Boundary display correct
-- TTS clearing rewritten (not tested)
-- Trim calculation logic correct
+- Boundary tracking accurate
+- TTS clearing works correctly (keeps visible chapter)
+- **DOM auto-trim triggers at 15% threshold**
+- **Smooth redraw with position preservation**
+- **Perfect session save (previous 100%, current in-progress)**
 
-**Broken** 🔴:
-- DOM trim not triggering (paragraphs 214+ not matching boundary 1)
-- Root cause: Boundary calculation or matching logic bug
-- Debug logs added, awaiting user test results
-
-**Next**: User clean rebuild → Test → Provide logs → Analyze → Fix → Test → Verify
+**Enhancement Opportunities** 🚀:
+- Dual WebView approach for invisible trim (no redraw flash)
+- Reduce transition delay timing
+- Progressive loading optimization
+- Configurable threshold UI
 
 ---
 
-## Memory Bank Status
+## Critical Success Factors
 
-**Updated**: December 20, 2024 23:50 GMT+8
+> [!CAUTION]
+> The following implementation decisions are CRITICAL to the working solution. Do NOT change without thorough testing:
 
-**Active Context**: Investigating boundary mismatch bug - paragraphs 214+ not matching boundary 1, causing trim check to never run.
-
-**Progress**:
-- Done: 7 items (WebView fix, boundary display, MMKV fix, TTS rewrite, trim calculation, docs, debug logs)
-- Doing: 2 items (boundary investigation, awaiting user testing)
-- Next: 6 items (analyze logs, fix bug, test TTS, test trim, settings UI, git commit)
-
-**Decision Logged**: Added comprehensive debug logs instead of guessing at fixes, because user tested twice and both failed - logs reveal runtime behavior code review misses.
+1. **Boundary Calculation**: Uses `countReadableInContainer()` helper, NOT direct `querySelectorAll('.readable')`
+2. **Cache Invalidation**: Must happen BEFORE `getReadableElements()` call
+3. **Chapter Transition**: Uses `getChapter()` NOT `setChapter()` to properly update adjacent chapters
+4. **WebView Reload**: Required for proper HTML regeneration, hidden via opacity transition
+5. **Trim Logic**: Handles both original chapter (no wrapper) AND stitched chapters (with wrapper)
 
 ---
 
