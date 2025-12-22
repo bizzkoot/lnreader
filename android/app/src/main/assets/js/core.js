@@ -286,6 +286,45 @@ window.reader = new (function () {
     // Add chapter content
     const contentDiv = document.createElement('div');
     contentDiv.className = 'stitched-chapter-content';
+
+    // INVESTIGATION: Debug stitched chapter enhancement
+    console.log('[STITCHED] Method called!');
+    console.log('[STITCHED] chapterData type:', typeof chapterData);
+    console.log('[STITCHED] chapterData:', chapterData);
+    console.log(
+      '[STITCHED] enhanceChapterTitles exists:',
+      typeof this.enhanceChapterTitles,
+    );
+
+    // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
+    // Check if chapter has a title in chapterData, enhance if needed
+    console.log(
+      '[ENHANCE] Stitched chapter enhancement - checking data:',
+      typeof chapterData,
+    );
+
+    let chapterTitle = '';
+    if (typeof chapterData === 'object' && chapterData.name) {
+      chapterTitle = chapterData.name;
+    } else if (typeof chapterData === 'string') {
+      chapterTitle = chapterData;
+    } else {
+      chapterTitle = `Chapter ${chapterData.id || 'Unknown'}`;
+    }
+
+    console.log('[ENHANCE] Stitched chapter - using title:', chapterTitle);
+    if (chapterTitle) {
+      chapterHtml = this.enhanceChapterTitles(chapterHtml, chapterTitle);
+      console.log(
+        '[STITCHED] Stitched enhancement completed. New HTML length:',
+        chapterHtml.length,
+      );
+    } else {
+      console.log(
+        '[ENHANCE] Stitched chapter - no title available, skipping enhancement',
+      );
+    }
+
     contentDiv.innerHTML = chapterHtml;
     chapterContainer.appendChild(contentDiv);
 
@@ -1477,6 +1516,151 @@ window.reader = new (function () {
   };
 
   document.addEventListener('scroll', this.onScroll, { passive: true });
+
+  // FIX: Enhance chapter titles for EPUB TTS synchronization
+  this.enhanceChapterTitles = (html, chapterName) => {
+    console.log('[ENHANCE] ==================================================');
+    console.log(
+      '[ENHANCE] FUNCTION CALLED! Starting chapter title enhancement',
+    );
+    console.log('[ENHANCE] Chapter name:', chapterName);
+    console.log('[ENHANCE] HTML length:', html.length);
+    console.log('[ENHANCE] Call stack:', new Error().stack);
+    console.log('[ENHANCE] ==================================================');
+
+    try {
+      // Check if HTML already contains a prominent chapter title
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+
+      // Expanded detection for chapter titles - check multiple patterns
+      const titleSelectors = [
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6', // Standard headings
+        '.chapter-title',
+        '.chap-title',
+        '.chapter', // Common class patterns
+        '[class*="chapter"]',
+        '[class*="chap"]', // Class containing chapter
+        '.title',
+        '.heading', // Generic title/heading
+      ];
+
+      let existingTitle = false;
+      let foundTitleText = '';
+
+      // Check each selector pattern
+      titleSelectors.forEach(selector => {
+        try {
+          const elements = tempDiv.querySelectorAll(selector);
+          Array.from(elements).forEach(el => {
+            const text = el.textContent?.trim() || '';
+            if (text.length > 0) {
+              // Check if element contains chapter name or generic chapter indicators
+              const isChapterTitle =
+                text.toLowerCase().includes(chapterName.toLowerCase()) ||
+                text.toLowerCase().includes('chapter') ||
+                text.toLowerCase().includes('ch.') ||
+                text.toLowerCase().includes('chap') ||
+                /^\d+\./.test(text.trim()) || // Matches "1.", "2.", etc.
+                /^\d+\s/.test(text.trim()) || // Matches "1 ", "2 ", etc.
+                /^chapter\s+\d+/i.test(text.trim()); // Matches "Chapter 1", "Chapter 2"
+
+              if (isChapterTitle) {
+                existingTitle = true;
+                foundTitleText = text;
+                console.log('[ENHANCE] Found existing title:', text);
+                console.log('[ENHANCE] Element selector:', selector);
+              }
+            }
+          });
+        } catch (e) {
+          console.warn('[ENHANCE] Error checking selector:', selector, e);
+        }
+      });
+
+      console.log('[ENHANCE] Existing title found:', existingTitle);
+      console.log('[ENHANCE] Found title text:', foundTitleText);
+
+      // If no prominent chapter title found, add one at the beginning
+      if (!existingTitle) {
+        console.log('[ENHANCE] Adding enhanced chapter title');
+
+        // Use inherit for color to match chapter content text
+        // No background/border to ensure TTS highlight is visible
+        const titleHtml = `<div class="enhanced-chapter-title lnreader-chapter-title" style="
+          font-size: 1.5em !important;
+          font-weight: bold !important;
+          margin: 15px 0 15px 0 !important;
+          padding: 10px 0 !important;
+          color: inherit !important;
+          text-align: center !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          clear: both !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        ">${chapterName}</div>`;
+
+        // Insert title after body tag or at the beginning
+        if (html.toLowerCase().includes('<body')) {
+          html = html.replace(/<body([^>]*)>/i, `<body$1>${titleHtml}`);
+          console.log('[ENHANCE] Inserted title after body tag');
+        } else {
+          html = titleHtml + html;
+          console.log('[ENHANCE] Inserted title at beginning (no body tag)');
+        }
+      } else {
+        console.log('[ENHANCE] Skipping title addition - existing title found');
+      }
+
+      console.log(
+        '[ENHANCE] Enhancement complete. Final HTML length:',
+        html.length,
+      );
+      return html;
+    } catch (e) {
+      console.error('[ENHANCE] Failed to enhance chapter title:', e);
+      return html;
+    }
+  };
+
+  // INITIAL LOAD: Enhance chapter title for TTS synchronization
+  // This runs once when page loads to ensure chapter title is visible at Paragraph 0
+  // Fixes: TTS highlight +1 offset issue in EPUBs where titles are hidden/unstyled
+  // NOTE: We use 'this' because we're still inside the reader constructor IIFE
+  const self = this;
+  (function initialEnhancement() {
+    console.log('[INITIAL-ENHANCE] Running initial chapter title enhancement');
+    console.log('[INITIAL-ENHANCE] chapter object:', self.chapter);
+    console.log('[INITIAL-ENHANCE] chapter name:', self.chapter?.name);
+
+    if (self.chapter && self.chapter.name) {
+      const originalHtml = self.chapterElement.innerHTML;
+      const enhancedHtml = self.enhanceChapterTitles(
+        originalHtml,
+        self.chapter.name,
+      );
+
+      // Only update DOM if enhancement actually changed the HTML
+      if (enhancedHtml !== originalHtml) {
+        self.chapterElement.innerHTML = enhancedHtml;
+        self.rawHTML = enhancedHtml;
+        console.log('[INITIAL-ENHANCE] Chapter title enhanced on initial load');
+      } else {
+        console.log(
+          '[INITIAL-ENHANCE] No changes needed - title already exists',
+        );
+      }
+    } else {
+      console.log('[INITIAL-ENHANCE] Skipped - no chapter name available');
+    }
+  })();
 
   this.cleanup = () => {
     if (this.onScroll) {
@@ -3567,6 +3751,35 @@ document.addEventListener('message', __handleNativeMessage);
       // Pause TTS before DOM manipulation
       window.tts.pause();
     }
+
+    // INVESTIGATION: Debug why enhancement isn't being called
+    console.log('[SETHTML] Method called!');
+    console.log('[SETHTML] reader.chapter exists:', !!reader.chapter);
+    console.log('[SETHTML] reader.chapter:', reader.chapter);
+    console.log(
+      '[SETHTML] enhanceChapterTitles exists:',
+      typeof reader.enhanceChapterTitles,
+    );
+
+    // FIX: Enhance EPUB chapter titles to prevent TTS audio-highlight desynchronization
+    // Many EPUBs have hidden/unstyled chapter titles that TTS reads but users don't see clearly
+    // This makes chapter titles visible to align TTS audio with highlighting
+    console.log('[ENHANCE] Main chapter loading - checking for enhancement');
+    console.log('[ENHANCE] Chapter object:', reader.chapter);
+
+    if (reader.chapter) {
+      const chapterName =
+        reader.chapter.name || `Chapter ${reader.chapter.id || 'Unknown'}`;
+      console.log('[ENHANCE] Main loading - using chapter name:', chapterName);
+      html = reader.enhanceChapterTitles(html, chapterName);
+    } else {
+      console.log('[ENHANCE] Main loading - no chapter object available');
+    }
+
+    console.log(
+      '[SETHTML] Enhancement step completed. HTML length:',
+      html.length,
+    );
 
     reader.chapterElement.innerHTML = html;
 
