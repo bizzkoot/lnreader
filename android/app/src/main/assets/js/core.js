@@ -1,10 +1,11 @@
 /* eslint-disable no-console */
+// Global DEBUG flag - must be before window.reader to be accessible by all functions
+// eslint-disable-next-line no-var
+var DEBUG = initialReaderConfig.DEBUG;
+
 window.reader = new (function () {
   // Unique ID to track reader object instances
   this._readerId = 'reader_' + Date.now() + '_' + Math.random();
-  if (DEBUG) {
-    console.log('[Reader] Created new reader instance:', this._readerId);
-  }
 
   const {
     readerSettings,
@@ -15,9 +16,12 @@ window.reader = new (function () {
     prevChapter,
     batteryLevel,
     autoSaveInterval,
-    DEBUG,
     strings,
   } = initialReaderConfig;
+
+  if (DEBUG) {
+    console.log('[Reader] Created new reader instance:', this._readerId);
+  }
 
   // state
   this.hidden = van.state(true);
