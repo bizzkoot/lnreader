@@ -119,6 +119,8 @@
     "settingsRestoreFailed": "Failed to restore settings: %{error}",
     "settingsFileWriteFailed": "Failed to write settings file: %{error}",
     "versionFileWriteFailed": "Failed to write version file: %{error}",
+    "manifestFileWriteFailed": "Failed to write manifest file: %{error}",
+    "sectionsFileWriteFailed": "Failed to write sections file: %{error}",
     "drive": {
       "backup": "Drive Backup",
       "backupInterruped": "Drive Backup Interrupted",

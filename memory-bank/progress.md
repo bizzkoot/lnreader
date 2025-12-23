@@ -2,20 +2,15 @@
 
 ## Done
 
-- EPUB TTS Synchronization Fix - Chapter title visible at Paragraph 0
-- Added initialEnhancement() IIFE in core.js for initial page load
-- Fixed regression - used self reference instead of reader inside IIFE
-- Updated title styling for TTS highlight compatibility
-- Created chapterTitleEnhancement.test.ts with 22 test cases
-- Updated INVESTIGATION_PLAN.md with comprehensive documentation
-- Pushed commit 2d72b9477 to dev branch
-- **Fixed TTS Per-Novel Settings Toggle** - Portal broke context, now pass novel as props
-- **Fixed Chapter Title Duplication** - Detached DOM visibility check was failing, now uses inline style check
+- Audited feature set since v2.0.12 (and v2.0.12-era additions): continuous scrolling, EPUB TTS sync, per-novel TTS settings, backups, unified progress, UI scale, media notification, WebView security.
+- Created audit pack markdowns in specs/code-quality/audits/ (index + per-feature deep dives) and added FIX_PLAN_CHECKLIST.md.
+- Ran checks: `pnpm run type-check` passes; `pnpm run lint` reports warnings only (no errors).
 
 ## Doing
 
-
+- Reducing highest-risk eslint warnings (hooks deps / ref cleanup) in reader/TTS surfaces.
 
 ## Next
 
-
+- Decide P0 implementation path for per-novel TTS identity for local EPUBs.
+- Convert remaining eslint warnings to fixes where safe (avoid overfitting deps arrays; prefer stabilizing style objects/handlers).

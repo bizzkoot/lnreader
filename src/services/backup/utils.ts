@@ -28,22 +28,296 @@ import { showToast } from '@utils/showToast';
 import { getString } from '@strings/translations';
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
 
+// ============================================================================
+// Backup Schema Version Control
+// ============================================================================
+
+/**
+ * Current backup schema version.
+ * - v1: Legacy format (flat structure, no manifest)
+ * - v2: New format with manifest + typed sections
+ */
+export const BACKUP_SCHEMA_VERSION = 2;
+
+/**
+ * MMKV entry type identifiers
+ * - 's': string
+ * - 'n': number
+ * - 'b': boolean
+ * - 'o': object (JSON)
+ */
+type MMKVEntryType = 's' | 'n' | 'b' | 'o';
+
+/**
+ * Typed MMKV entry for v2 backups
+ */
+interface MMKVEntry {
+  t: MMKVEntryType; // type
+  v: string | number | boolean | object; // value
+}
+
+/**
+ * Backup manifest for v2+ format
+ */
+export interface BackupManifest {
+  backupVersion: number;
+  appVersion: string;
+  platform: 'android' | 'ios' | 'unknown';
+  createdAt: string; // ISO 8601
+}
+
+/**
+ * Backup sections for v2+ format
+ */
+export interface BackupSections {
+  mmkv?: {
+    entries: Record<string, MMKVEntry>;
+  };
+  database?: {
+    novels?: BackupNovel[];
+    categories?: BackupCategory[];
+    repositories?: Repository[];
+  };
+  // Future sections can be added here
+}
+
+/**
+ * Complete v2 backup structure
+ */
+export interface BackupV2 {
+  manifest: BackupManifest;
+  sections: BackupSections;
+}
+
+/**
+ * Legacy v1 backup structure (for backward compatibility)
+ */
+export interface BackupV1 {
+  // Legacy format has no manifest, just direct data
+  [key: string]: any;
+}
+
 const APP_STORAGE_URI = 'file://' + ROOT_STORAGE;
 
 export const CACHE_DIR_PATH =
   NativeFile.getConstants().ExternalCachesDirectoryPath + '/BackupData';
 
-const backupMMKVData = () => {
-  const excludeKeys = [
-    ServiceManager.manager.STORE_KEY,
-    OLD_TRACKED_NOVEL_PREFIX,
-    SELF_HOST_BACKUP,
-    LAST_UPDATE_TIME,
-    'LAST_AUTO_BACKUP_TIME', // Device-specific, should not be restored
-    LOCAL_BACKUP_FOLDER_URI, // Device-specific folder URIs
-  ];
+// ============================================================================
+// Device-Specific Keys (NEVER restore these)
+// ============================================================================
+
+/**
+ * Gets list of keys that should NEVER be restored from backup
+ * These are device-specific and can cause unintended behavior
+ * Lazy-loaded to avoid module initialization issues
+ */
+const getExcludedMMKVKeys = (): readonly string[] => [
+  ServiceManager.manager.STORE_KEY,
+  OLD_TRACKED_NOVEL_PREFIX,
+  SELF_HOST_BACKUP,
+  LAST_UPDATE_TIME,
+  'LAST_AUTO_BACKUP_TIME', // Device-specific, prevents auto backup trigger
+  LOCAL_BACKUP_FOLDER_URI, // Device-specific folder URIs
+];
+
+// ============================================================================
+// Version Detection & Migration
+// ============================================================================
+
+/**
+ * Detects backup version from parsed backup data
+ */
+export const detectBackupVersion = (parsed: unknown): number => {
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    'manifest' in parsed &&
+    parsed.manifest &&
+    typeof parsed.manifest === 'object' &&
+    'backupVersion' in parsed.manifest
+  ) {
+    return (parsed.manifest as BackupManifest).backupVersion;
+  }
+  return 1; // Legacy format
+};
+
+/**
+ * Migrates backup from older version to current version
+ * @param data - Parsed backup data
+ * @param fromVersion - Source backup version
+ * @returns Migrated backup in v2 format
+ */
+export const migrateBackup = (
+  data: BackupV1 | BackupV2,
+  fromVersion: number,
+): BackupV2 => {
+  if (fromVersion === BACKUP_SCHEMA_VERSION) {
+    return data as BackupV2;
+  }
+
+  if (fromVersion === 1) {
+    // Migrate v1 (legacy) to v2
+    // Legacy data doesn't have structured format, so we create empty v2 structure
+    const manifest: BackupManifest = {
+      backupVersion: BACKUP_SCHEMA_VERSION,
+      appVersion: version,
+      platform: 'unknown', // Can't determine from v1 data
+      createdAt: new Date().toISOString(),
+    };
+
+    // v1 doesn't have typed MMKV, so we treat all as strings
+    // Real type will be determined during restore
+    const sections: BackupSections = {
+      database: {
+        // v1 stores these in separate files, not in the main JSON
+        // So we don't have them here - they're handled separately
+      },
+    };
+
+    return {
+      manifest,
+      sections,
+    };
+  }
+
+  // Future: Add v2 -> v3 migration path here
+
+  // If unknown version, return as-is and let validation catch issues
+  return data as BackupV2;
+};
+
+// ============================================================================
+// MMKV Backup & Restore with Type Safety
+// ============================================================================
+
+/**
+ * Backs up MMKV data with type information for v2 format
+ */
+export const backupMMKVDataTyped = (): Record<string, MMKVEntry> => {
   const keys = MMKVStorage.getAllKeys().filter(
-    key => !excludeKeys.includes(key),
+    key => !getExcludedMMKVKeys().includes(key as any),
+  );
+
+  const entries: Record<string, MMKVEntry> = {};
+
+  for (const key of keys) {
+    // Try each type in order
+    const stringValue = MMKVStorage.getString(key);
+    if (stringValue !== undefined) {
+      // Check if it's a JSON object
+      try {
+        const parsed = JSON.parse(stringValue);
+        if (typeof parsed === 'object' && parsed !== null) {
+          entries[key] = { t: 'o', v: parsed };
+        } else {
+          entries[key] = { t: 's', v: stringValue };
+        }
+      } catch {
+        entries[key] = { t: 's', v: stringValue };
+      }
+      continue;
+    }
+
+    const numberValue = MMKVStorage.getNumber(key);
+    if (numberValue !== undefined) {
+      entries[key] = { t: 'n', v: numberValue };
+      continue;
+    }
+
+    const boolValue = MMKVStorage.getBoolean(key);
+    if (boolValue !== undefined) {
+      entries[key] = { t: 'b', v: boolValue };
+      continue;
+    }
+  }
+
+  return entries;
+};
+
+/**
+ * Validates and restores MMKV entries with type checking
+ * @param entries - MMKV entries from backup
+ * @returns Number of successfully restored entries
+ */
+export const validateAndRestoreMMKVEntries = (
+  entries: Record<string, MMKVEntry>,
+): number => {
+  let restoredCount = 0;
+  const excludedKeys = getExcludedMMKVKeys();
+
+  for (const [key, entry] of Object.entries(entries)) {
+    // Skip excluded keys
+    if (excludedKeys.includes(key as any)) {
+      continue;
+    }
+
+    // Validate entry structure
+    if (
+      !entry ||
+      typeof entry !== 'object' ||
+      !('t' in entry) ||
+      !('v' in entry)
+    ) {
+      continue;
+    }
+
+    try {
+      switch (entry.t) {
+        case 's':
+          if (typeof entry.v === 'string') {
+            MMKVStorage.set(key, entry.v);
+            restoredCount++;
+          }
+          break;
+
+        case 'n':
+          if (typeof entry.v === 'number') {
+            MMKVStorage.set(key, entry.v);
+            restoredCount++;
+          }
+          break;
+
+        case 'b':
+          if (typeof entry.v === 'boolean') {
+            MMKVStorage.set(key, entry.v);
+            restoredCount++;
+          }
+          break;
+
+        case 'o':
+          if (typeof entry.v === 'object' && entry.v !== null) {
+            MMKVStorage.set(key, JSON.stringify(entry.v));
+            restoredCount++;
+          }
+          break;
+
+        default:
+          // Unknown type - skip
+          break;
+      }
+    } catch {
+      // Failed to restore this entry - continue
+    }
+  }
+
+  return restoredCount;
+};
+
+// ============================================================================
+// Legacy Backup Functions (v1 - for backward compatibility)
+// ============================================================================
+
+// ============================================================================
+// Legacy Backup Functions (v1 - for backward compatibility)
+// ============================================================================
+
+/**
+ * Legacy MMKV backup (v1 format)
+ * @deprecated Use backupMMKVDataTyped for v2 backups
+ */
+const backupMMKVData = () => {
+  const keys = MMKVStorage.getAllKeys().filter(
+    key => !getExcludedMMKVKeys().includes(key as any),
   );
   const data = {} as any;
   for (const key of keys) {
@@ -59,8 +333,17 @@ const backupMMKVData = () => {
   return data;
 };
 
+/**
+ * Legacy MMKV restore (v1 format)
+ * @deprecated Restore now uses validateAndRestoreMMKVEntries
+ */
 const restoreMMKVData = (data: any) => {
+  const excludedKeys = getExcludedMMKVKeys();
   for (const key in data) {
+    // Skip excluded keys even in legacy restore
+    if (excludedKeys.includes(key as any)) {
+      continue;
+    }
     MMKVStorage.set(key, data[key]);
   }
 };
@@ -83,7 +366,20 @@ export const prepareBackupData = async (cacheDirPath: string) => {
 
   NativeFile.mkdir(novelDirPath); // this also creates cacheDirPath
 
-  // version
+  // Create v2 backup manifest
+  const manifest: BackupManifest = {
+    backupVersion: BACKUP_SCHEMA_VERSION,
+    appVersion: version,
+    platform: 'android', // TODO: detect iOS if needed
+    createdAt: new Date().toISOString(),
+  };
+
+  // Create v2 backup sections
+  const sections: BackupSections = {
+    database: {},
+  };
+
+  // version (legacy compatibility - still write version.json)
   try {
     NativeFile.writeFile(
       cacheDirPath + '/' + BackupEntryName.VERSION,
@@ -154,6 +450,11 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   // settings
   if (include.settings) {
     try {
+      // Create v2 typed MMKV backup
+      const mmkvEntries = backupMMKVDataTyped();
+      sections.mmkv = { entries: mmkvEntries };
+
+      // Also write legacy format for backward compatibility
       NativeFile.writeFile(
         cacheDirPath + '/' + BackupEntryName.SETTING,
         JSON.stringify(backupMMKVData()),
@@ -183,10 +484,62 @@ export const prepareBackupData = async (cacheDirPath: string) => {
       );
     }
   }
+
+  // Write v2 manifest file
+  try {
+    NativeFile.writeFile(
+      cacheDirPath + '/manifest.json',
+      JSON.stringify(manifest, null, 2),
+    );
+  } catch (error: any) {
+    showToast(
+      getString('backupScreen.manifestFileWriteFailed', {
+        error: error?.message || String(error),
+      }),
+    );
+    throw error;
+  }
+
+  // Write v2 sections file (contains typed MMKV data)
+  try {
+    NativeFile.writeFile(
+      cacheDirPath + '/sections.json',
+      JSON.stringify(sections, null, 2),
+    );
+  } catch (error: any) {
+    showToast(
+      getString('backupScreen.sectionsFileWriteFailed', {
+        error: error?.message || String(error),
+      }),
+    );
+    throw error;
+  }
 };
 
 export const restoreData = async (cacheDirPath: string) => {
   const novelDirPath = cacheDirPath + '/' + BackupEntryName.NOVEL_AND_CHAPTERS;
+
+  // Detect backup version and load manifest/sections if v2
+  let backupVersion = 1;
+  let sections: BackupSections | null = null;
+
+  const manifestPath = cacheDirPath + '/manifest.json';
+  const sectionsPath = cacheDirPath + '/sections.json';
+
+  if (NativeFile.exists(manifestPath) && NativeFile.exists(sectionsPath)) {
+    try {
+      const manifestContent = NativeFile.readFile(manifestPath);
+      const manifest = JSON.parse(manifestContent) as BackupManifest;
+      backupVersion = manifest.backupVersion || 2;
+
+      const sectionsContent = NativeFile.readFile(sectionsPath);
+      sections = JSON.parse(sectionsContent) as BackupSections;
+    } catch (error) {
+      // If manifest/sections parsing fails, fall back to v1 legacy restore
+      backupVersion = 1;
+      sections = null;
+    }
+  }
 
   // version
   // nothing to do
@@ -303,10 +656,22 @@ export const restoreData = async (cacheDirPath: string) => {
   } else {
     showToast(getString('backupScreen.restoringSettings'));
     try {
-      const fileContent = NativeFile.readFile(settingsFilePath);
-      const settingsData = JSON.parse(fileContent);
-      restoreMMKVData(settingsData);
-      showToast(getString('backupScreen.settingsRestored'));
+      // Check if we have v2 typed MMKV data in sections
+      if (backupVersion >= 2 && sections?.mmkv?.entries) {
+        const restoredCount = validateAndRestoreMMKVEntries(
+          sections.mmkv.entries,
+        );
+        showToast(
+          getString('backupScreen.settingsRestored') +
+            ` (${restoredCount} entries)`,
+        );
+      } else {
+        // Fall back to legacy v1 restore
+        const fileContent = NativeFile.readFile(settingsFilePath);
+        const settingsData = JSON.parse(fileContent);
+        restoreMMKVData(settingsData);
+        showToast(getString('backupScreen.settingsRestored'));
+      }
     } catch (error: any) {
       showToast(
         getString('backupScreen.settingsRestoreFailed', {

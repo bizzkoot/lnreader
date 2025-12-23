@@ -57,17 +57,23 @@ export const useAutoBackup = () => {
     if (timeSinceLastBackup >= intervalMs) {
       hasTriggeredThisSession.current = true;
 
-      // Update last backup time
-      setLastAutoBackupTime(now);
-
       // Show feedback
       showToast(getString('backupScreen.autoBackupStarting'));
 
       // Trigger backup via ServiceManager
-      ServiceManager.manager.addTask({
-        name: 'LOCAL_BACKUP',
-        data: { isAuto: true },
-      });
+      try {
+        ServiceManager.manager.addTask({
+          name: 'LOCAL_BACKUP',
+          data: { isAuto: true },
+        });
+        // NOTE: Ideally update this on *successful completion* of the backup.
+        // If ServiceManager exposes task completion callbacks, move this timestamp
+        // update there. For now, we only update after enqueue succeeds.
+        setLastAutoBackupTime(now);
+      } catch {
+        hasTriggeredThisSession.current = false;
+        return false;
+      }
 
       return true;
     }

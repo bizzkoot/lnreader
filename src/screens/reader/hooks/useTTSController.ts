@@ -361,6 +361,9 @@ export function useTTSController(
 
   const dialogState = useDialogState();
 
+  const showScrollSyncDialog = dialogState.showScrollSyncDialog;
+  const showManualModeDialog = dialogState.showManualModeDialog;
+
   // ===========================================================================
   // Keep Refs Synced (Phase 1: Extracted)
   // ===========================================================================
@@ -1046,8 +1049,8 @@ export function useTTSController(
       chapterGeneralSettingsRef,
       navigation,
       handleRequestTTSConfirmation,
-      dialogState.showScrollSyncDialog,
-      dialogState.showManualModeDialog,
+      showScrollSyncDialog,
+      showManualModeDialog,
     ],
   );
 
@@ -1406,6 +1409,10 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
+    const saveProgressOnUnmount = saveProgressRef.current;
+    const getProgressOnUnmount = () => progressRef.current ?? 0;
+    const saveProgressFromRef = saveProgressRef.current;
+
     // onSpeechDone - Handle paragraph completion
     const onSpeechDoneSubscription = TTSHighlight.addListener(
       'onSpeechDone',
@@ -1476,7 +1483,7 @@ export function useTTSController(
               total > 0
                 ? Math.round(((nextIndex + 1) / total) * 100)
                 : (progressRef.current ?? 0);
-            saveProgressRef.current(percentage, nextIndex);
+            saveProgressFromRef(percentage, nextIndex);
 
             // Check media navigation confirmation
             if (
@@ -2471,8 +2478,8 @@ export function useTTSController(
           'useTTSController: Saving TTS state on unmount',
           ttsStateRef.current,
         );
-        saveProgressRef.current(
-          progressRef.current ?? 0,
+        saveProgressOnUnmount(
+          getProgressOnUnmount(),
           undefined,
           JSON.stringify({
             ...ttsStateRef.current,

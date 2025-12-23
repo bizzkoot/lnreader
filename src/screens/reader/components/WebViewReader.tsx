@@ -532,7 +532,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       }
 
       __DEV__ && onLogMessage(ev);
-      const event: WebViewPostEvent = JSON.parse(ev.nativeEvent.data);
+      const event = msg as unknown as WebViewPostEvent;
 
       // Try TTS handler first
       if (tts.handleTTSMessage(event)) {
@@ -580,11 +580,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case 'save':
           if (event.data && typeof event.data === 'number') {
-            // Validate chapterId to prevent stale saves
-            if (
-              event.chapterId !== undefined &&
-              event.chapterId !== chapter.id
-            ) {
+            if (typeof event.chapterId !== 'number') {
+              console.warn(
+                'WebViewReader: Ignoring save event without chapterId',
+              );
+              break;
+            }
+            if (event.chapterId !== chapter.id) {
               console.log(
                 `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
               );
@@ -996,6 +998,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       showToastMessage,
       novel?.pluginId,
       novel?.id,
+      prevChapter,
+      setAdjacentChapter,
       getChapter,
     ],
   );

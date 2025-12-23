@@ -103,6 +103,8 @@ export interface StringMap {
   'backupScreen.settingsRestoreFailed': 'string';
   'backupScreen.settingsFileWriteFailed': 'string';
   'backupScreen.versionFileWriteFailed': 'string';
+  'backupScreen.manifestFileWriteFailed': 'string';
+  'backupScreen.sectionsFileWriteFailed': 'string';
   'backupScreen.drive.backup': 'string';
   'backupScreen.drive.backupInterruped': 'string';
   'backupScreen.drive.googleDriveBackup': 'string';
