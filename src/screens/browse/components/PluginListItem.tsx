@@ -161,8 +161,10 @@ export const PluginListItem = memo(
         handleWebviewPress,
         handlePinPress,
         handleDeletePress,
+        iconSize.sm,
         isPluginPinned,
         rightActionStyle,
+        styles.rightActionsContainer,
         theme,
       ],
     );

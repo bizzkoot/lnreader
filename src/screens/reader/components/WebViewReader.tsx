@@ -62,6 +62,7 @@ import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
 import { getNovelTtsSettings } from '@services/tts/novelTtsSettings';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 // Import the TTS hook
 import { useTTSController } from '../hooks/useTTSController';
@@ -77,6 +78,8 @@ const deviceInfoEmitter = new NativeEventEmitter(RNDeviceInfo);
 const assetsUriPrefix = __DEV__
   ? 'http://localhost:8081/assets'
   : 'file:///android_asset';
+
+const readerLog = createRateLimitedLogger('WebViewReader', { windowMs: 1500 });
 
 const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const {
@@ -180,11 +183,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   useEffect(() => {
     initialNextChapter.current = nextChapter;
     initialPrevChapter.current = prevChapter;
-    if (__DEV__) {
-      console.log(
-        `WebViewReader: Updated initial adjacent refs - next: ${nextChapter?.id}, prev: ${prevChapter?.id}`,
-      );
-    }
+    readerLog.debug(
+      'adjacent-refs',
+      `next=${nextChapter?.id ?? 'none'} prev=${prevChapter?.id ?? 'none'}`,
+    );
   }, [nextChapter, prevChapter]);
 
   useEffect(() => {
@@ -196,9 +198,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const initialSavedParagraphIndex = useMemo(() => {
     const mmkvIndex =
       MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
-    if (__DEV__) {
-      console.log(`WebViewReader: Initializing scroll from MMKV: ${mmkvIndex}`);
-    }
+    readerLog.debug('init-scroll', `mmkvIndex=${mmkvIndex}`);
     return mmkvIndex >= 0 ? mmkvIndex : 0;
   }, [chapter.id]);
 
@@ -605,19 +605,14 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   : NaN;
 
             if (!Number.isFinite(eventChapterId)) {
-              if (__DEV__) {
-                console.warn(
-                  'WebViewReader: Ignoring save event without chapterId',
-                );
-              }
+              readerLog.warn('save-ignore-missing-chapterId');
               break;
             }
             if (eventChapterId !== chapter.id) {
-              if (__DEV__) {
-                console.log(
-                  `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
-                );
-              }
+              readerLog.debug(
+                'save-ignore-stale-chapter',
+                `from=${String(event.chapterId)} current=${chapter.id}`,
+              );
               break;
             }
 
@@ -631,11 +626,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Block non-TTS saves when TTS is reading
             if (tts.isTTSReading) {
               if (event.paragraphIndex === undefined) {
-                if (__DEV__) {
-                  console.log(
-                    'WebViewReader: Ignoring non-TTS save while TTS is reading',
-                  );
-                }
+                readerLog.debug('save-ignore-non-tts-while-reading');
                 break;
               }
               const currentIdx = tts.currentParagraphIndex ?? -1;
@@ -644,23 +635,18 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 currentIdx >= 0 &&
                 event.paragraphIndex < currentIdx - 1
               ) {
-                if (__DEV__) {
-                  console.log(
-                    `WebViewReader: Ignoring backwards save (${event.paragraphIndex}) while TTS at ${currentIdx}`,
-                  );
-                }
+                readerLog.debug(
+                  'save-ignore-backwards',
+                  `save=${event.paragraphIndex} current=${currentIdx}`,
+                );
                 break;
               }
             }
 
-            if (__DEV__) {
-              console.log(
-                'WebViewReader: Received save event. Progress:',
-                savePercent,
-                'Paragraph:',
-                event.paragraphIndex,
-              );
-            }
+            readerLog.info(
+              'save',
+              `percent=${savePercent ?? 'n/a'} paragraph=${event.paragraphIndex ?? 'n/a'}`,
+            );
 
             if (event.paragraphIndex !== undefined) {
               tts.latestParagraphIndexRef.current = event.paragraphIndex;

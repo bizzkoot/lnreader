@@ -109,7 +109,7 @@ const ChaptersSettingsSheet = ({
         />
       </View>
     ),
-    [filter, filterChapters, theme],
+    [filter, filterChapters, theme, uiScale],
   );
 
   const SecondRoute = useCallback(
@@ -149,7 +149,7 @@ const ChaptersSettingsSheet = ({
         />
       </View>
     ),
-    [sort, sortChapters, theme],
+    [sort, sortChapters, theme, uiScale],
   );
 
   const ThirdRoute = useCallback(
@@ -169,7 +169,7 @@ const ChaptersSettingsSheet = ({
         />
       </View>
     ),
-    [setShowChapterTitles, showChapterTitles, theme],
+    [setShowChapterTitles, showChapterTitles, theme, uiScale],
   );
 
   const renderScene = useMemo(
@@ -179,7 +179,7 @@ const ChaptersSettingsSheet = ({
         second: (props: any) => <SecondRoute {...props} />,
         third: (props: any) => <ThirdRoute {...props} />,
       }),
-    [],
+    [FirstRoute, SecondRoute, ThirdRoute],
   );
 
   const layout = useWindowDimensions();

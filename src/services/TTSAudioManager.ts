@@ -6,6 +6,7 @@ import {
   ToastAndroid,
 } from 'react-native';
 import { TTSState, assertValidTransition } from './TTSState';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 const { TTSHighlight } = NativeModules;
 
@@ -36,10 +37,9 @@ const EMERGENCY_THRESHOLD = 4;
 const CACHE_DRIFT_THRESHOLD = 5;
 const CALIBRATION_INTERVAL = 10; // Calibrate every N spoken items
 
-// eslint-disable-next-line no-console
-const logDebug = __DEV__ ? console.log : () => {};
-// eslint-disable-next-line no-console
-const logError = __DEV__ ? console.error : () => {};
+const ttsLog = createRateLimitedLogger('TTS', { windowMs: 1000 });
+const logDebug = (...args: unknown[]) => ttsLog.debug('debug', ...args);
+const logError = (...args: unknown[]) => ttsLog.error('error', ...args);
 
 class TTSAudioManager {
   private state: TTSState = TTSState.IDLE;
@@ -88,10 +88,8 @@ class TTSAudioManager {
    */
   private transitionTo(newState: TTSState): void {
     assertValidTransition(this.state, newState);
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.log(`TTSAudioManager: ${this.state} → ${newState}`);
-    }
+    // This can fire frequently during playback/refill; keep but rate-limit.
+    ttsLog.info('state', `${this.state} → ${newState}`);
     this.state = newState;
   }
 
@@ -313,7 +311,7 @@ class TTSAudioManager {
         // DEV: Log voice used for initial batch (helps verify no voice drift)
         if (__DEV__ && voice) {
           // eslint-disable-next-line no-console
-          console.log(
+          logDebug(
             `TTSAudioManager: Started batch with voice: ${voice.substring(0, 40)}`,
           );
         }
@@ -476,7 +474,7 @@ class TTSAudioManager {
           // DEV: Log successful refill (voice is implicit from initial batch or fallback)
           if (__DEV__ && attempt === 1) {
             // eslint-disable-next-line no-console
-            console.log(
+            logDebug(
               `TTSAudioManager: Refilled +${nextBatchSize} items (voice: locked=${this.lockedVoice?.substring(0, 30) || 'none'})`,
             );
           }
@@ -538,7 +536,7 @@ class TTSAudioManager {
               // DEV: Log fallback voice to track voice stability
               if (__DEV__ && fallbackVoice) {
                 // eslint-disable-next-line no-console
-                console.log(
+                logDebug(
                   `TTSAudioManager: Fallback batch with voice: ${fallbackVoice.substring(0, 40)}`,
                 );
               }

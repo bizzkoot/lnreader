@@ -68,8 +68,6 @@ const CoverImage = ({
   theme,
   hideBackdrop,
 }: CoverImageProps) => {
-  const { uiScale = 1.0 } = useAppSettings();
-
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -81,7 +79,7 @@ const CoverImage = ({
           flex: 1,
         },
       }),
-    [uiScale],
+    [],
   );
 
   if (hideBackdrop) {

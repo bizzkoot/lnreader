@@ -180,7 +180,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
         pressColor={Color(theme.primary).alpha(0.12).string()}
       />
     ),
-    [theme, tabHeaderColor],
+    [theme, tabHeaderColor, uiScale],
   );
 
   const renderLabel = useCallback(({ route, color }: TabViewLabelProps) => {

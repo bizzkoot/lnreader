@@ -512,15 +512,16 @@ describe('WebViewReader Event Handlers', () => {
 
       const injected = (webViewRefObject.current.props as any)
         .injectedJavaScriptBeforeContentLoaded as string;
-      const nonce = (injected.match(/__LNREADER_NONCE__\s*=\s*("[^"]+")/) ||
-        [])[1]
-        ? JSON.parse(
-            (injected.match(/__LNREADER_NONCE__\s*=\s*("[^"]+")/) || [
-              ,
-              '""',
-            ])[1],
-          )
-        : undefined;
+      const nonceMatch =
+        injected.match(/__LNREADER_NONCE__\s*=\s*("[^"]+"|[a-f0-9]{32})/i) ||
+        [];
+      const rawNonce = nonceMatch[1];
+      const nonce =
+        typeof rawNonce === 'string'
+          ? rawNonce.startsWith('"')
+            ? JSON.parse(rawNonce)
+            : rawNonce
+          : undefined;
 
       onMessage({
         nativeEvent: {

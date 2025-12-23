@@ -31,6 +31,7 @@ import { validateAndClampParagraphIndex } from '../components/ttsHelpers';
 import NativeFile from '@specs/NativeFile';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { getString } from '@strings/translations';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 // Phase 1 Extracted Hooks
 import { useDialogState } from './useDialogState';
@@ -114,6 +115,10 @@ export interface UseTTSControllerParams {
   /** Show toast message function */
   showToastMessage: (message: string) => void;
 }
+
+const ttsCtrlLog = createRateLimitedLogger('useTTSController', {
+  windowMs: 1200,
+});
 
 /**
  * Return value from useTTSController hook
@@ -460,12 +465,7 @@ export function useTTSController(
       return;
     }
 
-    if (__DEV__) {
-      console.log(
-        'useTTSController: Background TTS pending for chapter',
-        chapter.id,
-      );
-    }
+    ttsCtrlLog.info('background-pending', `chapter=${chapter.id}`);
 
     // Clear the flag immediately
     backgroundTTSPendingRef.current = false;
@@ -475,19 +475,11 @@ export function useTTSController(
     // Mark as synced immediately so TTS events aren't blocked forever.
     // The Chapter Change Effect's timer won't fire because WebView onLoadEnd never triggers.
     isWebViewSyncedRef.current = true;
-    if (__DEV__) {
-      console.log(
-        'useTTSController: WebView marked as synced for background TTS (bypassing onLoadEnd)',
-      );
-    }
+    ttsCtrlLog.debug('webview-synced-background');
 
     // Extract paragraphs from HTML
     const paragraphs = extractParagraphs(html);
-    if (__DEV__) {
-      console.log(
-        `useTTSController: Extracted ${paragraphs.length} paragraphs for background TTS`,
-      );
-    }
+    ttsCtrlLog.debug('background-paragraphs', `count=${paragraphs.length}`);
 
     if (paragraphs.length === 0) {
       console.warn('useTTSController: No paragraphs extracted from HTML');
@@ -791,10 +783,7 @@ export function useTTSController(
             try {
               paragraphs = extractParagraphs(html);
             } catch (e) {
-              console.error(
-                'useTTSController: Failed to extract paragraphs for batch start',
-                e,
-              );
+              ttsCtrlLog.error('extract-paragraphs-failed', e);
             }
 
             if (
@@ -803,11 +792,10 @@ export function useTTSController(
               paragraphIdx >= 0 &&
               paragraphIdx < paragraphs.length
             ) {
-              if (__DEV__) {
-                console.log(
-                  `useTTSController: Starting Unified Batch from index ${paragraphIdx}`,
-                );
-              }
+              ttsCtrlLog.info(
+                'start-batch',
+                `index=${paragraphIdx} chapter=${chapter.id}`,
+              );
 
               const remaining = paragraphs.slice(paragraphIdx);
               const ids = remaining.map(
@@ -825,10 +813,7 @@ export function useTTSController(
                 pitch: readerSettingsRef.current.tts?.pitch || 1,
                 rate: readerSettingsRef.current.tts?.rate || 1,
               }).catch(err => {
-                console.error(
-                  'useTTSController: Failed to start Unified Batch',
-                  err,
-                );
+                ttsCtrlLog.error('start-batch-failed', err);
                 // Fallback to single speak
                 const utteranceId =
                   paragraphIdx >= 0
@@ -842,8 +827,9 @@ export function useTTSController(
                 });
               });
             } else {
-              console.warn(
-                'useTTSController: Cannot start batch (invalid params), falling back to single speak',
+              ttsCtrlLog.warn(
+                'start-batch-invalid-params',
+                `index=${paragraphIdx} total=${paragraphs?.length ?? 0} chapter=${chapter.id}`,
               );
               const utteranceId =
                 paragraphIdx >= 0
@@ -965,9 +951,7 @@ export function useTTSController(
               wakeResumeGracePeriodRef.current > 0
             ) {
               if (__DEV__) {
-                console.log(
-                  `useTTSController: Ignoring tts-queue during wake grace period`,
-                );
+                ttsCtrlLog.debug('tts-queue-ignore-wake-grace');
               }
               return true;
             }
@@ -979,7 +963,7 @@ export function useTTSController(
               ttsQueueRef.current.startIndex <= incomingStart
             ) {
               if (__DEV__) {
-                console.log(`useTTSController: Ignoring redundant tts-queue`);
+                ttsCtrlLog.debug('tts-queue-ignore-redundant');
               }
               return true;
             }
@@ -987,8 +971,9 @@ export function useTTSController(
             // Validate against current position
             if (currentIdx >= 0 && incomingStart < currentIdx) {
               if (__DEV__) {
-                console.log(
-                  `useTTSController: Ignoring stale tts-queue (starts at ${incomingStart}, currently at ${currentIdx})`,
+                ttsCtrlLog.debug(
+                  'tts-queue-ignore-stale',
+                  `start=${incomingStart} current=${currentIdx}`,
                 );
               }
               return true;
@@ -1000,11 +985,7 @@ export function useTTSController(
               );
             }
 
-            if (__DEV__) {
-              console.log(
-                `useTTSController: Accepting tts-queue from ${incomingStart}`,
-              );
-            }
+            ttsCtrlLog.info('tts-queue-accept', `start=${incomingStart}`);
             ttsQueueRef.current = {
               startIndex: event.startIndex,
               texts: event.data as string[],
@@ -1769,9 +1750,7 @@ export function useTTSController(
       'onMediaAction',
       async event => {
         const action = String(event?.action || '');
-        if (__DEV__) {
-          console.log(`useTTSController: onMediaAction received -> ${action}`);
-        }
+        ttsCtrlLog.info('media-action', action);
 
         const now = Date.now();
         if (
@@ -1779,7 +1758,7 @@ export function useTTSController(
           TTS_CONSTANTS.MEDIA_ACTION_DEBOUNCE_MS
         ) {
           if (__DEV__) {
-            console.log(`useTTSController: Media action debounced`);
+            ttsCtrlLog.debug('media-action-debounced');
           }
           return;
         }
@@ -1796,8 +1775,9 @@ export function useTTSController(
                 const percentage = Math.round(((idx + 1) / total) * 100);
                 saveProgressRef.current(percentage, idx);
                 if (__DEV__) {
-                  console.log(
-                    `useTTSController: Saved progress before pause (paragraph ${idx}/${total}, ${percentage}%)`,
+                  ttsCtrlLog.info(
+                    'pause-save-progress',
+                    `idx=${idx} total=${total} pct=${percentage}`,
                   );
                 }
               }
@@ -2294,11 +2274,9 @@ export function useTTSController(
             ttsSessionRef.current += 1;
 
             if (__DEV__) {
-              console.log(
-                'useTTSController: Screen wake detected, capturing paragraph index:',
-                capturedParagraphIndex,
-                'session:',
-                ttsSessionRef.current,
+              ttsCtrlLog.info(
+                'wake-detected',
+                `idx=${capturedParagraphIndex} session=${ttsSessionRef.current}`,
               );
             }
 
@@ -2324,11 +2302,7 @@ export function useTTSController(
 
               TTSHighlight.pause()
                 .then(() => {
-                  if (__DEV__) {
-                    console.log(
-                      'useTTSController: Paused native TTS on wake for UI sync',
-                    );
-                  }
+                  ttsCtrlLog.info('wake-paused-native');
                 })
                 .catch(e => {
                   console.warn(

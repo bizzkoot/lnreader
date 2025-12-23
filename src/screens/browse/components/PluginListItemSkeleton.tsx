@@ -92,7 +92,7 @@ export const PluginListItemSkeleton = memo(
           </PaperText>
         </View>
       );
-    }, [theme]);
+    }, [styles.buttonGroup, theme.primary]);
 
     return (
       <Pressable

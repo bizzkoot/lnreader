@@ -18,6 +18,10 @@ export enum TTSState {
   STOPPING = 'STOPPING',
 }
 
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const ttsStateLog = createRateLimitedLogger('TTS', { windowMs: 2000 });
+
 type StateTransition = {
   from: TTSState;
   to: TTSState;
@@ -69,12 +73,7 @@ export function isValidTransition(from: TTSState, to: TTSState): boolean {
  */
 export function assertValidTransition(from: TTSState, to: TTSState): void {
   if (!isValidTransition(from, to)) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[TTSAudioManager] Invalid state transition: ${from} → ${to}`,
-      );
-    }
+    ttsStateLog.warn('invalid-transition', `${from} → ${to}`);
     // In production, log but allow (graceful degradation)
   }
 }

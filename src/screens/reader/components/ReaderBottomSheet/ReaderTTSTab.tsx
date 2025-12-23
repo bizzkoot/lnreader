@@ -134,6 +134,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
   );
 
   const { tts, setChapterReaderSettings } = useChapterReaderSettings();
+  const effectiveTts = useMemo(() => tts ?? { rate: 1, pitch: 1 }, [tts]);
   const [voices, setVoices] = useState<TTSVoice[]>([]);
 
   // novel can be undefined during tab pre-rendering (react-native-tab-view renders all tabs)
@@ -181,7 +182,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
 
       setNovelTtsSettings(novelId, {
         enabled,
-        tts: previous?.tts ?? tts ?? { rate: 1, pitch: 1 },
+        tts: previous?.tts ?? effectiveTts,
       });
 
       debugLog('after persistNovelTtsEnabled write', {
@@ -189,7 +190,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
         next: getNovelTtsSettings(novelId),
       });
     },
-    [debugLog, novelId, tts],
+    [debugLog, novelId, effectiveTts],
   );
 
   const setTtsSettings = useCallback(
@@ -207,7 +208,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
         });
       }
     },
-    [novelId, setChapterReaderSettings, useNovelTtsSettings, tts],
+    [novelId, setChapterReaderSettings, useNovelTtsSettings],
   );
 
   // Local state for slider values to enable real-time display during drag
