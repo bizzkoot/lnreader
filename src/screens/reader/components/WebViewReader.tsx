@@ -59,6 +59,7 @@ import { useBoolean, useBackHandler } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
+import { getNovelTtsSettings } from '@services/tts/novelTtsSettings';
 
 // Import the TTS hook
 import { useTTSController } from '../hooks/useTTSController';
@@ -154,6 +155,29 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Settings refs (for stale closure prevention)
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
+
+  // Apply per-novel TTS overrides (if enabled) on chapter/novel changes.
+  useEffect(() => {
+    try {
+      if (!novel?.id) return;
+
+      const stored = getNovelTtsSettings(novel.id);
+      if (stored?.enabled && stored.tts) {
+        const nextReaderSettings = {
+          ...readerSettingsRef.current,
+          tts: {
+            ...readerSettingsRef.current.tts,
+            ...stored.tts,
+          },
+        } as ChapterReaderSettings;
+
+        readerSettingsRef.current = nextReaderSettings;
+        applyTtsUpdateToWebView(nextReaderSettings.tts, webViewRef);
+      }
+    } catch {
+      // Best-effort: never block reader load
+    }
+  }, [novel?.id, chapter.id, webViewRef]);
 
   // CRITICAL FIX: Capture initial nextChapter/prevChapter to prevent HTML regeneration
   // These values are only used for initial WebView load. Updates after that are via injectJavaScript.

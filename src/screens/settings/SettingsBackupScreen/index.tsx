@@ -17,6 +17,7 @@ import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { showToast } from '@utils/showToast';
 import { Portal, RadioButton } from 'react-native-paper';
 import Button from '@components/Button/Button';
+import Switch from '@components/Switch/Switch';
 
 type BackupFrequency = 'manual' | '6h' | '12h' | 'daily' | '2days' | 'weekly';
 
@@ -38,11 +39,22 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
   const {
     autoBackupFrequency = 'manual',
     maxAutoBackups = 2,
+    backupIncludeOptions,
     setAppSettings,
   } = useAppSettings();
 
   const [frequencyModalVisible, setFrequencyModalVisible] = useState(false);
   const [maxBackupsModalVisible, setMaxBackupsModalVisible] = useState(false);
+  const [includeOptionsModalVisible, setIncludeOptionsModalVisible] =
+    useState(false);
+
+  const include = backupIncludeOptions || {
+    settings: true,
+    novelsAndChapters: true,
+    categories: true,
+    repositories: true,
+    downloads: true,
+  };
 
   const {
     value: googleDriveModalVisible,
@@ -161,6 +173,14 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
             theme={theme}
           />
           <List.Item
+            title={getString('backupScreen.backupIncludeOptions' as any)}
+            description={getString(
+              'backupScreen.backupIncludeOptionsDesc' as any,
+            )}
+            onPress={() => setIncludeOptionsModalVisible(true)}
+            theme={theme}
+          />
+          <List.Item
             title={getString('backupScreen.restoreBackup')}
             description={getString('backupScreen.restoreBackupDesc')}
             onPress={() => {
@@ -241,6 +261,112 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
               <Button
                 title={getString('common.cancel')}
                 onPress={() => setFrequencyModalVisible(false)}
+              />
+            </View>
+          </View>
+        </Modal>
+      </Portal>
+
+      {/* Include Options Modal */}
+      <Portal>
+        <Modal
+          visible={includeOptionsModalVisible}
+          onDismiss={() => setIncludeOptionsModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {getString('backupScreen.backupIncludeOptions' as any)}
+            </Text>
+
+            <View style={styles.radioRow}>
+              <Switch
+                value={!!include.settings}
+                onValueChange={() =>
+                  setAppSettings({
+                    backupIncludeOptions: {
+                      ...include,
+                      settings: !include.settings,
+                    },
+                  })
+                }
+              />
+              <Text style={styles.radioLabel}>
+                {getString('backupScreen.include.settings' as any)}
+              </Text>
+            </View>
+
+            <View style={styles.radioRow}>
+              <Switch
+                value={!!include.novelsAndChapters}
+                onValueChange={() =>
+                  setAppSettings({
+                    backupIncludeOptions: {
+                      ...include,
+                      novelsAndChapters: !include.novelsAndChapters,
+                    },
+                  })
+                }
+              />
+              <Text style={styles.radioLabel}>
+                {getString('backupScreen.include.novelsAndChapters' as any)}
+              </Text>
+            </View>
+
+            <View style={styles.radioRow}>
+              <Switch
+                value={!!include.categories}
+                onValueChange={() =>
+                  setAppSettings({
+                    backupIncludeOptions: {
+                      ...include,
+                      categories: !include.categories,
+                    },
+                  })
+                }
+              />
+              <Text style={styles.radioLabel}>
+                {getString('backupScreen.include.categories' as any)}
+              </Text>
+            </View>
+
+            <View style={styles.radioRow}>
+              <Switch
+                value={!!include.repositories}
+                onValueChange={() =>
+                  setAppSettings({
+                    backupIncludeOptions: {
+                      ...include,
+                      repositories: !include.repositories,
+                    },
+                  })
+                }
+              />
+              <Text style={styles.radioLabel}>
+                {getString('backupScreen.include.repositories' as any)}
+              </Text>
+            </View>
+
+            <View style={styles.radioRow}>
+              <Switch
+                value={!!include.downloads}
+                onValueChange={() =>
+                  setAppSettings({
+                    backupIncludeOptions: {
+                      ...include,
+                      downloads: !include.downloads,
+                    },
+                  })
+                }
+              />
+              <Text style={styles.radioLabel}>
+                {getString('backupScreen.include.downloads' as any)}
+              </Text>
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <Button
+                title={getString('common.close')}
+                onPress={() => setIncludeOptionsModalVisible(false)}
               />
             </View>
           </View>

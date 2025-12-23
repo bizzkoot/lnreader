@@ -1,7 +1,7 @@
 import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { OLD_TRACKED_NOVEL_PREFIX } from '@hooks/persisted/migrations/trackerMigration';
 import { LAST_UPDATE_TIME } from '@hooks/persisted/useUpdates';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
 import { LOCAL_BACKUP_FOLDER_URI } from '@hooks/persisted/useLocalBackupFolder';
 import { version } from '../../../package.json';
 import {
@@ -26,6 +26,7 @@ import ServiceManager from '@services/ServiceManager';
 import NativeFile from '@specs/NativeFile';
 import { showToast } from '@utils/showToast';
 import { getString } from '@strings/translations';
+import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
 
 const APP_STORAGE_URI = 'file://' + ROOT_STORAGE;
 
@@ -65,6 +66,16 @@ const restoreMMKVData = (data: any) => {
 };
 
 export const prepareBackupData = async (cacheDirPath: string) => {
+  const appSettings =
+    getMMKVObject<AppSettings>(APP_SETTINGS) || ({} as AppSettings);
+  const include = appSettings.backupIncludeOptions || {
+    settings: true,
+    novelsAndChapters: true,
+    categories: true,
+    repositories: true,
+    downloads: true,
+  };
+
   const novelDirPath = cacheDirPath + '/' + BackupEntryName.NOVEL_AND_CHAPTERS;
   if (NativeFile.exists(novelDirPath)) {
     NativeFile.unlink(novelDirPath);
@@ -88,81 +99,89 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   }
 
   // novels
-  await getAllNovels().then(async novels => {
-    for (const novel of novels) {
-      try {
-        const chapters = await getNovelChapters(novel.id);
-        NativeFile.writeFile(
-          novelDirPath + '/' + novel.id + '.json',
-          JSON.stringify({
-            chapters: chapters,
-            ...novel,
-            cover: novel.cover?.replace(APP_STORAGE_URI, ''),
-          }),
-        );
-      } catch (error: any) {
-        showToast(
-          getString('backupScreen.novelBackupFailed', {
-            novelName: novel.name,
-            error: error?.message,
-          }),
-        );
+  if (include.novelsAndChapters) {
+    await getAllNovels().then(async novels => {
+      for (const novel of novels) {
+        try {
+          const chapters = await getNovelChapters(novel.id);
+          NativeFile.writeFile(
+            novelDirPath + '/' + novel.id + '.json',
+            JSON.stringify({
+              chapters: chapters,
+              ...novel,
+              cover: novel.cover?.replace(APP_STORAGE_URI, ''),
+            }),
+          );
+        } catch (error: any) {
+          showToast(
+            getString('backupScreen.novelBackupFailed', {
+              novelName: novel.name,
+              error: error?.message,
+            }),
+          );
+        }
       }
-    }
-  });
+    });
+  }
 
   // categories
-  try {
-    const categories = getCategoriesFromDb();
-    const novelCategories = getAllNovelCategories();
-    NativeFile.writeFile(
-      cacheDirPath + '/' + BackupEntryName.CATEGORY,
-      JSON.stringify(
-        categories.map(category => {
-          return {
-            ...category,
-            novelIds: novelCategories
-              .filter(nc => nc.categoryId === category.id)
-              .map(nc => nc.novelId),
-          };
+  if (include.categories) {
+    try {
+      const categories = getCategoriesFromDb();
+      const novelCategories = getAllNovelCategories();
+      NativeFile.writeFile(
+        cacheDirPath + '/' + BackupEntryName.CATEGORY,
+        JSON.stringify(
+          categories.map(category => {
+            return {
+              ...category,
+              novelIds: novelCategories
+                .filter(nc => nc.categoryId === category.id)
+                .map(nc => nc.novelId),
+            };
+          }),
+        ),
+      );
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.categoryFileWriteFailed', {
+          error: error?.message || String(error),
         }),
-      ),
-    );
-  } catch (error: any) {
-    showToast(
-      getString('backupScreen.categoryFileWriteFailed', {
-        error: error?.message || String(error),
-      }),
-    );
+      );
+    }
   }
 
   // settings
-  try {
-    NativeFile.writeFile(
-      cacheDirPath + '/' + BackupEntryName.SETTING,
-      JSON.stringify(backupMMKVData()),
-    );
-  } catch (error: any) {
-    showToast(
-      getString('backupScreen.settingsFileWriteFailed', {
-        error: error?.message || String(error),
-      }),
-    );
+  if (include.settings) {
+    try {
+      NativeFile.writeFile(
+        cacheDirPath + '/' + BackupEntryName.SETTING,
+        JSON.stringify(backupMMKVData()),
+      );
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.settingsFileWriteFailed', {
+          error: error?.message || String(error),
+        }),
+      );
+    }
   }
 
   // repositories
-  try {
-    const repositories = getRepositoriesFromDb();
-    NativeFile.writeFile(
-      cacheDirPath + '/' + BackupEntryName.REPOSITORY,
-      JSON.stringify(repositories),
-    );
-  } catch (error: any) {
-    showToast(
-      getString('backupScreen.repositoryFileWriteFailed', {
-        error: error?.message || String(error),
-      }),
-    );
+  if (include.repositories) {
+    try {
+      const repositories = getRepositoriesFromDb();
+      NativeFile.writeFile(
+        cacheDirPath + '/' + BackupEntryName.REPOSITORY,
+        JSON.stringify(repositories),
+      );
+    } catch (error: any) {
+      showToast(
+        getString('backupScreen.repositoryFileWriteFailed', {
+          error: error?.message || String(error),
+        }),
+      );
+    }
   }
 };
 
@@ -173,13 +192,13 @@ export const restoreData = async (cacheDirPath: string) => {
   // nothing to do
 
   // novels
-  showToast(getString('backupScreen.restoringNovels'));
   let novelCount = 0;
   let failedCount = 0;
 
   if (!NativeFile.exists(novelDirPath)) {
-    showToast(getString('backupScreen.novelDirectoryNotFound'));
+    // Backups may omit novels based on user selection
   } else {
+    showToast(getString('backupScreen.restoringNovels'));
     try {
       const items = NativeFile.readDir(novelDirPath);
       for (const item of items) {
@@ -227,14 +246,14 @@ export const restoreData = async (cacheDirPath: string) => {
   }
 
   // categories
-  showToast(getString('backupScreen.restoringCategories'));
   const categoryFilePath = cacheDirPath + '/' + BackupEntryName.CATEGORY;
   let categoryCount = 0;
   let failedCategoryCount = 0;
 
   if (!NativeFile.exists(categoryFilePath)) {
-    showToast(getString('backupScreen.categoryFileNotFound'));
+    // Backups may omit categories based on user selection
   } else {
+    showToast(getString('backupScreen.restoringCategories'));
     try {
       const fileContent = NativeFile.readFile(categoryFilePath);
       const categories: BackupCategory[] = JSON.parse(fileContent);
@@ -277,12 +296,12 @@ export const restoreData = async (cacheDirPath: string) => {
   }
 
   // settings
-  showToast(getString('backupScreen.restoringSettings'));
   const settingsFilePath = cacheDirPath + '/' + BackupEntryName.SETTING;
 
   if (!NativeFile.exists(settingsFilePath)) {
-    showToast(getString('backupScreen.settingsFileNotFound'));
+    // Backups may omit settings based on user selection
   } else {
+    showToast(getString('backupScreen.restoringSettings'));
     try {
       const fileContent = NativeFile.readFile(settingsFilePath);
       const settingsData = JSON.parse(fileContent);
@@ -298,15 +317,15 @@ export const restoreData = async (cacheDirPath: string) => {
   }
 
   // repositories
-  showToast(getString('backupScreen.restoringRepositories'));
   const repositoryFilePath = cacheDirPath + '/' + BackupEntryName.REPOSITORY;
   let repositoryCount = 0;
   let failedRepositoryCount = 0;
 
   if (!NativeFile.exists(repositoryFilePath)) {
     // Backwards compatibility: old backups don't have Repository.json
-    // Skip silently without showing error
+    // Backups may also omit repositories based on user selection
   } else {
+    showToast(getString('backupScreen.restoringRepositories'));
     try {
       const fileContent = NativeFile.readFile(repositoryFilePath);
       const repositories: Repository[] = JSON.parse(fileContent);

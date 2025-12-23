@@ -20,6 +20,7 @@ import { downloadFile } from '@plugins/helpers/fetch';
 import { getPlugin } from '@plugins/pluginManager';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
+import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
 
 export const insertNovelAndChapters = async (
   pluginId: string,
@@ -148,6 +149,9 @@ export const removeNovelsFromLibrary = (novelIds: Array<number>) => {
     [`UPDATE Novel SET inLibrary = 0 WHERE id IN (${novelIds.join(', ')});`],
     [`DELETE FROM NovelCategory WHERE novelId IN (${novelIds.join(', ')});`],
   ]);
+
+  // Keep MMKV tidy: remove per-novel TTS overrides when removed from library.
+  novelIds.forEach(id => deleteNovelTtsSettings(id));
   showToast(getString('browseScreen.removeFromLibrary'));
 };
 

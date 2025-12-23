@@ -127,3 +127,12 @@ Track chapter boundaries within stitched DOM content to enable intelligent conte
 - WebView opacity transition in WebViewReader.tsx
 - Chapter boundary calculation using countReadableInContainer()
 - TrimPreviousChapter handling both original and stitched chapters
+
+
+## WebView IIFE Self-Reference Pattern
+
+Inside the reader constructor IIFE, use 'const self = this' to capture the instance reference before nested IIFEs. Cannot use 'reader.' because window.reader doesn't exist until the constructor completes.
+
+### Examples
+
+- core.js initialEnhancement() - uses self.chapterElement instead of reader.chapterElement

@@ -1518,80 +1518,127 @@ window.reader = new (function () {
   document.addEventListener('scroll', this.onScroll, { passive: true });
 
   // FIX: Enhance chapter titles for EPUB TTS synchronization
+  // Only adds title if first few VISIBLE elements don't contain chapter title text
   this.enhanceChapterTitles = (html, chapterName) => {
-    console.log('[ENHANCE] ==================================================');
-    console.log(
-      '[ENHANCE] FUNCTION CALLED! Starting chapter title enhancement',
-    );
-    console.log('[ENHANCE] Chapter name:', chapterName);
-    console.log('[ENHANCE] HTML length:', html.length);
-    console.log('[ENHANCE] Call stack:', new Error().stack);
-    console.log('[ENHANCE] ==================================================');
+    // Debug logging helper - only logs in debug builds
+    const dbg = (...args) => {
+      if (DEBUG) console.log('[ENHANCE]', ...args);
+    };
+
+    dbg('============ CHAPTER TITLE ENHANCEMENT DEBUG ============');
+    dbg('Chapter name from metadata:', chapterName);
+    dbg('HTML length:', html.length);
 
     try {
-      // Check if HTML already contains a prominent chapter title
+      // Create a temporary container to parse HTML
+      // NOTE: We don't append to document - just parse the HTML
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = html;
 
-      // Expanded detection for chapter titles - check multiple patterns
-      const titleSelectors = [
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6', // Standard headings
-        '.chapter-title',
-        '.chap-title',
-        '.chapter', // Common class patterns
-        '[class*="chapter"]',
-        '[class*="chap"]', // Class containing chapter
-        '.title',
-        '.heading', // Generic title/heading
-      ];
-
-      let existingTitle = false;
+      let hasVisibleTitle = false;
       let foundTitleText = '';
 
-      // Check each selector pattern
-      titleSelectors.forEach(selector => {
-        try {
-          const elements = tempDiv.querySelectorAll(selector);
-          Array.from(elements).forEach(el => {
-            const text = el.textContent?.trim() || '';
-            if (text.length > 0) {
-              // Check if element contains chapter name or generic chapter indicators
-              const isChapterTitle =
-                text.toLowerCase().includes(chapterName.toLowerCase()) ||
-                text.toLowerCase().includes('chapter') ||
-                text.toLowerCase().includes('ch.') ||
-                text.toLowerCase().includes('chap') ||
-                /^\d+\./.test(text.trim()) || // Matches "1.", "2.", etc.
-                /^\d+\s/.test(text.trim()) || // Matches "1 ", "2 ", etc.
-                /^chapter\s+\d+/i.test(text.trim()); // Matches "Chapter 1", "Chapter 2"
+      // Check first 5 readable elements for visible chapter title content
+      const readableSelectors = 'p, div, h1, h2, h3, h4, h5, h6, span';
+      const elements = tempDiv.querySelectorAll(readableSelectors);
+      const firstFew = Array.from(elements).slice(0, 5);
 
-              if (isChapterTitle) {
-                existingTitle = true;
-                foundTitleText = text;
-                console.log('[ENHANCE] Found existing title:', text);
-                console.log('[ENHANCE] Element selector:', selector);
-              }
-            }
-          });
-        } catch (e) {
-          console.warn('[ENHANCE] Error checking selector:', selector, e);
+      dbg('Total elements found:', elements.length);
+      dbg('Checking first', firstFew.length, 'elements...');
+
+      // LOG: Show what TTS would see at first few paragraphs
+      // NOTE: In detached DOM, check inline styles only (computed styles don't work)
+      if (DEBUG) {
+        console.log('[ENHANCE] ===== FIRST 5 ELEMENTS =====');
+        firstFew.forEach((el, idx) => {
+          const inlineStyle = el.getAttribute('style') || '';
+          const isExplicitlyHidden =
+            inlineStyle.includes('display:none') ||
+            inlineStyle.includes('display: none') ||
+            inlineStyle.includes('visibility:hidden') ||
+            inlineStyle.includes('visibility: hidden');
+          const text = el.textContent?.trim() || '';
+          console.log(
+            `[ENHANCE] [${idx}] Tag: ${el.tagName}, ExplicitlyHidden: ${isExplicitlyHidden}, Text: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`,
+          );
+        });
+        console.log('[ENHANCE] ===== END FIRST 5 ELEMENTS =====');
+      }
+
+      for (const el of firstFew) {
+        // Check inline style for explicit hiding (computed styles don't work in detached DOM)
+        const inlineStyle = el.getAttribute('style') || '';
+        const isExplicitlyHidden =
+          inlineStyle.includes('display:none') ||
+          inlineStyle.includes('display: none') ||
+          inlineStyle.includes('visibility:hidden') ||
+          inlineStyle.includes('visibility: hidden');
+
+        if (isExplicitlyHidden) {
+          dbg('Skipping explicitly hidden element:', el.tagName);
+          continue;
         }
-      });
 
-      console.log('[ENHANCE] Existing title found:', existingTitle);
-      console.log('[ENHANCE] Found title text:', foundTitleText);
+        const text = el.textContent?.trim() || '';
+        if (text.length === 0) continue;
 
-      // If no prominent chapter title found, add one at the beginning
-      if (!existingTitle) {
-        console.log('[ENHANCE] Adding enhanced chapter title');
+        // Check if text looks like a chapter title
+        const lowerText = text.toLowerCase();
+        const lowerName = chapterName.toLowerCase();
+
+        // Log the pattern matching
+        const matchName = lowerText.includes(lowerName);
+        const matchChapter = lowerText.includes('chapter');
+        const matchChap = lowerText.includes('chap');
+        const matchPattern1 =
+          /^(ch\.?\s*\d+|chapter\s+\d+|\d+\.?\s*[-–—])/i.test(text);
+        const matchPattern2 = /^\d+\.\s/.test(text);
+        const matchPattern3 = /^\d+\s/.test(text);
+
+        if (DEBUG) {
+          console.log('[ENHANCE] Pattern check for:', text.substring(0, 50));
+          console.log(
+            '[ENHANCE]   matchName:',
+            matchName,
+            '| matchChapter:',
+            matchChapter,
+            '| matchChap:',
+            matchChap,
+          );
+          console.log(
+            '[ENHANCE]   matchPattern1:',
+            matchPattern1,
+            '| matchPattern2:',
+            matchPattern2,
+            '| matchPattern3:',
+            matchPattern3,
+          );
+        }
+
+        const looksLikeTitle =
+          matchName ||
+          matchChapter ||
+          matchChap ||
+          matchPattern1 ||
+          matchPattern2 ||
+          matchPattern3;
+
+        if (looksLikeTitle) {
+          hasVisibleTitle = true;
+          foundTitleText = text;
+          dbg('*** FOUND VISIBLE TITLE:', text.substring(0, 100));
+          break;
+        }
+      }
+
+      dbg('RESULT: Has existing title =', hasVisibleTitle);
+      dbg('RESULT: Found title text =', foundTitleText.substring(0, 100));
+
+      // If no visible chapter title found, add one at the beginning
+      if (!hasVisibleTitle) {
+        dbg('ACTION: Adding enhanced chapter title');
 
         // Use inherit for color to match chapter content text
-        // No background/border to ensure TTS highlight is visible
         const titleHtml = `<div class="enhanced-chapter-title lnreader-chapter-title" style="
           font-size: 1.5em !important;
           font-weight: bold !important;
@@ -1610,19 +1657,16 @@ window.reader = new (function () {
         // Insert title after body tag or at the beginning
         if (html.toLowerCase().includes('<body')) {
           html = html.replace(/<body([^>]*)>/i, `<body$1>${titleHtml}`);
-          console.log('[ENHANCE] Inserted title after body tag');
+          dbg('Inserted title after body tag');
         } else {
           html = titleHtml + html;
-          console.log('[ENHANCE] Inserted title at beginning (no body tag)');
+          dbg('Inserted title at beginning (no body tag)');
         }
       } else {
-        console.log('[ENHANCE] Skipping title addition - existing title found');
+        dbg('ACTION: Skipping - visible title already exists');
       }
 
-      console.log(
-        '[ENHANCE] Enhancement complete. Final HTML length:',
-        html.length,
-      );
+      dbg('============ END ENHANCEMENT DEBUG ============');
       return html;
     } catch (e) {
       console.error('[ENHANCE] Failed to enhance chapter title:', e);
@@ -1636,9 +1680,13 @@ window.reader = new (function () {
   // NOTE: We use 'this' because we're still inside the reader constructor IIFE
   const self = this;
   (function initialEnhancement() {
-    console.log('[INITIAL-ENHANCE] Running initial chapter title enhancement');
-    console.log('[INITIAL-ENHANCE] chapter object:', self.chapter);
-    console.log('[INITIAL-ENHANCE] chapter name:', self.chapter?.name);
+    if (DEBUG) {
+      console.log(
+        '[INITIAL-ENHANCE] Running initial chapter title enhancement',
+      );
+      console.log('[INITIAL-ENHANCE] chapter object:', self.chapter);
+      console.log('[INITIAL-ENHANCE] chapter name:', self.chapter?.name);
+    }
 
     if (self.chapter && self.chapter.name) {
       const originalHtml = self.chapterElement.innerHTML;
@@ -1651,14 +1699,22 @@ window.reader = new (function () {
       if (enhancedHtml !== originalHtml) {
         self.chapterElement.innerHTML = enhancedHtml;
         self.rawHTML = enhancedHtml;
-        console.log('[INITIAL-ENHANCE] Chapter title enhanced on initial load');
+        if (DEBUG) {
+          console.log(
+            '[INITIAL-ENHANCE] Chapter title enhanced on initial load',
+          );
+        }
       } else {
-        console.log(
-          '[INITIAL-ENHANCE] No changes needed - title already exists',
-        );
+        if (DEBUG) {
+          console.log(
+            '[INITIAL-ENHANCE] No changes needed - title already exists',
+          );
+        }
       }
     } else {
-      console.log('[INITIAL-ENHANCE] Skipped - no chapter name available');
+      if (DEBUG) {
+        console.log('[INITIAL-ENHANCE] Skipped - no chapter name available');
+      }
     }
   })();
 

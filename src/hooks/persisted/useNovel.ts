@@ -35,6 +35,7 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import { useAppSettings } from './useSettings';
 import NativeFile from '@specs/NativeFile';
 import { useLibraryContext } from '@components/Context/LibraryContext';
+import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
 
 // #region constants
 
@@ -617,6 +618,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 export const deleteCachedNovels = async () => {
   const cachedNovels = await _getCachedNovels();
   for (const novel of cachedNovels) {
+    deleteNovelTtsSettings(novel.id);
     MMKVStorage.delete(`${TRACKED_NOVEL_PREFIX}_${novel.id}`);
     MMKVStorage.delete(
       `${NOVEL_PAGE_INDEX_PREFIX}_${novel.pluginId}_${novel.path}`,

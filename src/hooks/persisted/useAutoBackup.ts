@@ -64,7 +64,10 @@ export const useAutoBackup = () => {
       showToast(getString('backupScreen.autoBackupStarting'));
 
       // Trigger backup via ServiceManager
-      ServiceManager.manager.addTask({ name: 'LOCAL_BACKUP' });
+      ServiceManager.manager.addTask({
+        name: 'LOCAL_BACKUP',
+        data: { isAuto: true },
+      });
 
       return true;
     }

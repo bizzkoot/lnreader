@@ -2,26 +2,31 @@
 
 ## Current Goals
 
-- Continuous scrolling feature has been successfully implemented and is production-ready. The user has validated all 5 core features: DOM stitching, auto-trim, TTS integration, session persistence, and smooth transitions. Documentation in specs/reader-continuous-scroll/ has been updated with complete implementation details and enhancement opportunities.
+- Session completed - Fixed two regressions from commit 2d72b94:
+  1. TTS Per-Novel Settings Toggle not working (BottomSheet Portal breaking React context)
+  2. Chapter Title Duplication (visibility detection failing in detached DOM)
 
-## Key Files Modified (TTS Progress Sync)
+## Key Files Modified (This Session)
 
-- `android/app/src/main/.../TTSForegroundService.kt`: SharedPreferences, saveTTSPosition(), getters
-- `android/app/src/main/.../TTSHighlightModule.kt`: getSavedTTSPosition() bridge method
-- `src/services/tts/TTSHighlight.ts`: TypeScript wrapper for getSavedTTSPosition()
-- `src/screens/reader/components/WebViewReader.tsx`: nativeTTSPosition state, async fetch, 3-way max
-- `src/__tests__/TTSMediaControl.test.ts`: 5 new tests for TTS position sync
-- `specs/Enhanced-media-control/PRD.md`: Documentation updated
-- `specs/Enhanced-media-control/TASKS.md`: Phase 3 marked complete
+### TTS Per-Novel Settings Toggle Fix
+- `src/screens/reader/ReaderScreen.tsx`: Pass `novel` prop to ReaderBottomSheetV2
+- `src/screens/reader/components/ReaderBottomSheet/ReaderBottomSheet.tsx`: Accept `novel` prop, pass to ReaderTTSTab
+- `src/screens/reader/components/ReaderBottomSheet/ReaderTTSTab.tsx`: Accept `novel` as prop instead of context (Portal breaks context chain)
+
+### Chapter Title Detection Fix
+- `android/app/src/main/assets/js/core.js`: Fixed `enhanceChapterTitles()` to use inline style check instead of getComputedStyle (which fails in detached DOM)
+
+## Root Causes Fixed
+
+1. **Portal Context Issue**: `@gorhom/bottom-sheet` uses React Portal which renders content outside normal React tree, breaking context from `ChapterContextProvider`. Solution: Pass `novel` as props through component chain.
+
+2. **Detached DOM Visibility**: Temp div had `visibility:hidden`, and `getComputedStyle()` inherits this. All elements appeared hidden, skipping pattern matching. Solution: Don't append temp div to document, check only inline styles for explicit hiding.
 
 ## Test Commands
 
 ```bash
 # Run all tests
 pnpm test
-
-# Run specific TTS tests
-pnpm test -- --testPathPattern=TTSMediaControl
 
 # Type check
 pnpm run type-check
@@ -35,4 +40,4 @@ pnpm run build:release:android
 
 ## Current Blockers
 
-- None (Ready for git commit and manual verification)
+- None (Ready for git commit)

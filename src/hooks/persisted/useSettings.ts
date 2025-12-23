@@ -83,6 +83,18 @@ export interface AppSettings {
    * Maximum number of automatic backups to keep (oldest are deleted)
    */
   maxAutoBackups: 1 | 2 | 3 | 4 | 5;
+
+  /**
+   * Backup contents selection for local backups.
+   * When true, that category is included in the backup zip.
+   */
+  backupIncludeOptions?: {
+    settings: boolean;
+    novelsAndChapters: boolean;
+    categories: boolean;
+    repositories: boolean;
+    downloads: boolean;
+  };
 }
 
 export interface BrowseSettings {
@@ -293,6 +305,14 @@ const initialAppSettings: AppSettings = {
    */
   autoBackupFrequency: 'manual',
   maxAutoBackups: 2,
+
+  backupIncludeOptions: {
+    settings: true,
+    novelsAndChapters: true,
+    categories: true,
+    repositories: true,
+    downloads: true,
+  },
 };
 
 const initialBrowseSettings: BrowseSettings = {

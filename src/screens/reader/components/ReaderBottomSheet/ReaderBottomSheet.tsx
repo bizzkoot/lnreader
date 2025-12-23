@@ -18,7 +18,7 @@ import Color from 'color';
 import { BottomSheetFlashList, BottomSheetView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
-import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
+import { TabBar, TabView } from 'react-native-tab-view';
 import { getString } from '@strings/translations';
 import { useAppSettings } from '@hooks/persisted/useSettings';
 import { scaleDimension } from '@theme/scaling';
@@ -34,6 +34,7 @@ import { overlay } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { StringMap } from '@strings/types';
+import { NovelInfo } from '@database/types';
 
 type TabViewLabelProps = {
   route: {
@@ -129,6 +130,7 @@ const GeneralTab: React.FC = React.memo(() => {
 
 interface ReaderBottomSheetV2Props {
   bottomSheetRef: RefObject<BottomSheetModalMethods | null>;
+  novel: NovelInfo;
 }
 
 const routes = [
@@ -139,6 +141,7 @@ const routes = [
 
 const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   bottomSheetRef,
+  novel,
 }) => {
   const theme = useTheme();
   const { bottom, left, right } = useSafeAreaInsets();
@@ -148,14 +151,20 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   const tabHeaderColor = overlay(2, theme.surface);
   const backgroundColor = tabHeaderColor;
 
-  const renderScene = useMemo(
-    () =>
-      SceneMap({
-        readerTab: (props: any) => <ReaderTab {...props} uiScale={uiScale} />,
-        generalTab: GeneralTab,
-        ttsTab: ReaderTTSTab,
-      }),
-    [uiScale],
+  const renderScene = useCallback(
+    ({ route }: { route: { key: string } }) => {
+      switch (route.key) {
+        case 'readerTab':
+          return <ReaderTab uiScale={uiScale} />;
+        case 'generalTab':
+          return <GeneralTab />;
+        case 'ttsTab':
+          return <ReaderTTSTab novel={novel} />;
+        default:
+          return null;
+      }
+    },
+    [uiScale, novel],
   );
 
   const [index, setIndex] = useState(0);
