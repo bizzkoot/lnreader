@@ -40,6 +40,7 @@ const { TTSHighlight } = NativeModules as any;
 
 const TTSAudioManager =
   require('../TTSAudioManager').default || require('../TTSAudioManager');
+const { TTSState } = require('../TTSState');
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -47,6 +48,7 @@ afterEach(() => {
   (TTSAudioManager as any).currentQueue = [];
   (TTSAudioManager as any).currentUtteranceIds = [];
   (TTSAudioManager as any).currentIndex = 0;
+  (TTSAudioManager as any).state = TTSState.IDLE;
 });
 
 test('refillQueue falls back to speakBatch after addToBatch failures', async () => {
@@ -142,4 +144,25 @@ test('refillQueue notifies user when fallback speakBatch also fails', async () =
   expect(notifySpy).toHaveBeenCalledWith(
     expect.stringContaining('TTS failed to queue audio'),
   );
+});
+
+test('refillQueue sets state to REFILLING during operation', async () => {
+  (TTSHighlight.addToBatch as jest.Mock).mockResolvedValue(true);
+  (TTSHighlight.getQueueSize as jest.Mock).mockResolvedValue(5);
+
+  (TTSAudioManager as any).currentQueue = ['a', 'b'];
+  (TTSAudioManager as any).currentUtteranceIds = ['u1', 'u2'];
+  (TTSAudioManager as any).currentIndex = 0;
+  (TTSAudioManager as any).state = TTSState.PLAYING;
+
+  // Start refill
+  const refillPromise = (TTSAudioManager as any).refillQueue();
+
+  // During refill, state should be REFILLING
+  expect((TTSAudioManager as any).state).toBe(TTSState.REFILLING);
+
+  await refillPromise;
+
+  // After refill, state should return to PLAYING
+  expect((TTSAudioManager as any).state).toBe(TTSState.PLAYING);
 });

@@ -29,6 +29,7 @@ jest.mock('../TTSAudioManager', () => ({
   setRefillInProgress: jest.fn(),
   isRefillInProgress: jest.fn().mockReturnValue(false),
   hasRemainingItems: jest.fn().mockReturnValue(false),
+  getState: jest.fn(),
 }));
 
 describe('TTS Media Control Tests', () => {

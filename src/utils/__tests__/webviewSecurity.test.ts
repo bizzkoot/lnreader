@@ -46,6 +46,90 @@ describe('webviewSecurity', () => {
       const msg = parseWebViewMessage<'save', number>(raw, ['save'] as const);
       expect(msg).toBeNull();
     });
+
+    // Timestamp tests
+    it('should accept valid timestamp', () => {
+      const ts = Date.now();
+      const raw = JSON.stringify({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts,
+      });
+      const msg = parseWebViewMessage<'save', number>(raw, ['save'] as const);
+      expect(msg).toEqual({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts,
+      });
+    });
+
+    it('should handle missing timestamp for backward compatibility', () => {
+      const raw = JSON.stringify({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+      });
+      const msg = parseWebViewMessage<'save', number>(raw, ['save'] as const);
+      expect(msg).toEqual({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: undefined,
+      });
+    });
+
+    it('should reject invalid timestamp (negative)', () => {
+      const raw = JSON.stringify({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: -1,
+      });
+      const msg = parseWebViewMessage<'save', number>(raw, ['save'] as const);
+      // Still parses but timestamp is omitted
+      expect(msg).toEqual({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: undefined,
+      });
+    });
+
+    it('should reject invalid timestamp (zero)', () => {
+      const raw = JSON.stringify({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: 0,
+      });
+      const msg = parseWebViewMessage<'save', number>(raw, ['save'] as const);
+      // Still parses but timestamp is omitted
+      expect(msg).toEqual({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: undefined,
+      });
+    });
+
+    it('should reject invalid timestamp (non-number)', () => {
+      const raw = JSON.stringify({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: 'invalid',
+      });
+      const msg = parseWebViewMessage<'save', number>(raw, ['save'] as const);
+      // Still parses but timestamp is omitted
+      expect(msg).toEqual({
+        type: 'save',
+        data: 42,
+        nonce: 'abc123',
+        ts: undefined,
+      });
+    });
   });
 
   describe('createMessageRateLimiter', () => {

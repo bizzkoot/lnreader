@@ -71,6 +71,7 @@ window.reader = new (function () {
       if (typeof window.__LNREADER_NONCE__ === 'string') {
         obj.nonce = window.__LNREADER_NONCE__;
       }
+      obj.ts = Date.now();
     } catch (e) {}
     window.ReactNativeWebView.postMessage(JSON.stringify(obj));
   };

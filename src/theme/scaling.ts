@@ -1,11 +1,31 @@
 /**
+ * Safe UI scale boundaries to prevent UX disasters:
+ * - Min 0.8 (80%): Below this, text becomes illegible and touch targets too small
+ * - Max 1.3 (130%): Above this, layouts overflow and modals clip
+ */
+const UI_SCALE_MIN = 0.8;
+const UI_SCALE_MAX = 1.3;
+
+/**
+ * Clamp UI scale to safe range (0.8-1.3)
+ * Prevents extreme values that break layouts or readability
+ * @param value - Unclamped UI scale value
+ * @returns Clamped scale within safe bounds
+ */
+export const clampUIScale = (value: number): number => {
+  return Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value));
+};
+
+/**
  * Scales a dimension value by the given scale factor.
+ * Automatically clamps scale to safe range.
  * @param value - Base dimension value in dp
- * @param scale - UI scale factor
+ * @param scale - UI scale factor (will be clamped to 0.8-1.3)
  * @returns Scaled dimension value
  */
 export const scaleDimension = (value: number, scale: number): number => {
-  return Math.round(value * scale);
+  const clampedScale = clampUIScale(scale);
+  return Math.round(value * clampedScale);
 };
 
 /**

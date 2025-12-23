@@ -7,6 +7,8 @@
  * @module reader/components/WebViewReader
  */
 
+/* eslint-disable no-console */
+
 import React, {
   memo,
   useEffect,
@@ -67,18 +69,6 @@ import { WebViewPostEvent } from '../types/tts';
 
 type WebViewReaderProps = {
   onPress(): void;
-};
-
-const onLogMessage = (payload: { nativeEvent: { data: string } }) => {
-  const dataPayload = JSON.parse(payload.nativeEvent.data);
-  if (dataPayload) {
-    if (dataPayload.type === 'console') {
-      /* eslint-disable no-console */
-      if (__DEV__) {
-        console.info(`[Console] ${JSON.stringify(dataPayload.msg, null, 2)}`);
-      }
-    }
-  }
 };
 
 const { RNDeviceInfo } = NativeModules;
@@ -335,7 +325,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           webViewRef.current?.injectJavaScript(
             `if (window.reader && window.reader.generalSettings) {
                window.reader.generalSettings.val = ${newSettings};
-               console.log('TTS: Updated general settings via listener');
+               if (${__DEV__}) { console.log('TTS: Updated general settings via listener'); }
              }`,
           );
           break;
@@ -359,7 +349,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
              const currentStr = JSON.stringify(sortKeys(current));
              const freshStr = JSON.stringify(sortKeys(fresh));
              if (currentStr !== freshStr) {
-               console.log('TTS: Settings changed, injecting');
+               if (${__DEV__}) { console.log('TTS: Settings changed, injecting'); }
                window.reader.generalSettings.val = fresh;
              }
            }
@@ -537,12 +527,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'stitched-chapters-cleared',
         'chapter-transition',
       ] as const);
-      if (!msg || msg.nonce !== webViewNonceRef.current) {
+      if (!msg) {
         return;
       }
 
-      __DEV__ && onLogMessage(ev);
+      // Security: enforce nonce for inbound WebView messages.
+      if (msg.nonce !== webViewNonceRef.current) {
+        return;
+      }
+
       const event = msg as unknown as WebViewPostEvent;
+
+      // Handle console logs in dev mode
+      if (event.type === 'console') {
+        if (__DEV__) {
+          console.info(
+            `[WebView Console] ${JSON.stringify(event.data, null, 2)}`,
+          );
+        }
+        return;
+      }
 
       // Try TTS handler first
       if (tts.handleTTSMessage(event)) {
@@ -589,14 +593,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           navigateChapter('PREV');
           break;
         case 'save':
-          if (event.data && typeof event.data === 'number') {
-            if (typeof event.chapterId !== 'number') {
-              console.warn(
-                'WebViewReader: Ignoring save event without chapterId',
-              );
+          if (
+            typeof event.data === 'number' ||
+            typeof event.paragraphIndex === 'number'
+          ) {
+            const eventChapterId =
+              typeof event.chapterId === 'number'
+                ? event.chapterId
+                : typeof event.chapterId === 'string'
+                  ? Number(event.chapterId)
+                  : NaN;
+
+            if (!Number.isFinite(eventChapterId)) {
+              if (__DEV__) {
+                console.warn(
+                  'WebViewReader: Ignoring save event without chapterId',
+                );
+              }
               break;
             }
-            if (event.chapterId !== chapter.id) {
+            if (eventChapterId !== chapter.id) {
               if (__DEV__) {
                 console.log(
                   `WebViewReader: Ignoring stale save event from chapter ${event.chapterId}, current is ${chapter.id}`,
@@ -604,6 +620,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               }
               break;
             }
+
+            const savePercent =
+              typeof event.data === 'number'
+                ? event.data
+                : typeof (event.data as any)?.percent === 'number'
+                  ? (event.data as any).percent
+                  : undefined;
 
             // Block non-TTS saves when TTS is reading
             if (tts.isTTSReading) {
@@ -633,7 +656,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             if (__DEV__) {
               console.log(
                 'WebViewReader: Received save event. Progress:',
-                event.data,
+                savePercent,
                 'Paragraph:',
                 event.paragraphIndex,
               );
@@ -646,10 +669,12 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 event.paragraphIndex,
               );
             }
-            saveProgress(
-              event.data,
-              event.paragraphIndex as number | undefined,
-            );
+            if (savePercent !== undefined) {
+              saveProgress(
+                savePercent,
+                event.paragraphIndex as number | undefined,
+              );
+            }
           }
           break;
         case 'show-toast':
@@ -747,7 +772,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   }
                 }
               } catch (e) {
-                console.warn('WebViewReader: Error reading local file', e);
+                if (__DEV__) {
+                  console.warn('WebViewReader: Error reading local file', e);
+                }
               }
 
               // 2. Fallback to network fetch
@@ -783,7 +810,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 `);
               })
               .catch(err => {
-                console.error('WebViewReader: Failed to fetch chapter', err);
+                if (__DEV__) {
+                  console.error('WebViewReader: Failed to fetch chapter', err);
+                }
                 webViewRef.current?.injectJavaScript(`
                   if (window.reader) {
                     window.reader.isNavigating = false;
@@ -813,9 +842,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             getDbChapter(appendedChapterId)
               .then(async appendedChapter => {
                 if (!appendedChapter) {
-                  console.error(
-                    `WebViewReader: Appended chapter ${appendedChapterId} not found in DB`,
-                  );
+                  if (__DEV__) {
+                    console.error(
+                      `WebViewReader: Appended chapter ${appendedChapterId} not found in DB`,
+                    );
+                  }
                   return;
                 }
 
@@ -842,7 +873,6 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                         id: newNextChapter.id,
                         name: newNextChapter.name,
                       })};
-                      console.log('Reader: nextChapter updated to', window.reader.nextChapter);
                     }
                     true;
                   `);
@@ -857,17 +887,18 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   webViewRef.current?.injectJavaScript(`
                     if (window.reader) {
                       window.reader.nextChapter = null;
-                      console.log('Reader: nextChapter cleared (end of novel)');
                     }
                     true;
                   `);
                 }
               })
               .catch(err => {
-                console.error(
-                  `WebViewReader: Failed to get next chapter after ${appendedChapterId}:`,
-                  err,
-                );
+                if (__DEV__) {
+                  console.error(
+                    `WebViewReader: Failed to get next chapter after ${appendedChapterId}:`,
+                    err,
+                  );
+                }
               });
           }
           break;
@@ -890,9 +921,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             getDbChapter(eventData.chapterId)
               .then(async visibleChapter => {
                 if (!visibleChapter) {
-                  console.error(
-                    `WebViewReader: Visible chapter ${eventData.chapterId} not found in DB`,
-                  );
+                  if (__DEV__) {
+                    console.error(
+                      `WebViewReader: Visible chapter ${eventData.chapterId} not found in DB`,
+                    );
+                  }
                   return;
                 }
 
@@ -950,10 +983,12 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // Note: setIsTransitioning(false) is called in onLoadEnd after scroll restoration
               })
               .catch(err => {
-                console.error(
-                  `WebViewReader: Failed to handle TTS stitched clear for ${eventData.chapterId}:`,
-                  err,
-                );
+                if (__DEV__) {
+                  console.error(
+                    `WebViewReader: Failed to handle TTS stitched clear for ${eventData.chapterId}:`,
+                    err,
+                  );
+                }
                 setIsTransitioning(false);
               });
           }
@@ -1016,14 +1051,14 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             getDbChapter(eventData.currentChapterId)
               .then(async currentChapter => {
                 if (!currentChapter) {
-                  console.error(
-                    `WebViewReader: Current chapter ${eventData.currentChapterId} not found in DB`,
-                  );
-                  setIsTransitioning(false);
+                  if (__DEV__) {
+                    console.error(
+                      `WebViewReader: Current chapter ${eventData.currentChapterId} not found in DB`,
+                    );
+                  }
                   return;
                 }
 
-                // Use getChapter() instead of setChapter() - this properly updates adjacent chapters
                 // The initialSavedParagraphIndex will read from MMKV and restore position
                 await getChapter(currentChapter);
                 if (__DEV__) {
@@ -1034,10 +1069,12 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 // Note: setIsTransitioning(false) is called in onLoadEnd after scroll restoration
               })
               .catch(err => {
-                console.error(
-                  `WebViewReader: Failed to handle chapter transition to ${eventData.currentChapterId}:`,
-                  err,
-                );
+                if (__DEV__) {
+                  console.error(
+                    `WebViewReader: Failed to handle chapter transition to ${eventData.currentChapterId}:`,
+                    err,
+                  );
+                }
                 setIsTransitioning(false);
               });
           }
@@ -1103,7 +1140,6 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             if (window.reader) {
               window.reader.nextChapter = ${JSON.stringify(nextChapter ? { id: nextChapter.id, name: nextChapter.name } : null)};
               window.reader.prevChapter = ${JSON.stringify(prevChapter ? { id: prevChapter.id, name: prevChapter.name } : null)};
-              console.log('Reader: Synced adjacent chapters on load - next:', ${nextChapter?.id || 'null'}, 'prev:', ${prevChapter?.id || 'null'});
             }
             true;
           `);

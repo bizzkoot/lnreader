@@ -40,6 +40,7 @@ const { TTSHighlight: TTSHighlightCache } = NativeModulesCache as any;
 
 const TTSAudioManagerCache =
   require('../TTSAudioManager').default || require('../TTSAudioManager');
+const { TTSState } = require('../TTSState');
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -50,6 +51,7 @@ afterEach(() => {
   (TTSAudioManagerCache as any).lastKnownQueueSize = 0;
   (TTSAudioManagerCache as any).devCounters.cacheDriftDetections = 0;
   (TTSAudioManagerCache as any).speechDoneCounter = 0;
+  (TTSAudioManagerCache as any).state = TTSState.IDLE;
 });
 
 describe('TTSAudioManager Cache Calibration', () => {

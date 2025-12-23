@@ -5,6 +5,7 @@ import {
 } from '@screens/library/constants/constants';
 import { useMMKVObject } from 'react-native-mmkv';
 import { Voice } from 'expo-speech';
+import { clampUIScale } from '@theme/scaling';
 
 export const APP_SETTINGS = 'APP_SETTINGS';
 export const BROWSE_SETTINGS = 'BROWSE_SETTINGS';
@@ -31,8 +32,8 @@ export interface AppSettings {
   disableLoadingAnimations: boolean;
   /**
    * UI Scale factor for app-wide UI element sizing (padding, margins, icons, etc.)
-   * - Range: 0.2 (20% - extremely compact) to 1.5 (150% - very spacious)
-   * - Default: 0.8 (80% - comfortable, Material Design 3 adapted for mobile)
+   * - Range: 0.8 (80%) to 1.3 (130%) - Safe range prevents UX disasters
+   * - Default: 1.0 (100% - Material Design 3 baseline)
    * - Note: Does NOT affect chapter text size (use textSize for that)
    */
   uiScale: number;
@@ -378,11 +379,23 @@ export const useAppSettings = () => {
   const [appSettings = initialAppSettings, setSettings] =
     useMMKVObject<AppSettings>(APP_SETTINGS);
 
-  const setAppSettings = (values: Partial<AppSettings>) =>
-    setSettings({ ...appSettings, ...values });
+  // Clamp uiScale on load (migration for existing out-of-range values)
+  const clampedSettings = {
+    ...appSettings,
+    uiScale: clampUIScale(appSettings.uiScale),
+  };
+
+  const setAppSettings = (values: Partial<AppSettings>) => {
+    // Clamp uiScale on write
+    const valuesToSet = { ...values };
+    if (valuesToSet.uiScale !== undefined) {
+      valuesToSet.uiScale = clampUIScale(valuesToSet.uiScale);
+    }
+    setSettings({ ...clampedSettings, ...valuesToSet });
+  };
 
   return {
-    ...appSettings,
+    ...clampedSettings,
     setAppSettings,
   };
 };

@@ -43,10 +43,12 @@ jest.mock('../TTSAudioManager', () => ({
   setRefillInProgress: jest.fn(),
   isRefillInProgress: jest.fn().mockReturnValue(false),
   hasRemainingItems: jest.fn().mockReturnValue(false),
+  getState: jest.fn(),
 }));
 
 import TTSHighlight from '../TTSHighlight';
 import TTSAudioManager from '../TTSAudioManager';
+import { TTSState } from '../TTSState';
 
 describe('TTS Edge Cases - Section 12: Media Notification Controls', () => {
   const { NativeModules } = require('react-native');
@@ -350,7 +352,12 @@ describe('TTS Edge Cases - Section 12: Media Notification Controls', () => {
       let wakeTransitionInProgress = true;
 
       const mockSpeakBatch = TTSAudioManager.speakBatch as jest.Mock;
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
       mockSpeakBatch.mockResolvedValue(2);
+
+      // Before resume, state should be STARTING
+      mockGetState.mockReturnValue(TTSState.STARTING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.STARTING);
 
       // Simulate wake resume flow
       const wakeResumeFlow = async () => {
@@ -368,9 +375,11 @@ describe('TTS Edge Cases - Section 12: Media Notification Controls', () => {
 
       await wakeResumeFlow();
 
-      // After resume, flags should be released
+      // After resume, flags should be released and state should be PLAYING
+      mockGetState.mockReturnValue(TTSState.PLAYING);
       expect(suppressSaveOnScroll).toBe(false);
       expect(wakeTransitionInProgress).toBe(false);
+      expect(TTSAudioManager.getState()).toBe(TTSState.PLAYING);
     });
 
     it('should not release flags on fixed timer in production', async () => {

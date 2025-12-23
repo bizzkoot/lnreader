@@ -28,6 +28,13 @@ jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
 }));
+jest.mock('@utils/webviewSecurity', () => {
+  const actual = jest.requireActual('@utils/webviewSecurity');
+  return {
+    ...actual,
+    createMessageRateLimiter: () => () => true,
+  };
+});
 
 jest.mock('react-native-webview', () => {
   const React = require('react');

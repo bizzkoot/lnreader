@@ -40,14 +40,44 @@
   - Implementation: Schema v2 with manifest + typed sections + migration pipeline
   - Tests: Version detection, migration, type validation all tested
 
-- [ ] **Message format standardization:** Use a single canonical WebView message envelope and single parse.
+- [x] **Message format standardization:** Use a single canonical WebView message envelope and single parse. ✅ **COMPLETED 2025-12-23**
   - Evidence: [WEBVIEW_SECURITY_AUDIT.md](WEBVIEW_SECURITY_AUDIT.md)
+  - Implementation: Enhanced existing single-parse architecture with optional timestamp field
+  - Changes:
+    1. Added `ts?: number` field to `WebViewInboundMessage` type
+    2. Core.js attaches `Date.now()` timestamp to all messages
+    3. Parser validates timestamp (rejects <= 0, warns in dev)
+    4. Consolidated logging handler into main parse flow (removed duplicate parse)
+  - Tests: 5 new timestamp validation tests passing
+  - Files: [webviewSecurity.ts](../../../src/utils/webviewSecurity.ts), [WebViewReader.tsx](../../../src/screens/reader/components/WebViewReader.tsx), [core.js](../../../android/app/src/main/assets/js/core.js)
+  - Result: No double-parse patterns, single security-validated entry point
 
-- [ ] **TTSAudioManager state refactor:** Replace multiple booleans with explicit state enum + dev assertions.
+- [x] **TTSAudioManager state refactor:** Replace multiple booleans with explicit state enum + dev assertions. ✅ **COMPLETED 2025-12-23**
   - Evidence: [TTS_FEATURES_AUDIT.md](TTS_FEATURES_AUDIT.md)
+  - Implementation: Replaced 6 boolean flags with `TTSState` enum (IDLE, STARTING, PLAYING, REFILLING, STOPPING)
+  - Changes:
+    1. Created `TTSState.ts` with enum + `assertValidTransition()` validator
+    2. Replaced `isPlaying`, `restartInProgress`, `refillInProgress` with single `state` field
+    3. Added `transitionTo()` method with validation + dev logging
+    4. Updated all state checks throughout TTSAudioManager
+    5. Added backward-compat deprecated methods for external callers
+  - Tests: Updated 7 test suites, added 7 new state transition tests, all passing (618 tests)
+  - Files: [TTSState.ts](../../../src/services/TTSState.ts) (new), [TTSAudioManager.ts](../../../src/services/TTSAudioManager.ts), 7 test files
+  - Benefit: Eliminates race conditions, clearer lifecycle, easier to test and debug
 
-- [ ] **UI scale boundaries:** Clamp ranges and separate typography vs spacing scaling.
+- [x] **UI scale boundaries:** Clamp ranges and separate typography vs spacing scaling. ✅ **COMPLETED 2025-12-23**
   - Evidence: [UI_SCALE_AUDIT.md](UI_SCALE_AUDIT.md)
+  - Implementation: Clamped UI scale to safe range (0.8-1.3) to prevent UX disasters
+  - Changes:
+    1. Added `clampUIScale()` utility in scaling.ts (enforces 0.8-1.3 bounds)
+    2. Updated `scaleDimension()` to auto-clamp all scaling operations
+    3. Updated slider bounds in onboarding + settings (0.8-1.3)
+    4. Added clamping in `useAppSettings()` hook (read + write)
+    5. Updated default from 1.0, docs updated
+  - Tests: 4 new test suites (16 tests) validating clamping behavior, all passing
+  - Files: [scaling.ts](../../../src/theme/scaling.ts), [useSettings.ts](../../../src/hooks/persisted/useSettings.ts), [OnboardingScreen.tsx](../../../src/screens/onboarding/OnboardingScreen.tsx), [SettingsAppearanceScreen.tsx](../../../src/screens/settings/SettingsAppearanceScreen/SettingsAppearanceScreen.tsx)
+  - Prevents: Text illegibility (<80%), layout overflow (>130%), touch target failures
+  - Future: Option B (split textScale + layoutScale) deferred to separate feature work
 
 ## P2 (Nice to have)
 
