@@ -460,10 +460,12 @@ export function useTTSController(
       return;
     }
 
-    console.log(
-      'useTTSController: Background TTS pending for chapter',
-      chapter.id,
-    );
+    if (__DEV__) {
+      console.log(
+        'useTTSController: Background TTS pending for chapter',
+        chapter.id,
+      );
+    }
 
     // Clear the flag immediately
     backgroundTTSPendingRef.current = false;
@@ -473,15 +475,19 @@ export function useTTSController(
     // Mark as synced immediately so TTS events aren't blocked forever.
     // The Chapter Change Effect's timer won't fire because WebView onLoadEnd never triggers.
     isWebViewSyncedRef.current = true;
-    console.log(
-      'useTTSController: WebView marked as synced for background TTS (bypassing onLoadEnd)',
-    );
+    if (__DEV__) {
+      console.log(
+        'useTTSController: WebView marked as synced for background TTS (bypassing onLoadEnd)',
+      );
+    }
 
     // Extract paragraphs from HTML
     const paragraphs = extractParagraphs(html);
-    console.log(
-      `useTTSController: Extracted ${paragraphs.length} paragraphs for background TTS`,
-    );
+    if (__DEV__) {
+      console.log(
+        `useTTSController: Extracted ${paragraphs.length} paragraphs for background TTS`,
+      );
+    }
 
     if (paragraphs.length === 0) {
       console.warn('useTTSController: No paragraphs extracted from HTML');
@@ -493,9 +499,11 @@ export function useTTSController(
     const forceStartFromZero = forceStartFromParagraphZeroRef.current;
     if (forceStartFromZero) {
       forceStartFromParagraphZeroRef.current = false;
-      console.log(
-        'useTTSController: Forcing start from paragraph 0 due to notification chapter navigation',
-      );
+      if (__DEV__) {
+        console.log(
+          'useTTSController: Forcing start from paragraph 0 due to notification chapter navigation',
+        );
+      }
     }
 
     // Start from paragraph 0 if forced, otherwise use any previously known index
@@ -538,10 +546,12 @@ export function useTTSController(
         rate: readerSettingsRef.current.tts?.rate || 1,
       })
         .then(() => {
-          console.log(
-            'useTTSController: Background TTS batch started successfully from index',
-            startIndex,
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Background TTS batch started successfully from index',
+              startIndex,
+            );
+          }
           // CRITICAL: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
           isTTSReadingRef.current = true;
           isTTSPlayingRef.current = true;
@@ -567,10 +577,12 @@ export function useTTSController(
   useEffect(() => {
     const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
     if (pendingResumeId === chapter.id) {
-      console.log(
-        'useTTSController: Found pending resume flag for chapter',
-        chapter.id,
-      );
+      if (__DEV__) {
+        console.log(
+          'useTTSController: Found pending resume flag for chapter',
+          chapter.id,
+        );
+      }
       MMKVStorage.delete('pendingTTSResumeChapterId');
 
       // Force show resume dialog if saved progress exists
@@ -744,9 +756,11 @@ export function useTTSController(
         case 'speak':
           // Block speak requests during wake transition
           if (wakeTransitionInProgressRef.current) {
-            console.log(
-              'useTTSController: Ignoring speak request during wake transition',
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Ignoring speak request during wake transition',
+              );
+            }
             return true;
           }
 
@@ -789,9 +803,11 @@ export function useTTSController(
               paragraphIdx >= 0 &&
               paragraphIdx < paragraphs.length
             ) {
-              console.log(
-                `useTTSController: Starting Unified Batch from index ${paragraphIdx}`,
-              );
+              if (__DEV__) {
+                console.log(
+                  `useTTSController: Starting Unified Batch from index ${paragraphIdx}`,
+                );
+              }
 
               const remaining = paragraphs.slice(paragraphIdx);
               const ids = remaining.map(
@@ -948,9 +964,11 @@ export function useTTSController(
               timeSinceWakeResume < 500 &&
               wakeResumeGracePeriodRef.current > 0
             ) {
-              console.log(
-                `useTTSController: Ignoring tts-queue during wake grace period`,
-              );
+              if (__DEV__) {
+                console.log(
+                  `useTTSController: Ignoring tts-queue during wake grace period`,
+                );
+              }
               return true;
             }
 
@@ -960,15 +978,19 @@ export function useTTSController(
               ttsQueueRef.current &&
               ttsQueueRef.current.startIndex <= incomingStart
             ) {
-              console.log(`useTTSController: Ignoring redundant tts-queue`);
+              if (__DEV__) {
+                console.log(`useTTSController: Ignoring redundant tts-queue`);
+              }
               return true;
             }
 
             // Validate against current position
             if (currentIdx >= 0 && incomingStart < currentIdx) {
-              console.log(
-                `useTTSController: Ignoring stale tts-queue (starts at ${incomingStart}, currently at ${currentIdx})`,
-              );
+              if (__DEV__) {
+                console.log(
+                  `useTTSController: Ignoring stale tts-queue (starts at ${incomingStart}, currently at ${currentIdx})`,
+                );
+              }
               return true;
             }
 
@@ -978,9 +1000,11 @@ export function useTTSController(
               );
             }
 
-            console.log(
-              `useTTSController: Accepting tts-queue from ${incomingStart}`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: Accepting tts-queue from ${incomingStart}`,
+              );
+            }
             ttsQueueRef.current = {
               startIndex: event.startIndex,
               texts: event.data as string[],
@@ -996,9 +1020,11 @@ export function useTTSController(
                 (_, i) => `chapter_${chapter.id}_utterance_${startIndex + i}`,
               );
 
-              console.log(
-                `useTTSController: Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`,
-              );
+              if (__DEV__) {
+                console.log(
+                  `useTTSController: Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`,
+                );
+              }
 
               const addToBatchWithRetry = async (
                 texts: string[],
@@ -1008,7 +1034,9 @@ export function useTTSController(
                 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                   try {
                     await TTSHighlight.addToBatch(texts, ids);
-                    console.log('useTTSController: addToBatch succeeded');
+                    if (__DEV__) {
+                      console.log('useTTSController: addToBatch succeeded');
+                    }
                     return true;
                   } catch (err) {
                     console.error(
@@ -1152,11 +1180,13 @@ export function useTTSController(
         getChapterFromDb(savedWakeChapterId)
           .then(savedChapter => {
             if (savedChapter) {
-              console.log(
-                `useTTSController: Navigating to saved chapter: ${
-                  savedChapter?.name || savedWakeChapterId
-                }`,
-              );
+              if (__DEV__) {
+                console.log(
+                  `useTTSController: Navigating to saved chapter: ${
+                    savedChapter?.name || savedWakeChapterId
+                  }`,
+                );
+              }
               // Keep wake refs intact so we can resume after navigation
               // Set flag so we continue the sync process on next load
               pendingScreenWakeSyncRef.current = true;
@@ -1190,9 +1220,11 @@ export function useTTSController(
       // ===========================================================================
       // CHAPTER MATCH - PROCEED WITH WAKE RESUME
       // ===========================================================================
-      console.log(
-        'useTTSController: Chapter match verified, proceeding with wake resume',
-      );
+      if (__DEV__) {
+        console.log(
+          'useTTSController: Chapter match verified, proceeding with wake resume',
+        );
+      }
 
       // Hide sync dialog if it was showing
       if (dialogState.syncDialogVisible) {
@@ -1212,10 +1244,12 @@ export function useTTSController(
           savedWakeParagraphIdx !== null &&
           savedWakeParagraphIdx >= 0
         ) {
-          console.log(
-            'useTTSController: Resuming TTS after wake sync from paragraph',
-            savedWakeParagraphIdx,
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Resuming TTS after wake sync from paragraph',
+              savedWakeParagraphIdx,
+            );
+          }
 
           const paragraphs = extractParagraphs(html);
           if (paragraphs && paragraphs.length > savedWakeParagraphIdx) {
@@ -1239,7 +1273,9 @@ export function useTTSController(
               rate: readerSettingsRef.current.tts?.rate || 1,
             })
               .then(() => {
-                console.log('useTTSController: TTS resumed after wake sync');
+                if (__DEV__) {
+                  console.log('useTTSController: TTS resumed after wake sync');
+                }
                 isTTSReadingRef.current = true;
                 isTTSPlayingRef.current = true;
                 updateTtsMediaNotificationState(true);
@@ -1275,9 +1311,11 @@ export function useTTSController(
     // IMMEDIATELY to prevent the WebView from treating the upcoming scroll as user input.
     // This must happen BEFORE any other WebView JS processing.
     if (autoResumeAfterWakeRef.current && wasReadingBeforeWakeRef.current) {
-      console.log(
-        'useTTSController: onLoadEnd detected pending wake resume, injecting blocking flags',
-      );
+      if (__DEV__) {
+        console.log(
+          'useTTSController: onLoadEnd detected pending wake resume, injecting blocking flags',
+        );
+      }
       webViewRef.current?.injectJavaScript(`
         try {
           window.ttsScreenWakeSyncPending = true;
@@ -1418,17 +1456,21 @@ export function useTTSController(
       'onSpeechDone',
       () => {
         if (wakeTransitionInProgressRef.current) {
-          console.log(
-            'useTTSController: onSpeechDone ignored during wake transition',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: onSpeechDone ignored during wake transition',
+            );
+          }
           return;
         }
 
         // Skip if WebView is not synced (during chapter transition)
         if (!isWebViewSyncedRef.current) {
-          console.log(
-            'useTTSController: onSpeechDone skipped during WebView transition',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: onSpeechDone skipped during WebView transition',
+            );
+          }
           return;
         }
 
@@ -1439,16 +1481,20 @@ export function useTTSController(
             queueStartIndex + ttsQueueRef.current.texts.length;
 
           if (currentIdx < queueStartIndex) {
-            console.log(
-              `useTTSController: onSpeechDone - currentIdx ${currentIdx} < queueStart ${queueStartIndex}, ignoring event`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: onSpeechDone - currentIdx ${currentIdx} < queueStart ${queueStartIndex}, ignoring event`,
+              );
+            }
             return;
           }
 
           if (currentIdx >= queueEndIndex) {
-            console.log(
-              `useTTSController: onSpeechDone - currentIdx ${currentIdx} >= queueEnd ${queueEndIndex}, deferring to WebView`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: onSpeechDone - currentIdx ${currentIdx} >= queueEnd ${queueEndIndex}, deferring to WebView`,
+              );
+            }
             webViewRef.current?.injectJavaScript('tts.next?.()');
             return;
           }
@@ -1457,11 +1503,13 @@ export function useTTSController(
 
           if (nextIndex >= queueStartIndex && nextIndex < queueEndIndex) {
             const text = ttsQueueRef.current.texts[nextIndex - queueStartIndex];
-            console.log(
-              'useTTSController: Playing from queue. Index:',
-              nextIndex,
-              `(queue: ${queueStartIndex}-${queueEndIndex - 1})`,
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Playing from queue. Index:',
+                nextIndex,
+                `(queue: ${queueStartIndex}-${queueEndIndex - 1})`,
+              );
+            }
 
             if (nextIndex <= currentParagraphIndexRef.current) {
               console.warn(
@@ -1493,14 +1541,18 @@ export function useTTSController(
               const sourceChapterId = mediaNavSourceChapterIdRef.current;
               const direction = mediaNavDirectionRef.current;
               if (direction === 'NEXT') {
-                console.log(
-                  `useTTSController: 5 paragraphs reached after NEXT, marking chapter ${sourceChapterId} as 100%`,
-                );
+                if (__DEV__) {
+                  console.log(
+                    `useTTSController: 5 paragraphs reached after NEXT, marking chapter ${sourceChapterId} as 100%`,
+                  );
+                }
                 updateChapterProgressDb(sourceChapterId, 100);
               } else if (direction === 'PREV') {
-                console.log(
-                  `useTTSController: 5 paragraphs reached after PREV, marking chapter ${sourceChapterId} as in-progress`,
-                );
+                if (__DEV__) {
+                  console.log(
+                    `useTTSController: 5 paragraphs reached after PREV, marking chapter ${sourceChapterId} as in-progress`,
+                  );
+                }
                 try {
                   updateChapterProgressDb(sourceChapterId, 1);
                 } catch (e) {
@@ -1576,9 +1628,11 @@ export function useTTSController(
             if (eventChapterId !== currentChapterId) {
               const now = Date.now();
               if (now - lastStaleLogTimeRef.current > 500) {
-                console.log(
-                  `useTTSController: [STALE] onWordRange chapter ${eventChapterId} != ${currentChapterId}`,
-                );
+                if (__DEV__) {
+                  console.log(
+                    `useTTSController: [STALE] onWordRange chapter ${eventChapterId} != ${currentChapterId}`,
+                  );
+                }
                 lastStaleLogTimeRef.current = now;
               }
               return;
@@ -1623,9 +1677,11 @@ export function useTTSController(
       event => {
         try {
           if (wakeTransitionInProgressRef.current) {
-            console.log(
-              'useTTSController: Ignoring onSpeechStart during wake transition',
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Ignoring onSpeechStart during wake transition',
+              );
+            }
             return;
           }
 
@@ -1644,9 +1700,11 @@ export function useTTSController(
               if (eventChapterId !== currentChapterId) {
                 const now = Date.now();
                 if (now - lastStaleLogTimeRef.current > 500) {
-                  console.log(
-                    `useTTSController: [STALE] onSpeechStart chapter ${eventChapterId} != ${currentChapterId}`,
-                  );
+                  if (__DEV__) {
+                    console.log(
+                      `useTTSController: [STALE] onSpeechStart chapter ${eventChapterId} != ${currentChapterId}`,
+                    );
+                  }
                   lastStaleLogTimeRef.current = now;
                 }
                 return;
@@ -1660,9 +1718,11 @@ export function useTTSController(
 
           // Skip if WebView is not synced (during chapter transition)
           if (!isWebViewSyncedRef.current) {
-            console.log(
-              `useTTSController: Skipping onSpeechStart during WebView transition`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: Skipping onSpeechStart during WebView transition`,
+              );
+            }
             return;
           }
 
@@ -1692,9 +1752,11 @@ export function useTTSController(
           }
 
           if (!isWebViewSyncedRef.current && paragraphIndex % 10 === 0) {
-            console.log(
-              `useTTSController: Background TTS progress - paragraph ${paragraphIndex}`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: Background TTS progress - paragraph ${paragraphIndex}`,
+              );
+            }
           }
         } catch (e) {
           console.warn('useTTSController: onSpeechStart handler error', e);
@@ -1707,14 +1769,18 @@ export function useTTSController(
       'onMediaAction',
       async event => {
         const action = String(event?.action || '');
-        console.log(`useTTSController: onMediaAction received -> ${action}`);
+        if (__DEV__) {
+          console.log(`useTTSController: onMediaAction received -> ${action}`);
+        }
 
         const now = Date.now();
         if (
           now - lastMediaActionTimeRef.current <
           TTS_CONSTANTS.MEDIA_ACTION_DEBOUNCE_MS
         ) {
-          console.log(`useTTSController: Media action debounced`);
+          if (__DEV__) {
+            console.log(`useTTSController: Media action debounced`);
+          }
           return;
         }
         lastMediaActionTimeRef.current = now;
@@ -1729,9 +1795,11 @@ export function useTTSController(
               if (idx >= 0 && total > 0) {
                 const percentage = Math.round(((idx + 1) / total) * 100);
                 saveProgressRef.current(percentage, idx);
-                console.log(
-                  `useTTSController: Saved progress before pause (paragraph ${idx}/${total}, ${percentage}%)`,
-                );
+                if (__DEV__) {
+                  console.log(
+                    `useTTSController: Saved progress before pause (paragraph ${idx}/${total}, ${percentage}%)`,
+                  );
+                }
               }
 
               webViewRef.current?.injectJavaScript(`
@@ -1779,9 +1847,11 @@ export function useTTSController(
           if (action === TTS_MEDIA_ACTIONS.SEEK_BACK) {
             const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
             const target = Math.max(0, idx - 5);
-            console.log(
-              `useTTSController: SEEK_BACK (current=${idx}) -> restarting from ${target}`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: SEEK_BACK (current=${idx}) -> restarting from ${target}`,
+              );
+            }
 
             try {
               await restartTtsFromParagraphIndex(target);
@@ -1810,9 +1880,11 @@ export function useTTSController(
               return;
             }
 
-            console.log(
-              `useTTSController: PREV_CHAPTER - navigating to chapter ${prevChapter.id}`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: PREV_CHAPTER - navigating to chapter ${prevChapter.id}`,
+              );
+            }
 
             // Mark WebView as unsynced BEFORE navigation
             isWebViewSyncedRef.current = false;
@@ -1872,9 +1944,11 @@ export function useTTSController(
               return;
             }
 
-            console.log(
-              `useTTSController: NEXT_CHAPTER - navigating to chapter ${nextChapter.id}`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: NEXT_CHAPTER - navigating to chapter ${nextChapter.id}`,
+              );
+            }
 
             // Mark WebView as unsynced BEFORE navigation
             isWebViewSyncedRef.current = false;
@@ -1935,26 +2009,34 @@ export function useTTSController(
     const queueEmptySubscription = TTSHighlight.addListener(
       'onQueueEmpty',
       async () => {
-        console.log('useTTSController: onQueueEmpty event received');
+        if (__DEV__) {
+          console.log('useTTSController: onQueueEmpty event received');
+        }
 
         if (TTSHighlight.isRestartInProgress()) {
-          console.log(
-            'useTTSController: Queue empty ignored - restart in progress',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Queue empty ignored - restart in progress',
+            );
+          }
           return;
         }
 
         if (TTSHighlight.isRefillInProgress()) {
-          console.log(
-            'useTTSController: Queue empty ignored - refill in progress',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Queue empty ignored - refill in progress',
+            );
+          }
           return;
         }
 
         if (TTSHighlight.hasRemainingItems()) {
-          console.log(
-            'useTTSController: Queue empty ignored - TTSAudioManager still has items',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Queue empty ignored - TTSAudioManager still has items',
+            );
+          }
           return;
         }
 
@@ -1971,23 +2053,29 @@ export function useTTSController(
         }
 
         if (!isTTSReadingRef.current) {
-          console.log(
-            'useTTSController: Queue empty but TTS was not reading, ignoring',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Queue empty but TTS was not reading, ignoring',
+            );
+          }
           return;
         }
 
         const continueMode =
           chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
-        console.log(
-          'useTTSController: Queue empty - continueMode:',
-          continueMode,
-        );
+        if (__DEV__) {
+          console.log(
+            'useTTSController: Queue empty - continueMode:',
+            continueMode,
+          );
+        }
 
         if (continueMode === 'none') {
-          console.log(
-            'useTTSController: ttsContinueToNextChapter is "none", stopping',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: ttsContinueToNextChapter is "none", stopping',
+            );
+          }
           isTTSReadingRef.current = false;
           isTTSPlayingRef.current = false;
           return;
@@ -1996,9 +2084,11 @@ export function useTTSController(
         if (continueMode !== 'continuous') {
           const limit = parseInt(continueMode, 10);
           if (chaptersAutoPlayedRef.current >= limit) {
-            console.log(
-              `useTTSController: Chapter limit (${limit}) reached, stopping`,
-            );
+            if (__DEV__) {
+              console.log(
+                `useTTSController: Chapter limit (${limit}) reached, stopping`,
+              );
+            }
             chaptersAutoPlayedRef.current = 0;
             isTTSReadingRef.current = false;
             isTTSPlayingRef.current = false;
@@ -2014,9 +2104,11 @@ export function useTTSController(
           const isDownloaded = NativeFile.exists(filePath);
 
           if (!isDownloaded) {
-            console.log(
-              'useTTSController: Next chapter not downloaded, waiting...',
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Next chapter not downloaded, waiting...',
+              );
+            }
             showToastMessage(
               getString('readerScreen.tts.downloadingNextChapter'),
             );
@@ -2046,9 +2138,11 @@ export function useTTSController(
             }
 
             if (!downloaded) {
-              console.log(
-                'useTTSController: Download timeout for next chapter',
-              );
+              if (__DEV__) {
+                console.log(
+                  'useTTSController: Download timeout for next chapter',
+                );
+              }
               showToastMessage(getString('readerScreen.tts.downloadTimeout'));
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
@@ -2063,13 +2157,17 @@ export function useTTSController(
               return;
             }
 
-            console.log('useTTSController: Next chapter download complete');
+            if (__DEV__) {
+              console.log('useTTSController: Next chapter download complete');
+            }
             showToastMessage(getString('readerScreen.tts.downloadComplete'));
           }
 
-          console.log(
-            'useTTSController: Navigating to next chapter via onQueueEmpty',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: Navigating to next chapter via onQueueEmpty',
+            );
+          }
 
           saveProgressRef.current(100);
 
@@ -2082,9 +2180,11 @@ export function useTTSController(
           nextChapterScreenVisibleRef.current = true;
           navigateChapterRef.current('NEXT');
         } else {
-          console.log(
-            'useTTSController: No next chapter available - novel reading complete',
-          );
+          if (__DEV__) {
+            console.log(
+              'useTTSController: No next chapter available - novel reading complete',
+            );
+          }
           isTTSReadingRef.current = false;
           isTTSPlayingRef.current = false;
           showToastMessage('Novel reading complete!');
@@ -2096,7 +2196,9 @@ export function useTTSController(
     const voiceFallbackSubscription = TTSHighlight.addListener(
       'onVoiceFallback',
       event => {
-        console.log('useTTSController: Voice fallback occurred', event);
+        if (__DEV__) {
+          console.log('useTTSController: Voice fallback occurred', event);
+        }
         const originalVoice = event?.originalVoice || 'selected voice';
         const fallbackVoice = event?.fallbackVoice || 'system default';
         showToastMessage(
@@ -2117,9 +2219,11 @@ export function useTTSController(
           // auto-dismiss it. TTS continues playing in background - we just need
           // to clear the dialog state so it doesn't persist across wake cycles.
           if (manualModeDialogVisibleRef.current) {
-            console.log(
-              'useTTSController: Auto-dismissing Manual Mode Dialog on background',
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Auto-dismissing Manual Mode Dialog on background',
+              );
+            }
 
             // Clear dialog state in React
             dialogState.hideManualModeDialog();
@@ -2137,10 +2241,12 @@ export function useTTSController(
           }
 
           if (ttsStateRef.current) {
-            console.log(
-              'useTTSController: Saving TTS state on background',
-              ttsStateRef.current,
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Saving TTS state on background',
+                ttsStateRef.current,
+              );
+            }
             saveProgressRef.current(
               progressRef.current ?? 0,
               undefined,
@@ -2152,9 +2258,11 @@ export function useTTSController(
           }
 
           if (!chapterGeneralSettingsRef.current.ttsBackgroundPlayback) {
-            console.log(
-              'useTTSController: Stopping TTS (Background Playback Disabled)',
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Stopping TTS (Background Playback Disabled)',
+              );
+            }
             TTSHighlight.stop();
             isTTSReadingRef.current = false;
           }
@@ -2185,12 +2293,14 @@ export function useTTSController(
             // Increment session to help detect stale operations
             ttsSessionRef.current += 1;
 
-            console.log(
-              'useTTSController: Screen wake detected, capturing paragraph index:',
-              capturedParagraphIndex,
-              'session:',
-              ttsSessionRef.current,
-            );
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Screen wake detected, capturing paragraph index:',
+                capturedParagraphIndex,
+                'session:',
+                ttsSessionRef.current,
+              );
+            }
 
             // BUG FIX: Immediately set screen wake sync flag to block all scroll saves
             // This must happen FIRST before any other processing
@@ -2214,9 +2324,11 @@ export function useTTSController(
 
               TTSHighlight.pause()
                 .then(() => {
-                  console.log(
-                    'useTTSController: Paused native TTS on wake for UI sync',
-                  );
+                  if (__DEV__) {
+                    console.log(
+                      'useTTSController: Paused native TTS on wake for UI sync',
+                    );
+                  }
                 })
                 .catch(e => {
                   console.warn(
@@ -2235,15 +2347,14 @@ export function useTTSController(
               );
             }
 
-            console.log(
-              'useTTSController: Screen woke during TTS, syncing to paragraph',
-              capturedParagraphIndex,
-              'WebView synced:',
-              isWebViewSyncedRef.current,
-            );
-
-            // =====================================================================
-            // Check if WebView is synced with current chapter
+            if (__DEV__) {
+              console.log(
+                'useTTSController: Screen woke during TTS, syncing to paragraph',
+                capturedParagraphIndex,
+                'WebView synced:',
+                isWebViewSyncedRef.current,
+              );
+            }
             // =====================================================================
             if (!isWebViewSyncedRef.current) {
               // CRITICAL FIX: WebView has old chapter's HTML and TTS may have advanced
@@ -2257,10 +2368,12 @@ export function useTTSController(
                 capturedWakeParagraphIndexRef.current ??
                 currentParagraphIndexRef.current;
 
-              console.log(
-                'useTTSController: WebView out of sync - STOPPING TTS and saving position:',
-                `Chapter ${wakeChapterId}, Paragraph ${wakeParagraphIdx}`,
-              );
+              if (__DEV__) {
+                console.log(
+                  'useTTSController: WebView out of sync - STOPPING TTS and saving position:',
+                  `Chapter ${wakeChapterId}, Paragraph ${wakeParagraphIdx}`,
+                );
+              }
 
               // Save wake position for verification on reload
               wakeChapterIdRef.current = wakeChapterId;
@@ -2273,9 +2386,11 @@ export function useTTSController(
 
               TTSHighlight.stop()
                 .then(() => {
-                  console.log(
-                    'useTTSController: TTS stopped on wake (out-of-sync) for safe resume',
-                  );
+                  if (__DEV__) {
+                    console.log(
+                      'useTTSController: TTS stopped on wake (out-of-sync) for safe resume',
+                    );
+                  }
                 })
                 .catch(e => {
                   console.warn(
@@ -2313,17 +2428,25 @@ export function useTTSController(
                 let syncIndex: number;
                 if (capturedIndex !== null && capturedIndex >= 0) {
                   syncIndex = capturedIndex;
-                  console.log(
-                    `useTTSController: Using captured wake index: ${capturedIndex}`,
-                  );
+                  if (__DEV__) {
+                    console.log(
+                      `useTTSController: Using captured wake index: ${capturedIndex}`,
+                    );
+                  }
                 } else if (mmkvIndex >= 0) {
                   syncIndex = mmkvIndex;
-                  console.log(
-                    `useTTSController: Using MMKV index: ${mmkvIndex}`,
-                  );
+                  if (__DEV__) {
+                    console.log(
+                      `useTTSController: Using MMKV index: ${mmkvIndex}`,
+                    );
+                  }
                 } else {
                   syncIndex = refIndex;
-                  console.log(`useTTSController: Using ref index: ${refIndex}`);
+                  if (__DEV__) {
+                    console.log(
+                      `useTTSController: Using ref index: ${refIndex}`,
+                    );
+                  }
                 }
 
                 // Update refs to match the chosen sync index
@@ -2427,10 +2550,12 @@ export function useTTSController(
                             rate: readerSettingsRef.current.tts?.rate || 1,
                           })
                             .then(() => {
-                              console.log(
-                                'useTTSController: Resumed TTS after wake from index',
-                                idx,
-                              );
+                              if (__DEV__) {
+                                console.log(
+                                  'useTTSController: Resumed TTS after wake from index',
+                                  idx,
+                                );
+                              }
                               isTTSReadingRef.current = true;
                               isTTSPlayingRef.current = true;
                               // Set grace period to ignore stale WebView queue messages
@@ -2474,10 +2599,12 @@ export function useTTSController(
       appStateSubscription.remove();
       TTSHighlight.stop();
       if (ttsStateRef.current) {
-        console.log(
-          'useTTSController: Saving TTS state on unmount',
-          ttsStateRef.current,
-        );
+        if (__DEV__) {
+          console.log(
+            'useTTSController: Saving TTS state on unmount',
+            ttsStateRef.current,
+          );
+        }
         saveProgressOnUnmount(
           getProgressOnUnmount(),
           undefined,

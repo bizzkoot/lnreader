@@ -4,6 +4,9 @@ const ReactCompilerConfig = {
 
 export default function (api) {
   api.cache(true);
+
+  const isProduction = process.env.NODE_ENV === 'production';
+
   return {
     presets: ['module:@react-native/babel-preset'],
     plugins: [
@@ -40,6 +43,13 @@ export default function (api) {
           path: '.env',
         },
       ],
-    ],
+      // Remove console logs in production builds
+      isProduction && [
+        'transform-remove-console',
+        {
+          exclude: ['error', 'warn'],
+        },
+      ],
+    ].filter(Boolean),
   };
 }

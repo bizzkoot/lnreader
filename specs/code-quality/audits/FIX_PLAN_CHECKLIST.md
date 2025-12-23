@@ -25,9 +25,15 @@
 
 ## P1 (Should fix)
 
-- [ ] **Remove production console logs** from hot paths (WebView message handler, scroll loops, save handler).
+- [x] **Remove production console logs** from hot paths (WebView message handler, scroll loops, save handler). ✅ **COMPLETED 2025-12-23**
   - Evidence: [CONTINUOUS_SCROLL_AUDIT.md](CONTINUOUS_SCROLL_AUDIT.md), [TTS_FEATURES_AUDIT.md](TTS_FEATURES_AUDIT.md)
-  - Acceptance: logs gated behind `__DEV__` or info-level logger disabled in release.
+  - Implementation: Comprehensive approach with 3 layers of protection:
+    1. **Babel plugin**: `babel-plugin-transform-remove-console` removes console.log from production builds (excludes warn/error)
+    2. **React Native files**: Wrapped ~95 console.log statements with `if (__DEV__)` guards in WebViewReader.tsx and useTTSController.ts
+    3. **WebView JavaScript**: Wrapped 119 console.log statements with `if (DEBUG)` checks in core.js
+  - Preserved: All console.warn and console.error statements remain unwrapped for production debugging
+  - Files: [babel.config.js](../../../babel.config.js), [WebViewReader.tsx](../../../src/screens/reader/components/WebViewReader.tsx), [useTTSController.ts](../../../src/screens/reader/hooks/useTTSController.ts), [core.js](../../../android/app/src/main/assets/js/core.js)
+  - Validation: Type-check PASS, Lint PASS (0 errors)
 
 - [x] **Backup schema/versioning:** Add `backupVersion` and ignore unknown keys (prefer allowlist by prefix). ✅ **COMPLETED 2025-12-23**
   - Evidence: [BACKUP_AUDIT.md](BACKUP_AUDIT.md)

@@ -2,7 +2,9 @@
 window.reader = new (function () {
   // Unique ID to track reader object instances
   this._readerId = 'reader_' + Date.now() + '_' + Math.random();
-  console.log('[Reader] Created new reader instance:', this._readerId);
+  if (DEBUG) {
+    console.log('[Reader] Created new reader instance:', this._readerId);
+  }
 
   const {
     readerSettings,
@@ -204,21 +206,27 @@ window.reader = new (function () {
   // DOM Stitching: Load and append next chapter to DOM
   this.loadAndAppendNextChapter = function () {
     if (this.pendingChapterFetch) {
-      console.log('Reader: Already fetching chapter, skipping');
+      if (DEBUG) {
+        console.log('Reader: Already fetching chapter, skipping');
+      }
       return;
     }
 
     if (!this.nextChapter) {
-      console.log('Reader: No next chapter available');
+      if (DEBUG) {
+        console.log('Reader: No next chapter available');
+      }
       this.isNavigating = false;
       return;
     }
 
     // Check if next chapter is already loaded (prevent duplicates)
     if (this.loadedChapters.includes(this.nextChapter.id)) {
-      console.log(
-        `Reader: Chapter ${this.nextChapter.id} already loaded, skipping`,
-      );
+      if (DEBUG) {
+        console.log(
+          `Reader: Chapter ${this.nextChapter.id} already loaded, skipping`,
+        );
+      }
       this.isNavigating = false;
       return;
     }
@@ -288,20 +296,24 @@ window.reader = new (function () {
     contentDiv.className = 'stitched-chapter-content';
 
     // INVESTIGATION: Debug stitched chapter enhancement
-    console.log('[STITCHED] Method called!');
-    console.log('[STITCHED] chapterData type:', typeof chapterData);
-    console.log('[STITCHED] chapterData:', chapterData);
-    console.log(
-      '[STITCHED] enhanceChapterTitles exists:',
-      typeof this.enhanceChapterTitles,
-    );
+    if (DEBUG) {
+      console.log('[STITCHED] Method called!');
+      console.log('[STITCHED] chapterData type:', typeof chapterData);
+      console.log('[STITCHED] chapterData:', chapterData);
+      console.log(
+        '[STITCHED] enhanceChapterTitles exists:',
+        typeof this.enhanceChapterTitles,
+      );
+    }
 
     // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
     // Check if chapter has a title in chapterData, enhance if needed
-    console.log(
-      '[ENHANCE] Stitched chapter enhancement - checking data:',
-      typeof chapterData,
-    );
+    if (DEBUG) {
+      console.log(
+        '[ENHANCE] Stitched chapter enhancement - checking data:',
+        typeof chapterData,
+      );
+    }
 
     let chapterTitle = '';
     if (typeof chapterData === 'object' && chapterData.name) {
@@ -312,17 +324,23 @@ window.reader = new (function () {
       chapterTitle = `Chapter ${chapterData.id || 'Unknown'}`;
     }
 
-    console.log('[ENHANCE] Stitched chapter - using title:', chapterTitle);
+    if (DEBUG) {
+      console.log('[ENHANCE] Stitched chapter - using title:', chapterTitle);
+    }
     if (chapterTitle) {
       chapterHtml = this.enhanceChapterTitles(chapterHtml, chapterTitle);
-      console.log(
-        '[STITCHED] Stitched enhancement completed. New HTML length:',
-        chapterHtml.length,
-      );
+      if (DEBUG) {
+        console.log(
+          '[STITCHED] Stitched enhancement completed. New HTML length:',
+          chapterHtml.length,
+        );
+      }
     } else {
-      console.log(
-        '[ENHANCE] Stitched chapter - no title available, skipping enhancement',
-      );
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Stitched chapter - no title available, skipping enhancement',
+        );
+      }
     }
 
     contentDiv.innerHTML = chapterHtml;
@@ -360,15 +378,17 @@ window.reader = new (function () {
     const newChapterStart = allElements.length - chapterElementCount;
     const newChapterEnd = allElements.length - 1;
 
-    console.log(
-      `[receiveChapterContent] BOUNDARY DEBUG - ` +
-        `Chapter: ${chapterId}, ` +
-        `Total elements: ${allElements.length}, ` +
-        `Chapter elements: ${chapterElementCount}, ` +
-        `Calculated start: ${newChapterStart}, ` +
-        `Calculated end: ${newChapterEnd}, ` +
-        `Count: ${newChapterEnd - newChapterStart + 1}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `[receiveChapterContent] BOUNDARY DEBUG - ` +
+          `Chapter: ${chapterId}, ` +
+          `Total elements: ${allElements.length}, ` +
+          `Chapter elements: ${chapterElementCount}, ` +
+          `Calculated start: ${newChapterStart}, ` +
+          `Calculated end: ${newChapterEnd}, ` +
+          `Count: ${newChapterEnd - newChapterStart + 1}`,
+      );
+    }
 
     this.chapterBoundaries.push({
       chapterId: chapterId,
@@ -379,9 +399,11 @@ window.reader = new (function () {
 
     // Update tracking
     this.loadedChapters.push(chapterId);
-    console.log(
-      `[receiveChapterContent] ReaderId=${this._readerId}, After push: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}, hasPerformedInitialScroll = ${this.hasPerformedInitialScroll}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `[receiveChapterContent] ReaderId=${this._readerId}, After push: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}, hasPerformedInitialScroll = ${this.hasPerformedInitialScroll}`,
+      );
+    }
 
     // Update chapter reference for future navigation
     // Note: React Native side needs to update nextChapter/prevChapter
@@ -396,22 +418,28 @@ window.reader = new (function () {
 
     // Refresh layout calculations
     this.refresh();
-    console.log(
-      `[receiveChapterContent] Before invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `[receiveChapterContent] Before invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+      );
+    }
     this.invalidateCache();
-    console.log(
-      `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+      );
+    }
 
     // Reset navigation flag after delay
     setTimeout(() => {
       this.isNavigating = false;
     }, 500);
 
-    console.log(
-      `Reader: Appended chapter ${chapterName} (total loaded: ${this.loadedChapters.length})`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Reader: Appended chapter ${chapterName} (total loaded: ${this.loadedChapters.length})`,
+      );
+    }
   };
 
   // DOM Stitching: Show chapter badge for stitched mode
@@ -440,9 +468,11 @@ window.reader = new (function () {
       return false; // Nothing to clear
     }
 
-    console.log(
-      `Reader: Clearing ${this.loadedChapters.length - 1} stitched chapters for TTS`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Reader: Clearing ${this.loadedChapters.length - 1} stitched chapters for TTS`,
+      );
+    }
 
     // CRITICAL FIX: Find which chapter is currently visible
     const readableElements = this.getReadableElements();
@@ -487,9 +517,11 @@ window.reader = new (function () {
               chapterEl.getAttribute('data-chapter-name') || this.chapter.name;
           }
 
-          console.log(
-            `Reader: Visible chapter is ${visibleChapterName} (ID: ${visibleChapterId}, index: ${i})`,
-          );
+          if (DEBUG) {
+            console.log(
+              `Reader: Visible chapter is ${visibleChapterName} (ID: ${visibleChapterId}, index: ${i})`,
+            );
+          }
           break;
         }
       }
@@ -506,19 +538,23 @@ window.reader = new (function () {
     const allStitchedElements =
       this.chapterElement.querySelectorAll('.stitched-chapter');
 
-    console.log(
-      `Reader: Found ${allStitchedElements.length} stitched chapter elements`,
-    );
-    console.log(
-      `Reader: Visible chapter is at boundary index ${visibleChapterIndex} (ID: ${visibleChapterId})`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Reader: Found ${allStitchedElements.length} stitched chapter elements`,
+      );
+      console.log(
+        `Reader: Visible chapter is at boundary index ${visibleChapterIndex} (ID: ${visibleChapterId})`,
+      );
+    }
 
     if (visibleChapterIndex === 0) {
       // Visible chapter is the ORIGINAL chapter (not stitched)
       // Remove all stitched elements (Chapter 3, 4, etc.)
-      console.log(
-        'Reader: Visible chapter is original, removing all stitched chapters',
-      );
+      if (DEBUG) {
+        console.log(
+          'Reader: Visible chapter is original, removing all stitched chapters',
+        );
+      }
       allStitchedElements.forEach(el => el.remove());
       this.loadedChapters = [this.chapter.id];
 
@@ -586,9 +622,11 @@ window.reader = new (function () {
           name: visibleChapterName,
         };
 
-        console.log(
-          `Reader: Updated chapter context immediately - ID: ${visibleChapterId}, Name: ${visibleChapterName}`,
-        );
+        if (DEBUG) {
+          console.log(
+            `Reader: Updated chapter context immediately - ID: ${visibleChapterId}, Name: ${visibleChapterName}`,
+          );
+        }
       }
     }
 
@@ -610,9 +648,11 @@ window.reader = new (function () {
       },
     });
 
-    console.log(
-      `Reader: Stitched chapters cleared, DOM reset to single chapter (${visibleChapterName})`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Reader: Stitched chapters cleared, DOM reset to single chapter (${visibleChapterName})`,
+      );
+    }
 
     // AUTO-RESTART TTS: If TTS was paused and user chose to resume after clear
     if (this.ttsRestartPending && this.ttsRestartTargetChapterId !== null) {
@@ -626,9 +666,11 @@ window.reader = new (function () {
       this.ttsRestartParagraphInChapter = null;
       this.ttsRestartAfterClear = false;
 
-      console.log(
-        `Reader: Auto-restart pending for chapter ${targetChapterId}, paragraph ${targetParagraphInChapter}, resume: ${shouldResume}`,
-      );
+      if (DEBUG) {
+        console.log(
+          `Reader: Auto-restart pending for chapter ${targetChapterId}, paragraph ${targetParagraphInChapter}, resume: ${shouldResume}`,
+        );
+      }
 
       // Verify we cleared to the correct chapter
       if (visibleChapterId !== targetChapterId) {
@@ -641,9 +683,11 @@ window.reader = new (function () {
       // Wait for DOM to stabilize after clear
       setTimeout(() => {
         const readableElements = this.getReadableElements();
-        console.log(
-          `Reader: Auto-restart executing - ${readableElements.length} paragraphs available`,
-        );
+        if (DEBUG) {
+          console.log(
+            `Reader: Auto-restart executing - ${readableElements.length} paragraphs available`,
+          );
+        }
 
         if (
           targetParagraphInChapter >= 0 &&
@@ -655,12 +699,18 @@ window.reader = new (function () {
 
             // Only resume if flag was set AND TTS is not already reading
             if (shouldResume && !window.tts.reading) {
-              console.log(
-                `Reader: Auto-resuming TTS at paragraph ${targetParagraphInChapter}`,
-              );
+              if (DEBUG) {
+                console.log(
+                  `Reader: Auto-resuming TTS at paragraph ${targetParagraphInChapter}`,
+                );
+              }
               window.tts.resume(true); // forceResume=true to skip scroll check
             } else if (shouldResume && window.tts.reading) {
-              console.log('Reader: TTS already reading, skipping resume call');
+              if (DEBUG) {
+                console.log(
+                  'Reader: TTS already reading, skipping resume call',
+                );
+              }
             }
           }
         } else {
@@ -691,9 +741,11 @@ window.reader = new (function () {
     this.ttsRestartTargetChapterId = targetChapterId;
     this.ttsRestartParagraphInChapter = paragraphInChapter;
     this.ttsRestartAfterClear = shouldResume;
-    console.log(
-      `Reader: TTS restart intent stored - chapter ${targetChapterId}, paragraph ${paragraphInChapter}, resume: ${shouldResume}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Reader: TTS restart intent stored - chapter ${targetChapterId}, paragraph ${paragraphInChapter}, resume: ${shouldResume}`,
+      );
+    }
   };
 
   /**
@@ -704,7 +756,9 @@ window.reader = new (function () {
     this.ttsRestartTargetChapterId = null;
     this.ttsRestartParagraphInChapter = null;
     this.ttsRestartAfterClear = false;
-    console.log('Reader: TTS restart intent cleared');
+    if (DEBUG) {
+      console.log('Reader: TTS restart intent cleared');
+    }
   };
 
   /**
@@ -772,9 +826,11 @@ window.reader = new (function () {
           ? chapterEl.getAttribute('data-chapter-name') || this.chapter.name
           : this.chapter.name;
 
-        console.log(
-          `Reader: Paragraph ${globalParagraphIndex} → Chapter ${boundary.chapterId} (${chapterName}), Local Index ${localIndex}`,
-        );
+        if (DEBUG) {
+          console.log(
+            `Reader: Paragraph ${globalParagraphIndex} → Chapter ${boundary.chapterId} (${chapterName}), Local Index ${localIndex}`,
+          );
+        }
 
         return {
           chapterId: boundary.chapterId,
@@ -796,7 +852,9 @@ window.reader = new (function () {
       return false; // Only one chapter, nothing to trim
     }
 
-    console.log('Reader: Trimming previous chapter from DOM');
+    if (DEBUG) {
+      console.log('Reader: Trimming previous chapter from DOM');
+    }
 
     // SCROLL POSITION PRESERVATION: Find a reference element that will remain after trim
     // We use the first visible paragraph in the CURRENT chapter (the one that stays)
@@ -822,9 +880,11 @@ window.reader = new (function () {
           // Found a visible element in the remaining chapter
           referenceElement = el;
           referenceOffsetFromTop = rect.top;
-          console.log(
-            `Reader: Scroll lock - Reference element at index ${i}, offset ${referenceOffsetFromTop.toFixed(1)}px from top`,
-          );
+          if (DEBUG) {
+            console.log(
+              `Reader: Scroll lock - Reference element at index ${i}, offset ${referenceOffsetFromTop.toFixed(1)}px from top`,
+            );
+          }
           break;
         }
       }
@@ -844,17 +904,21 @@ window.reader = new (function () {
     // Determine what to remove based on what exists
     if (originalElements.length > 0) {
       // Original chapter content exists - remove it
-      console.log(
-        `Reader: Removing ${originalElements.length} original chapter element(s)`,
-      );
+      if (DEBUG) {
+        console.log(
+          `Reader: Removing ${originalElements.length} original chapter element(s)`,
+        );
+      }
       originalElements.forEach(el => el.remove());
     } else if (stitchedChapters.length > 0) {
       // No original content, remove the first stitched chapter
       const firstStitched = stitchedChapters[0];
       const removedId = firstStitched.getAttribute('data-chapter-id');
-      console.log(
-        `Reader: Removing first stitched chapter element (ID: ${removedId})`,
-      );
+      if (DEBUG) {
+        console.log(
+          `Reader: Removing first stitched chapter element (ID: ${removedId})`,
+        );
+      }
       firstStitched.remove();
     } else {
       console.warn('Reader: No content found to trim');
@@ -884,11 +948,17 @@ window.reader = new (function () {
       if (Math.abs(scrollAdjustment) > 5) {
         // Only adjust if significant difference
         window.scrollBy(0, scrollAdjustment);
-        console.log(
-          `Reader: Scroll position restored - adjusted by ${scrollAdjustment.toFixed(1)}px`,
-        );
+        if (DEBUG) {
+          console.log(
+            `Reader: Scroll position restored - adjusted by ${scrollAdjustment.toFixed(1)}px`,
+          );
+        }
       } else {
-        console.log('Reader: Scroll position preserved (no adjustment needed)');
+        if (DEBUG) {
+          console.log(
+            'Reader: Scroll position preserved (no adjustment needed)',
+          );
+        }
       }
     } else {
       console.warn(
@@ -945,9 +1015,11 @@ window.reader = new (function () {
       },
     });
 
-    console.log(
-      `Reader: Trimmed chapter ${removedChapterId}, ${this.loadedChapters.length} chapter(s) remaining, current: ${newCurrentChapterId}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Reader: Trimmed chapter ${removedChapterId}, ${this.loadedChapters.length} chapter(s) remaining, current: ${newCurrentChapterId}`,
+      );
+    }
     return true;
   };
 
@@ -955,7 +1027,11 @@ window.reader = new (function () {
   this.manageStitchedChapters = function () {
     // Safety checks
     if (this.loadedChapters.length <= 1) {
-      console.log('[manageStitchedChapters] Only one chapter loaded, skipping');
+      if (DEBUG) {
+        console.log(
+          '[manageStitchedChapters] Only one chapter loaded, skipping',
+        );
+      }
       return; // Only one chapter, nothing to manage
     }
 
@@ -972,7 +1048,9 @@ window.reader = new (function () {
     const readableElements = this.getReadableElements();
 
     if (!readableElements || readableElements.length === 0) {
-      console.log('[manageStitchedChapters] No readable elements found');
+      if (DEBUG) {
+        console.log('[manageStitchedChapters] No readable elements found');
+      }
       return;
     }
 
@@ -992,7 +1070,9 @@ window.reader = new (function () {
     }
 
     if (firstVisibleIndex === -1) {
-      console.log('[manageStitchedChapters] No visible paragraphs found');
+      if (DEBUG) {
+        console.log('[manageStitchedChapters] No visible paragraphs found');
+      }
       return; // No visible paragraphs found
     }
 
@@ -1026,9 +1106,11 @@ window.reader = new (function () {
             boundary.paragraphCount) *
           100;
 
-        console.log(
-          `[manageStitchedChapters] Paragraph ${firstVisibleIndex} belongs to boundary ${i} (chapter ${boundary.chapterId}), progress: ${progressInChapter.toFixed(1)}%, i=${i}, threshold=${threshold}`,
-        );
+        if (DEBUG) {
+          console.log(
+            `[manageStitchedChapters] Paragraph ${firstVisibleIndex} belongs to boundary ${i} (chapter ${boundary.chapterId}), progress: ${progressInChapter.toFixed(1)}%, i=${i}, threshold=${threshold}`,
+          );
+        }
 
         // NEW CALCULATION: For 2nd+ chapter, calculate trim based on absolute paragraph numbers
         if (i > 0) {
@@ -1045,19 +1127,23 @@ window.reader = new (function () {
           // Compare against threshold paragraph count
           const shouldTrim = firstVisibleIndex >= thresholdParagraphCount;
 
-          console.log(
-            `[manageStitchedChapters] TRIM CHECK - ` +
-              `Prev chapter paras: ${prevBoundary.paragraphCount}, ` +
-              `Current chapter paras: ${boundary.paragraphCount}, ` +
-              `Threshold para: ${thresholdParagraphCount} (${prevBoundary.paragraphCount} + ${Math.ceil((boundary.paragraphCount * threshold) / 100)}), ` +
-              `Current visible: ${firstVisibleIndex}, ` +
-              `Should trim: ${shouldTrim}`,
-          );
+          if (DEBUG) {
+            console.log(
+              `[manageStitchedChapters] TRIM CHECK - ` +
+                `Prev chapter paras: ${prevBoundary.paragraphCount}, ` +
+                `Current chapter paras: ${boundary.paragraphCount}, ` +
+                `Threshold para: ${thresholdParagraphCount} (${prevBoundary.paragraphCount} + ${Math.ceil((boundary.paragraphCount * threshold) / 100)}), ` +
+                `Current visible: ${firstVisibleIndex}, ` +
+                `Should trim: ${shouldTrim}`,
+            );
+          }
 
           if (shouldTrim) {
-            console.log(
-              `Reader: User at paragraph ${firstVisibleIndex} (>= ${thresholdParagraphCount}), trimming previous chapter ${prevBoundary.chapterId}`,
-            );
+            if (DEBUG) {
+              console.log(
+                `Reader: User at paragraph ${firstVisibleIndex} (>= ${thresholdParagraphCount}), trimming previous chapter ${prevBoundary.chapterId}`,
+              );
+            }
             this.trimPreviousChapter();
           }
         }
@@ -1168,9 +1254,11 @@ window.reader = new (function () {
   this.getReadableElements = () => {
     // NEW: Check if chapterElement is still valid. If not, re-query it.
     if (!this.chapterElement || !this.chapterElement.isConnected) {
-      console.log(
-        'Reader: chapterElement is disconnected or missing, re-querying...',
-      );
+      if (DEBUG) {
+        console.log(
+          'Reader: chapterElement is disconnected or missing, re-querying...',
+        );
+      }
       this.chapterElement = document.querySelector('#LNReader-chapter');
       this._cacheInvalidated = true;
     }
@@ -1181,9 +1269,11 @@ window.reader = new (function () {
         this._cachedReadableElements.length > 0 &&
         !this._cachedReadableElements[0].isConnected
       ) {
-        console.log(
-          'Reader: Cached elements are disconnected, invalidating cache...',
-        );
+        if (DEBUG) {
+          console.log(
+            'Reader: Cached elements are disconnected, invalidating cache...',
+          );
+        }
         this._cacheInvalidated = true;
       } else {
         return this._cachedReadableElements;
@@ -1247,7 +1337,9 @@ window.reader = new (function () {
     }
 
     if (this.suppressSaveOnScroll) {
-      console.log('Skipping save on initial scroll');
+      if (DEBUG) {
+        console.log('Skipping save on initial scroll');
+      }
       // FIX: Do NOT reset this here. Let calculatePages reset it after the timeout.
       return;
     }
@@ -1281,7 +1373,9 @@ window.reader = new (function () {
   this.processScroll = currentScrollY => {
     // CRITICAL: Block scroll processing entirely during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
-      console.log('processScroll: BLOCKED - Screen wake sync pending');
+      if (DEBUG) {
+        console.log('processScroll: BLOCKED - Screen wake sync pending');
+      }
       this.accumulatedScrollDelta = 0;
       return;
     }
@@ -1394,7 +1488,9 @@ window.reader = new (function () {
 
     // BUG FIX: Block saves during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
-      console.log('processScroll: Skipping save - screen wake sync pending');
+      if (DEBUG) {
+        console.log('processScroll: Skipping save - screen wake sync pending');
+      }
       return;
     }
 
@@ -1403,11 +1499,13 @@ window.reader = new (function () {
     const timeSinceInitialScroll =
       Date.now() - (reader.initialScrollCompleteTime || 0);
     if (reader.initialScrollCompleteTime && timeSinceInitialScroll < 1000) {
-      console.log(
-        'processScroll: Skipping save - initial scroll grace period (' +
-          timeSinceInitialScroll +
-          'ms)',
-      );
+      if (DEBUG) {
+        console.log(
+          'processScroll: Skipping save - initial scroll grace period (' +
+            timeSinceInitialScroll +
+            'ms)',
+        );
+      }
       return;
     }
 
@@ -1416,11 +1514,13 @@ window.reader = new (function () {
     const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
     if (timeSinceTTSStop < 2000) {
       // 2 second grace period
-      console.log(
-        'processScroll: Skipping save - TTS grace period (' +
-          timeSinceTTSStop +
-          'ms)',
-      );
+      if (DEBUG) {
+        console.log(
+          'processScroll: Skipping save - TTS grace period (' +
+            timeSinceTTSStop +
+            'ms)',
+        );
+      }
       return;
     }
 
@@ -2066,11 +2166,15 @@ window.tts = new (function () {
     }
 
     if (!config || !config.shouldResume) {
-      console.log('TTS: No resume needed');
+      if (DEBUG) {
+        console.log('TTS: No resume needed');
+      }
       this.hasAutoResumed = true;
 
       if (config?.startFromBeginning) {
-        console.log('TTS: User chose to restart from beginning');
+        if (DEBUG) {
+          console.log('TTS: User chose to restart from beginning');
+        }
         this.start();
       }
       return;
@@ -2195,14 +2299,16 @@ window.tts = new (function () {
           );
         }
       } else {
-        console.log(
-          'TTS: Skipping resume. hasAutoResumed:',
-          this.hasAutoResumed,
-          'savedIndex:',
-          savedIndex,
-          'Setting:',
-          autoResumeSetting,
-        );
+        if (DEBUG) {
+          console.log(
+            'TTS: Skipping resume. hasAutoResumed:',
+            this.hasAutoResumed,
+            'savedIndex:',
+            savedIndex,
+            'Setting:',
+            autoResumeSetting,
+          );
+        }
       }
 
       // Priority 2: First "Significant" Visible Element (Manual Start)
@@ -2251,7 +2357,9 @@ window.tts = new (function () {
         );
         this.currentElement = bestElement;
       } else {
-        console.log('TTS: No visible element found, starting from beginning');
+        if (DEBUG) {
+          console.log('TTS: No visible element found, starting from beginning');
+        }
         this.currentElement = reader.chapterElement;
       }
     }
@@ -2281,9 +2389,11 @@ window.tts = new (function () {
         if (!forceResume) {
           // If the current TTS element is still visible, we don't need to prompt
           if (this.isElementInViewport(this.currentElement)) {
-            console.log(
-              'TTS: Current element is visible, skipping scroll check',
-            );
+            if (DEBUG) {
+              console.log(
+                'TTS: Current element is visible, skipping scroll check',
+              );
+            }
           } else {
             const readableElements = reader.getReadableElements();
             let visibleParagraphIndex = -1;
@@ -2305,9 +2415,11 @@ window.tts = new (function () {
               visibleParagraphIndex !== -1 &&
               Math.abs(visibleParagraphIndex - currentTTSIndex) >= 2
             ) {
-              console.log(
-                `TTS: Resume requested but user scrolled away. TTS: ${currentTTSIndex}, Visible: ${visibleParagraphIndex}`,
-              );
+              if (DEBUG) {
+                console.log(
+                  `TTS: Resume requested but user scrolled away. TTS: ${currentTTSIndex}, Visible: ${visibleParagraphIndex}`,
+                );
+              }
 
               // Send prompt to React Native with chapter context
               reader.post({
@@ -2426,13 +2538,15 @@ window.tts = new (function () {
       const percentage = Math.round(
         ((ttsIndex + 1) / readableElements.length) * 100,
       );
-      console.log(
-        'TTS stop: Saving TTS position',
-        ttsIndex,
-        'of',
-        readableElements.length,
-        '(' + percentage + '%)',
-      );
+      if (DEBUG) {
+        console.log(
+          'TTS stop: Saving TTS position',
+          ttsIndex,
+          'of',
+          readableElements.length,
+          '(' + percentage + '%)',
+        );
+      }
       reader.post({
         type: 'save',
         data: percentage,
@@ -2445,15 +2559,19 @@ window.tts = new (function () {
       // BUT: respect grace period to avoid overwriting TTS pause position
       const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
       if (timeSinceTTSStop < 2000) {
-        console.log(
-          'TTS stop: Skipping fallback save - grace period (' +
-            timeSinceTTSStop +
-            'ms)',
-        );
+        if (DEBUG) {
+          console.log(
+            'TTS stop: Skipping fallback save - grace period (' +
+              timeSinceTTSStop +
+              'ms)',
+          );
+        }
       } else {
-        console.log(
-          'TTS stop: No TTS element tracked, falling back to scroll-based save',
-        );
+        if (DEBUG) {
+          console.log(
+            'TTS stop: No TTS element tracked, falling back to scroll-based save',
+          );
+        }
         reader.saveProgress();
       }
     }
@@ -2515,7 +2633,9 @@ window.tts = new (function () {
 
     // NEW: If checkVisibility is true and element is fully visible, skip scroll
     if (checkVisibility && isFullyVisible) {
-      console.log('TTS: Element is fully visible, skipping initial scroll');
+      if (DEBUG) {
+        console.log('TTS: Element is fully visible, skipping initial scroll');
+      }
       return;
     }
 
@@ -2566,7 +2686,9 @@ window.tts = new (function () {
       // CRITICAL: Clear any stitched chapters before extracting paragraphs
       // Multi-chapter DOM causes paragraph indices to be wrong for TTS
       if (reader.loadedChapters && reader.loadedChapters.length > 1) {
-        console.log('TTS: Clearing stitched chapters before speak');
+        if (DEBUG) {
+          console.log('TTS: Clearing stitched chapters before speak');
+        }
         reader.clearStitchedChapters();
       }
 
@@ -2575,7 +2697,9 @@ window.tts = new (function () {
 
       // CRITICAL: During manual mode dialog, prevent any position changes
       if (this.dialogActive) {
-        console.log('TTS: Dialog active - speaking from locked position');
+        if (DEBUG) {
+          console.log('TTS: Dialog active - speaking from locked position');
+        }
         this.reading = true;
 
         const text = this.currentElement.textContent;
@@ -2687,14 +2811,18 @@ window.tts = new (function () {
   };
 
   this.handleManualModeDialog = action => {
-    console.log(`TTS: Manual mode dialog action: ${action}`);
+    if (DEBUG) {
+      console.log(`TTS: Manual mode dialog action: ${action}`);
+    }
 
     if (action === 'continue') {
       // User wants to continue TTS following - restore normal operation
       this.dialogActive = false;
       this.lockedCurrentElement = null;
       this.lockedParagraphIndex = null;
-      console.log('TTS: Resumed normal following mode');
+      if (DEBUG) {
+        console.log('TTS: Resumed normal following mode');
+      }
 
       // Continue with normal TTS progression from current locked position
       setTimeout(() => {
@@ -2703,7 +2831,9 @@ window.tts = new (function () {
     } else if (action === 'stop') {
       // User wants to stop TTS and read manually
       this.dialogActive = false;
-      console.log('TTS: Stopped - user chose manual reading');
+      if (DEBUG) {
+        console.log('TTS: Stopped - user chose manual reading');
+      }
       this.stop();
     }
   };
@@ -2729,7 +2859,9 @@ window.tts = new (function () {
         this.currentElement.classList.add('highlight');
       }
 
-      console.log(`TTS: Position changed to paragraph ${paragraphIndex}`);
+      if (DEBUG) {
+        console.log(`TTS: Position changed to paragraph ${paragraphIndex}`);
+      }
       return true;
     }
 
@@ -2741,9 +2873,11 @@ window.tts = new (function () {
   this.highlightParagraph = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter causing wrong scrolls
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(
-        `TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
-      );
+      if (DEBUG) {
+        console.log(
+          `TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
+        );
+      }
       return false;
     }
 
@@ -2785,13 +2919,17 @@ window.tts = new (function () {
   this.updateState = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter corrupting state
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(
-        `TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
-      );
+      if (DEBUG) {
+        console.log(
+          `TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
+        );
+      }
       return;
     }
 
-    console.log(`TTS: updateState called with index ${paragraphIndex}`);
+    if (DEBUG) {
+      console.log(`TTS: updateState called with index ${paragraphIndex}`);
+    }
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
       // Mark background playback as active
@@ -3020,7 +3158,9 @@ function calculatePages() {
   // BUG 3 FIX: Block calculatePages during screen wake sync to prevent scroll jumble
   // This flag is set by RN when screen wakes during background TTS playback
   if (window.ttsScreenWakeSyncPending) {
-    console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    if (DEBUG) {
+      console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    }
     return;
   }
 
@@ -3040,11 +3180,13 @@ function calculatePages() {
     !isFirstCall &&
     timeSinceLastCall < CALCULATE_PAGES_DEBOUNCE
   ) {
-    console.log(
-      '[calculatePages] BLOCKED - Debounced (',
-      timeSinceLastCall,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[calculatePages] BLOCKED - Debounced (',
+        timeSinceLastCall,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -3056,18 +3198,22 @@ function calculatePages() {
     window.ttsOperationActive ||
     (window.tts && (window.tts.reading || window.tts.cleanupInProgress))
   ) {
-    console.log('[calculatePages] BLOCKED - TTS operation active');
+    if (DEBUG) {
+      console.log('[calculatePages] BLOCKED - TTS operation active');
+    }
     return;
   }
 
   // COOLDOWN CHECK: Block if TTS operation ended recently (within 1 second)
   const timeSinceTTSOperation = now - window.ttsOperationEndTime;
   if (timeSinceTTSOperation < 1000) {
-    console.log(
-      '[calculatePages] BLOCKED - TTS operation cooldown (',
-      timeSinceTTSOperation,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[calculatePages] BLOCKED - TTS operation cooldown (',
+        timeSinceTTSOperation,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -3078,7 +3224,9 @@ function calculatePages() {
     (controller.dataset.dragging === 'true' ||
       controller.dataset.cleanupInProgress === 'true')
   ) {
-    console.log('[calculatePages] BLOCKED - TTS controller drag in progress');
+    if (DEBUG) {
+      console.log('[calculatePages] BLOCKED - TTS controller drag in progress');
+    }
     return;
   }
 
@@ -3089,7 +3237,11 @@ function calculatePages() {
     initialReaderConfig.savedParagraphIndex !== undefined &&
     initialReaderConfig.savedParagraphIndex >= 0
   ) {
-    console.log('[calculatePages] BLOCKED - Initial scroll already performed');
+    if (DEBUG) {
+      console.log(
+        '[calculatePages] BLOCKED - Initial scroll already performed',
+      );
+    }
     return;
   }
 
@@ -3114,22 +3266,26 @@ function calculatePages() {
     );
   } else {
     // NEW SCROLL LOGIC
-    console.log(
-      `[calculatePages START] ReaderId=${reader._readerId}, loadedChapters=${JSON.stringify(reader.loadedChapters)}, hasPerformedInitialScroll=${reader.hasPerformedInitialScroll}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `[calculatePages START] ReaderId=${reader._readerId}, loadedChapters=${JSON.stringify(reader.loadedChapters)}, hasPerformedInitialScroll=${reader.hasPerformedInitialScroll}`,
+      );
+    }
 
     // CRITICAL FIX: Skip initial scroll if DOM stitching is active (multiple chapters loaded)
     const isStitchedMode =
       reader.loadedChapters && reader.loadedChapters.length > 1;
 
-    console.log(
-      `[calculatePages] ReaderId=${reader._readerId}, Stitched mode check: loadedChapters=`,
-      reader.loadedChapters,
-      'length=',
-      reader.loadedChapters ? reader.loadedChapters.length : 0,
-      'isStitchedMode=',
-      isStitchedMode,
-    );
+    if (DEBUG) {
+      console.log(
+        `[calculatePages] ReaderId=${reader._readerId}, Stitched mode check: loadedChapters=`,
+        reader.loadedChapters,
+        'length=',
+        reader.loadedChapters ? reader.loadedChapters.length : 0,
+        'isStitchedMode=',
+        isStitchedMode,
+      );
+    }
 
     if (
       !reader.hasPerformedInitialScroll &&
@@ -3138,20 +3294,24 @@ function calculatePages() {
       initialReaderConfig.savedParagraphIndex >= 0
     ) {
       const readableElements = reader.getReadableElements();
-      console.log(
-        `[calculatePages] ReaderId=${reader._readerId}, About to scroll to paragraph: ${initialReaderConfig.savedParagraphIndex}, readableElements length: ${readableElements.length}, hasPerformedInitialScroll: ${reader.hasPerformedInitialScroll}`,
-      );
+      if (DEBUG) {
+        console.log(
+          `[calculatePages] ReaderId=${reader._readerId}, About to scroll to paragraph: ${initialReaderConfig.savedParagraphIndex}, readableElements length: ${readableElements.length}, hasPerformedInitialScroll: ${reader.hasPerformedInitialScroll}`,
+        );
+      }
 
       if (readableElements[initialReaderConfig.savedParagraphIndex]) {
         reader.initialScrollPending = true; // Set pending flag
-        console.log(
-          '[calculatePages] Scrolling to paragraph',
-          initialReaderConfig.savedParagraphIndex,
-          'hasPerformedInitialScroll:',
-          reader.hasPerformedInitialScroll,
-          'timeSinceLastCall:',
-          Date.now() - window.lastCalculatePagesCall,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Scrolling to paragraph',
+            initialReaderConfig.savedParagraphIndex,
+            'hasPerformedInitialScroll:',
+            reader.hasPerformedInitialScroll,
+            'timeSinceLastCall:',
+            Date.now() - window.lastCalculatePagesCall,
+          );
+        }
 
         reader.suppressSaveOnScroll = true;
 
@@ -3179,10 +3339,12 @@ function calculatePages() {
             inline: 'nearest',
           });
 
-          console.log(
-            '[calculatePages] Scrolled to paragraph',
-            initialReaderConfig.savedParagraphIndex,
-          );
+          if (DEBUG) {
+            console.log(
+              '[calculatePages] Scrolled to paragraph',
+              initialReaderConfig.savedParagraphIndex,
+            );
+          }
 
           // Verify by checking if element is in viewport (the RIGHT way)
           setTimeout(() => {
@@ -3192,16 +3354,18 @@ function calculatePages() {
             const isPartiallyVisible =
               rect.top < viewportHeight && rect.bottom > 0;
 
-            console.log(
-              '[calculatePages] Element position: top=',
-              rect.top,
-              'bottom=',
-              rect.bottom,
-              'visible=',
-              isVisible || isPartiallyVisible,
-            );
+            if (DEBUG) {
+              console.log(
+                '[calculatePages] Element position: top=',
+                rect.top,
+                'bottom=',
+                rect.bottom,
+                'visible=',
+                isVisible || isPartiallyVisible,
+              );
 
-            console.log('[calculatePages] Initial scroll complete');
+              console.log('[calculatePages] Initial scroll complete');
+            }
 
             // Set a marker to block processScroll saves for a longer grace period
             // This prevents stale scroll events from saving wrong positions
@@ -3225,9 +3389,11 @@ function calculatePages() {
                   endIndex: allElements.length - 1,
                   paragraphCount: allElements.length,
                 });
-                console.log(
-                  `Reader: Initialized boundary for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paragraphs)`,
-                );
+                if (DEBUG) {
+                  console.log(
+                    `Reader: Initialized boundary for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paragraphs)`,
+                  );
+                }
               }
             }
 
@@ -3249,45 +3415,55 @@ function calculatePages() {
 
         return;
       } else {
-        console.log(
-          '[calculatePages] Paragraph not found at index',
-          initialReaderConfig.savedParagraphIndex,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Paragraph not found at index',
+            initialReaderConfig.savedParagraphIndex,
+          );
+        }
 
         // CRITICAL FIX: Skip recovery scroll if stitched mode (multiple chapters loaded)
         const isStitchedMode =
           reader.loadedChapters && reader.loadedChapters.length > 1;
 
         if (isStitchedMode) {
-          console.log(
-            '[calculatePages] Skipping paragraph recovery - stitched mode active (paragraph belongs to different chapter)',
-          );
-          console.log(
-            `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip, line 2489)`,
-          );
+          if (DEBUG) {
+            console.log(
+              '[calculatePages] Skipping paragraph recovery - stitched mode active (paragraph belongs to different chapter)',
+            );
+            console.log(
+              `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip, line 2489)`,
+            );
+          }
           reader.hasPerformedInitialScroll = true;
           return;
         }
 
         // FIX: Graceful recovery - scroll to 0% or 100% based on saved progress
         const savedProgress = reader.chapter.progress;
-        console.log(
-          `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (paragraph recovery, line 2495)`,
-        );
+        if (DEBUG) {
+          console.log(
+            `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (paragraph recovery, line 2495)`,
+          );
+        }
         reader.hasPerformedInitialScroll = true;
 
         if (savedProgress && savedProgress > 0.5) {
           // Progress > 50%, likely near end - scroll to bottom
           window.scrollTo(0, document.body.scrollHeight);
-          console.log(
-            `[calculatePages] Recovered from missing paragraph - scrolled to 100% (progress: ${savedProgress})`,
-          );
+          if (DEBUG) {
+            console.log(
+              `[calculatePages] Recovered from missing paragraph - scrolled to 100% (progress: ${savedProgress})`,
+            );
+          }
         } else {
           // Progress ≤ 50% or no progress, scroll to top
           window.scrollTo(0, 0);
-          console.log(
-            `[calculatePages] Recovered from missing paragraph - scrolled to 0% (progress: ${savedProgress || 0})`,
-          );
+          if (DEBUG) {
+            console.log(
+              `[calculatePages] Recovered from missing paragraph - scrolled to 0% (progress: ${savedProgress || 0})`,
+            );
+          }
         }
 
         // Initialize chapter boundary after recovery
@@ -3300,9 +3476,11 @@ function calculatePages() {
               endIndex: allElements.length - 1,
               paragraphCount: allElements.length,
             });
-            console.log(
-              `Reader: Init boundary (after recovery) for chapter ${reader.chapter.id}: 0-${allElements.length - 1}`,
-            );
+            if (DEBUG) {
+              console.log(
+                `Reader: Init boundary (after recovery) for chapter ${reader.chapter.id}: 0-${allElements.length - 1}`,
+              );
+            }
           }
         }
 
@@ -3315,22 +3493,26 @@ function calculatePages() {
         reader.loadedChapters && reader.loadedChapters.length > 1;
 
       if (isStitchedMode) {
-        console.log(
-          '[calculatePages] Skipping initial scroll - stitched mode active (multiple chapters loaded)',
-        );
-        console.log(
-          `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip no saved pos, line 2540)`,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Skipping initial scroll - stitched mode active (multiple chapters loaded)',
+          );
+          console.log(
+            `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip no saved pos, line 2540)`,
+          );
+        }
         reader.hasPerformedInitialScroll = true;
         return;
       }
 
-      console.log(
-        '[calculatePages] No valid savedParagraphIndex or already scrolled',
-      );
-      console.log(
-        `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (no saved pos, line 2547)`,
-      );
+      if (DEBUG) {
+        console.log(
+          '[calculatePages] No valid savedParagraphIndex or already scrolled',
+        );
+        console.log(
+          `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (no saved pos, line 2547)`,
+        );
+      }
       reader.hasPerformedInitialScroll = true;
 
       // Initialize chapter boundary for first chapter (Bug #2 fix - no saved position case)
@@ -3364,19 +3546,23 @@ function calculatePages() {
           (controller.dataset.dragging === 'true' ||
             controller.dataset.cleanupInProgress === 'true'))
       ) {
-        console.log(
-          '[calculatePages] Progress scroll blocked - TTS operation protection',
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Progress scroll blocked - TTS operation protection',
+          );
+        }
         return;
       }
 
       setTimeout(() => {
-        console.log(
-          '[calculatePages] PROGRESS SCROLL EXECUTING - progress:',
-          reader.chapter.progress,
-          'hasPerformedInitialScroll:',
-          reader.hasPerformedInitialScroll,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] PROGRESS SCROLL EXECUTING - progress:',
+            reader.chapter.progress,
+            'hasPerformedInitialScroll:',
+            reader.hasPerformedInitialScroll,
+          );
+        }
         window.scrollTo({
           top:
             (reader.chapterHeight * reader.chapter.progress) / 100 -
@@ -3385,9 +3571,11 @@ function calculatePages() {
         });
       }, 100);
     } else {
-      console.log(
-        '[calculatePages] Skipping progress scroll - TTS currently reading',
-      );
+      if (DEBUG) {
+        console.log(
+          '[calculatePages] Skipping progress scroll - TTS currently reading',
+        );
+      }
     }
   }
 
@@ -3402,9 +3590,11 @@ function calculatePages() {
         endIndex: allElements.length - 1,
         paragraphCount: allElements.length,
       });
-      console.log(
-        `Reader: Init boundary (fallback) for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paras)`,
-      );
+      if (DEBUG) {
+        console.log(
+          `Reader: Init boundary (fallback) for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paras)`,
+        );
+      }
     }
   }
 }
@@ -3425,7 +3615,9 @@ const CALCULATE_PAGES_DEBOUNCE = 500; // 500ms minimum between calls
 const ro = new ResizeObserver(() => {
   // BUG 3 FIX: Block during screen wake sync
   if (window.ttsScreenWakeSyncPending) {
-    console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    if (DEBUG) {
+      console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    }
     return;
   }
 
@@ -3446,11 +3638,13 @@ const ro = new ResizeObserver(() => {
     !isFirstCall &&
     timeSinceLastCall < CALCULATE_PAGES_DEBOUNCE
   ) {
-    console.log(
-      '[ResizeObserver] BLOCKED - Debounced (',
-      timeSinceLastCall,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[ResizeObserver] BLOCKED - Debounced (',
+        timeSinceLastCall,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -3459,18 +3653,22 @@ const ro = new ResizeObserver(() => {
     window.ttsOperationActive ||
     (window.tts && (window.tts.reading || window.tts.cleanupInProgress))
   ) {
-    console.log('[ResizeObserver] BLOCKED - TTS operation active');
+    if (DEBUG) {
+      console.log('[ResizeObserver] BLOCKED - TTS operation active');
+    }
     return;
   }
 
   // COOLDOWN CHECK: Block if TTS operation ended recently (within 1 second)
   const timeSinceTTSOperation = now - window.ttsOperationEndTime;
   if (timeSinceTTSOperation < 1000) {
-    console.log(
-      '[ResizeObserver] BLOCKED - TTS operation cooldown (',
-      timeSinceTTSOperation,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[ResizeObserver] BLOCKED - TTS operation cooldown (',
+        timeSinceTTSOperation,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -3481,36 +3679,40 @@ const ro = new ResizeObserver(() => {
     (controller.dataset.dragging === 'true' ||
       controller.dataset.cleanupInProgress === 'true')
   ) {
-    console.log('[ResizeObserver] BLOCKED - TTS controller drag in progress');
+    if (DEBUG) {
+      console.log('[ResizeObserver] BLOCKED - TTS controller drag in progress');
+    }
     return;
   }
 
   // Update last call timestamp
   window.lastCalculatePagesCall = now;
 
-  console.log('[ResizeObserver] TRIGGERED! Stack:', new Error().stack);
-  console.log(
-    '[ResizeObserver] Trigger state - TTS Reading:',
-    window.tts && window.tts.reading,
-  );
-  console.log(
-    '[ResizeObserver] Trigger state - TTS Cleanup:',
-    window.tts && window.tts.cleanupInProgress,
-  );
-  console.log(
-    '[ResizeObserver] TTS Operation Active:',
-    window.ttsOperationActive,
-  );
-
-  if (
-    window.tts &&
-    (window.tts.reading ||
-      window.tts.cleanupInProgress ||
-      window.ttsOperationActive)
-  ) {
+  if (DEBUG) {
+    console.log('[ResizeObserver] TRIGGERED! Stack:', new Error().stack);
     console.log(
-      '[ResizeObserver] TRIGGERED during TTS operation - Potential race condition',
+      '[ResizeObserver] Trigger state - TTS Reading:',
+      window.tts && window.tts.reading,
     );
+    console.log(
+      '[ResizeObserver] Trigger state - TTS Cleanup:',
+      window.tts && window.tts.cleanupInProgress,
+    );
+    console.log(
+      '[ResizeObserver] TTS Operation Active:',
+      window.ttsOperationActive,
+    );
+
+    if (
+      window.tts &&
+      (window.tts.reading ||
+        window.tts.cleanupInProgress ||
+        window.ttsOperationActive)
+    ) {
+      console.log(
+        '[ResizeObserver] TRIGGERED during TTS operation - Potential race condition',
+      );
+    }
   }
 
   // Always call calculatePages - it will handle both pageReader and scroll modes appropriately
@@ -3534,14 +3736,18 @@ const ro = new ResizeObserver(() => {
           (controller.dataset.dragging !== 'true' &&
             controller.dataset.cleanupInProgress !== 'true'))
       ) {
-        console.log(
-          '[ResizeObserver] Calling calculatePages again for initial scroll',
-        );
+        if (DEBUG) {
+          console.log(
+            '[ResizeObserver] Calling calculatePages again for initial scroll',
+          );
+        }
         calculatePages();
       } else {
-        console.log(
-          '[ResizeObserver] Initial scroll blocked - TTS operation or scroll in progress detected',
-        );
+        if (DEBUG) {
+          console.log(
+            '[ResizeObserver] Initial scroll blocked - TTS operation or scroll in progress detected',
+          );
+        }
       }
     }, 200); // Increased delay for better protection
   }
@@ -3624,13 +3830,17 @@ document.addEventListener('message', __handleNativeMessage);
     const timeSinceLastScroll =
       Date.now() - (window.tts?.lastAutoScrollTime || 0);
     if (window.tts && timeSinceLastScroll < window.tts.SCROLL_COOLDOWN) {
-      console.log('TTS: Click blocked during scroll cooldown');
+      if (DEBUG) {
+        console.log('TTS: Click blocked during scroll cooldown');
+      }
       return;
     }
 
     // NEW: Don't process clicks during TTS auto-scroll
     if (window.tts && window.tts.isAutoScrolling) {
-      console.log('TTS: Click ignored during auto-scroll');
+      if (DEBUG) {
+        console.log('TTS: Click ignored during auto-scroll');
+      }
       return; // Prevent settings toggle during TTS scroll animation
     }
 
@@ -3746,9 +3956,11 @@ document.addEventListener('message', __handleNativeMessage);
       currentBionic !== prevBionicReading ||
       currentSpacing !== prevRemoveSpacing;
 
-    console.log(
-      `Text options: Check rebuild. Bionic: ${prevBionicReading}->${currentBionic}, Spacing: ${prevRemoveSpacing}->${currentSpacing}. Needs rebuild: ${needsRebuild}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Text options: Check rebuild. Bionic: ${prevBionicReading}->${currentBionic}, Spacing: ${prevRemoveSpacing}->${currentSpacing}. Needs rebuild: ${needsRebuild}`,
+      );
+    }
 
     if (!needsRebuild) {
       console.log('Text options: Skipping DOM rebuild (no relevant changes)');
@@ -3799,43 +4011,58 @@ document.addEventListener('message', __handleNativeMessage);
         scrollY: window.scrollY,
       };
 
-      console.log(
-        'Text options: Saved TTS state before rebuild:',
-        savedTTSState,
-      );
+      if (DEBUG) {
+        console.log(
+          'Text options: Saved TTS state before rebuild:',
+          savedTTSState,
+        );
+      }
 
       // Pause TTS before DOM manipulation
       window.tts.pause();
     }
 
     // INVESTIGATION: Debug why enhancement isn't being called
-    console.log('[SETHTML] Method called!');
-    console.log('[SETHTML] reader.chapter exists:', !!reader.chapter);
-    console.log('[SETHTML] reader.chapter:', reader.chapter);
-    console.log(
-      '[SETHTML] enhanceChapterTitles exists:',
-      typeof reader.enhanceChapterTitles,
-    );
+    if (DEBUG) {
+      console.log('[SETHTML] Method called!');
+      console.log('[SETHTML] reader.chapter exists:', !!reader.chapter);
+      console.log('[SETHTML] reader.chapter:', reader.chapter);
+      console.log(
+        '[SETHTML] enhanceChapterTitles exists:',
+        typeof reader.enhanceChapterTitles,
+      );
+    }
 
     // FIX: Enhance EPUB chapter titles to prevent TTS audio-highlight desynchronization
     // Many EPUBs have hidden/unstyled chapter titles that TTS reads but users don't see clearly
     // This makes chapter titles visible to align TTS audio with highlighting
-    console.log('[ENHANCE] Main chapter loading - checking for enhancement');
-    console.log('[ENHANCE] Chapter object:', reader.chapter);
+    if (DEBUG) {
+      console.log('[ENHANCE] Main chapter loading - checking for enhancement');
+      console.log('[ENHANCE] Chapter object:', reader.chapter);
+    }
 
     if (reader.chapter) {
       const chapterName =
         reader.chapter.name || `Chapter ${reader.chapter.id || 'Unknown'}`;
-      console.log('[ENHANCE] Main loading - using chapter name:', chapterName);
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Main loading - using chapter name:',
+          chapterName,
+        );
+      }
       html = reader.enhanceChapterTitles(html, chapterName);
     } else {
-      console.log('[ENHANCE] Main loading - no chapter object available');
+      if (DEBUG) {
+        console.log('[ENHANCE] Main loading - no chapter object available');
+      }
     }
 
-    console.log(
-      '[SETHTML] Enhancement step completed. HTML length:',
-      html.length,
-    );
+    if (DEBUG) {
+      console.log(
+        '[SETHTML] Enhancement step completed. HTML length:',
+        html.length,
+      );
+    }
 
     reader.chapterElement.innerHTML = html;
 
@@ -3856,10 +4083,12 @@ document.addEventListener('message', __handleNativeMessage);
           // Restore scroll position
           window.scrollTo({ top: savedTTSState.scrollY, behavior: 'auto' });
 
-          console.log(
-            'Text options: Restored TTS to paragraph',
-            savedTTSState.paragraphIndex,
-          );
+          if (DEBUG) {
+            console.log(
+              'Text options: Restored TTS to paragraph',
+              savedTTSState.paragraphIndex,
+            );
+          }
 
           // Resume if it was playing
           if (savedTTSState.wasReading) {
