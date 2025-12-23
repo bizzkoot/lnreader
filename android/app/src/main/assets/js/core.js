@@ -1845,7 +1845,7 @@ window.reader = new (function () {
   if (DEBUG) {
     console = new Object();
     console.log = function (...data) {
-      reader.post({ 'type': 'console', 'msg': data?.join(' ') });
+      reader.post({ type: 'console', data: data?.join(' ') });
     };
     console.debug = console.log;
     console.info = console.log;
