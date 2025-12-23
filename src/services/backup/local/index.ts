@@ -101,42 +101,15 @@ export const createBackup = async (
     if (defaultFolderUri) {
       // Save directly to default folder
       try {
-        if (isAuto) {
-          const maxAutoBackups = appSettings.maxAutoBackups ?? 2;
-          if (maxAutoBackups > 0) {
-            const dir =
-              await StorageAccessFramework.readDirectoryAsync(defaultFolderUri);
-            const backups = dir
-              .filter(uri => uri.toLowerCase().endsWith('.zip'))
-              .map(uri => {
-                const fileName = uri.split('/').pop() || '';
-                const match = fileName.match(
-                  /^lnreader_backup_(\d{4}-\d{2}-\d{2}t\d{2}-\d{2}-\d{2})\.zip$/i,
-                );
-                const sortKey = match?.[1] || '';
-                return { uri, fileName, sortKey };
-              })
-              .filter(b => !!b.sortKey)
-              .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-
-            const overflow = backups.length - maxAutoBackups;
-            if (overflow > 0) {
-              for (const old of backups.slice(0, overflow)) {
-                try {
-                  await StorageAccessFramework.deleteAsync(old.uri);
-                } catch {
-                  // best-effort deletion
-                }
-              }
-            }
-          }
-        }
-
         const timestamp = new Date()
           .toISOString()
           .replace(/[:.]/g, '-')
           .slice(0, -5);
-        const fileName = `lnreader_backup_${timestamp}.zip`;
+
+        const prefix = isAuto
+          ? 'lnreader_auto_backup_'
+          : 'lnreader_manual_backup_';
+        const fileName = `${prefix}${timestamp}.zip`;
 
         const destUri = await StorageAccessFramework.createFileAsync(
           defaultFolderUri,
@@ -154,6 +127,54 @@ export const createBackup = async (
           base64Content,
           { encoding: FileSystem.EncodingType.Base64 },
         );
+
+        // Prune old backups (applies to both auto and manual independently)
+        const maxBackups = appSettings.maxAutoBackups ?? 2;
+        if (maxBackups > 0) {
+          try {
+            const dir =
+              await StorageAccessFramework.readDirectoryAsync(defaultFolderUri);
+
+            // Filter files matching the CURRENT type (auto or manual)
+            const backupRegex = new RegExp(
+              `^${prefix}(\\d{4}-\\d{2}-\\d{2}t\\d{2}-\\d{2}-\\d{2})\\.zip$`,
+              'i',
+            );
+
+            const backups = dir
+              .filter(uri => {
+                // SAF URIs are URL-encoded, decode to get actual filename
+                const decodedUri = decodeURIComponent(uri);
+                const name = decodedUri.split('/').pop() || '';
+                return backupRegex.test(name);
+              })
+              .map(uri => {
+                const decodedUri = decodeURIComponent(uri);
+                const name = decodedUri.split('/').pop() || '';
+                const match = name.match(backupRegex);
+                const sortKey = match?.[1] || '';
+                return { uri, fileName: name, sortKey }; // Keep original uri for deletion
+              })
+              .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+            // We verified the creation was successful (destUri exists)
+            // Now check if we exceed the limit
+            const overflow = backups.length - maxBackups;
+
+            if (overflow > 0) {
+              // Delete oldest files
+              for (const old of backups.slice(0, overflow)) {
+                try {
+                  await StorageAccessFramework.deleteAsync(old.uri);
+                } catch {
+                  // best-effort deletion
+                }
+              }
+            }
+          } catch (e) {
+            // Pruning failed, but backup is safe. Log/Ignore.
+          }
+        }
 
         showToast(getString('backupScreen.backupSavedToFolder'));
       } catch (error) {

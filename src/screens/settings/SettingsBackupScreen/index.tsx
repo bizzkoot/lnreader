@@ -206,6 +206,10 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
             onPress={() => setMaxBackupsModalVisible(true)}
           />
           <List.InfoItem
+            title={getString('backupScreen.autoBackupLimitNote' as any)}
+            theme={theme}
+          />
+          <List.InfoItem
             title={getString('backupScreen.autoBackupWarning')}
             theme={theme}
           />

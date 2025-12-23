@@ -164,7 +164,8 @@
     "repositoriesRestoredWithErrors": "Restored %{count} repositories (%{failedCount} failed)",
     "repositoryRestoreFailed": "Failed to restore repository: %{url} - %{error}",
     "repositoryFileReadFailed": "Failed to read repository file: %{error}",
-    "repositoryFileWriteFailed": "Failed to write repository file: %{error}"
+    "repositoryFileWriteFailed": "Failed to write repository file: %{error}",
+    "autoBackupLimitNote": "This limit applies independently to both auto and manual backups."
   },
   "browse": "Browse",
   "browseScreen": {
