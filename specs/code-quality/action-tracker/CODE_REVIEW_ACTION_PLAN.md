@@ -51,12 +51,33 @@
 
 ## P1 - High Priority (Should Fix)
 
-- [ ] **HIGH-1: Replace `any` Types with Proper Types**
-  - Files: 40+ instances across 30 files
+- [ ] **HIGH-1: Replace `any` Types with Proper Types** (In Progress)
+  - Files: 86 files with `any` types
   - Priority files: `backup/utils.ts`, `useNovel.ts`, `useTTSController.ts`
   - Action: Define proper interfaces, create type guards
   - Est: 8 hours
-  - Status: Not Started
+  - Status: **In Progress** (2025-12-24)
+  - Notes:
+    - ✅ Completed `backup/utils.ts`: Fixed 10+ `any` instances
+      - Changed `[key: string]: any` to `Record<string, unknown>` in BackupV1
+      - Replaced all `key as any` with proper string typing
+      - Replaced `data as any` with `Record<string, string | number | boolean>`
+      - Replaced all `error: any` with proper `unknown` and type narrowing
+      - Added type validation in restoreMMKVData for MMKV value types
+    - ✅ Completed `useNovel.ts`: Fixed 1 `any` instance
+      - Replaced `novelOrPath as string` with proper type guard
+      - Uses `typeof novelOrPath === 'string'` for type narrowing
+    - ✅ Completed `useTTSController.ts`: Fixed 9 `any` instances
+      - Added type definitions for event data (TTSPersistenceEventData, TTSExitDialogData, etc.)
+      - Created type guards: isTTSPersistenceEventData, isTTSExitDialogData, isTTSConfirmationData, isTTSScrollPromptEventData
+      - Replaced all `event.data as any` with proper type guards
+      - Updated `src/screens/reader/types/tts.ts` with proper event data types
+    - Remaining: 83 other files
+  - Files Modified:
+    - `src/services/backup/utils.ts`
+    - `src/hooks/persisted/useNovel.ts`
+    - `src/screens/reader/hooks/useTTSController.ts`
+    - `src/screens/reader/types/tts.ts`
 
 - [ ] **HIGH-2: Add Promise Error Handling**
   - Files: Multiple files with unhandled promises
@@ -194,11 +215,11 @@
 | Priority | Tasks | Completed | In Progress | Blocked |
 |----------|-------|-----------|-------------|---------|
 | P0 - Critical | 3 | 3 | 0 | 0 |
-| P1 - High | 5 | 0 | 0 | 0 |
+| P1 - High | 5 | 0 | 1 | 0 |
 | P2 - Medium | 8 | 0 | 0 | 0 |
 | P3 - Low | 4 | 0 | 0 | 0 |
 | Refactoring | 1 | 0 | 0 | 0 |
-| **Total** | **21** | **3** | **0** | **0** |
+| **Total** | **21** | **3** | **1** | **0** |
 
 ---
 
@@ -245,6 +266,27 @@ A task is considered complete when:
   - Utils: webviewSecurity.ts
 - Enhanced test coverage with spy ref approach in useChapterTransition.test.ts
 - All 629 tests passing, 0 lint errors
+
+**2025-12-24 - HIGH-1 In Progress:**
+- Fixed `any` types in priority files `backup/utils.ts`, `useNovel.ts`, and `useTTSController.ts`
+- backup/utils.ts changes (10+ `any` instances):
+  - Changed `[key: string]: any` to `Record<string, unknown>` in BackupV1 interface
+  - Replaced all `key as any` with proper string typing
+  - Replaced `data as any` with `Record<string, string | number | boolean>`
+  - Replaced all `error: any` with proper `unknown` and type narrowing
+  - Added type validation in restoreMMKVData for MMKV value types
+- useNovel.ts changes (1 `any` instance):
+  - Replaced `novelOrPath as string` with proper type guard
+  - Uses `typeof novelOrPath === 'string'` for type narrowing
+- useTTSController.ts changes (9 `any` instances):
+  - Added type definitions for event data: TTSPersistenceEventData, TTSExitDialogData, TTSConfirmationData, TTSScrollPromptEventData
+  - Created type guards: isTTSPersistenceEventData, isTTSExitDialogData, isTTSConfirmationData, isTTSScrollPromptEventData
+  - Replaced all `event.data as any` with proper type guards
+  - Updated `src/screens/reader/types/tts.ts` with proper event data types
+- Remaining: 83 other files
+- Type-check: ✅ Passed
+- Lint: ✅ Passed (0 errors)
+- Tests: ✅ 629 passed
 
 *Add notes here as work progresses:*
 

@@ -53,6 +53,10 @@ import {
   SyncDialogStatus,
   TTS_CONSTANTS,
   TTS_MEDIA_ACTIONS,
+  isTTSPersistenceEventData,
+  isTTSExitDialogData,
+  isTTSConfirmationData,
+  isTTSScrollPromptEventData,
 } from '../types/tts';
 import { useChapterTransition } from './useChapterTransition';
 import { useResumeDialogHandlers } from './useResumeDialogHandlers';
@@ -852,28 +856,17 @@ export function useTTSController(
           return true;
 
         case 'tts-state':
-          if (
-            event.data &&
-            !Array.isArray(event.data) &&
-            typeof event.data === 'object'
-          ) {
-            // Cast through unknown to handle the flexible WebView data shape
-            ttsStateRef.current = event.data as unknown as TTSPersistenceState;
-            if (typeof (event.data as any).paragraphIndex === 'number') {
-              currentParagraphIndexRef.current = (
-                event.data as any
-              ).paragraphIndex;
+          if (isTTSPersistenceEventData(event.data)) {
+            ttsStateRef.current = event.data;
+            if (typeof event.data.paragraphIndex === 'number') {
+              currentParagraphIndexRef.current = event.data.paragraphIndex;
             }
           }
           return true;
 
         case 'request-tts-exit':
-          if (
-            event.data &&
-            typeof event.data === 'object' &&
-            !Array.isArray(event.data)
-          ) {
-            const { visible, ttsIndex } = event.data as any;
+          if (isTTSExitDialogData(event.data)) {
+            const { visible, ttsIndex } = event.data;
             dialogState.setExitDialogData({
               ttsParagraph: Number(ttsIndex) || 0,
               readerParagraph: Number(visible) || 0,
@@ -888,21 +881,17 @@ export function useTTSController(
           return true;
 
         case 'request-tts-confirmation':
-          handleRequestTTSConfirmation(
-            Number((event.data as any)?.savedIndex || 0),
-          );
+          if (isTTSConfirmationData(event.data)) {
+            handleRequestTTSConfirmation(Number(event.data.savedIndex || 0));
+          }
           return true;
 
         case 'tts-scroll-prompt':
-          if (
-            event.data &&
-            !Array.isArray(event.data) &&
-            (event.data as any).currentIndex !== undefined &&
-            (event.data as any).visibleIndex !== undefined
-          ) {
+          if (isTTSScrollPromptEventData(event.data)) {
+            const { currentIndex, visibleIndex } = event.data;
             ttsScrollPromptDataRef.current = {
-              currentIndex: Number((event.data as any).currentIndex),
-              visibleIndex: Number((event.data as any).visibleIndex),
+              currentIndex: Number(currentIndex),
+              visibleIndex: Number(visibleIndex),
             };
             dialogState.showScrollSyncDialog();
           }
@@ -915,18 +904,20 @@ export function useTTSController(
           return true;
 
         case 'tts-resume-location-prompt':
-          if (
-            event.data &&
-            !Array.isArray(event.data) &&
-            (event.data as any).currentIndex !== undefined &&
-            (event.data as any).visibleIndex !== undefined
-          ) {
+          if (isTTSScrollPromptEventData(event.data)) {
+            const {
+              currentIndex,
+              visibleIndex,
+              currentChapterName,
+              visibleChapterName,
+              isStitched,
+            } = event.data;
             ttsScrollPromptDataRef.current = {
-              currentIndex: Number((event.data as any).currentIndex),
-              visibleIndex: Number((event.data as any).visibleIndex),
-              currentChapterName: (event.data as any).currentChapterName,
-              visibleChapterName: (event.data as any).visibleChapterName,
-              isStitched: Boolean((event.data as any).isStitched),
+              currentIndex: Number(currentIndex),
+              visibleIndex: Number(visibleIndex),
+              currentChapterName,
+              visibleChapterName,
+              isStitched,
               isResume: true,
             };
             dialogState.showScrollSyncDialog();

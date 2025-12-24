@@ -7,6 +7,80 @@
  * @module reader/types/tts
  */
 
+// ============================================================================
+// WebView Event Data Types
+// ============================================================================
+
+/**
+ * Base unknown event data type for type-safe event handling.
+ * Used when event data hasn't been validated yet.
+ */
+export type UnknownEventData = unknown;
+
+/**
+ * TTS state persistence data from WebView.
+ */
+export type TTSPersistenceEventData = TTSPersistenceState;
+
+/**
+ * Exit dialog request data.
+ */
+export type TTSExitDialogData = {
+  visible: number;
+  ttsIndex: number;
+};
+
+/**
+ * TTS confirmation request data.
+ */
+export type TTSConfirmationData = {
+  savedIndex: number;
+};
+
+/**
+ * Scroll sync prompt data.
+ */
+export type TTSScrollPromptEventData = {
+  currentIndex: number;
+  visibleIndex: number;
+  currentChapterName?: string;
+  visibleChapterName?: string;
+  isStitched?: boolean;
+};
+
+/**
+ * Chapter appended event data.
+ */
+export type ChapterAppendedData = {
+  chapterId: number;
+  chapterName: string;
+  loadedChapters: string[];
+};
+
+/**
+ * Stitched chapters cleared event data.
+ */
+export interface StitchedClearedData {
+  chapterId: number;
+  chapterName: string;
+  localParagraphIndex?: number;
+}
+
+/**
+ * Chapter transition event data.
+ */
+export interface ChapterTransitionData {
+  previousChapterId: number;
+  currentChapterId: number;
+  currentChapterName: string;
+  currentParagraphIndex?: number;
+  reason: 'trim' | 'append';
+}
+
+// ============================================================================
+// WebView Message Event
+// ============================================================================
+
 /**
  * WebView message event structure.
  * Messages are sent from the WebView JavaScript to React Native via postMessage.
@@ -14,8 +88,8 @@
 export type WebViewPostEvent = {
   /** The type of message (e.g., 'speak', 'stop-speak', 'tts-queue', etc.) */
   type: string;
-  /** Optional data payload - can be key-value pairs or an array of strings */
-  data?: { [key: string]: string | number } | string[];
+  /** Optional data payload - varies by event type */
+  data?: UnknownEventData;
   /** Starting paragraph index for TTS queue operations */
   startIndex?: number;
   /** Whether TTS should auto-start after WebView loads */
@@ -27,6 +101,98 @@ export type WebViewPostEvent = {
   /** Chapter ID for message validation (prevents stale message processing) */
   chapterId?: number;
 };
+
+// ============================================================================
+// Type Guards for Event Data
+// ============================================================================
+
+/**
+ * Type guard to check if data is an object with specific properties.
+ */
+export function isObjectWithProperties<T extends Record<string, unknown>>(
+  data: unknown,
+  properties: (keyof T)[],
+): data is T {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false;
+  }
+  for (const prop of properties) {
+    if (!(prop in data)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Type guard for TTS persistence event data.
+ */
+export function isTTSPersistenceEventData(
+  data: unknown,
+): data is TTSPersistenceEventData {
+  return isObjectWithProperties(data, ['paragraphIndex', 'timestamp']);
+}
+
+/**
+ * Type guard for exit dialog event data.
+ */
+export function isTTSExitDialogData(data: unknown): data is TTSExitDialogData {
+  return isObjectWithProperties(data, ['visible', 'ttsIndex']);
+}
+
+/**
+ * Type guard for confirmation event data.
+ */
+export function isTTSConfirmationData(
+  data: unknown,
+): data is TTSConfirmationData {
+  return isObjectWithProperties(data, ['savedIndex']);
+}
+
+/**
+ * Type guard for scroll prompt event data.
+ */
+export function isTTSScrollPromptEventData(
+  data: unknown,
+): data is TTSScrollPromptEventData {
+  return isObjectWithProperties(data, ['currentIndex', 'visibleIndex']);
+}
+
+/**
+ * Type guard for chapter appended event data.
+ */
+export function isChapterAppendedData(
+  data: unknown,
+): data is ChapterAppendedData {
+  return isObjectWithProperties(data, [
+    'chapterId',
+    'chapterName',
+    'loadedChapters',
+  ]);
+}
+
+/**
+ * Type guard for stitched cleared event data.
+ */
+export function isStitchedClearedData(
+  data: unknown,
+): data is StitchedClearedData {
+  return isObjectWithProperties(data, ['chapterId', 'chapterName']);
+}
+
+/**
+ * Type guard for chapter transition event data.
+ */
+export function isChapterTransitionData(
+  data: unknown,
+): data is ChapterTransitionData {
+  return isObjectWithProperties(data, [
+    'previousChapterId',
+    'currentChapterId',
+    'currentChapterName',
+    'reason',
+  ]);
+}
 
 /**
  * TTS scroll prompt dialog data.

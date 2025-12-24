@@ -75,7 +75,9 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const { defaultChapterSort } = useAppSettings();
 
-  const novelPath = novel?.path ?? (novelOrPath as string);
+  // Type guard: if novel exists, use its path; otherwise novelOrPath must be a string
+  const novelPath =
+    novel?.path ?? (typeof novelOrPath === 'string' ? novelOrPath : '');
 
   const [pageIndex = defaultPageIndex, setPageIndex] = useMMKVNumber(`
     ${NOVEL_PAGE_INDEX_PREFIX}_${pluginId}_${novelPath}
