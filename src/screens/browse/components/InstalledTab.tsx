@@ -14,9 +14,9 @@ import { getString } from '@strings/translations';
 import { BrowseScreenProps } from '@navigators/types';
 import { useBoolean } from '@hooks';
 import { getPlugin } from '@plugins/pluginManager';
+import SourceSettingsModal, { PluginSettings } from './Modals/SourceSettings';
 
 import DiscoverCard from '../discover/DiscoverCard';
-import SourceSettingsModal from './Modals/SourceSettings';
 import { DeferredPluginListItem } from './DeferredPluginListItem';
 import { scaleDimension } from '@theme/scaling';
 import AppText from '@components/AppText';
@@ -218,7 +218,7 @@ export const InstalledTab = memo(
                 title={getString('browseScreen.settings.title')}
                 description={getString('browseScreen.settings.description')}
                 pluginId={selectedPluginId}
-                pluginSettings={pluginSettings}
+                pluginSettings={pluginSettings as PluginSettings | undefined}
               />
             </Portal>
           </>

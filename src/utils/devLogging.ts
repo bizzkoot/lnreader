@@ -1,7 +1,23 @@
+interface ProcessEnv {
+  [key: string]: string | undefined;
+}
+
+interface GlobalProcess {
+  env?: ProcessEnv;
+}
+
+// Extend the global process with additional properties
+declare global {
+  var process: NodeJS.Process;
+  var processExt: GlobalProcess | undefined;
+}
+
 function readBooleanEnv(key: string): boolean {
   // RN uses global.process?.env in Metro, web/Jest use process.env.
-  const value =
-    (globalThis as any)?.process?.env?.[key] ?? (process as any)?.env?.[key];
+  const globalProcess = globalThis.process;
+  const nodeProcess = (globalThis as { processExt?: GlobalProcess }).processExt;
+
+  const value = globalProcess?.env?.[key] ?? nodeProcess?.env?.[key];
 
   if (typeof value !== 'string') {
     return false;
@@ -12,7 +28,8 @@ function readBooleanEnv(key: string): boolean {
 export function isJestEnv(): boolean {
   // In Jest, JEST_WORKER_ID is set.
 
-  const jestWorkerId = (process as any)?.env?.JEST_WORKER_ID;
+  const nodeProcess = globalThis.process;
+  const jestWorkerId = nodeProcess?.env?.JEST_WORKER_ID;
   return typeof jestWorkerId === 'string' && jestWorkerId.length > 0;
 }
 
