@@ -14,7 +14,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import ExportNovelAsEpubButton from './ExportNovelAsEpubButton';
 import { NovelInfo } from '@database/types';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import {
+  StyleProp,
+  StyleSheet,
+  TextStyle,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { MaterialDesignIconName } from '@type/icon';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
@@ -45,7 +51,7 @@ const Menu = React.memo(
             key={index + item.label}
             title={item.label}
             style={{ backgroundColor: theme.surface2 }}
-            titleStyle={{ color: theme.onSurface } as any}
+            titleStyle={{ color: theme.onSurface } as TextStyle}
             onPress={() => {
               onDismiss();
               item.onPress();

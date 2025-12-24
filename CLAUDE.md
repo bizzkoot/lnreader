@@ -59,6 +59,25 @@ pnpm run format
 pnpm run format:check
 ```
 
+### Git Workflow
+
+**IMPORTANT:** Always run `pnpm run format` before staging files for commit to avoid pre-commit hook failures.
+
+```bash
+# 1. Make your changes
+# 2. Format code before staging
+pnpm run format
+
+# 3. Stage your changes
+git add <files>
+
+# 4. Commit (pre-commit hooks will auto-run lint + format)
+git commit -m "message"
+
+# 5. Push
+git push
+```
+
 ### Testing
 
 ```bash

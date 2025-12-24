@@ -2,6 +2,20 @@ import { MD3Theme, configureFonts, MD3TypescaleKey } from 'react-native-paper';
 import { scaleDimension } from './scaling';
 
 /**
+ * Extended font object type that includes allowFontScaling property.
+ * react-native-paper's configureFonts returns objects that have this property
+ * at runtime, but it's not included in the TypeScript types.
+ */
+interface FontObjectWithScaling {
+  fontFamily: string;
+  fontWeight: string;
+  letterSpacing: number;
+  fontSize: number;
+  lineHeight: number;
+  allowFontScaling?: boolean;
+}
+
+/**
  * MD3 Typography Scale configuration.
  * Adjusted to "Compact" sizes to match legacy LNReader density.
  * MD3 Default bodyLarge is 16, we use 14.
@@ -62,13 +76,9 @@ export const getScaledFonts = (scale: number = 1.0): MD3Theme['fonts'] => {
   // Disable font scaling for all text variants to prevent double scaling
   // with system font settings
   Object.keys(configuredFonts).forEach(key => {
-    if (
-      configuredFonts[key as keyof MD3Theme['fonts']] &&
-      typeof configuredFonts[key as keyof MD3Theme['fonts']] === 'object'
-    ) {
-      (
-        configuredFonts[key as keyof MD3Theme['fonts']] as any
-      ).allowFontScaling = false;
+    const fontObj = configuredFonts[key as keyof MD3Theme['fonts']];
+    if (fontObj && typeof fontObj === 'object') {
+      (fontObj as FontObjectWithScaling).allowFontScaling = false;
     }
   });
 
