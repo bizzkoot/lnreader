@@ -90,6 +90,12 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
           flexDirection: 'row',
           alignItems: 'center',
         },
+        progressText: {
+          marginTop: scaleDimension(4, uiScale),
+        },
+        progressTextWithReleaseTime: {
+          marginLeft: scaleDimension(5, uiScale),
+        },
         chapterNameText: {
           flex: 1,
         },
@@ -189,12 +195,8 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
                       color: theme.outline,
                     },
                     styles.text,
-                    {
-                      marginTop: scaleDimension(4, uiScale),
-                      marginLeft: chapter.releaseTime
-                        ? scaleDimension(5, uiScale)
-                        : 0,
-                    },
+                    styles.progressText,
+                    chapter.releaseTime && styles.progressTextWithReleaseTime,
                   ]}
                   numberOfLines={1}
                 >

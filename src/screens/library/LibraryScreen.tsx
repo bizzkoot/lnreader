@@ -48,6 +48,7 @@ import ServiceManager from '@services/ServiceManager';
 import useImport from '@hooks/persisted/useImport';
 import { ThemeColors } from '@theme/types';
 import { useLibraryContext } from '@components/Context/LibraryContext';
+import Toast from '@components/Toast';
 
 import { scaleDimension } from '@theme/scaling';
 
@@ -98,6 +99,11 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
   const bottomSheetRef = useRef<BottomSheetModal | null>(null);
 
   const [index, setIndex] = useState(0);
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToastMessage = useCallback((message: string) => {
+    setToastMessage(message);
+  }, []);
 
   const {
     value: setCategoryModalVisible,
@@ -160,8 +166,14 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
       type: 'application/epub+zip',
       copyToCacheDirectory: true,
       multiple: true,
-    }).then(importNovel);
-  }, [importNovel]);
+    })
+      .then(importNovel)
+      .catch(caughtError => {
+        if (caughtError?.name !== 'UserCanceledError') {
+          showToastMessage('Failed to import novel');
+        }
+      });
+  }, [importNovel, showToastMessage]);
 
   const renderTabBar = useCallback(
     (props: SceneRendererProps & { navigationState: State }) => {
@@ -310,6 +322,12 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
 
   return (
     <SafeAreaView excludeBottom>
+      <Toast
+        visible={Boolean(toastMessage)}
+        message={toastMessage ?? ''}
+        theme={theme}
+        onHide={() => setToastMessage(null)}
+      />
       <SearchbarV2
         searchText={searchText}
         clearSearchbar={handleClearSearchbar}

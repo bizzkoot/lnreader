@@ -437,7 +437,6 @@ const UnreadBadge: React.FC<UnreadBadgeProps> = ({
         backgroundColor: theme.primary,
         color: theme.onPrimary,
         fontSize: scaledStyles.badgeFontSize,
-        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
@@ -461,7 +460,6 @@ const DownloadBadge: React.FC<DownloadBadgeProps> = ({
         backgroundColor: theme.tertiary,
         color: theme.onTertiary,
         fontSize: scaledStyles.badgeFontSize,
-        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
@@ -536,6 +534,7 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
     borderTopLeftRadius: scaled.borderRadius.sm,
     paddingHorizontal: scaled.padding.xs + 1,
     paddingTop: scaled.padding.xs / 2,
+    fontFamily: 'pt-sans-bold',
   },
   extensionIcon: {
     borderRadius: scaled.borderRadius.sm,
@@ -576,6 +575,7 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
     borderTopRightRadius: scaled.borderRadius.sm,
     paddingHorizontal: scaled.padding.xs,
     paddingTop: scaled.padding.xs / 2,
+    fontFamily: 'pt-sans-bold',
   },
   badgeFontSize: scaled.iconSize.sm - 4,
 });

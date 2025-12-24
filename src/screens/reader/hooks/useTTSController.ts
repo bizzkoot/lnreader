@@ -295,6 +295,13 @@ export function useTTSController(
     showToastMessage,
   } = params;
 
+  const novelId = novel.id;
+  const novelName = novel.name;
+  const novelPluginId = novel.pluginId;
+
+  const chapterId = chapter.id;
+  const chapterName = chapter.name;
+
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
   // ===========================================================================
@@ -371,8 +378,31 @@ export function useTTSController(
 
   const dialogState = useDialogState();
 
-  const showScrollSyncDialog = dialogState.showScrollSyncDialog;
-  const showManualModeDialog = dialogState.showManualModeDialog;
+  // Stable refs/values for hooks deps
+  const dialogStateRef = useRef(dialogState);
+  useEffect(() => {
+    dialogStateRef.current = dialogState;
+  }, [dialogState]);
+
+  const showScrollSyncDialog = useCallback(() => {
+    dialogStateRef.current.showScrollSyncDialog();
+  }, []);
+
+  const showManualModeDialog = useCallback(() => {
+    dialogStateRef.current.showManualModeDialog();
+  }, []);
+
+  const hideResumeDialog = useCallback(() => {
+    dialogStateRef.current.hideResumeDialog();
+  }, []);
+
+  const hideScrollSyncDialog = useCallback(() => {
+    dialogStateRef.current.hideScrollSyncDialog();
+  }, []);
+
+  const hideManualModeDialog = useCallback(() => {
+    dialogStateRef.current.hideManualModeDialog();
+  }, []);
 
   // ===========================================================================
   // Keep Refs Synced (Phase 1: Extracted)
@@ -446,7 +476,7 @@ export function useTTSController(
   );
 
   useChapterTransition({
-    chapterId: chapter.id,
+    chapterId,
     refs: chapterTransitionRefs,
   });
 
@@ -470,7 +500,7 @@ export function useTTSController(
       return;
     }
 
-    ttsCtrlLog.info('background-pending', `chapter=${chapter.id}`);
+    ttsCtrlLog.info('background-pending', `chapter=${chapterId}`);
 
     // Clear the flag immediately
     backgroundTTSPendingRef.current = false;
@@ -521,7 +551,7 @@ export function useTTSController(
 
     // Create utterance IDs with chapter ID to prevent stale event processing
     const utteranceIds = textsToSpeak.map(
-      (_, i) => `chapter_${chapter.id}_utterance_${startIndex + i}`,
+      (_, i) => `chapter_${chapterId}_utterance_${startIndex + i}`,
     );
 
     // Update TTS queue ref so event handlers know where the batch starts
@@ -567,7 +597,13 @@ export function useTTSController(
       ttsCtrlLog.warn('no-paragraphs', 'No paragraphs to speak');
       isTTSReadingRef.current = false;
     }
-  }, [chapter.id, html, showToastMessage, updateTtsMediaNotificationState]);
+  }, [
+    chapterId,
+    html,
+    readerSettingsRef,
+    showToastMessage,
+    updateTtsMediaNotificationState,
+  ]);
 
   // ===========================================================================
   // Pending Resume Check Effect
@@ -575,27 +611,27 @@ export function useTTSController(
 
   useEffect(() => {
     const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
-    if (pendingResumeId === chapter.id) {
+    if (pendingResumeId === chapterId) {
       ttsCtrlLog.debug(
         'pending-resume-flag',
         'Found pending resume flag for chapter',
-        chapter.id,
+        chapterId,
       );
       MMKVStorage.delete('pendingTTSResumeChapterId');
 
       // Force show resume dialog if saved progress exists
       const savedIndex =
-        MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+        MMKVStorage.getNumber(`chapter_progress_${chapterId}`) ?? -1;
 
       if (savedIndex >= 0) {
         pendingResumeIndexRef.current = savedIndex;
         // Small timeout to ensure listeners/components are ready
         setTimeout(() => {
-          dialogState.showResumeDialog();
+          dialogStateRef.current.showResumeDialog();
         }, 100);
       }
     }
-  }, [chapter.id, dialogState]);
+  }, [chapterId]);
 
   // ===========================================================================
   // Utility Functions
@@ -606,7 +642,7 @@ export function useTTSController(
   // ===========================================================================
 
   const resumeDialogHandlers = useResumeDialogHandlers({
-    chapterId: chapter.id,
+    chapterId,
     chapterTtsState: chapter.ttsState,
     webViewRef,
     refs: {
@@ -615,7 +651,7 @@ export function useTTSController(
     },
     callbacks: {
       resumeTTS,
-      hideResumeDialog: dialogState.hideResumeDialog,
+      hideResumeDialog,
     },
   });
 
@@ -626,7 +662,7 @@ export function useTTSController(
   const scrollSyncHandlers = useScrollSyncHandlers({
     webViewRef,
     refs: { ttsScrollPromptDataRef },
-    callbacks: { hideScrollSyncDialog: dialogState.hideScrollSyncDialog },
+    callbacks: { hideScrollSyncDialog },
   });
 
   const { handleTTSScrollSyncConfirm, handleTTSScrollSyncCancel } =
@@ -640,7 +676,7 @@ export function useTTSController(
     webViewRef,
     showToastMessage,
     refs: { isTTSReadingRef, isTTSPlayingRef, hasUserScrolledRef },
-    callbacks: { hideManualModeDialog: dialogState.hideManualModeDialog },
+    callbacks: { hideManualModeDialog },
   });
 
   const { handleStopTTS, handleContinueFollowing } = manualModeHandlers;
@@ -650,15 +686,16 @@ export function useTTSController(
   // ===========================================================================
 
   const ttsConfirmationHandler = useTTSConfirmationHandler({
-    novelId: novel.id,
-    chapterId: chapter.id,
+    novelId,
+    chapterId,
     latestParagraphIndexRef,
     lastTTSPauseTimeRef,
     pendingResumeIndexRef,
     dialogState: {
-      setConflictingChapters: dialogState.setConflictingChapters,
-      setShowChapterSelectionDialog: dialogState.setShowChapterSelectionDialog,
-      showResumeDialog: dialogState.showResumeDialog,
+      setConflictingChapters: dialogStateRef.current.setConflictingChapters,
+      setShowChapterSelectionDialog:
+        dialogStateRef.current.setShowChapterSelectionDialog,
+      showResumeDialog: dialogStateRef.current.showResumeDialog,
     },
     handleResumeCancel: resumeDialogHandlers.handleResumeCancel,
     updateLastTTSChapter,
@@ -676,8 +713,9 @@ export function useTTSController(
     chapterGeneralSettingsRef,
     pendingResumeIndexRef,
     dialogState: {
-      setShowChapterSelectionDialog: dialogState.setShowChapterSelectionDialog,
-      showResumeDialog: dialogState.showResumeDialog,
+      setShowChapterSelectionDialog:
+        dialogStateRef.current.setShowChapterSelectionDialog,
+      showResumeDialog: dialogStateRef.current.showResumeDialog,
     },
     showToastMessage,
     updateLastTTSChapter,
@@ -722,7 +760,7 @@ export function useTTSController(
   // ===========================================================================
 
   const backHandler = useBackHandler({
-    chapterId: chapter.id,
+    chapterId,
     webViewRef,
     saveProgress,
     navigation,
@@ -799,12 +837,12 @@ export function useTTSController(
             ) {
               ttsCtrlLog.info(
                 'start-batch',
-                `index=${paragraphIdx} chapter=${chapter.id}`,
+                `index=${paragraphIdx} chapter=${chapterId}`,
               );
 
               const remaining = paragraphs.slice(paragraphIdx);
               const ids = remaining.map(
-                (_, i) => `chapter_${chapter.id}_utterance_${paragraphIdx + i}`,
+                (_, i) => `chapter_${chapterId}_utterance_${paragraphIdx + i}`,
               );
 
               ttsQueueRef.current = {
@@ -822,7 +860,7 @@ export function useTTSController(
                 // Fallback to single speak
                 const utteranceId =
                   paragraphIdx >= 0
-                    ? `chapter_${chapter.id}_utterance_${paragraphIdx}`
+                    ? `chapter_${chapterId}_utterance_${paragraphIdx}`
                     : undefined;
                 TTSHighlight.speak(textToSpeak, {
                   voice: readerSettingsRef.current.tts?.voice?.identifier,
@@ -834,11 +872,11 @@ export function useTTSController(
             } else {
               ttsCtrlLog.warn(
                 'start-batch-invalid-params',
-                `index=${paragraphIdx} total=${paragraphs?.length ?? 0} chapter=${chapter.id}`,
+                `index=${paragraphIdx} total=${paragraphs?.length ?? 0} chapter=${chapterId}`,
               );
               const utteranceId =
                 paragraphIdx >= 0
-                  ? `chapter_${chapter.id}_utterance_${paragraphIdx}`
+                  ? `chapter_${chapterId}_utterance_${paragraphIdx}`
                   : undefined;
               TTSHighlight.speak(textToSpeak, {
                 voice: readerSettingsRef.current.tts?.voice?.identifier,
@@ -869,12 +907,12 @@ export function useTTSController(
         case 'request-tts-exit':
           if (isTTSExitDialogData(event.data)) {
             const { visible, ttsIndex } = event.data;
-            dialogState.setExitDialogData({
+            dialogStateRef.current.setExitDialogData({
               ttsParagraph: Number(ttsIndex) || 0,
               readerParagraph: Number(visible) || 0,
               totalParagraphs: totalParagraphsRef.current,
             });
-            dialogState.setShowExitDialog(true);
+            dialogStateRef.current.setShowExitDialog(true);
           }
           return true;
 
@@ -895,14 +933,14 @@ export function useTTSController(
               currentIndex: Number(currentIndex),
               visibleIndex: Number(visibleIndex),
             };
-            dialogState.showScrollSyncDialog();
+            showScrollSyncDialog();
           }
           return true;
 
         case 'tts-manual-mode-prompt':
           // Show dialog to ask user if they want to stop TTS or continue following
           // Note: TTS continues playing while dialog is shown - user can read ahead
-          dialogState.showManualModeDialog();
+          showManualModeDialog();
           return true;
 
         case 'tts-resume-location-prompt':
@@ -922,7 +960,7 @@ export function useTTSController(
               isStitched,
               isResume: true,
             };
-            dialogState.showScrollSyncDialog();
+            showScrollSyncDialog();
           }
           return true;
 
@@ -991,7 +1029,7 @@ export function useTTSController(
             ) {
               const startIndex = event.startIndex;
               const utteranceIds = (event.data as string[]).map(
-                (_, i) => `chapter_${chapter.id}_utterance_${startIndex + i}`,
+                (_, i) => `chapter_${chapterId}_utterance_${startIndex + i}`,
               );
 
               ttsCtrlLog.debug(
@@ -1046,7 +1084,7 @@ export function useTTSController(
       }
     },
     [
-      chapter.id,
+      chapterId,
       html,
       webViewRef,
       readerSettingsRef,
@@ -1077,7 +1115,7 @@ export function useTTSController(
 
       const savedWakeChapterId = wakeChapterIdRef.current;
       const savedWakeParagraphIdx = wakeParagraphIndexRef.current;
-      const currentChapterId = chapter.id;
+      const currentChapterId = chapterId;
 
       ttsCtrlLog.debug(
         'wake-sync-process',
@@ -1117,25 +1155,25 @@ export function useTTSController(
           // Try to get chapter name from DB
           getChapterFromDb(savedWakeChapterId)
             .then(savedChapter => {
-              dialogState.setSyncDialogInfo({
+              dialogStateRef.current.setSyncDialogInfo({
                 chapterName:
                   savedChapter?.name ?? `Chapter ID: ${savedWakeChapterId}`,
                 paragraphIndex: paragraphIdx,
                 totalParagraphs: retryTotalParagraphs,
                 progress: progressPercent,
               });
-              dialogState.setSyncDialogStatus('failed');
-              dialogState.setSyncDialogVisible(true);
+              dialogStateRef.current.setSyncDialogStatus('failed');
+              dialogStateRef.current.setSyncDialogVisible(true);
             })
             .catch(() => {
-              dialogState.setSyncDialogInfo({
+              dialogStateRef.current.setSyncDialogInfo({
                 chapterName: `Chapter ID: ${savedWakeChapterId}`,
                 paragraphIndex: paragraphIdx,
                 totalParagraphs: retryTotalParagraphs,
                 progress: progressPercent,
               });
-              dialogState.setSyncDialogStatus('failed');
-              dialogState.setSyncDialogVisible(true);
+              dialogStateRef.current.setSyncDialogStatus('failed');
+              dialogStateRef.current.setSyncDialogVisible(true);
             });
 
           // Clear wake refs since we're not resuming
@@ -1148,8 +1186,8 @@ export function useTTSController(
         }
 
         // Show syncing dialog
-        dialogState.setSyncDialogStatus('syncing');
-        dialogState.setSyncDialogVisible(true);
+        dialogStateRef.current.setSyncDialogStatus('syncing');
+        dialogStateRef.current.setSyncDialogVisible(true);
         syncRetryCountRef.current += 1;
 
         // Fetch the saved chapter info and navigate to it
@@ -1170,8 +1208,8 @@ export function useTTSController(
                 'saved-chapter-not-found',
                 `Could not find chapter ${savedWakeChapterId} in database`,
               );
-              dialogState.setSyncDialogStatus('failed');
-              dialogState.setSyncDialogInfo({
+              dialogStateRef.current.setSyncDialogStatus('failed');
+              dialogStateRef.current.setSyncDialogInfo({
                 chapterName: `Unknown Chapter (ID: ${savedWakeChapterId})`,
                 paragraphIndex: savedWakeParagraphIdx ?? 0,
                 totalParagraphs: 0,
@@ -1184,8 +1222,8 @@ export function useTTSController(
           })
           .catch(() => {
             ttsCtrlLog.error('db-query-failed', 'Database query failed');
-            dialogState.setSyncDialogStatus('failed');
-            dialogState.setSyncDialogVisible(true);
+            dialogStateRef.current.setSyncDialogStatus('failed');
+            dialogStateRef.current.setSyncDialogVisible(true);
           });
 
         return;
@@ -1200,10 +1238,10 @@ export function useTTSController(
       );
 
       // Hide sync dialog if it was showing
-      if (dialogState.syncDialogVisible) {
-        dialogState.setSyncDialogStatus('success');
+      if (dialogStateRef.current.syncDialogVisible) {
+        dialogStateRef.current.setSyncDialogStatus('success');
         setTimeout(() => {
-          dialogState.setSyncDialogVisible(false);
+          dialogStateRef.current.setSyncDialogVisible(false);
         }, 1000);
       }
 
@@ -1228,7 +1266,7 @@ export function useTTSController(
             const remaining = paragraphs.slice(savedWakeParagraphIdx);
             const ids = remaining.map(
               (_, i) =>
-                `chapter_${chapter.id}_utterance_${savedWakeParagraphIdx + i}`,
+                `chapter_${chapterId}_utterance_${savedWakeParagraphIdx + i}`,
             );
 
             ttsQueueRef.current = {
@@ -1396,11 +1434,11 @@ export function useTTSController(
       }, 300);
     }
   }, [
-    chapter.id,
+    chapterId,
     html,
-    webViewRef,
-    dialogState.syncDialogVisible,
     getChapter,
+    webViewRef,
+    readerSettingsRef,
     updateTtsMediaNotificationState,
   ]);
 
@@ -1856,13 +1894,13 @@ export function useTTSController(
             // Mark WebView as unsynced BEFORE navigation
             isWebViewSyncedRef.current = false;
 
-            mediaNavSourceChapterIdRef.current = chapter.id;
+            mediaNavSourceChapterIdRef.current = chapterId;
             mediaNavDirectionRef.current = 'PREV';
 
             try {
-              await updateChapterProgressDb(chapter.id, 1);
+              await updateChapterProgressDb(chapterId, 1);
               try {
-                await markChapterUnread(chapter.id);
+                await markChapterUnread(chapterId);
               } catch (e) {
                 // ignore
               }
@@ -1921,13 +1959,13 @@ export function useTTSController(
             // Mark WebView as unsynced BEFORE navigation
             isWebViewSyncedRef.current = false;
 
-            mediaNavSourceChapterIdRef.current = chapter.id;
+            mediaNavSourceChapterIdRef.current = chapterId;
             mediaNavDirectionRef.current = 'NEXT';
 
             try {
-              await updateChapterProgressDb(chapter.id, 100);
+              await updateChapterProgressDb(chapterId, 100);
               try {
-                await markChapterRead(chapter.id);
+                await markChapterRead(chapterId);
               } catch (e) {
                 // ignore
               }
@@ -2059,7 +2097,7 @@ export function useTTSController(
 
         if (nextChapterRef.current) {
           const nextChap = nextChapterRef.current;
-          const filePath = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}/${nextChap.id}/index.html`;
+          const filePath = `${NOVEL_STORAGE}/${novelPluginId}/${novelId}/${nextChap.id}/index.html`;
 
           // Check if next chapter is already downloaded
           const isDownloaded = NativeFile.exists(filePath);
@@ -2075,9 +2113,9 @@ export function useTTSController(
 
             // Update notification to show downloading status
             TTSHighlight.updateMediaState({
-              novelName: novel.name,
+              novelName,
               chapterLabel: `${getString('readerScreen.tts.downloadingNextChapter')}`,
-              chapterId: chapter.id,
+              chapterId,
               paragraphIndex: totalParagraphsRef.current - 1,
               totalParagraphs: totalParagraphsRef.current,
               isPlaying: true,
@@ -2106,9 +2144,9 @@ export function useTTSController(
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               TTSHighlight.updateMediaState({
-                novelName: novel.name,
-                chapterLabel: chapter.name,
-                chapterId: chapter.id,
+                novelName,
+                chapterLabel: chapterName,
+                chapterId,
                 paragraphIndex: totalParagraphsRef.current - 1,
                 totalParagraphs: totalParagraphsRef.current,
                 isPlaying: false,
@@ -2183,7 +2221,7 @@ export function useTTSController(
             );
 
             // Clear dialog state in React
-            dialogState.hideManualModeDialog();
+            dialogStateRef.current.hideManualModeDialog();
 
             // Clear dialogActive in WebView when it unfreezes
             // (This injects JS that will execute when WebView becomes active again)
@@ -2366,7 +2404,7 @@ export function useTTSController(
 
                 // Also check MMKV as a secondary source
                 const mmkvIndex =
-                  MMKVStorage.getNumber(`chapter_progress_${chapter.id}`) ?? -1;
+                  MMKVStorage.getNumber(`chapter_progress_${chapterId}`) ?? -1;
                 const refIndex = currentParagraphIndexRef.current;
 
                 // Priority: captured index > MMKV > current ref
@@ -2395,7 +2433,7 @@ export function useTTSController(
                 currentParagraphIndexRef.current = syncIndex;
                 latestParagraphIndexRef.current = syncIndex;
 
-                const chapterId = prevChapterIdRef.current;
+                const prevChapterId = prevChapterIdRef.current;
 
                 // Force sync WebView to current TTS position with chapter validation
 
@@ -2430,7 +2468,7 @@ export function useTTSController(
                         setTimeout(() => { window.tts.resetScrollLock(); }, 600);
                         
                         // Highlight current paragraph with chapter validation
-                        window.tts.highlightParagraph(${syncIndex}, ${chapterId});
+                        window.tts.highlightParagraph(${syncIndex}, ${prevChapterId});
                         
                         console.log('TTS: Screen wake sync complete - scrolled to paragraph ${syncIndex}');
                       } else {
@@ -2476,7 +2514,7 @@ export function useTTSController(
                           const remaining = paragraphs.slice(idx);
                           const ids = remaining.map(
                             (_, i) =>
-                              `chapter_${chapter.id}_utterance_${idx + i}`,
+                              `chapter_${chapterId}_utterance_${idx + i}`,
                           );
 
                           // Update queue ref for the fresh batch
@@ -2560,10 +2598,13 @@ export function useTTSController(
       }
     };
   }, [
-    chapter.id,
+    chapterId,
+    chapterName,
     html,
+    novelId,
+    novelName,
+    novelPluginId,
     showToastMessage,
-    webViewRef,
     navigateChapter,
     nextChapter,
     prevChapter,
@@ -2571,6 +2612,7 @@ export function useTTSController(
     updateTtsMediaNotificationState,
     chapterGeneralSettingsRef,
     readerSettingsRef,
+    webViewRef,
   ]);
 
   // ===========================================================================
@@ -2579,11 +2621,11 @@ export function useTTSController(
 
   const currentChapterForDialog = useMemo(
     () => ({
-      id: chapter.id,
-      name: chapter.name,
+      id: chapterId,
+      name: chapterName,
       paragraph: pendingResumeIndexRef.current,
     }),
-    [chapter.id, chapter.name],
+    [chapterId, chapterName],
   );
 
   return {

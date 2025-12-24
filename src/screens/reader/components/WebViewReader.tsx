@@ -15,7 +15,12 @@ import React, {
   useCallback,
   useState,
 } from 'react';
-import { NativeEventEmitter, NativeModules, StatusBar } from 'react-native';
+import {
+  NativeEventEmitter,
+  NativeModules,
+  StatusBar,
+  StyleSheet,
+} from 'react-native';
 import WebView from 'react-native-webview';
 import {
   READER_WEBVIEW_ORIGIN_WHITELIST,
@@ -72,6 +77,18 @@ type WebViewReaderProps = {
 
 const { RNDeviceInfo } = NativeModules;
 const deviceInfoEmitter = new NativeEventEmitter(RNDeviceInfo);
+
+const styles = StyleSheet.create({
+  webView: {
+    flex: 1,
+  },
+  webViewHidden: {
+    opacity: 0,
+  },
+  webViewVisible: {
+    opacity: 1,
+  },
+});
 
 // CRITICAL-1 FIX: Use refs for module-level dependencies to ensure stable references
 // These are module-level constants but ESLint can't verify they won't change
@@ -1134,11 +1151,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     <>
       <WebView
         ref={webViewRef}
-        style={{
-          backgroundColor: readerSettings.theme,
-          // During chapter transition, hide WebView to prevent visual flash
-          opacity: isTransitioning ? 0 : 1,
-        }}
+        style={[
+          styles.webView,
+          { backgroundColor: readerSettings.theme },
+          isTransitioning ? styles.webViewHidden : styles.webViewVisible,
+        ]}
         allowFileAccess={true}
         originWhitelist={READER_WEBVIEW_ORIGIN_WHITELIST}
         scalesPageToFit={true}
