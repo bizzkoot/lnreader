@@ -13,6 +13,13 @@ const { TTSHighlight } = NativeModules;
 
 const ttsEmitter = new NativeEventEmitter(TTSHighlight);
 
+/**
+ * Parameters for TTS audio playback
+ * @property {number} [rate] - Speech rate (0.1 to 3.0, default: 1.0)
+ * @property {number} [pitch] - Voice pitch (0.1 to 2.0, default: 1.0)
+ * @property {unknown} [voice] - Voice identifier (system-specific)
+ * @property {string} [utteranceId] - Unique ID for this utterance
+ */
 export type TTSAudioParams = {
   rate?: number;
   pitch?: number;
@@ -41,6 +48,42 @@ const ttsLog = createRateLimitedLogger('TTS', { windowMs: 1000 });
 const logDebug = (...args: unknown[]) => ttsLog.debug('debug', ...args);
 const logError = (...args: unknown[]) => ttsLog.error('error', ...args);
 
+/**
+ * Manages Text-to-Speech (TTS) playback lifecycle and queue management.
+ *
+ * This class coordinates between the React Native layer and the Native Android TTS engine,
+ * providing:
+ * - State machine-based playback control (IDLE → STARTING → PLAYING → REFILLING → STOPPING)
+ * - Queue management with intelligent refill to prevent audio gaps
+ * - Voice locking for consistent batch playback
+ * - Monotonic progress tracking to prevent backward jumps
+ * - Event emission for speech lifecycle (onSpeechDone, onQueueEmpty)
+ *
+ * **Key Responsibilities:**
+ * - Batch queueing: `speakBatch()` adds paragraphs to native queue for seamless playback
+ * - Refill strategy: Proactively refills queue when below threshold to avoid gaps
+ * - State validation: `transitionTo()` enforces valid state transitions
+ * - Error recovery: Fallback mechanisms when native queue operations fail
+ *
+ * **Thread Safety:**
+ * - Refill operations are serialized using mutex pattern (`refillMutex`)
+ * - Prevents race conditions between queue exhaustion and refill completion
+ *
+ * @class TTSAudioManager
+ * @example
+ * ```typescript
+ * import TTSHighlight from '@services/TTSHighlight';
+ *
+ * // Start batch playback
+ * const paragraphs = ['Para 1', 'Para 2', 'Para 3'];
+ * await TTSHighlight.speakBatch(paragraphs, { rate: 1.2, pitch: 1.0 });
+ *
+ * // Listen for completion
+ * TTSHighlight.onSpeechDone((utteranceId) => {
+ *   console.log(`Finished: ${utteranceId}`);
+ * });
+ * ```
+ */
 class TTSAudioManager {
   private state: TTSState = TTSState.IDLE;
   private currentQueue: string[] = [];
@@ -206,6 +249,30 @@ class TTSAudioManager {
     }
   }
 
+  /**
+   * Speak a single text utterance immediately (foreground mode).
+   *
+   * This method is used when `ttsBackgroundPlayback` is OFF. The WebView drives
+   * the playback loop by sending one utterance at a time.
+   *
+   * **Behavior:**
+   * - Transitions state: IDLE → PLAYING
+   * - Locks voice for session consistency
+   * - Generates utteranceId if not provided
+   *
+   * @param {string} text - Text to speak
+   * @param {TTSAudioParams} [params] - Optional audio parameters
+   * @param {number} [params.rate] - Speech rate (default: 1.0)
+   * @param {number} [params.pitch] - Voice pitch (default: 1.0)
+   * @param {unknown} [params.voice] - Voice identifier
+   * @param {string} [params.utteranceId] - Custom utterance ID
+   * @returns {Promise<string>} Utterance ID of the spoken text
+   * @throws {Error} If native TTS fails
+   * @example
+   * ```typescript
+   * const id = await TTSHighlight.speak('Hello world', { rate: 1.2 });
+   * ```
+   */
   async speak(text: string, params: TTSAudioParams = {}): Promise<string> {
     try {
       const rate = params.rate || 1;
@@ -230,6 +297,40 @@ class TTSAudioManager {
     }
   }
 
+  /**
+   * Queue multiple text paragraphs for seamless playback (background mode).
+   *
+   * This is the primary method for robust TTS playback with background support.
+   * It queues paragraphs to the native TTS engine, which handles transitions
+   * automatically without WebView coordination.
+   *
+   * **Key Features:**
+   * - Seamless paragraph transitions (no audio gaps)
+   * - Continues playback when screen is off
+   * - Intelligent queue management with refill strategy
+   * - Voice locking for consistent batch playback
+   *
+   * **State Transitions:**
+   * - IDLE/PLAYING → STARTING → PLAYING
+   *
+   * **Queue Management:**
+   * - Stores texts and IDs for refill operations
+   * - Updates cache with new queue size
+   * - Marks session as having queued audio
+   *
+   * @param {string[]} texts - Array of paragraph texts to queue
+   * @param {string[]} utteranceIds - Matching array of utterance IDs
+   * @param {TTSAudioParams} [params] - Audio parameters
+   * @returns {Promise<number>} Number of items successfully queued
+   * @throws {Error} If native queue operation fails
+   * @example
+   * ```typescript
+   * const paragraphs = ['Para 1', 'Para 2', 'Para 3'];
+   * const ids = paragraphs.map((_, i) => `utterance_${i}`);
+   * const queued = await TTSHighlight.speakBatch(paragraphs, ids, { rate: 1.0 });
+   * console.log(`Queued ${queued} paragraphs`);
+   * ```
+   */
   async speakBatch(
     texts: string[],
     utteranceIds: string[],
@@ -595,6 +696,18 @@ class TTSAudioManager {
     return this.refillMutex as Promise<boolean>;
   }
 
+  /**
+   * Stop TTS playback and clear the queue.
+   *
+   * Resets all internal state including queue, utterance IDs, and indices.
+   * Transitions to IDLE state. This is a complete teardown.
+   *
+   * @returns {Promise<boolean>} True if successfully stopped
+   * @example
+   * ```typescript
+   * await TTSHighlight.stop();
+   * ```
+   */
   async stop(): Promise<boolean> {
     try {
       this.transitionTo(TTSState.STOPPING);
@@ -640,6 +753,26 @@ class TTSAudioManager {
   }
 
   // Event handling
+  /**
+   * Register callback for speech completion events.
+   *
+   * Called when the native TTS engine finishes speaking an utterance.
+   * Used to:
+   * - Update progress in DB/MMKV
+   * - Trigger queue refill when below threshold
+   * - Advance to next paragraph in foreground mode
+   *
+   * **Note:** Callback is set directly, not added to array.
+   *
+   * @param {function(string): void} callback - Handler receiving utterance ID
+   * @example
+   * ```typescript
+   * TTSHighlight.onSpeechDone((utteranceId) => {
+   *   saveProgress(utteranceId);
+   *   if (queueLow) refillQueue();
+   * });
+   * ```
+   */
   onSpeechDone(callback: (utteranceId: string) => void) {
     this.onDoneCallback = callback;
 
@@ -678,6 +811,26 @@ class TTSAudioManager {
    * Called when the native TTS queue is completely empty.
    * This means all queued utterances have been spoken and the chapter has ended.
    * Use this to trigger next chapter loading when screen is off.
+   */
+  /**
+   * Register callback for queue empty events.
+   *
+   * Called when the native TTS queue is completely drained.
+   * **Primary use case:** Trigger navigation to next chapter during
+   * background playback (screen off).
+   *
+   * **Important:** This can fire spuriously if queue exhausts before
+   * refill completes. Always check `hasRemainingItems()` before acting.
+   *
+   * @param {function(): void} callback - Handler for queue empty event
+   * @example
+   * ```typescript
+   * TTSHighlight.onQueueEmpty(() => {
+   *   if (!TTSHighlight.hasRemainingItems()) {
+   *     navigateToNextChapter();
+   *   }
+   * });
+   * ```
    */
   onQueueEmpty(callback: () => void) {
     this.onQueueEmptyCallback = callback;
