@@ -172,6 +172,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     () =>
       getMMKVObject<ChapterReaderSettings>(CHAPTER_READER_SETTINGS) ||
       initialChapterReaderSettings,
+    // Only re-read from MMKV when chapter changes. Intentionally excluding callback
+    // dependencies to avoid unnecessary re-computation when callbacks change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id],
   );
@@ -189,6 +191,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
       return merged;
     },
+    // Only re-read from MMKV when chapter changes. Intentionally excluding callback
+    // dependencies to avoid unnecessary re-computation when callbacks change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id],
   );
@@ -273,6 +277,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Stable chapter object
   const stableChapter = useMemo(
     () => ({ ...chapter }),
+    // Only create new chapter reference when chapter.id changes. This prevents
+    // unnecessary re-renders when shallow chapter properties update (e.g., progress).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id],
   );

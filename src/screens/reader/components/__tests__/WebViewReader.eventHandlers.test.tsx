@@ -338,13 +338,7 @@ describe('WebViewReader Event Handlers', () => {
 
   describe('onQueueEmpty', () => {
     it('should navigate to next chapter if available and continue mode is enabled', () => {
-      /*
-      // Mock settings to 'continuous'
-      const {
-        useChapterReaderSettings,
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-      } = require('@hooks/persisted'); // Re-import to override
-      */
+      // Mock settings to 'continuous' - this test is a placeholder for future implementation
       expect(true).toBe(true); // Placeholder
     });
 

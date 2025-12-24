@@ -9,6 +9,14 @@ module.exports = {
         'no-undef': 'off',
         'no-console': 'error',
         '@typescript-eslint/no-shadow': 'warn',
+        '@typescript-eslint/no-unused-vars': [
+          'warn',
+          {
+            argsIgnorePattern: '^_',
+            varsIgnorePattern': '^_',
+            ignoreRestSiblings: true,
+          },
+        ],
         'react-hooks/exhaustive-deps': 'warn',
         'curly': ['error', 'multi-line', 'consistent'],
         'no-useless-return': 'error',

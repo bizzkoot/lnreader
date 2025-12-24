@@ -1,4 +1,4 @@
-/* eslint-disable react-native/no-inline-styles */
+/* eslint-disable react-native/no-inline-styles -- Dynamic focus-dependent styles require inline approach */
 import React, { useCallback, useMemo } from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, View, StyleSheet } from 'react-native';

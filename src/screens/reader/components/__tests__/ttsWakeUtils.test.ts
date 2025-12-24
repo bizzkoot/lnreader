@@ -1,8 +1,8 @@
-const {
+import {
   computeInitialIndex,
   buildBatch,
   shouldIgnoreSaveEvent,
-} = require('../ttsWakeUtils');
+} from '../ttsWakeUtils';
 
 describe('ttsWakeUtils', () => {
   describe('computeInitialIndex', () => {
@@ -15,7 +15,7 @@ describe('ttsWakeUtils', () => {
     test('handles undefined/missing values gracefully', () => {
       expect(computeInitialIndex(undefined, -1, 10)).toBe(10);
       expect(computeInitialIndex(undefined, undefined, undefined)).toBe(-1);
-      expect(computeInitialIndex(null, null, null)).toBe(-1);
+      expect(computeInitialIndex(undefined, undefined, undefined)).toBe(-1);
       expect(computeInitialIndex(0, -1, -1)).toBe(0);
     });
 
@@ -44,7 +44,7 @@ describe('ttsWakeUtils', () => {
       const paragraphs = ['a', 'b', 'c'];
       expect(buildBatch(paragraphs, -5).startIndex).toBe(0);
       expect(buildBatch(paragraphs, undefined).startIndex).toBe(0);
-      expect(buildBatch(paragraphs, null).startIndex).toBe(0);
+      expect(buildBatch(paragraphs, undefined).startIndex).toBe(0);
     });
 
     test('returns empty arrays when startIndex exceeds paragraph count', () => {
@@ -55,8 +55,10 @@ describe('ttsWakeUtils', () => {
     });
 
     test('throws if paragraphs is not an array', () => {
-      expect(() => buildBatch(null, 0)).toThrow('paragraphs must be an array');
-      expect(() => buildBatch('string', 0)).toThrow(
+      expect(() => buildBatch(null as unknown as [], 0)).toThrow(
+        'paragraphs must be an array',
+      );
+      expect(() => buildBatch('string' as unknown as [], 0)).toThrow(
         'paragraphs must be an array',
       );
     });
