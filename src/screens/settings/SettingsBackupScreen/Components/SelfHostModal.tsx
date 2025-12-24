@@ -7,11 +7,16 @@ import { getString } from '@strings/translations';
 import { scaleDimension } from '@theme/scaling';
 import { ThemeColors } from '@theme/types';
 import { fetchTimeout } from '@utils/fetch/fetch';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import AppText from '@components/AppText';
 import { FlatList } from 'react-native-gesture-handler';
 import { Portal, TextInput } from 'react-native-paper';
+
+const selfHostModalLog = createRateLimitedLogger('SelfHostModal', {
+  windowMs: 1500,
+});
 
 enum BackupModal {
   SET_HOST,
@@ -98,9 +103,17 @@ function RestoreBackup({
 }) {
   const [backupList, setBackupList] = useState<string[]>([]);
   useEffect(() => {
-    list(host).then(items =>
-      setBackupList(items.filter(item => item.endsWith('.backup'))),
-    );
+    list(host)
+      .then(items =>
+        setBackupList(items.filter(item => item.endsWith('.backup'))),
+      )
+      .catch(err => {
+        selfHostModalLog.error(
+          'load-backups-failed',
+          'Failed to load backup list',
+          err,
+        );
+      });
   }, [host]);
 
   const emptyComponent = useCallback(() => {

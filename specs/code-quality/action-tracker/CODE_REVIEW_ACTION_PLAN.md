@@ -193,13 +193,25 @@
     - Components: Common.tsx, ListView.tsx, Menu/index.tsx, NovelCover.tsx
     - Types: src/screens/reader/types/tts.ts
 
-- [ ] **HIGH-2: Add Promise Error Handling**
-  - Files: Multiple files with unhandled promises
+- [x] **HIGH-2: Add Promise Error Handling** ✅
+  - Files: 6 files with 10 unhandled promise chains
   - Action: Add `.catch()` to all promise chains
   - Use try-catch for async/await
   - Show user-friendly error messages
   - Est: 4 hours
-  - Status: Not Started
+  - Status: **Completed** 2025-12-24
+  - Notes:
+    - Fixed 10 unhandled promises across 6 files
+    - Added rateLimitedLogger to 4 files that didn't have it
+    - All error handlers use rateLimitedLogger for consistent logging
+    - Files modified:
+      - `useTTSController.ts`: Added .catch() to addToBatchWithRetry
+      - `ReaderAppbar.tsx`: Added .catch() to bookmarkChapter
+      - `UpdatesScreen.tsx`: Added .catch() to deleteChapter
+      - `DownloadsScreen.tsx`: Added .catch() to deleteChapter
+      - `GoogleDriveModal.tsx`: Fixed 5 promises (signOut, signIn, prepare, exists/getBackups, Clipboard.setStringAsync)
+      - `SelfHostModal.tsx`: Added .catch() to list
+    - Verification: Type-check ✅, Lint ✅, Tests ✅ (629 passing)
 
 - [ ] **HIGH-3: Enable TypeScript Strict Mode**
   - File: `tsconfig.json`
@@ -329,11 +341,11 @@
 | Priority | Tasks | Completed | In Progress | Blocked |
 |----------|-------|-----------|-------------|---------|
 | P0 - Critical | 3 | 3 | 0 | 0 |
-| P1 - High | 5 | 1 | 0 | 0 |
+| P1 - High | 5 | 2 | 0 | 0 |
 | P2 - Medium | 8 | 0 | 0 | 0 |
 | P3 - Low | 4 | 0 | 0 | 0 |
 | Refactoring | 1 | 0 | 0 | 0 |
-| **Total** | **21** | **4** | **0** | **0** |
+| **Total** | **21** | **5** | **0** | **0** |
 
 ---
 
@@ -449,6 +461,35 @@ Fixed the remaining 8 test file type errors in ttsHelpers.test.ts by adding prop
   - `pnpm run type-check`: ✅ pass
   - `pnpm run test`: ✅ pass
   - `pnpm run lint`: ✅ 0 errors (11 warnings remain)
+
+**2025-12-24 - HIGH-2 Completed: Promise Error Handling**
+
+Fixed 10 unhandled promise chains across 6 files by adding proper `.catch()` blocks with rate-limited logging.
+
+**TTS/Hooks (1 fix, 1 file):**
+- ✅ useTTSController.ts: Added `.catch()` to `addToBatchWithRetry()` promise chain with fallback to WebView-driven TTS
+
+**Reader Components (1 fix, 1 file):**
+- ✅ ReaderAppbar.tsx: Added `.catch()` to `bookmarkChapter()` promise chain
+
+**Screens (8 fixes, 4 files):**
+- ✅ UpdatesScreen.tsx: Added `.catch()` to `deleteChapter()` promise chain
+- ✅ DownloadsScreen.tsx: Added `.catch()` to `deleteChapter()` promise chain
+- ✅ GoogleDriveModal.tsx: Fixed 5 unhandled promises (signOut, signIn, prepare, exists/getBackups, Clipboard.setStringAsync)
+- ✅ SelfHostModal.tsx: Added `.catch()` to `list()` promise chain
+
+**Verification Results:**
+- Type-check: ✅ 0 errors
+- Lint: ✅ 0 errors
+- Tests: ✅ 629 passing
+
+**Files Modified:**
+- src/screens/reader/hooks/useTTSController.ts
+- src/screens/reader/components/ReaderAppbar.tsx
+- src/screens/updates/UpdatesScreen.tsx
+- src/screens/more/DownloadsScreen.tsx
+- src/screens/settings/SettingsBackupScreen/Components/GoogleDriveModal.tsx
+- src/screens/settings/SettingsBackupScreen/Components/SelfHostModal.tsx
 
 **Files Modified (Session 4):**
 - src/screens/reader/components/__tests__/ttsHelpers.test.ts

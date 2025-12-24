@@ -14,6 +14,11 @@ import { bookmarkChapter } from '@database/queries/ChapterQueries';
 import { useChapterContext } from '../ChapterContext';
 import { useNovelContext } from '@screens/novel/NovelContext';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const readerAppbarLog = createRateLimitedLogger('ReaderAppbar', {
+  windowMs: 1500,
+});
 
 interface ReaderAppbarProps {
   theme: ThemeColors;
@@ -112,7 +117,15 @@ const ReaderAppbar = ({
           name={bookmarked ? 'bookmark' : 'bookmark-outline'}
           size={scaledDimensions.iconSize.md}
           onPress={() => {
-            bookmarkChapter(chapter.id).then(() => setBookmarked(!bookmarked));
+            bookmarkChapter(chapter.id)
+              .then(() => setBookmarked(!bookmarked))
+              .catch(err => {
+                readerAppbarLog.error(
+                  'bookmark-failed',
+                  'Failed to bookmark chapter',
+                  err,
+                );
+              });
           }}
           color={theme.onSurface}
           theme={theme}

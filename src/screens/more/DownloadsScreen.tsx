@@ -22,6 +22,11 @@ import { DownloadedChapter } from '@database/types';
 import { showToast } from '@utils/showToast';
 import dayjs from 'dayjs';
 import { parseChapterNumber } from '@utils/parseChapterNumber';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const downloadsScreenLog = createRateLimitedLogger('DownloadsScreen', {
+  windowMs: 1500,
+});
 
 type DownloadGroup = Record<number, DownloadedChapter[]>;
 
@@ -116,14 +121,20 @@ const Downloads = ({ navigation }: DownloadsScreenProps) => {
                 chapterList={item}
                 descriptionText={getString('downloadScreen.downloadsLower')}
                 deleteChapter={chapter => {
-                  deleteChapter(
-                    chapter.pluginId,
-                    chapter.novelId,
-                    chapter.id,
-                  ).then(() => {
-                    showToast(`${getString('common.delete')} ${chapter.name}`);
-                    getChapters();
-                  });
+                  deleteChapter(chapter.pluginId, chapter.novelId, chapter.id)
+                    .then(() => {
+                      showToast(
+                        `${getString('common.delete')} ${chapter.name}`,
+                      );
+                      getChapters();
+                    })
+                    .catch(err => {
+                      downloadsScreenLog.error(
+                        'delete-chapter-failed',
+                        'Failed to delete chapter',
+                        err,
+                      );
+                    });
                 }}
               />
             );

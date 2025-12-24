@@ -1064,8 +1064,8 @@ export function useTTSController(
                 return false;
               };
 
-              addToBatchWithRetry(event.data as string[], utteranceIds).then(
-                success => {
+              addToBatchWithRetry(event.data as string[], utteranceIds)
+                .then(success => {
                   if (!success) {
                     ttsCtrlLog.error(
                       'add-to-batch-retries-exhausted',
@@ -1073,8 +1073,15 @@ export function useTTSController(
                     );
                     webViewRef.current?.injectJavaScript('tts.next?.()');
                   }
-                },
-              );
+                })
+                .catch(err => {
+                  ttsCtrlLog.error(
+                    'add-to-batch-unexpected-error',
+                    'Unexpected error adding to batch. Falling back to WebView-driven TTS',
+                    err,
+                  );
+                  webViewRef.current?.injectJavaScript('tts.next?.()');
+                });
             }
           }
           return true;
