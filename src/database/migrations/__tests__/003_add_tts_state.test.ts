@@ -140,17 +140,11 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
         throw new Error('Table does not exist');
       });
 
-      // Mock console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      // Migration should not throw error even when ALTER TABLE fails
+      expect(() => migration003.migrate(mockDb)).not.toThrow();
 
-      migration003.migrate(mockDb);
-
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Failed to add column ttsState to Chapter table:',
-        expect.any(Error),
-      );
-
-      consoleWarnSpy.mockRestore();
+      // Verify that runSync was called (attempted to add column)
+      expect(mockDb.runSync).toHaveBeenCalled();
     });
   });
 

@@ -1,10 +1,7 @@
 function readBooleanEnv(key: string): boolean {
   // RN uses global.process?.env in Metro, web/Jest use process.env.
   const value =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any)?.process?.env?.[key] ??
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (process as any)?.env?.[key];
+    (globalThis as any)?.process?.env?.[key] ?? (process as any)?.env?.[key];
 
   if (typeof value !== 'string') {
     return false;
@@ -14,7 +11,7 @@ function readBooleanEnv(key: string): boolean {
 
 export function isJestEnv(): boolean {
   // In Jest, JEST_WORKER_ID is set.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const jestWorkerId = (process as any)?.env?.JEST_WORKER_ID;
   return typeof jestWorkerId === 'string' && jestWorkerId.length > 0;
 }

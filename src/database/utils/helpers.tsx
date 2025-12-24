@@ -5,10 +5,12 @@ import {
   SQLiteRunResult,
 } from 'expo-sqlite';
 import { noop } from 'lodash-es';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const helpersLog = createRateLimitedLogger('DBHelpers', { windowMs: 1500 });
 
 function logError(error: any) {
-  // eslint-disable-next-line no-console
-  console.error(error);
+  helpersLog.error('query-error', 'Database query error:', error);
 }
 
 type query = string;

@@ -1,7 +1,11 @@
-/* eslint-disable no-console */
 import { useCallback, MutableRefObject } from 'react';
 import { getRecentReadingChapters } from '@database/queries/ChapterQueries';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const confirmLog = createRateLimitedLogger('useTTSConfirmationHandler', {
+  windowMs: 1500,
+});
 
 interface TTSConfirmationHandlerParams {
   novelId: number;
@@ -66,8 +70,9 @@ export const useTTSConfirmationHandler = ({
         currentRef >= 0 &&
         Math.abs(currentRef - savedIndex) > 5
       ) {
-        console.log(
-          `useTTSController: Smart Resume - User manually scrolled to ${currentRef}. Ignoring saved index ${savedIndex}.`,
+        confirmLog.debug(
+          'smart-resume-cancel',
+          `Smart Resume - User manually scrolled to ${currentRef}. Ignoring saved index ${savedIndex}`,
         );
         handleResumeCancel();
         return;

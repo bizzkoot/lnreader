@@ -14,10 +14,34 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { useChapterTransition } from '../useChapterTransition';
 
+/**
+ * Helper: Create a ref that tracks how many times .current is written to.
+ * Useful for detecting if useEffect runs multiple times (each run writes to refs).
+ */
+const createSpyRef = <T>(initialValue: T) => {
+  let _value: T = initialValue;
+  let writeCount = 0;
+
+  return {
+    get current() {
+      return _value;
+    },
+    set current(value: T) {
+      _value = value;
+      writeCount++;
+    },
+    getWriteCount() {
+      return writeCount;
+    },
+    resetWriteCount() {
+      writeCount = 0;
+    },
+  };
+};
+
 describe('useChapterTransition (Phase 2 - Step 7)', () => {
   // Mock refs
   let mockRefs: any;
-  let consoleLogSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -31,15 +55,11 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       mediaNavSourceChapterIdRef: { current: null },
       mediaNavDirectionRef: { current: null },
     };
-
-    // Spy on console.log
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
   });
 
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
-    consoleLogSpy.mockRestore();
   });
 
   // ==========================================================================
@@ -54,9 +74,8 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
         }),
       );
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Chapter changed to 123'),
-      );
+      // Verify ref is updated immediately
+      expect(mockRefs.prevChapterIdRef.current).toBe(123);
     });
 
     it('should not return any value (void hook)', () => {
@@ -125,9 +144,8 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
         }),
       );
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        'useTTSController: Chapter changed to 100 (prev: 99)',
-      );
+      // Verify prevChapterIdRef was updated
+      expect(mockRefs.prevChapterIdRef.current).toBe(100);
     });
   });
 
@@ -152,7 +170,7 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
     });
 
-    it('should log WebView synced message after 300ms', () => {
+    it('should update isWebViewSyncedRef to true after 300ms', () => {
       renderHook(() =>
         useChapterTransition({
           chapterId: 123,
@@ -160,11 +178,11 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
         }),
       );
 
+      expect(mockRefs.isWebViewSyncedRef.current).toBe(false);
+
       jest.advanceTimersByTime(300);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        'useTTSController: WebView marked as synced for chapter 123',
-      );
+      expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
     });
 
     it('should NOT set isWebViewSyncedRef before 300ms', () => {
@@ -218,7 +236,7 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
     });
 
-    it('should log media nav clearing message after 2300ms', () => {
+    it('should clear media nav after 2300ms', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
 
       renderHook(() =>
@@ -230,12 +248,8 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       jest.advanceTimersByTime(2300);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Clearing media nav tracking'),
-      );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('source: 100'),
-      );
+      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBeNull();
+      expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
     });
 
     it('should NOT clear media nav if source chapter ID is null', () => {
@@ -253,9 +267,6 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       // Direction should remain since no clearing happened
       expect(mockRefs.mediaNavDirectionRef.current).toBe('NEXT');
-      expect(consoleLogSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('Clearing media nav tracking'),
-      );
     });
 
     it('should NOT clear media nav before 2300ms', () => {
@@ -297,9 +308,6 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       // T+300ms: WebView sync
       jest.advanceTimersByTime(300);
       expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('WebView marked as synced'),
-      );
 
       // Media nav not cleared yet
       expect(mockRefs.mediaNavSourceChapterIdRef.current).toBe(100);
@@ -336,13 +344,8 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       // Advance past first timer deadline
       jest.advanceTimersByTime(300);
 
-      // Should show second chapter as synced, not first
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('WebView marked as synced for chapter 200'),
-      );
-      expect(consoleLogSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('WebView marked as synced for chapter 100'),
-      );
+      // Should show second chapter ID in ref (latest change wins)
+      expect(mockRefs.prevChapterIdRef.current).toBe(200);
     });
 
     it('should update prevChapterIdRef correctly across multiple changes', () => {
@@ -389,9 +392,6 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       // Only last chapter should be marked as synced
       expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('WebView marked as synced for chapter 300'),
-      );
       expect(mockRefs.prevChapterIdRef.current).toBe(300);
     });
   });
@@ -563,38 +563,41 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       //
       // This test verifies the useEffect only runs when chapterId actually changes.
 
+      // Use spy ref to track how many times the effect runs
+      const spyRef = createSpyRef(0);
+      const spyRefs = {
+        prevChapterIdRef: spyRef,
+        chapterTransitionTimeRef: { current: 0 },
+        isWebViewSyncedRef: { current: false },
+        mediaNavSourceChapterIdRef: { current: null },
+        mediaNavDirectionRef: { current: null },
+      };
+
       const { rerender } = renderHook(
         ({ chapterId, refs }) =>
           useChapterTransition({
             chapterId,
             refs,
           }),
-        { initialProps: { chapterId: 100, refs: mockRefs } },
+        { initialProps: { chapterId: 100, refs: spyRefs } },
       );
 
-      // Clear console spy to count only subsequent calls
-      consoleLogSpy.mockClear();
+      // Initial mount: effect runs once
+      expect(spyRef.getWriteCount()).toBe(1);
+      expect(spyRef.current).toBe(100);
 
       // Rerender with SAME chapterId and SAME refs object
-      rerender({ chapterId: 100, refs: mockRefs });
+      rerender({ chapterId: 100, refs: spyRefs });
 
       // useEffect should NOT re-run (chapterId unchanged)
-      expect(consoleLogSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('Chapter changed'),
-      );
+      expect(spyRef.getWriteCount()).toBe(1); // Still 1, not 2
 
       // Now change chapterId - useEffect SHOULD run
-      rerender({ chapterId: 200, refs: mockRefs });
+      rerender({ chapterId: 200, refs: spyRefs });
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Chapter changed to 200'),
-      );
-
-      // Count: should be called ONCE for chapter 200 change only
-      const chapterChangeCalls = consoleLogSpy.mock.calls.filter(call =>
-        call[0].includes('Chapter changed'),
-      );
-      expect(chapterChangeCalls).toHaveLength(1);
+      // Verify ref was updated (effect ran exactly once more)
+      expect(spyRef.getWriteCount()).toBe(2); // 1 (initial) + 1 (chapter change) = 2
+      expect(spyRef.current).toBe(200);
     });
 
     it('BUG FIX VALIDATION: multiple renders do not reset isWebViewSyncedRef', () => {
@@ -635,24 +638,37 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       //
       // EXPECTED: Timer fires ONCE per chapter change.
 
+      // Track writes to isWebViewSyncedRef
+      const syncSpyRef = createSpyRef(false);
+      const spyRefs = {
+        prevChapterIdRef: { current: 0 },
+        chapterTransitionTimeRef: { current: 0 },
+        isWebViewSyncedRef: syncSpyRef,
+        mediaNavSourceChapterIdRef: { current: null },
+        mediaNavDirectionRef: { current: null },
+      };
+
       renderHook(() =>
         useChapterTransition({
           chapterId: 100,
-          refs: mockRefs,
+          refs: spyRefs,
         }),
       );
 
-      consoleLogSpy.mockClear();
+      // Initial state: ref set to false immediately by effect
+      expect(syncSpyRef.getWriteCount()).toBe(1); // Effect ran once
+      expect(syncSpyRef.current).toBe(false);
 
       // Advance time - timer should fire once
       jest.advanceTimersByTime(300);
 
-      // Count how many times "WebView marked as synced" was logged
-      const syncLogs = consoleLogSpy.mock.calls.filter(call =>
-        call[0].includes('WebView marked as synced for chapter 100'),
-      );
+      // Timer should set ref to true exactly once
+      // Total writes: 1 (initial false) + 1 (timer sets to true) = 2
+      expect(syncSpyRef.getWriteCount()).toBe(2);
+      expect(syncSpyRef.current).toBe(true);
 
-      expect(syncLogs).toHaveLength(1); // ✅ Should fire exactly once
+      // If effect ran multiple times, each would create a timer
+      // Each timer would write to the ref, causing count > 2
     });
   });
 });

@@ -5,6 +5,11 @@ import {
 } from 'react-native';
 import { getVoiceMapping } from './VoiceMapper';
 import TTSAudioManager from './TTSAudioManager';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const highlightLog = createRateLimitedLogger('TTSHighlight', {
+  windowMs: 1500,
+});
 
 const { TTSHighlight } = NativeModules;
 
@@ -53,10 +58,10 @@ class TTSHighlightService {
     try {
       await TTSHighlight.speak(text, { rate, pitch, utteranceId });
       // Fallback notification: log warning
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.error('Preferred TTS voice unavailable, using system default.');
-      }
+      highlightLog.error(
+        'voice-fallback',
+        'Preferred TTS voice unavailable, using system default.',
+      );
       return utteranceId || Date.now().toString();
     } catch (error) {
       throw lastError || error;

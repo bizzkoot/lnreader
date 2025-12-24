@@ -1,6 +1,8 @@
-/* eslint-disable no-console */
 import { useCallback, RefObject, MutableRefObject } from 'react';
 import WebView from 'react-native-webview';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const backLog = createRateLimitedLogger('useBackHandler', { windowMs: 1500 });
 
 interface BackHandlerParams {
   chapterId: number;
@@ -58,8 +60,9 @@ export const useBackHandler = ({
 
     if (refs.isTTSReadingRef.current) {
       const ttsPosition = refs.currentParagraphIndexRef.current ?? 0;
-      console.log(
-        `useTTSController: Back pressed while TTS playing. Saving TTS position: ${ttsPosition}`,
+      backLog.info(
+        'back-while-playing',
+        `Back pressed while TTS playing. Saving TTS position: ${ttsPosition}`,
       );
 
       callbacks.handleStopTTS();

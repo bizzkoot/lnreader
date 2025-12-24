@@ -26,6 +26,9 @@ import NativeFile from '@specs/NativeFile';
 import { showToast } from '@utils/showToast';
 import { getString } from '@strings/translations';
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const backupLog = createRateLimitedLogger('Backup', { windowMs: 1500 });
 
 // ============================================================================
 // Backup Schema Version Control
@@ -304,10 +307,7 @@ export const validateAndRestoreMMKVEntries = (
 
     // Validate entry structure using type guard
     if (!isValidMMKVEntry(entry)) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.warn(`[Backup] Skipping invalid entry: ${key} =`, entry);
-      }
+      backupLog.warn('invalid-entry', `Skipping invalid entry: ${key}`, entry);
       continue;
     }
 
@@ -343,20 +343,15 @@ export const validateAndRestoreMMKVEntries = (
 
         default:
           // Unknown type - skip (shouldn't happen due to type guard)
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `[Backup] Skipping entry with unknown type: ${key} (${entry.t})`,
-            );
-          }
+          backupLog.warn(
+            'unknown-type',
+            `Skipping entry with unknown type: ${key} (${entry.t})`,
+          );
           break;
       }
     } catch (err) {
       // Failed to restore this entry - continue with others
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.error(`[Backup] Failed to restore entry: ${key}`, err);
-      }
+      backupLog.error('restore-failed', `Failed to restore entry: ${key}`, err);
     }
   }
 

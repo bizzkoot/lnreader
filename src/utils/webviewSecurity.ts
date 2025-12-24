@@ -1,4 +1,9 @@
 import { Linking } from 'react-native';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const webViewSecurityLog = createRateLimitedLogger('WebViewSecurity', {
+  windowMs: 1500,
+});
 
 type WebViewNavLike = {
   url: string;
@@ -149,10 +154,7 @@ export function parseWebViewMessage<TType extends string, TData>(
     }
     const ts = obj.ts;
     if (ts !== undefined && (typeof ts !== 'number' || ts <= 0)) {
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.warn(`[WebView Security] Invalid timestamp: ${ts}`);
-      }
+      webViewSecurityLog.warn('invalid-timestamp', `Invalid timestamp: ${ts}`);
       // Continue parsing, just don't include invalid timestamp
     }
 

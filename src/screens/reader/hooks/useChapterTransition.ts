@@ -6,9 +6,13 @@
  * @module reader/hooks/useChapterTransition
  * @dependencies NONE (Independent effect)
  */
-/* eslint-disable no-console */
 
 import { useEffect, RefObject } from 'react';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const transitionLog = createRateLimitedLogger('useChapterTransition', {
+  windowMs: 1500,
+});
 
 /**
  * Media navigation direction for confirmation logic
@@ -63,8 +67,9 @@ export function useChapterTransition(params: ChapterTransitionParams): void {
   const { chapterId, refs } = params;
 
   useEffect(() => {
-    console.log(
-      `useTTSController: Chapter changed to ${chapterId} (prev: ${refs.prevChapterIdRef.current})`,
+    transitionLog.debug(
+      'chapter-changed',
+      `Chapter changed to ${chapterId} (prev: ${refs.prevChapterIdRef.current})`,
     );
 
     // Update chapter ID ref IMMEDIATELY
@@ -79,14 +84,16 @@ export function useChapterTransition(params: ChapterTransitionParams): void {
     // Short delay to allow WebView to stabilize, then mark as synced
     const syncTimer = setTimeout(() => {
       refs.isWebViewSyncedRef.current = true;
-      console.log(
-        `useTTSController: WebView marked as synced for chapter ${chapterId}`,
+      transitionLog.debug(
+        'webview-synced',
+        `WebView marked as synced for chapter ${chapterId}`,
       );
 
       // Clear media navigation tracking after successful transition
       if (refs.mediaNavSourceChapterIdRef.current) {
-        console.log(
-          `useTTSController: Clearing media nav tracking (source: ${refs.mediaNavSourceChapterIdRef.current})`,
+        transitionLog.debug(
+          'clear-media-nav',
+          `Clearing media nav tracking (source: ${refs.mediaNavSourceChapterIdRef.current})`,
         );
         // Small delay before clearing to allow confirmation logic to run
         setTimeout(() => {

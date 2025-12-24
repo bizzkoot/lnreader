@@ -1,6 +1,11 @@
 import { SQLiteDatabase } from 'expo-sqlite';
 
 import { Migration } from '../types/migration';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const migration003Log = createRateLimitedLogger('Migration003', {
+  windowMs: 1500,
+});
 
 const columnExists = (
   db: SQLiteDatabase,
@@ -35,13 +40,11 @@ export const migration003: Migration = {
         } catch (error) {
           // Gracefully handle ALTER TABLE failures (e.g., table doesn't exist)
           // Columns will be created when table is created in initial schema
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `Failed to add column ${columnName} to Chapter table:`,
-              error,
-            );
-          }
+          migration003Log.warn(
+            'add-column-failed',
+            `Failed to add column ${columnName} to Chapter table:`,
+            error,
+          );
         }
       }
     };

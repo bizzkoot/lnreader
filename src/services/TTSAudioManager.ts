@@ -222,12 +222,10 @@ class TTSAudioManager {
       const actualSize = await TTSHighlight.getQueueSize();
       const drift = Math.abs(actualSize - this.lastKnownQueueSize);
       if (drift > CACHE_DRIFT_THRESHOLD) {
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `TTSAudioManager: Cache drift detected (cached=${this.lastKnownQueueSize}, actual=${actualSize}, drift=${drift})`,
-          );
-        }
+        ttsLog.warn(
+          'cache-drift',
+          `Cache drift detected (cached=${this.lastKnownQueueSize}, actual=${actualSize}, drift=${drift})`,
+        );
         this.devCounters.cacheDriftDetections += 1;
         this.lastKnownQueueSize = actualSize;
       }
@@ -310,9 +308,9 @@ class TTSAudioManager {
 
         // DEV: Log voice used for initial batch (helps verify no voice drift)
         if (__DEV__ && voice) {
-          // eslint-disable-next-line no-console
-          logDebug(
-            `TTSAudioManager: Started batch with voice: ${voice.substring(0, 40)}`,
+          ttsLog.debug(
+            'batch-voice',
+            `Started batch with voice: ${voice.substring(0, 40)}`,
           );
         }
 
@@ -473,9 +471,9 @@ class TTSAudioManager {
 
           // DEV: Log successful refill (voice is implicit from initial batch or fallback)
           if (__DEV__ && attempt === 1) {
-            // eslint-disable-next-line no-console
-            logDebug(
-              `TTSAudioManager: Refilled +${nextBatchSize} items (voice: locked=${this.lockedVoice?.substring(0, 30) || 'none'})`,
+            ttsLog.debug(
+              'refill-success',
+              `Refilled +${nextBatchSize} items (voice: locked=${this.lockedVoice?.substring(0, 30) || 'none'})`,
             );
           }
 
@@ -535,9 +533,9 @@ class TTSAudioManager {
 
               // DEV: Log fallback voice to track voice stability
               if (__DEV__ && fallbackVoice) {
-                // eslint-disable-next-line no-console
-                logDebug(
-                  `TTSAudioManager: Fallback batch with voice: ${fallbackVoice.substring(0, 40)}`,
+                ttsLog.debug(
+                  'fallback-voice',
+                  `Fallback batch with voice: ${fallbackVoice.substring(0, 40)}`,
                 );
               }
 

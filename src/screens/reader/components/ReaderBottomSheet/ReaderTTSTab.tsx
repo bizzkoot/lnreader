@@ -24,6 +24,11 @@ import {
   setNovelTtsSettings,
 } from '@services/tts/novelTtsSettings';
 import { NovelInfo } from '@database/types';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const readerTTSTabLog = createRateLimitedLogger('ReaderTTSTab', {
+  windowMs: 1500,
+});
 
 interface ReaderTTSTabProps {
   novel: NovelInfo;
@@ -31,9 +36,7 @@ interface ReaderTTSTabProps {
 
 const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
   const debugLog = useCallback((...args: any[]) => {
-    if (!__DEV__) return;
-    // eslint-disable-next-line no-console
-    console.log('[ReaderTTSTab][NovelTTS]', ...args);
+    readerTTSTabLog.debug('novel-tts', ...args);
   }, []);
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();

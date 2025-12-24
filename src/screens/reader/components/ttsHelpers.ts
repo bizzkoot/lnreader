@@ -1,4 +1,7 @@
 import type { RefObject } from 'react';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const ttsHelpersLog = createRateLimitedLogger('ttsHelpers', { windowMs: 1500 });
 
 export function applyTtsUpdateToWebView(
   settings: any,
@@ -67,14 +70,10 @@ export function validateAndClampParagraphIndex(
 ): number {
   // Handle edge cases
   if (totalParagraphs <= 0) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `validateAndClampParagraphIndex: No paragraphs available${
-          context ? ` (${context})` : ''
-        }`,
-      );
-    }
+    ttsHelpersLog.warn(
+      'no-paragraphs',
+      `No paragraphs available${context ? ` (${context})` : ''}`,
+    );
     return 0;
   }
 
@@ -86,15 +85,10 @@ export function validateAndClampParagraphIndex(
   // Check if index exceeds available paragraphs
   const maxValidIndex = totalParagraphs - 1;
   if (paragraphIndex > maxValidIndex) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `validateAndClampParagraphIndex: Index ${paragraphIndex} exceeds available paragraphs ` +
-          `(max: ${maxValidIndex})${
-            context ? ` - ${context}` : ''
-          }. Clamping to ${maxValidIndex}.`,
-      );
-    }
+    ttsHelpersLog.warn(
+      'index-exceeds-max',
+      `Index ${paragraphIndex} exceeds available paragraphs (max: ${maxValidIndex})${context ? ` - ${context}` : ''}. Clamping to ${maxValidIndex}.`,
+    );
     return maxValidIndex;
   }
 

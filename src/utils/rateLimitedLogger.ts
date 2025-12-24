@@ -29,7 +29,6 @@ type Bucket = {
 };
 
 function getConsoleFn(level: LogLevel): ConsoleFn {
-  // eslint-disable-next-line no-console
   const c = console;
   switch (level) {
     case 'error':
@@ -50,7 +49,7 @@ function formatScope(scope: string): string {
 
 function isJestEnv(): boolean {
   // Jest sets this in worker processes.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   return typeof (process as any)?.env?.JEST_WORKER_ID === 'string';
 }
 
@@ -115,7 +114,7 @@ export function createRateLimitedLogger(
     }, remaining);
 
     // Allow Node to exit even if a timer exists.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     (bucket.flushTimer as any)?.unref?.();
   }
 

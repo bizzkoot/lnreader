@@ -7,8 +7,6 @@
  * @module reader/components/WebViewReader
  */
 
-/* eslint-disable no-console */
-
 import React, {
   memo,
   useEffect,
@@ -310,11 +308,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
         // Restart TTS if currently playing
         if (tts.isTTSReading && tts.currentParagraphIndex >= 0) {
-          if (__DEV__) {
-            console.log(
-              'WebViewReader: TTS settings changed while playing, restarting with new settings',
-            );
-          }
+          readerLog.info(
+            'tts-settings-changed',
+            'TTS settings changed while playing, restarting with new settings',
+          );
 
           TTSHighlight.setRestartInProgress(true);
           TTSHighlight.stop();
@@ -356,16 +353,15 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case CHAPTER_GENERAL_SETTINGS:
           const newSettings = MMKVStorage.getString(CHAPTER_GENERAL_SETTINGS);
-          if (__DEV__) {
-            console.log(
-              'WebViewReader: MMKV listener fired for CHAPTER_GENERAL_SETTINGS',
-              newSettings,
-            );
-          }
+          readerLog.debug(
+            'mmkv-general-settings',
+            'MMKV listener fired for CHAPTER_GENERAL_SETTINGS',
+            newSettings,
+          );
           webViewRef.current?.injectJavaScript(
             `if (window.reader && window.reader.generalSettings) {
                window.reader.generalSettings.val = ${newSettings};
-               if (${__DEV__}) { console.log('TTS: Updated general settings via listener'); }
+               if (${__DEV__}) { readerLog.info('general-settings-injected', 'TTS: Updated general settings via listener'); }
              }`,
           );
           break;
@@ -389,7 +385,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
              const currentStr = JSON.stringify(sortKeys(current));
              const freshStr = JSON.stringify(sortKeys(fresh));
              if (currentStr !== freshStr) {
-               if (${__DEV__}) { console.log('TTS: Settings changed, injecting'); }
+               if (${__DEV__}) { readerLog.info('settings-changed-injecting', 'TTS: Settings changed, injecting'); }
                window.reader.generalSettings.val = fresh;
              }
            }
@@ -587,11 +583,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
       // Handle console logs in dev mode
       if (event.type === 'console') {
-        if (__DEV__) {
-          console.info(
-            `[WebView Console] ${JSON.stringify(event.data, null, 2)}`,
-          );
-        }
+        readerLog.info(
+          'webview-console',
+          `WebView Console: ${JSON.stringify(event.data)}`,
+        );
         return;
       }
 
@@ -734,12 +729,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               enabled?: boolean;
               showParagraphHighlight?: boolean;
             };
-            if (__DEV__) {
-              console.log(
-                'WebViewReader: Received TTS settings update:',
-                ttsData,
-              );
-            }
+            readerLog.debug(
+              'tts-settings-update',
+              'Received TTS settings update',
+              ttsData,
+            );
 
             if (
               ttsData.rate !== undefined ||
@@ -786,11 +780,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               chapter: { id: number; name: string; path: string };
             };
             const targetChapter = eventData.chapter;
-            if (__DEV__) {
-              console.log(
-                `WebViewReader: Fetching chapter content for ${targetChapter.name}`,
-              );
-            }
+            readerLog.info(
+              'fetch-chapter',
+              `Fetching chapter content for ${targetChapter.name}`,
+            );
 
             const getChapterContent = async () => {
               try {
@@ -798,24 +791,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 if (novel?.pluginId && novel?.id) {
                   const filePath = `${NOVEL_STORAGE}/${novel.pluginId}/${novel.id}/${targetChapter.id}/index.html`;
                   if (NativeFile.exists(filePath)) {
-                    if (__DEV__) {
-                      console.log('WebViewReader: Reading from local file');
-                    }
+                    readerLog.debug(
+                      'read-local-file',
+                      'Reading from local file',
+                    );
                     return NativeFile.readFile(filePath);
                   }
                 }
               } catch (e) {
-                if (__DEV__) {
-                  console.warn('WebViewReader: Error reading local file', e);
-                }
+                readerLog.warn(
+                  'local-file-read-error',
+                  'Error reading local file',
+                  e,
+                );
               }
 
               // 2. Fallback to network fetch
-              if (__DEV__) {
-                console.log(
-                  'WebViewReader: Local file not found, fetching from network',
-                );
-              }
+              readerLog.debug(
+                'local-file-not-found',
+                'Local file not found, fetching from network',
+              );
               return await fetchChapter(
                 novel?.pluginId || '',
                 targetChapter.path,
@@ -825,11 +820,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             // Use our new helper
             getChapterContent()
               .then(chapterHtml => {
-                if (__DEV__) {
-                  console.log(
-                    `WebViewReader: Got chapter HTML (${chapterHtml.length} chars)`,
-                  );
-                }
+                readerLog.debug(
+                  'chapter-html-received',
+                  `Got chapter HTML (${chapterHtml.length} chars)`,
+                );
                 // Send chapter content back to WebView
                 webViewRef.current?.injectJavaScript(`
                   if (window.reader && window.reader.receiveChapterContent) {
@@ -843,9 +837,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 `);
               })
               .catch(err => {
-                if (__DEV__) {
-                  console.error('WebViewReader: Failed to fetch chapter', err);
-                }
+                readerLog.error(
+                  'fetch-chapter-failed',
+                  'Failed to fetch chapter',
+                  err,
+                );
                 webViewRef.current?.injectJavaScript(`
                   if (window.reader) {
                     window.reader.isNavigating = false;
@@ -864,22 +860,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               chapterName: string;
               loadedChapters: number[];
             };
-            if (__DEV__) {
-              console.log(
-                `WebViewReader: Chapter appended - ${eventData.chapterName}, total: ${eventData.loadedChapters.length}`,
-              );
-            }
+            readerLog.debug(
+              'chapter-appended',
+              `Chapter appended - ${eventData.chapterName}, total: ${eventData.loadedChapters.length}`,
+            );
 
             // FIX: Update nextChapter after successful append
             const appendedChapterId = eventData.chapterId;
             getDbChapter(appendedChapterId)
               .then(async appendedChapter => {
                 if (!appendedChapter) {
-                  if (__DEV__) {
-                    console.error(
-                      `WebViewReader: Appended chapter ${appendedChapterId} not found in DB`,
-                    );
-                  }
+                  readerLog.error(
+                    'appended-chapter-not-found',
+                    `Appended chapter ${appendedChapterId} not found in DB`,
+                  );
                   return;
                 }
 
@@ -891,11 +885,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 );
 
                 if (newNextChapter) {
-                  if (__DEV__) {
-                    console.log(
-                      `WebViewReader: Updated nextChapter to ${newNextChapter.id} (${newNextChapter.name})`,
-                    );
-                  }
+                  readerLog.debug(
+                    'next-chapter-updated',
+                    `Updated nextChapter to ${newNextChapter.id} (${newNextChapter.name})`,
+                  );
                   // Update React state
                   setAdjacentChapter([newNextChapter, prevChapter!]);
 
@@ -910,11 +903,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     true;
                   `);
                 } else {
-                  if (__DEV__) {
-                    console.log(
-                      `WebViewReader: No more chapters after ${appendedChapterId}`,
-                    );
-                  }
+                  readerLog.debug(
+                    'no-more-chapters',
+                    `No more chapters after ${appendedChapterId}`,
+                  );
                   // Clear nextChapter - set both to undefined
                   setAdjacentChapter([undefined, undefined]);
                   webViewRef.current?.injectJavaScript(`
@@ -926,12 +918,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 }
               })
               .catch(err => {
-                if (__DEV__) {
-                  console.error(
-                    `WebViewReader: Failed to get next chapter after ${appendedChapterId}:`,
-                    err,
-                  );
-                }
+                readerLog.error(
+                  'next-chapter-failed',
+                  `Failed to get next chapter after ${appendedChapterId}`,
+                  err,
+                );
               });
           }
           break;
@@ -944,29 +935,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               chapterName: string;
               localParagraphIndex?: number; // The paragraph index in the cleared chapter
             };
-            if (__DEV__) {
-              console.log(
-                `WebViewReader: Stitched chapters cleared to ${eventData.chapterName} (${eventData.chapterId})`,
-              );
-            }
+            readerLog.debug(
+              'stitched-chapters-cleared',
+              `Stitched chapters cleared to ${eventData.chapterName} (${eventData.chapterId})`,
+            );
 
             // Get the visible chapter from DB
             getDbChapter(eventData.chapterId)
               .then(async visibleChapter => {
                 if (!visibleChapter) {
-                  if (__DEV__) {
-                    console.error(
-                      `WebViewReader: Visible chapter ${eventData.chapterId} not found in DB`,
-                    );
-                  }
+                  readerLog.error(
+                    'visible-chapter-not-found',
+                    `Visible chapter ${eventData.chapterId} not found in DB`,
+                  );
                   return;
                 }
 
-                if (__DEV__) {
-                  console.log(
-                    `WebViewReader: Performing full reload for ${visibleChapter.name}`,
-                  );
-                }
+                readerLog.info(
+                  'full-reload',
+                  `Performing full reload for ${visibleChapter.name}`,
+                );
 
                 // Save current paragraph index to MMKV for the visible chapter
                 // This ensures when getChapter() triggers HTML reload, the position is restored
@@ -980,50 +968,45 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   );
                   // Small delay to ensure MMKV write is flushed before reload
                   await new Promise(resolve => setTimeout(resolve, 50));
-                  if (__DEV__) {
-                    console.log(
-                      `WebViewReader: Saved paragraph ${eventData.localParagraphIndex} to MMKV for chapter ${eventData.chapterId}`,
-                    );
-                  }
+                  readerLog.debug(
+                    'save-paragraph-mmkv',
+                    `Saved paragraph ${eventData.localParagraphIndex} to MMKV for chapter ${eventData.chapterId}`,
+                  );
                 }
 
                 // CRITICAL: Update TTS controller's prevChapterIdRef BEFORE reload
                 // This ensures TTS commands use the correct chapterId during/after reload
-                if (__DEV__) {
-                  console.log(
-                    `WebViewReader: Updating TTS prevChapterIdRef from ${tts.prevChapterIdRef.current} to ${visibleChapter.id}`,
-                  );
-                }
+                readerLog.debug(
+                  'update-prev-chapter-ref',
+                  `Updating TTS prevChapterIdRef from ${tts.prevChapterIdRef.current} to ${visibleChapter.id}`,
+                );
                 tts.prevChapterIdRef.current = visibleChapter.id;
 
                 // START INVISIBLE TRANSITION
                 // Hide WebView before reload to prevent visual flash
                 setIsTransitioning(true);
                 transitionReadyRef.current = false;
-                if (__DEV__) {
-                  console.log(
-                    'WebViewReader: Started invisible transition for TTS trim',
-                  );
-                }
+                readerLog.debug(
+                  'invisible-transition-trim',
+                  'Started invisible transition for TTS trim',
+                );
 
                 // Call getChapter() to properly update ALL state
                 // This matches the behavior of scroll-triggered trim (chapter-transition)
                 // getChapter() updates: chapter, chapterText, nextChapter, prevChapter
                 await getChapter(visibleChapter);
-                if (__DEV__) {
-                  console.log(
-                    `WebViewReader: getChapter() called for ${visibleChapter.name} (${visibleChapter.id})`,
-                  );
-                }
+                readerLog.debug(
+                  'get-chapter-called',
+                  `getChapter() called for ${visibleChapter.name} (${visibleChapter.id})`,
+                );
                 // Note: setIsTransitioning(false) is called in onLoadEnd after scroll restoration
               })
               .catch(err => {
-                if (__DEV__) {
-                  console.error(
-                    `WebViewReader: Failed to handle TTS stitched clear for ${eventData.chapterId}:`,
-                    err,
-                  );
-                }
+                readerLog.error(
+                  'tts-stitched-clear-failed',
+                  `Failed to handle TTS stitched clear for ${eventData.chapterId}`,
+                  err,
+                );
                 setIsTransitioning(false);
                 // Add recovery: show toast to inform user
                 showToastMessage('Failed to process chapter transition');
@@ -1042,11 +1025,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               currentParagraphIndex: number;
               reason: string;
             };
-            if (__DEV__) {
-              console.log(
-                `WebViewReader: Chapter transition - ${eventData.previousChapterId} -> ${eventData.currentChapterId} (${eventData.currentChapterName}), paragraph: ${eventData.currentParagraphIndex}, reason: ${eventData.reason}`,
-              );
-            }
+            readerLog.info(
+              'chapter-transition',
+              `Chapter transition - ${eventData.previousChapterId} -> ${eventData.currentChapterId} (${eventData.currentChapterName}), paragraph: ${eventData.currentParagraphIndex}, reason: ${eventData.reason}`,
+            );
 
             // Save current paragraph index to MMKV for the NEW chapter
             // This ensures when getChapter() triggers HTML reload, the position is restored
@@ -1058,60 +1040,56 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 `chapter_progress_${eventData.currentChapterId}`,
                 eventData.currentParagraphIndex,
               );
-              if (__DEV__) {
-                console.log(
-                  `WebViewReader: Saved paragraph ${eventData.currentParagraphIndex} to MMKV for chapter ${eventData.currentChapterId}`,
-                );
-              }
+              readerLog.debug(
+                'save-paragraph-mmkv',
+                `Saved paragraph ${eventData.currentParagraphIndex} to MMKV for chapter ${eventData.currentChapterId}`,
+              );
             }
 
             // Mark the previous chapter as 100% read before switching
             if (eventData.reason === 'trim') {
               saveProgress(100);
-              if (__DEV__) {
-                console.log(
-                  `WebViewReader: Marked previous chapter ${eventData.previousChapterId} as 100% read`,
-                );
-              }
+              readerLog.debug(
+                'chapter-100-percent',
+                `Marked previous chapter ${eventData.previousChapterId} as 100% read`,
+              );
             }
 
             // START INVISIBLE TRANSITION
             // Hide WebView before reload to prevent visual flash
             setIsTransitioning(true);
             transitionReadyRef.current = false;
-            if (__DEV__) {
-              console.log('WebViewReader: Started invisible transition');
-            }
+            readerLog.debug(
+              'invisible-transition-start',
+              'Started invisible transition',
+            );
 
             // Get the current chapter from DB and call getChapter() to properly update all state
             // getChapter() updates: chapter, chapterText, nextChapter, prevChapter
             getDbChapter(eventData.currentChapterId)
               .then(async currentChapter => {
                 if (!currentChapter) {
-                  if (__DEV__) {
-                    console.error(
-                      `WebViewReader: Current chapter ${eventData.currentChapterId} not found in DB`,
-                    );
-                  }
+                  readerLog.error(
+                    'current-chapter-not-found',
+                    `Current chapter ${eventData.currentChapterId} not found in DB`,
+                  );
                   return;
                 }
 
                 // The initialSavedParagraphIndex will read from MMKV and restore position
                 await getChapter(currentChapter);
-                if (__DEV__) {
-                  console.log(
-                    `WebViewReader: getChapter() called for ${currentChapter.name} (${currentChapter.id})`,
-                  );
-                }
+                readerLog.debug(
+                  'get-chapter-called',
+                  `getChapter() called for ${currentChapter.name} (${currentChapter.id})`,
+                );
                 // Note: setIsTransitioning(false) is called in onLoadEnd after scroll restoration
               })
               .catch(err => {
-                if (__DEV__) {
-                  console.error(
-                    `WebViewReader: Failed to handle chapter transition to ${eventData.currentChapterId}:`,
-                    err,
-                  );
-                }
+                readerLog.error(
+                  'chapter-transition-failed',
+                  `Failed to handle chapter transition to ${eventData.currentChapterId}`,
+                  err,
+                );
                 setIsTransitioning(false);
                 // Add recovery: show toast to inform user
                 showToastMessage('Failed to process chapter transition');
@@ -1188,9 +1166,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           if (isTransitioning) {
             setTimeout(() => {
               setIsTransitioning(false);
-              if (__DEV__) {
-                console.log('WebViewReader: Invisible transition complete');
-              }
+              readerLog.debug(
+                'invisible-transition-complete',
+                'Invisible transition complete',
+              );
             }, 200); // Optimized delay (reduced from 350ms) for faster transitions
           }
 

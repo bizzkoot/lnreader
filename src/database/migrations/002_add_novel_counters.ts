@@ -1,6 +1,11 @@
 import { SQLiteDatabase } from 'expo-sqlite';
 
 import { Migration } from '../types/migration';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const migration002Log = createRateLimitedLogger('Migration002', {
+  windowMs: 1500,
+});
 
 const columnExists = (
   db: SQLiteDatabase,
@@ -37,13 +42,11 @@ export const migration002: Migration = {
         } catch (error) {
           // Gracefully handle ALTER TABLE failures (e.g., table doesn't exist)
           // Columns will be created when table is created in initial schema
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `Failed to add column ${columnName} to Novel table:`,
-              error,
-            );
-          }
+          migration002Log.warn(
+            'add-column-failed',
+            `Failed to add column ${columnName} to Novel table:`,
+            error,
+          );
         }
       }
     };
@@ -112,13 +115,11 @@ export const migration002: Migration = {
         `);
       } catch (error) {
         // Gracefully handle UPDATE failures - columns already added with defaults
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            'Failed to populate counter columns in Novel table:',
-            error,
-          );
-        }
+        migration002Log.warn(
+          'populate-failed',
+          'Failed to populate counter columns in Novel table:',
+          error,
+        );
       }
     }
   },

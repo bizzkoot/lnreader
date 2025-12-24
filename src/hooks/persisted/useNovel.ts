@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useMMKVNumber, useMMKVObject } from 'react-native-mmkv';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -36,6 +35,9 @@ import { useAppSettings } from './useSettings';
 import NativeFile from '@specs/NativeFile';
 import { useLibraryContext } from '@components/Context/LibraryContext';
 import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const novelLog = createRateLimitedLogger('useNovel', { windowMs: 1500 });
 
 // #region constants
 
@@ -256,7 +258,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
         try {
           newChapters = getPageChaptersBatched(...config) || [];
         } catch (error) {
-          console.error('teaser', error);
+          novelLog.error('teaser-batch', 'Teaser batch error:', error);
         }
       }
       // Fetch next page if no chapters
@@ -308,7 +310,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
             nextBatch,
           ) || [];
       } catch (error) {
-        console.error('teaser', error);
+        novelLog.error('teaser-next-batch', 'Teaser next batch error:', error);
       }
       setBatchInformation({ ...batchInformation, batch: nextBatch });
       extendChapters(newChapters);
@@ -536,7 +538,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
     setFetching(true);
     getChapters()
       .catch(e => {
-        if (__DEV__) console.error(e);
+        novelLog.error('get-chapters-failed', 'Failed to get chapters:', e);
 
         showToast(e.message);
         setFetching(false);

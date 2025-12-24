@@ -10,6 +10,11 @@
 import { useCallback, RefObject } from 'react';
 import WebView from 'react-native-webview';
 import { TTSScrollPromptData } from '../types/tts';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const syncLog = createRateLimitedLogger('useScrollSyncHandlers', {
+  windowMs: 1500,
+});
 
 /**
  * Scroll sync handlers parameters
@@ -57,21 +62,21 @@ export function useScrollSyncHandlers(
 
       // If stitched mode, calculate chapter-local index and set restart intent
       if (isStitched) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `useScrollSyncHandlers: Stitched mode - calculating chapter info for paragraph ${visibleIndex}`,
+        syncLog.debug(
+          'stitched-mode',
+          `Stitched mode - calculating chapter info for paragraph ${visibleIndex}`,
         );
 
         webViewRef.current?.injectJavaScript(`
           (function() {
             // Get chapter info for the visible paragraph
             const chapterInfo = window.reader.getChapterInfoForParagraph(${visibleIndex});
-            
+
             if (!chapterInfo) {
               console.error('useScrollSyncHandlers: Failed to get chapter info for paragraph ${visibleIndex}');
               return;
             }
-            
+
             console.log('useScrollSyncHandlers: Chapter info:', JSON.stringify(chapterInfo));
             
             // Set restart intent with chapter ID and local index
@@ -115,21 +120,21 @@ export function useScrollSyncHandlers(
 
       // If stitched mode, need to scroll back to current TTS position and set restart intent
       if (isStitched) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `useScrollSyncHandlers: Stitched mode - keeping current position ${currentIndex}`,
+        syncLog.debug(
+          'stitched-keep-position',
+          `Stitched mode - keeping current position ${currentIndex}`,
         );
 
         webViewRef.current?.injectJavaScript(`
           (function() {
             // Get chapter info for the current TTS paragraph
             const chapterInfo = window.reader.getChapterInfoForParagraph(${currentIndex});
-            
+
             if (!chapterInfo) {
               console.error('useScrollSyncHandlers: Failed to get chapter info for paragraph ${currentIndex}');
               return;
             }
-            
+
             console.log('useScrollSyncHandlers: Current chapter info:', JSON.stringify(chapterInfo));
             
             // Scroll back to current TTS position before clearing
