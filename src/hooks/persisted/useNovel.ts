@@ -209,14 +209,27 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   );
 
   const followNovel = useCallback(() => {
-    switchNovelToLibrary(novelPath, pluginId).then(() => {
-      if (novel) {
-        setNovel({
-          ...novel,
-          inLibrary: !novel?.inLibrary,
-        });
-      }
-    });
+    switchNovelToLibrary(novelPath, pluginId)
+      .then(() => {
+        if (novel) {
+          setNovel({
+            ...novel,
+            inLibrary: !novel?.inLibrary,
+          });
+        }
+      })
+      .catch(error => {
+        novelLog.error(
+          'followNovel-failed',
+          'Failed to follow/unfollow novel',
+          error,
+        );
+        showToast(
+          novel?.inLibrary
+            ? 'Failed to remove novel from library'
+            : 'Failed to add novel to library',
+        );
+      });
   }, [novel, novelPath, pluginId, switchNovelToLibrary]);
 
   // #endregion
