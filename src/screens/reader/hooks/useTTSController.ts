@@ -980,7 +980,7 @@ export function useTTSController(
             const timeSinceWakeResume =
               Date.now() - wakeResumeGracePeriodRef.current;
             if (
-              timeSinceWakeResume < 500 &&
+              timeSinceWakeResume < TTS_CONSTANTS.WAKE_RESUME_DEBOUNCE_MS &&
               wakeResumeGracePeriodRef.current > 0
             ) {
               if (__DEV__) {
@@ -1252,7 +1252,7 @@ export function useTTSController(
         dialogStateRef.current.setSyncDialogStatus('success');
         setTimeout(() => {
           dialogStateRef.current.setSyncDialogVisible(false);
-        }, 1000);
+        }, TTS_CONSTANTS.WAKE_RESUBE_ADDITIONAL_DEBOUNCE_MS);
       }
 
       // Reset retry counter on success
@@ -1316,7 +1316,7 @@ export function useTTSController(
           autoResumeAfterWakeRef.current = false;
           wasReadingBeforeWakeRef.current = false;
         }
-      }, 500);
+      }, TTS_CONSTANTS.WAKE_TRANSITION_RETRY_MS);
 
       // Early return - don't process rest of onLoadEnd logic
       return;
@@ -1413,7 +1413,7 @@ export function useTTSController(
             (function() {
               if (window.tts && reader.generalSettings.val.TTSEnable) {
                 setTimeout(() => {
-                  window.tts.restoreState({ 
+                  window.tts.restoreState({
                     shouldResume: true,
                     paragraphIndex: 0,
                     autoStart: true
@@ -1441,7 +1441,7 @@ export function useTTSController(
             })();
           `);
         }
-      }, 300);
+      }, TTS_CONSTANTS.CHAPTER_TRANSITION_DELAY_MS);
     }
   }, [
     chapterId,
@@ -1643,7 +1643,10 @@ export function useTTSController(
             // Strict chapter validation
             if (eventChapterId !== currentChapterId) {
               const now = Date.now();
-              if (now - lastStaleLogTimeRef.current > 500) {
+              if (
+                now - lastStaleLogTimeRef.current >
+                TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
+              ) {
                 ttsCtrlLog.debug(
                   'stale-word-range-chapter',
                   `[STALE] onWordRange chapter ${eventChapterId} != ${currentChapterId}`,
@@ -1713,7 +1716,10 @@ export function useTTSController(
               // Strict chapter validation
               if (eventChapterId !== currentChapterId) {
                 const now = Date.now();
-                if (now - lastStaleLogTimeRef.current > 500) {
+                if (
+                  now - lastStaleLogTimeRef.current >
+                  TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
+                ) {
                   ttsCtrlLog.debug(
                     'stale-speech-start-chapter',
                     `[STALE] onSpeechStart chapter ${eventChapterId} != ${currentChapterId}`,
@@ -1877,7 +1883,9 @@ export function useTTSController(
               );
               try {
                 TTSHighlight.fullStop();
-                await new Promise(r => setTimeout(r, 120));
+                await new Promise(r =>
+                  setTimeout(r, TTS_CONSTANTS.SEEK_BACK_FALLBACK_DELAY_MS),
+                );
                 await restartTtsFromParagraphIndex(target);
               } catch (err2) {
                 ttsCtrlLog.error(
@@ -2480,7 +2488,7 @@ export function useTTSController(
                         window.tts.scrollToElement(window.tts.currentElement);
                         
                         // Reset scroll lock to allow immediate taps after sync
-                        setTimeout(() => { window.tts.resetScrollLock(); }, 600);
+                        setTimeout(() => { window.tts.resetScrollLock(); }, ${TTS_CONSTANTS.SCROLL_LOCK_RESET_MS});
                         
                         // Highlight current paragraph with chapter validation
                         window.tts.highlightParagraph(${syncIndex}, ${prevChapterId});
@@ -2497,7 +2505,7 @@ export function useTTSController(
                       window.ttsOperationActive = false;
                       reader.suppressSaveOnScroll = false;
                       console.log('TTS: Screen wake sync - released blocking flags');
-                    }, 500);
+                    }, ${TTS_CONSTANTS.TTS_START_DELAY_MS});
                   } catch (e) {
                     console.error('TTS: Screen wake sync failed', e);
                     // Release flags even on error
@@ -2578,9 +2586,9 @@ export function useTTSController(
                     autoResumeAfterWakeRef.current = false;
                     wasReadingBeforeWakeRef.current = false;
                   }
-                }, 900);
+                }, TTS_CONSTANTS.WAKE_TRANSITION_DELAY_MS);
               }
-            }, 300);
+            }, TTS_CONSTANTS.WAKE_TRANSITION_RETRY_MS);
           }
         }
       },
@@ -2588,14 +2596,75 @@ export function useTTSController(
 
     // Cleanup
     return () => {
-      onSpeechDoneSubscription.remove();
-      rangeSubscription.remove();
-      startSubscription.remove();
-      mediaActionSubscription.remove();
-      queueEmptySubscription.remove();
-      voiceFallbackSubscription.remove();
-      appStateSubscription.remove();
-      TTSHighlight.stop();
+      // Remove all subscriptions with error handling to ensure complete cleanup
+      try {
+        onSpeechDoneSubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove onSpeechDone subscription',
+          e,
+        );
+      }
+      try {
+        rangeSubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove onWordRange subscription',
+          e,
+        );
+      }
+      try {
+        startSubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove onSpeechStart subscription',
+          e,
+        );
+      }
+      try {
+        mediaActionSubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove onMediaAction subscription',
+          e,
+        );
+      }
+      try {
+        queueEmptySubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove onQueueEmpty subscription',
+          e,
+        );
+      }
+      try {
+        voiceFallbackSubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove onVoiceFallback subscription',
+          e,
+        );
+      }
+      try {
+        appStateSubscription.remove();
+      } catch (e) {
+        ttsCtrlLog.warn(
+          'cleanup-error',
+          'Failed to remove AppState subscription',
+          e,
+        );
+      }
+      try {
+        TTSHighlight.stop();
+      } catch (e) {
+        ttsCtrlLog.warn('cleanup-error', 'Failed to stop TTSHighlight', e);
+      }
       if (ttsStateRef.current) {
         ttsCtrlLog.debug(
           'save-tts-state-unmount',

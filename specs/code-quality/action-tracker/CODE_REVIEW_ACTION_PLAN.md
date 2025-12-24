@@ -2,9 +2,9 @@
 
 **Review Date:** 2025-12-24
 **Review Document:** [CODE_REVIEW_2025.md](./CODE_REVIEW_2025.md)
-**Status:** P1 Complete - All 5 tasks done! 🎉
+**Status:** P1 Complete - All 5 tasks done! 🎉 P2: 4/8 complete!
 
-**2025-12-24 (Current state):** All code quality checks passing:
+**2025-12-25 (Current state):** All code quality checks passing:
 - `pnpm run type-check`: ✅ 0 errors
 - `pnpm run lint`: ✅ 0 errors, 0 warnings
 - `pnpm test`: ✅ 629 passing
@@ -283,39 +283,78 @@
 
 ## P2 - Medium Priority (Consider Fixing)
 
-- [ ] **MEDIUM-1: Fix memoizedHTML Performance**
+- [x] **MEDIUM-1: Fix memoizedHTML Performance** ✅
   - File: `src/screens/reader/components/WebViewReader.tsx`
-  - Lines: 419-537
+  - Lines: 254-271 (battery level ref)
   - Action: Use refs for frequently changing dependencies
   - Est: 2 hours
-  - Status: Not Started
+  - Status: **Completed** 2025-12-25
+  - Notes:
+    - Added `batteryLevelRef` to avoid unnecessary HTML regeneration on battery level changes
+    - Battery level updates every 60 seconds via `injectJavaScript` instead of full HTML reload
+    - Removed `batteryLevel` from `memoizedHTML` dependency array
+    - `initialSavedParagraphIndex` kept in dependencies (only changes on chapter load)
 
-- [ ] **MEDIUM-2: Extract Duplicated TTS Logic**
+- [ ] **MEDIUM-2: Extract Duplicated TTS Logic** (Deferred - 60-80h effort)
   - Files: `ttsHelpers.ts`, `useTTSController.ts`, `WebViewReader.tsx`
   - Action: Create shared TTS utilities (QueueManager, StatePersistence)
-  - Est: 4 hours
-  - Status: Not Started
+  - Est: 4 hours → 60-80 hours (actual scope discovered)
+  - Status: **Deferred** - Requires separate planning session
+  - Notes:
+    - Exploration revealed much larger scope than initially estimated
+    - Would require creating QueueManager and StatePersistence utilities
+    - Involves major refactoring of useTTSController.ts and WebViewReader.tsx
+    - Better suited for a dedicated refactoring sprint
 
-- [ ] **MEDIUM-3: Remove Deprecated Methods**
+- [x] **MEDIUM-3: Remove Deprecated Methods** ✅
   - File: `src/services/TTSAudioManager.ts`
   - Lines: 106-136
   - Action: Find all usages, replace with new API, remove deprecated code
   - Est: 2 hours
-  - Status: Not Started
+  - Status: **Completed** 2025-12-25
+  - Notes:
+    - Already completed during HIGH-5 task
+    - Deprecated methods removed: `setRestartInProgress`, `isRestartInProgress`, `isRefillInProgress`
+    - Migration to TTSState enum-based checks complete
 
-- [ ] **MEDIUM-4: Fix Event Listener Cleanup**
+- [x] **MEDIUM-4: Fix Event Listener Cleanup** ✅
   - File: `src/screens/reader/hooks/useTTSController.ts`
-  - Lines: 1430-2591
+  - Lines: 2589-2632
   - Action: Add try-catch in cleanup, track all subscriptions
   - Est: 2 hours
-  - Status: Not Started
+  - Status: **Completed** 2025-12-25
+  - Notes:
+    - Added try-catch blocks for all 7 subscription cleanups:
+      - onSpeechDoneSubscription
+      - rangeSubscription
+      - startSubscription
+      - mediaActionSubscription
+      - queueEmptySubscription
+      - voiceFallbackSubscription
+      - appStateSubscription
+      - TTSHighlight.stop()
+    - Each cleanup now logs with `ttsCtrlLog.warn()` on failure
+    - Ensures complete cleanup even if one subscription removal fails
 
-- [ ] **MEDIUM-5: Extract Magic Numbers to Constants**
+- [x] **MEDIUM-5: Extract Magic Numbers to Constants** ✅
   - Files: Multiple files with magic numbers
-  - Action: Create `src/services/tts/ttsConstants.ts`
-  - Update all usages
+  - Action: Create centralized TTS constants in `src/screens/reader/types/tts.ts`
   - Est: 2 hours
-  - Status: Not Started
+  - Status: **Completed** 2025-12-25
+  - Notes:
+    - Added 20+ constants to `TTS_CONSTANTS`:
+      - Queue Management: BATCH_SIZE, REFILL_THRESHOLD, PREFETCH_THRESHOLD, EMERGENCY_THRESHOLD, CALIBRATION_INTERVAL, CACHE_DRIFT_THRESHOLD
+      - Timing: MEDIA_ACTION_DEBOUNCE_MS, CHAPTER_TRANSITION_GRACE_MS, TTS_START_DELAY_MS, CHAPTER_TRANSITION_DELAY_MS, WAKE_TRANSITION_DELAY_MS, WAKE_TRANSITION_RETRY_MS, SEEK_BACK_FALLBACK_DELAY_MS, SCROLL_LOCK_RESET_MS, TTS_STOP_GRACE_PERIOD_MS, AUTO_SAVE_INTERVAL_MS, BATTERY_UPDATE_INTERVAL_MS, STALE_LOG_DEBOUNCE_MS
+      - Media Navigation: PARAGRAPHS_TO_CONFIRM_NAVIGATION, WAKE_RESUME_DEBOUNCE_MS, WAKE_RESUBE_ADDITIONAL_DEBOUNCE_MS
+      - Retry and Sync: MAX_SYNC_RETRIES, SEEK_SKIP_PARAGRAPHS
+    - Updated `TTSAudioManager.ts`: Removed local constants, now uses `TTS_CONSTANTS.BATCH_SIZE`, etc.
+    - Updated `useTTSController.ts`: Replaced all magic numbers with constants
+    - Updated `WebViewReader.tsx`: Uses `TTS_CONSTANTS.BATTERY_UPDATE_INTERVAL_MS` and `AUTO_SAVE_INTERVAL_MS`
+    - Files modified:
+      - src/screens/reader/types/tts.ts (added TTS_CONSTANTS)
+      - src/services/TTSAudioManager.ts (import and use TTS_CONSTANTS)
+      - src/screens/reader/hooks/useTTSController.ts (use TTS_CONSTANTS throughout)
+      - src/screens/reader/components/WebViewReader.tsx (use TTS_CONSTANTS for intervals)
 
 - [ ] **MEDIUM-6: Add JSDoc Comments**
   - Files: Most files lack documentation
@@ -388,10 +427,10 @@
 |----------|-------|-----------|-------------|---------|
 | P0 - Critical | 3 | 3 | 0 | 0 |
 | P1 - High | 5 | 5 | 0 | 0 |
-| P2 - Medium | 8 | 0 | 0 | 0 |
+| P2 - Medium | 8 | 4 | 0 | 0 |
 | P3 - Low | 4 | 0 | 0 | 0 |
 | Refactoring | 1 | 0 | 0 | 0 |
-| **Total** | **21** | **8** | **0** | **0** |
+| **Total** | **21** | **12** | **0** | **0** |
 
 ---
 
@@ -798,6 +837,61 @@ Created standardized error handling utilities and applied them across the codeba
   - **Additional Issue**: Test assertion was too strict (didn't account for React cleanup effects)
   - **Fix**: Added mock for `getNovelTtsSettings()` returning `null`, updated assertion to allow cleanup calls
   - **Result**: Test now passing, all 629 tests passing
+
+---
+
+**2025-12-25 - P2 Tasks Complete: 4/8 Done!** 🎉
+
+Completed MEDIUM-1, MEDIUM-3, MEDIUM-4, and MEDIUM-5 tasks using subagent exploration for efficient analysis.
+
+**MEDIUM-1: Fix memoizedHTML Performance ✅**
+- Used `Explore` subagent to analyze the memoizedHTML performance issue
+- Found `batteryLevel` in dependency array causing unnecessary HTML regeneration
+- Solution: Created `batteryLevelRef` with periodic updates via `injectJavaScript`
+- Battery level now updates every 60 seconds without full HTML reload
+- `initialSavedParagraphIndex` kept in dependencies (only changes on chapter load)
+- Files modified: `src/screens/reader/components/WebViewReader.tsx`
+
+**MEDIUM-2: Extract Duplicated TTS Logic (Deferred) ⏭️**
+- Used `Explore` subagent to assess scope
+- Discovery: Estimated 60-80 hours (not 4 hours as initially planned)
+- Would require creating QueueManager and StatePersistence utilities
+- Major refactoring of useTTSController.ts and WebViewReader.tsx
+- Deferred to dedicated refactoring sprint
+
+**MEDIUM-3: Remove Deprecated Methods ✅**
+- Verified: Already completed during HIGH-5 task
+- Deprecated methods removed: `setRestartInProgress`, `isRestartInProgress`, `isRefillInProgress`
+- Migration to TTSState enum-based checks complete
+
+**MEDIUM-4: Fix Event Listener Cleanup ✅**
+- Added try-catch blocks for all 7 subscription cleanups in useTTSController.ts
+- Subscriptions: onSpeechDone, onWordRange, onSpeechStart, onMediaAction, onQueueEmpty, onVoiceFallback, AppState
+- Each cleanup logs with `ttsCtrlLog.warn()` on failure
+- Ensures complete cleanup even if one subscription removal fails
+
+**MEDIUM-5: Extract Magic Numbers to Constants ✅**
+- Added 20+ constants to `TTS_CONSTANTS` in `src/screens/reader/types/tts.ts`
+- Categories: Queue Management (6 constants), Timing (12 constants), Media Navigation (3 constants), Retry and Sync (2 constants)
+- Updated `TTSAudioManager.ts`: Removed local constants, now uses `TTS_CONSTANTS.BATCH_SIZE`, etc.
+- Updated `useTTSController.ts`: Replaced all magic numbers with constants (120ms, 300ms, 500ms, 900ms, 60000ms, etc.)
+- Updated `WebViewReader.tsx`: Uses `TTS_CONSTANTS.BATTERY_UPDATE_INTERVAL_MS` and `AUTO_SAVE_INTERVAL_MS`
+- Files modified:
+  - src/screens/reader/types/tts.ts (added TTS_CONSTANTS)
+  - src/services/TTSAudioManager.ts (import and use TTS_CONSTANTS)
+  - src/screens/reader/hooks/useTTSController.ts (use TTS_CONSTANTS throughout)
+  - src/screens/reader/components/WebViewReader.tsx (use TTS_CONSTANTS for intervals)
+
+**Verification Results (2025-12-25):**
+- Type-check: ✅ 0 errors
+- Lint: ✅ 0 errors, 0 warnings
+- Tests: ✅ 629 passing
+
+**Files Modified (P2 session - 4 files total):**
+- src/screens/reader/types/tts.ts (added TTS_CONSTANTS)
+- src/services/TTSAudioManager.ts (use TTS_CONSTANTS)
+- src/screens/reader/hooks/useTTSController.ts (use TTS_CONSTANTS + cleanup try-catch)
+- src/screens/reader/components/WebViewReader.tsx (batteryLevelRef + TTS_CONSTANTS)
 
 *Add notes here as work progresses:*
 

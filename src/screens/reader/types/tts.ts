@@ -364,14 +364,67 @@ export type SyncDialogStatus = 'syncing' | 'success' | 'failed';
  * Constants for TTS behavior.
  */
 export const TTS_CONSTANTS = {
+  // ============================================================================
+  // Queue Management Constants
+  // ============================================================================
+  /** Number of paragraphs to queue at once (batch size) */
+  BATCH_SIZE: 25,
+  /** Refill queue when this many items left */
+  REFILL_THRESHOLD: 10,
+  /** Start refilling earlier to avoid queue drain */
+  PREFETCH_THRESHOLD: 12,
+  /** Emergency threshold - attempt immediate refill if very low */
+  EMERGENCY_THRESHOLD: 4,
+  /** Calibrate queue cache every N spoken items */
+  CALIBRATION_INTERVAL: 10,
+  /** Detect and correct drift in lastKnownQueueSize */
+  CACHE_DRIFT_THRESHOLD: 5,
+
+  // ============================================================================
+  // Timing Constants (milliseconds)
+  // ============================================================================
+  /** Debounce time for rapid media actions */
+  MEDIA_ACTION_DEBOUNCE_MS: 500,
+  /** Grace period after chapter transition to ignore stale events */
+  CHAPTER_TRANSITION_GRACE_MS: 1000,
+  /** Delay before TTS start/resume after state change */
+  TTS_START_DELAY_MS: 500,
+  /** Delay after chapter transition before WebView operations */
+  CHAPTER_TRANSITION_DELAY_MS: 300,
+  /** Delay for wake transition handling */
+  WAKE_TRANSITION_DELAY_MS: 900,
+  /** Wake transition retry delay */
+  WAKE_TRANSITION_RETRY_MS: 300,
+  /** Fallback delay after seek back failure */
+  SEEK_BACK_FALLBACK_DELAY_MS: 120,
+  /** Scroll lock reset delay */
+  SCROLL_LOCK_RESET_MS: 600,
+  /** Grace period for scroll-based saves after TTS stops */
+  TTS_STOP_GRACE_PERIOD_MS: 2000,
+  /** Auto-save interval for reader progress */
+  AUTO_SAVE_INTERVAL_MS: 2222,
+  /** Interval for battery level updates */
+  BATTERY_UPDATE_INTERVAL_MS: 60000,
+  /** Debounce for stale log messages to prevent spam */
+  STALE_LOG_DEBOUNCE_MS: 500,
+
+  // ============================================================================
+  // Media Navigation Constants
+  // ============================================================================
   /** Number of paragraphs to read before confirming media navigation */
   PARAGRAPHS_TO_CONFIRM_NAVIGATION: 5,
-  /** Debounce time for rapid media actions (ms) */
-  MEDIA_ACTION_DEBOUNCE_MS: 500,
+  /** Debounce time for wake resume to prevent premature action */
+  WAKE_RESUME_DEBOUNCE_MS: 500,
+  /** Additional debounce time for wake resume validation */
+  WAKE_RESUBE_ADDITIONAL_DEBOUNCE_MS: 1000,
+
+  // ============================================================================
+  // Retry and Sync Constants
+  // ============================================================================
   /** Maximum sync retry attempts */
   MAX_SYNC_RETRIES: 2,
-  /** Grace period after chapter transition to ignore stale events (ms) */
-  CHAPTER_TRANSITION_GRACE_MS: 1000,
+  /** Maximum number of paragraphs to skip on seek */
+  SEEK_SKIP_PARAGRAPHS: 5,
 } as const;
 
 /**

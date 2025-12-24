@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { TTSState, assertValidTransition } from './TTSState';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import { TTS_CONSTANTS } from '@screens/reader/types/tts';
 
 const { TTSHighlight } = NativeModules;
 
@@ -25,17 +26,16 @@ export type TTSAudioParams = {
 // 2. Native TTS continues speaking and exhausts remaining utterances
 // 3. onQueueEmpty fires before refill completes
 // Larger margins give more buffer time.
-const BATCH_SIZE = 25; // Number of paragraphs to queue at once (was 15)
-const REFILL_THRESHOLD = 10; // Refill queue when this many items left (was 5)
+// Using centralized constants from TTS_CONSTANTS
+
 // Additional safety margins:
 // - PREFETCH_THRESHOLD: start refilling earlier to avoid queue drain and reduce pressure
 //   that can trigger fallback paths.
-// - EMERGENCY_THRESHOLD: if we get very low, attempt immediate refill.
-const PREFETCH_THRESHOLD = Math.max(REFILL_THRESHOLD, 12);
-const EMERGENCY_THRESHOLD = 4;
-// Cache calibration: detect and correct drift in lastKnownQueueSize
-const CACHE_DRIFT_THRESHOLD = 5;
-const CALIBRATION_INTERVAL = 10; // Calibrate every N spoken items
+// - TTS_CONSTANTS.EMERGENCY_THRESHOLD: if we get very low, attempt immediate refill.
+const PREFETCH_THRESHOLD = Math.max(
+  TTS_CONSTANTS.REFILL_THRESHOLD,
+  TTS_CONSTANTS.PREFETCH_THRESHOLD,
+);
 
 const ttsLog = createRateLimitedLogger('TTS', { windowMs: 1000 });
 const logDebug = (...args: unknown[]) => ttsLog.debug('debug', ...args);
@@ -193,7 +193,7 @@ class TTSAudioManager {
     try {
       const actualSize = await TTSHighlight.getQueueSize();
       const drift = Math.abs(actualSize - this.lastKnownQueueSize);
-      if (drift > CACHE_DRIFT_THRESHOLD) {
+      if (drift > TTS_CONSTANTS.CACHE_DRIFT_THRESHOLD) {
         ttsLog.warn(
           'cache-drift',
           `Cache drift detected (cached=${this.lastKnownQueueSize}, actual=${actualSize}, drift=${drift})`,
@@ -261,8 +261,8 @@ class TTSAudioManager {
         this.lastKnownQueueSize = 0;
         // BUG FIX: Reset last spoken index for new session
         this.resetLastSpokenIndex();
-        const batchTexts = texts.slice(0, BATCH_SIZE);
-        const batchIds = utteranceIds.slice(0, BATCH_SIZE);
+        const batchTexts = texts.slice(0, TTS_CONSTANTS.BATCH_SIZE);
+        const batchIds = utteranceIds.slice(0, TTS_CONSTANTS.BATCH_SIZE);
 
         // Guard against empty batch (shouldn't happen, but be defensive)
         if (batchTexts.length === 0) {
@@ -300,7 +300,7 @@ class TTSAudioManager {
         logDebug(
           `TTSAudioManager: Started batch playback with ${
             batchTexts.length
-          } items, ${texts.length - BATCH_SIZE} remaining`,
+          } items, ${texts.length - TTS_CONSTANTS.BATCH_SIZE} remaining`,
         );
         if (this.eventListeners.length === 0) {
           logDebug('TTSAudioManager: Setting up auto-refill subscription');
@@ -327,8 +327,8 @@ class TTSAudioManager {
     }
     // Fallback: try again, but prefer locked voice first.
     try {
-      const batchTexts = texts.slice(0, BATCH_SIZE);
-      const batchIds = utteranceIds.slice(0, BATCH_SIZE);
+      const batchTexts = texts.slice(0, TTS_CONSTANTS.BATCH_SIZE);
+      const batchIds = utteranceIds.slice(0, TTS_CONSTANTS.BATCH_SIZE);
       const fallbackVoice = this.getPreferredVoiceForFallback(voice);
       await TTSHighlight.speakBatch(batchTexts, batchIds, {
         rate,
@@ -349,7 +349,7 @@ class TTSAudioManager {
       }
       this.currentQueue = texts;
       this.currentUtteranceIds = utteranceIds;
-      this.currentIndex = BATCH_SIZE;
+      this.currentIndex = TTS_CONSTANTS.BATCH_SIZE;
       this.transitionTo(TTSState.PLAYING);
       this.hasLoggedNoMoreItems = false;
       // Update cache and calibrate after fallback batch start
@@ -358,7 +358,7 @@ class TTSAudioManager {
       logDebug(
         `TTSAudioManager: Started batch playback with fallback voice, ${
           batchTexts.length
-        } items, ${texts.length - BATCH_SIZE} remaining`,
+        } items, ${texts.length - TTS_CONSTANTS.BATCH_SIZE} remaining`,
       );
       if (this.eventListeners.length === 0) {
         logDebug('TTSAudioManager: Setting up auto-refill subscription');
@@ -411,8 +411,8 @@ class TTSAudioManager {
         // Extra safety: if queue is low or near-empty, refill more aggressively.
         // Prefetch threshold helps avoid queue drain and the fallback paths.
         const thresholdToUse =
-          queueSize <= EMERGENCY_THRESHOLD
-            ? EMERGENCY_THRESHOLD
+          queueSize <= TTS_CONSTANTS.EMERGENCY_THRESHOLD
+            ? TTS_CONSTANTS.EMERGENCY_THRESHOLD
             : PREFETCH_THRESHOLD;
 
         if (queueSize > thresholdToUse) {
@@ -423,7 +423,10 @@ class TTSAudioManager {
 
         // Add next batch
         const remainingCount = this.currentQueue.length - this.currentIndex;
-        const nextBatchSize = Math.min(BATCH_SIZE, remainingCount);
+        const nextBatchSize = Math.min(
+          TTS_CONSTANTS.BATCH_SIZE,
+          remainingCount,
+        );
 
         const nextTexts = this.currentQueue.slice(
           this.currentIndex,
@@ -653,7 +656,7 @@ class TTSAudioManager {
 
       // Periodic cache calibration to detect drift
       this.speechDoneCounter++;
-      if (this.speechDoneCounter >= CALIBRATION_INTERVAL) {
+      if (this.speechDoneCounter >= TTS_CONSTANTS.CALIBRATION_INTERVAL) {
         this.speechDoneCounter = 0;
         this.calibrateQueueCache().catch(err => {
           logError('TTSAudioManager: Periodic calibration failed:', err);

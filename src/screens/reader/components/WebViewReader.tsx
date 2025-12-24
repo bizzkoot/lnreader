@@ -69,7 +69,7 @@ import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 // Import the TTS hook
 import { useTTSController } from '../hooks/useTTSController';
-import { WebViewPostEvent } from '../types/tts';
+import { WebViewPostEvent, TTS_CONSTANTS } from '../types/tts';
 
 type WebViewReaderProps = {
   onPress(): void;
@@ -251,14 +251,31 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     return mmkvIndex >= 0 ? mmkvIndex : 0;
   }, [chapter.id]);
 
+  // Use ref for batteryLevel to avoid unnecessary HTML regeneration
+  const batteryLevelRef = useRef<number>(getBatteryLevelSync());
+
+  // Update battery level periodically without regenerating HTML
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newLevel = getBatteryLevelSync();
+      if (newLevel !== batteryLevelRef.current) {
+        batteryLevelRef.current = newLevel;
+        // Update WebView directly via injectJavaScript instead of regenerating HTML
+        webViewRef.current?.injectJavaScript(
+          `if (window.reader?.updateBatteryLevel) { window.reader.updateBatteryLevel(${newLevel}); } true;`,
+        );
+      }
+    }, TTS_CONSTANTS.BATTERY_UPDATE_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [webViewRef]);
+
   // Stable chapter object
   const stableChapter = useMemo(
     () => ({ ...chapter }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chapter.id],
   );
-
-  const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
 
   // Validate continuous scrolling settings to prevent invalid values
   const validatedScrollSettings = useMemo(
@@ -513,8 +530,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             chapter: stableChapter,
             nextChapter: initialNextChapter.current,
             prevChapter: initialPrevChapter.current,
-            batteryLevel,
-            autoSaveInterval: 2222,
+            batteryLevel: batteryLevelRef.current,
+            autoSaveInterval: TTS_CONSTANTS.AUTO_SAVE_INTERVAL_MS,
             DEBUG: __DEV__,
             strings: {
               finished: `${getString('readerScreen.finished')}: ${stableChapter.name.trim()}`,
@@ -552,8 +569,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     html,
     novel,
     // REMOVED: nextChapter, prevChapter - these are updated via injectJavaScript, don't regenerate HTML
-    batteryLevel,
-    initialSavedParagraphIndex,
+    // REMOVED: batteryLevel - now uses ref to avoid unnecessary HTML regeneration (updates via injectJavaScript)
+    initialSavedParagraphIndex, // Keep: only changes when chapter.id changes
     pluginCustomCSS,
     pluginCustomJS,
     theme,
