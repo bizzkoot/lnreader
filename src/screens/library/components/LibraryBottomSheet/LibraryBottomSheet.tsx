@@ -9,6 +9,7 @@ import {
 import AppText from '@components/AppText';
 import {
   SceneMap,
+  SceneRendererProps,
   TabBar,
   TabDescriptor,
   TabView,
@@ -198,7 +199,19 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
 
   const layout = useWindowDimensions();
 
-  const renderTabBar = (props: any) => (
+  interface Route {
+    key: string;
+    title: string;
+  }
+
+  type TabBarProps = SceneRendererProps & {
+    navigationState: {
+      routes: Route[];
+      index: number;
+    };
+  };
+
+  const renderTabBar = (props: TabBarProps) => (
     <TabBar
       {...props}
       indicatorStyle={{ backgroundColor: theme.primary }}
@@ -231,15 +244,21 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
   const renderScene = useMemo(
     () =>
       SceneMap({
-        first: (props: any) => <FirstRoute {...props} uiScale={uiScale} />,
-        second: (props: any) => <SecondRoute {...props} uiScale={uiScale} />,
-        third: (props: any) => <ThirdRoute {...props} uiScale={uiScale} />,
+        first: (props: { route: Route; jumpTo: (key: string) => void }) => (
+          <FirstRoute {...props} uiScale={uiScale} />
+        ),
+        second: (props: { route: Route; jumpTo: (key: string) => void }) => (
+          <SecondRoute {...props} uiScale={uiScale} />
+        ),
+        third: (props: { route: Route; jumpTo: (key: string) => void }) => (
+          <ThirdRoute {...props} uiScale={uiScale} />
+        ),
       }),
     [uiScale],
   );
 
   const renderCommonOptions = useCallback(
-    ({ route, color: col }: { route: any; color: string }) => (
+    ({ route, color: col }: { route: Route; color: string }) => (
       <AppText style={{ color: col }}>{route.title}</AppText>
     ),
     [],

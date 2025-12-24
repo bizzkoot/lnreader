@@ -1,5 +1,12 @@
 import React from 'react';
-import { StyleSheet, View, Pressable, Image } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Pressable,
+  Image,
+  ViewStyle,
+  ImageStyle,
+} from 'react-native';
 import { Text } from '@components/AppText';
 
 import color from 'color';
@@ -16,7 +23,10 @@ interface ListViewProps {
   onPress: () => void;
   isSelected?: boolean;
   onLongPress?: () => void;
-  scaledStyles: any;
+  scaledStyles: {
+    listViewPadding: ViewStyle;
+    extensionIcon: ImageStyle;
+  };
 }
 
 const ListView = ({

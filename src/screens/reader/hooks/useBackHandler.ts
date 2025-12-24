@@ -1,6 +1,8 @@
 import { useCallback, RefObject, MutableRefObject } from 'react';
 import WebView from 'react-native-webview';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@navigators/types';
 
 const backLog = createRateLimitedLogger('useBackHandler', { windowMs: 1500 });
 
@@ -8,7 +10,7 @@ interface BackHandlerParams {
   chapterId: number;
   webViewRef: RefObject<WebView | null>;
   saveProgress: (progress: number) => void;
-  navigation: any;
+  navigation: StackNavigationProp<RootStackParamList>;
   showExitDialog: boolean;
   showChapterSelectionDialog: boolean;
   refs: {

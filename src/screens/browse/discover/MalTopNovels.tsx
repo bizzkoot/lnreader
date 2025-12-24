@@ -20,11 +20,18 @@ import { useTheme } from '@hooks/persisted';
 import MalLoading from '../loadingAnimation/MalLoading';
 import { BrowseMalScreenProps } from '@navigators/types';
 
+interface MalNovel {
+  novelName: string;
+  novelCover: string;
+  score: string;
+  info: string[];
+}
+
 const BrowseMalScreen = ({ navigation }: BrowseMalScreenProps) => {
   const theme = useTheme();
 
   const [loading, setLoading] = useState(true);
-  const [novels, setNovels] = useState<any[]>([]);
+  const [novels, setNovels] = useState<MalNovel[]>([]);
   const [error, setError] = useState('');
   const [limit, setLimit] = useState(0);
 
@@ -38,11 +45,12 @@ const BrowseMalScreen = ({ navigation }: BrowseMalScreenProps) => {
         const data = await scrapeTopNovels(lim ?? limit);
         setNovels(before => before.concat(data));
         setLoading(false);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message);
         setNovels([]);
         setLoading(false);
-        showToast(err.message);
+        showToast(message);
       }
     },
     [limit],
@@ -61,11 +69,12 @@ const BrowseMalScreen = ({ navigation }: BrowseMalScreenProps) => {
 
       setNovels(data);
       setLoading(false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
       setNovels([]);
       setLoading(false);
-      showToast(err.message);
+      showToast(message);
     }
   };
 
@@ -73,7 +82,7 @@ const BrowseMalScreen = ({ navigation }: BrowseMalScreenProps) => {
     getNovels();
   }, [getNovels]);
 
-  const renderItem: FlatListProps<any>['renderItem'] = ({ item }) => (
+  const renderItem: FlatListProps<MalNovel>['renderItem'] = ({ item }) => (
     <DiscoverNovelCard
       novel={item}
       theme={theme}

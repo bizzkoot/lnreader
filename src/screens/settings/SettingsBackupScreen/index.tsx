@@ -18,6 +18,7 @@ import { showToast } from '@utils/showToast';
 import { Portal, RadioButton } from 'react-native-paper';
 import Button from '@components/Button/Button';
 import Switch from '@components/Switch/Switch';
+import type { StringMap } from '@strings/types';
 
 type BackupFrequency = 'manual' | '6h' | '12h' | 'daily' | '2days' | 'weekly';
 
@@ -90,7 +91,7 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
 
   const getFrequencyLabel = (freq: BackupFrequency) => {
     const option = frequencyOptions.find(o => o.value === freq);
-    return option ? getString(option.label as any) : freq;
+    return option ? getString(option.label as keyof StringMap) : freq;
   };
 
   const styles = useMemo(
@@ -173,9 +174,11 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
             theme={theme}
           />
           <List.Item
-            title={getString('backupScreen.backupIncludeOptions' as any)}
+            title={getString(
+              'backupScreen.backupIncludeOptions' as keyof StringMap,
+            )}
             description={getString(
-              'backupScreen.backupIncludeOptionsDesc' as any,
+              'backupScreen.backupIncludeOptionsDesc' as keyof StringMap,
             )}
             onPress={() => setIncludeOptionsModalVisible(true)}
             theme={theme}
@@ -206,7 +209,9 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
             onPress={() => setMaxBackupsModalVisible(true)}
           />
           <List.InfoItem
-            title={getString('backupScreen.autoBackupLimitNote' as any)}
+            title={getString(
+              'backupScreen.autoBackupLimitNote' as keyof StringMap,
+            )}
             theme={theme}
           />
           <List.InfoItem
@@ -256,7 +261,7 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
                 >
                   <RadioButton value={option.value} color={theme.primary} />
                   <Text style={styles.radioLabel}>
-                    {getString(option.label as any)}
+                    {getString(option.label as keyof StringMap)}
                   </Text>
                 </Pressable>
               ))}
@@ -279,7 +284,9 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {getString('backupScreen.backupIncludeOptions' as any)}
+              {getString(
+                'backupScreen.backupIncludeOptions' as keyof StringMap,
+              )}
             </Text>
 
             <View style={styles.radioRow}>
@@ -295,7 +302,7 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
                 }
               />
               <Text style={styles.radioLabel}>
-                {getString('backupScreen.include.settings' as any)}
+                {getString('backupScreen.include.settings' as keyof StringMap)}
               </Text>
             </View>
 
@@ -312,7 +319,9 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
                 }
               />
               <Text style={styles.radioLabel}>
-                {getString('backupScreen.include.novelsAndChapters' as any)}
+                {getString(
+                  'backupScreen.include.novelsAndChapters' as keyof StringMap,
+                )}
               </Text>
             </View>
 
@@ -329,7 +338,9 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
                 }
               />
               <Text style={styles.radioLabel}>
-                {getString('backupScreen.include.categories' as any)}
+                {getString(
+                  'backupScreen.include.categories' as keyof StringMap,
+                )}
               </Text>
             </View>
 
@@ -346,7 +357,9 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
                 }
               />
               <Text style={styles.radioLabel}>
-                {getString('backupScreen.include.repositories' as any)}
+                {getString(
+                  'backupScreen.include.repositories' as keyof StringMap,
+                )}
               </Text>
             </View>
 
@@ -363,7 +376,7 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
                 }
               />
               <Text style={styles.radioLabel}>
-                {getString('backupScreen.include.downloads' as any)}
+                {getString('backupScreen.include.downloads' as keyof StringMap)}
               </Text>
             </View>
 

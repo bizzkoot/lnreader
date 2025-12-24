@@ -8,13 +8,13 @@ import { scaleDimension } from '@theme/scaling';
 import { Storage } from '@plugins/helpers/storage';
 import AppText from '@components/AppText';
 
-interface PluginSetting {
+export interface PluginSetting {
   value: string;
   label: string;
   type?: 'Switch';
 }
 
-interface PluginSettings {
+export interface PluginSettings {
   [key: string]: PluginSetting;
 }
 
@@ -86,7 +86,7 @@ const SourceSettingsModal: React.FC<SourceSettingsModal> = ({
 
         const initialFormValues = Object.fromEntries(
           loadedValues.map(({ key, value }) => [key, value]),
-        );
+        ) as Record<string, string | boolean>;
 
         setFormValues(initialFormValues);
       };

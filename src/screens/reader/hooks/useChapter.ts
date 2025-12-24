@@ -149,8 +149,12 @@ export default function useChapter(
           ),
         );
         setAdjacentChapter([nextChap!, prevChap!]);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError(String(e));
+        }
       } finally {
         setLoading(false);
       }

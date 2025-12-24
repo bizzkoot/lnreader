@@ -35,7 +35,7 @@ interface ReaderTTSTabProps {
 }
 
 const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
-  const debugLog = useCallback((...args: any[]) => {
+  const debugLog = useCallback((...args: unknown[]) => {
     readerTTSTabLog.debug('novel-tts', ...args);
   }, []);
   const theme = useTheme();
@@ -294,7 +294,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
           name: 'System',
           language: 'System',
           identifier: 'default',
-          quality: 'default' as any,
+          quality: 'default',
         } as TTSVoice,
         ...formattedVoices,
       ]);

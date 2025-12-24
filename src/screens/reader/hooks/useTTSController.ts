@@ -11,6 +11,8 @@ import { useRef, useCallback, useEffect, RefObject, useMemo } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import WebView from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@navigators/types';
 
 import TTSHighlight from '@services/TTSHighlight';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -293,7 +295,7 @@ export function useTTSController(
     showToastMessage,
   } = params;
 
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
   // ===========================================================================
   // TTS State Refs

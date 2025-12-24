@@ -50,7 +50,17 @@ function formatScope(scope: string): string {
 function isJestEnv(): boolean {
   // Jest sets this in worker processes.
 
-  return typeof (process as any)?.env?.JEST_WORKER_ID === 'string';
+  interface ProcessEnv {
+    JEST_WORKER_ID?: string;
+    [key: string]: string | undefined;
+  }
+
+  interface ProcessWithEnv {
+    env?: ProcessEnv;
+  }
+
+  const processEnv = (globalThis as { process?: ProcessWithEnv }).process?.env;
+  return typeof processEnv?.JEST_WORKER_ID === 'string';
 }
 
 export function createRateLimitedLogger(
@@ -114,8 +124,8 @@ export function createRateLimitedLogger(
     }, remaining);
 
     // Allow Node to exit even if a timer exists.
-
-    (bucket.flushTimer as any)?.unref?.();
+    const timer = bucket.flushTimer as NodeJS.Timeout | undefined;
+    timer?.unref?.();
   }
 
   function log(level: LogLevel, key: string, ...args: unknown[]) {

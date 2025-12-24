@@ -124,7 +124,7 @@ interface ProtoRequestInit {
   // merged .proto file
   proto: string;
   requestType: string;
-  requestData?: any;
+  requestData?: Record<string, unknown> | unknown[];
   responseType: string;
 }
 
@@ -137,11 +137,16 @@ export const fetchProto = async function (
 ) {
   const protoRoot = parseProto(protoInit.proto).root;
   const RequestMessge = protoRoot.lookupType(protoInit.requestType);
-  if (RequestMessge.verify(protoInit.requestData)) {
+  const requestData = protoInit.requestData;
+  if (!requestData) {
+    throw new Error('Invalid Proto: requestData is required');
+  }
+  const verifyResult = RequestMessge.verify(requestData);
+  if (verifyResult) {
     throw new Error('Invalid Proto');
   }
   // encode request data
-  const encodedrequest = RequestMessge.encode(protoInit.requestData).finish();
+  const encodedrequest = RequestMessge.encode(requestData as any).finish();
   const requestLength = BigInt(encodedrequest.length);
   const headers = new Uint8Array(
     Array(5)

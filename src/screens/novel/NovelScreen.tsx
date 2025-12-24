@@ -15,7 +15,7 @@ import { pickCustomNovelCover } from '../../database/queries/NovelQueries';
 import DownloadCustomChapterModal from './components/DownloadCustomChapterModal';
 import { useBoolean } from '@hooks';
 import NovelScreenLoading from './components/LoadingAnimation/NovelScreenLoading';
-import { NovelScreenProps } from '@navigators/types';
+import { NovelScreenProps, RootStackParamList } from '@navigators/types';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterInfo } from '@database/types';
 import { getString } from '@strings/translations';
@@ -34,6 +34,7 @@ import { SafeAreaView } from '@components';
 import { useNovelContext } from './NovelContext';
 import { LegendListRef } from '@legendapp/list';
 import AppText from '@components/AppText';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 const Novel = ({ route, navigation }: NovelScreenProps) => {
   const {
@@ -286,7 +287,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
             <NovelScreenList
               headerOpacity={headerOpacity}
               listRef={chapterListRef}
-              navigation={navigation}
+              navigation={navigation as StackNavigationProp<RootStackParamList>}
               routeBaseNovel={route.params}
               selected={selected}
               setSelected={setSelected}

@@ -34,6 +34,20 @@ interface ALNovel {
   info: string[];
 }
 
+interface AniListMedia {
+  id: number;
+  title: {
+    userPreferred: string;
+  };
+  coverImage: {
+    extraLarge: string;
+  };
+  averageScore: number;
+  volumes: number | null;
+  startDate: ALDate;
+  endDate: ALDate;
+}
+
 dayjs.extend(localeData);
 
 function formatDate(date: ALDate) {
@@ -107,7 +121,7 @@ const BrowseALScreen = ({ navigation }: BrowseALScreenProps) => {
           tracker.auth,
         );
 
-        const results = data.Page.media.map((m: any) => {
+        const results = data.Page.media.map((m: AniListMedia) => {
           return {
             id: m.id,
             novelName: m.title.userPreferred,
@@ -128,11 +142,12 @@ const BrowseALScreen = ({ navigation }: BrowseALScreenProps) => {
         setHasNextPage(data.Page.pageInfo.hasNextPage);
         setNovels(onlyTop ? before => before.concat(results) : results);
         setLoading(false);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message);
         setNovels([]);
         setLoading(false);
-        showToast(err.message);
+        showToast(message);
       }
     },
     [anilistSearchQuery, searchText, tracker],

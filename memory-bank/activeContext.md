@@ -2,9 +2,7 @@
 
 ## Current Goals
 
-- Session completed - Fixed two regressions from commit 2d72b94:
-  1. TTS Per-Novel Settings Toggle not working (BottomSheet Portal breaking React context)
-  2. Chapter Title Duplication (visibility detection failing in detached DOM)
+- 2025-12-24: Post-format health check. Fix lint break (duplicate import), document current lint warnings (deferred), update action plan + memory bank, then commit and push to origin/dev.
 
 ## Key Files Modified (This Session)
 

@@ -57,7 +57,7 @@ import TTSSyncDialog from './TTSSyncDialog';
 import Toast from '@components/Toast';
 import { useBoolean, useBackHandler } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
-import { applyTtsUpdateToWebView } from './ttsHelpers';
+import { applyTtsUpdateToWebView, type TTSSettings } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
 import { getNovelTtsSettings } from '@services/tts/novelTtsSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
@@ -196,7 +196,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         } as ChapterReaderSettings;
 
         readerSettingsRef.current = nextReaderSettings;
-        applyTtsUpdateToWebView(nextReaderSettings.tts, webViewRef);
+        applyTtsUpdateToWebView(
+          nextReaderSettings.tts as TTSSettings,
+          webViewRef,
+        );
       }
     } catch {
       // Best-effort: never block reader load
@@ -306,7 +309,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         readerSettingsRef.current = {
           ...readerSettingsRef.current,
           tts: liveReaderTts,
-        } as any;
+        } as ChapterReaderSettings;
 
         // Apply to WebView
         applyTtsUpdateToWebView(liveReaderTts, webViewRef);
@@ -608,7 +611,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       switch (event.type) {
         case 'tts-update-settings':
           if (event.data) {
-            applyTtsUpdateToWebView(event.data, webViewRef);
+            applyTtsUpdateToWebView(event.data as TTSSettings, webViewRef);
           }
           break;
         case 'hide':
@@ -670,8 +673,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             const savePercent =
               typeof event.data === 'number'
                 ? event.data
-                : typeof (event.data as any)?.percent === 'number'
-                  ? (event.data as any).percent
+                : typeof event.data === 'object' &&
+                    event.data !== null &&
+                    'percent' in event.data &&
+                    typeof event.data.percent === 'number'
+                  ? event.data.percent
                   : undefined;
 
             // Block non-TTS saves when TTS is reading

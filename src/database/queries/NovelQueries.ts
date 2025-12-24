@@ -306,7 +306,7 @@ export const updateNovelCategories = async (
   return runSync(queries);
 };
 
-const restoreObjectQuery = (table: string, obj: any) => {
+const restoreObjectQuery = (table: string, obj: Record<string, unknown>) => {
   return `
   INSERT INTO ${table}
   (${Object.keys(obj).join(',')})
@@ -326,7 +326,10 @@ export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
     );
     for (const chapter of chapters) {
       await db.runAsync(
-        restoreObjectQuery('Chapter', chapter),
+        restoreObjectQuery(
+          'Chapter',
+          chapter as unknown as Record<string, unknown>,
+        ),
         Object.values(chapter) as string[] | number[],
       );
     }

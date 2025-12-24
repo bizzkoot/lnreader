@@ -1,16 +1,13 @@
-# Progress (Updated: 2025-12-23)
+# Progress (Updated: 2025-12-24)
 
 ## Done
 
-- Audited feature set since v2.0.12 (and v2.0.12-era additions): continuous scrolling, EPUB TTS sync, per-novel TTS settings, backups, unified progress, UI scale, media notification, WebView security.
-- Created audit pack markdowns in specs/code-quality/audits/ (index + per-feature deep dives) and added FIX_PLAN_CHECKLIST.md.
-- Ran checks: `pnpm run type-check` passes; `pnpm run lint` reports warnings only (no errors).
+- Fixed post-format lint break (duplicate import) and cleaned unused eslint-disable directives. Verified type-check and tests pass; lint has warnings only (deferred).
 
 ## Doing
 
-- Reducing highest-risk eslint warnings (hooks deps / ref cleanup) in reader/TTS surfaces.
+- Preparing commit on origin/dev with documentation + verification status.
 
 ## Next
 
-- Decide P0 implementation path for per-novel TTS identity for local EPUBs.
-- Convert remaining eslint warnings to fixes where safe (avoid overfitting deps arrays; prefer stabilizing style objects/handlers).
+- Optionally address remaining lint warnings (react-hooks deps + inline-style warnings) if/when warnings become blocking.

@@ -1,3 +1,5 @@
+import type { RefObject } from 'react';
+import type WebView from 'react-native-webview';
 import {
   applyTtsUpdateToWebView,
   safeInjectJS,
@@ -24,19 +26,19 @@ describe('ttsHelpers', () => {
         current: {
           injectJavaScript: jest.fn(),
         },
-      };
+      } as unknown as RefObject<WebView | null>;
       const settings = { rate: 1.5, pitch: 1.2 };
 
       const result = applyTtsUpdateToWebView(settings, mockWebView);
 
-      expect(mockWebView.current.injectJavaScript).toHaveBeenCalled();
+      expect((mockWebView.current as any)?.injectJavaScript).toHaveBeenCalled();
       expect(result).toBe(true);
     });
 
     it('should not inject when webViewRef is null', () => {
       const mockWebView = {
         current: null,
-      };
+      } as unknown as RefObject<WebView | null>;
       const settings = { rate: 1.5 };
 
       const result = applyTtsUpdateToWebView(settings, mockWebView);
@@ -47,7 +49,7 @@ describe('ttsHelpers', () => {
     it('should not inject when webViewRef.current is undefined', () => {
       const mockWebView = {
         current: undefined,
-      };
+      } as unknown as RefObject<WebView | null>;
       const settings = { rate: 1.5 };
 
       const result = applyTtsUpdateToWebView(settings, mockWebView);
@@ -62,7 +64,7 @@ describe('ttsHelpers', () => {
             throw new Error('Injection failed');
           }),
         },
-      };
+      } as unknown as RefObject<WebView | null>;
       const settings = { rate: 1.5 };
 
       const result = applyTtsUpdateToWebView(settings, mockWebView);
@@ -75,13 +77,14 @@ describe('ttsHelpers', () => {
         current: {
           injectJavaScript: jest.fn(),
         },
-      };
+      } as unknown as RefObject<WebView | null>;
       const settings = { rate: 1.5, pitch: 1.2, voice: 'en-US' };
 
       applyTtsUpdateToWebView(settings, mockWebView);
 
-      const injectedScript =
-        mockWebView.current.injectJavaScript.mock.calls[0][0];
+      const injectedScript = (
+        (mockWebView.current as any)?.injectJavaScript as jest.Mock
+      ).mock.calls[0][0];
       expect(injectedScript).toContain('window.tts.applySettings');
       expect(injectedScript).toContain(JSON.stringify(settings));
     });
@@ -93,19 +96,21 @@ describe('ttsHelpers', () => {
         current: {
           injectJavaScript: jest.fn(),
         },
-      };
+      } as unknown as RefObject<WebView | null>;
       const script = 'window.test = true;';
 
       const result = safeInjectJS(mockWebView, script);
 
-      expect(mockWebView.current.injectJavaScript).toHaveBeenCalledWith(script);
+      expect(
+        (mockWebView.current as any)?.injectJavaScript,
+      ).toHaveBeenCalledWith(script);
       expect(result).toBe(true);
     });
 
     it('should not inject when webViewRef is null', () => {
       const mockWebView = {
         current: null,
-      };
+      } as unknown as RefObject<WebView | null>;
       const script = 'window.test = true;';
 
       const result = safeInjectJS(mockWebView, script);
@@ -116,7 +121,7 @@ describe('ttsHelpers', () => {
     it('should not inject when webViewRef.current is undefined', () => {
       const mockWebView = {
         current: undefined,
-      };
+      } as unknown as RefObject<WebView | null>;
       const script = 'window.test = true;';
 
       const result = safeInjectJS(mockWebView, script);
@@ -127,7 +132,7 @@ describe('ttsHelpers', () => {
     it('should include context in warning when provided', () => {
       const mockWebView = {
         current: null,
-      };
+      } as unknown as RefObject<WebView | null>;
       const script = 'window.test = true;';
       const context = 'TTS Update';
 
@@ -143,7 +148,7 @@ describe('ttsHelpers', () => {
             throw new Error('Injection failed');
           }),
         },
-      };
+      } as unknown as RefObject<WebView | null>;
       const script = 'window.test = true;';
 
       const result = safeInjectJS(mockWebView, script);
@@ -158,7 +163,7 @@ describe('ttsHelpers', () => {
             throw new Error('Injection failed');
           }),
         },
-      };
+      } as unknown as RefObject<WebView | null>;
       const script = 'window.test = true;';
       const context = 'TTS Update';
 

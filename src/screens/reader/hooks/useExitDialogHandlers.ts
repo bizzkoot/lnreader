@@ -9,6 +9,8 @@
 
 import { useCallback } from 'react';
 import { ExitDialogData } from '../types/tts';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@navigators/types';
 
 /**
  * Exit dialog handlers parameters
@@ -16,7 +18,7 @@ import { ExitDialogData } from '../types/tts';
 export interface ExitDialogHandlersParams {
   exitDialogData: ExitDialogData;
   saveProgress: (progress: number, paragraphIndex?: number) => void;
-  navigation: any; // NavigationProp type
+  navigation: StackNavigationProp<RootStackParamList>;
   callbacks: {
     handleStopTTS: () => void;
     setShowExitDialog: (show: boolean) => void;

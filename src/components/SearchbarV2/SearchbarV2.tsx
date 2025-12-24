@@ -165,9 +165,11 @@ const Searchbar: React.FC<SearcbarProps> = ({
                 key={index}
                 title={button.title}
                 style={{ backgroundColor: theme.surface2 }}
-                titleStyle={{
-                  color: theme.onSurface,
-                }}
+                titleStyle={
+                  {
+                    color: theme.onSurface,
+                  } as any
+                }
                 onPress={() => {
                   showExtraMenu(false);
                   setTimeout(() => {

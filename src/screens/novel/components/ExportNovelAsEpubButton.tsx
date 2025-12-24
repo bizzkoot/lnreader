@@ -182,10 +182,12 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
           chapters: addedChapters.toString(),
         }),
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       showToast(
         getString('novelScreen.epub.exportFailed', {
-          error: error.message || error,
+          error: errorMessage,
         }),
       );
       await epub?.discardChanges();

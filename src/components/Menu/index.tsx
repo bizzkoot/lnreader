@@ -1,6 +1,12 @@
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Pressable, StyleSheet, View, Dimensions } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  Dimensions,
+  ViewStyle,
+} from 'react-native';
 import { Portal } from 'react-native-paper';
 import Animated, {
   FadeIn,
@@ -18,15 +24,15 @@ interface MenuProps {
   visible: boolean;
   onDismiss: () => void;
   anchor: React.ReactNode;
-  contentStyle?: any;
+  contentStyle?: ViewStyle;
   children: React.ReactNode;
 }
 
 interface MenuItemProps {
   title: string;
   onPress: () => void;
-  style?: any;
-  titleStyle?: any;
+  style?: ViewStyle;
+  titleStyle?: ViewStyle;
 }
 
 const Menu: React.FC<MenuProps> & { Item: React.FC<MenuItemProps> } = ({

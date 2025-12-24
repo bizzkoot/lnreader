@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, ImageStyle, ViewStyle } from 'react-native';
 import {
   Portal,
   Button,
@@ -22,7 +22,12 @@ import MangaUpdatesLoginDialog from './components/MangaUpdatesLoginDialog';
 import { authenticateWithCredentials } from '@services/Trackers/mangaUpdates';
 import { showToast } from '@utils/showToast';
 
-const AniListLogo = ({ styles }: { styles: any }) => (
+interface TrackerStyles {
+  logoContainer: ViewStyle;
+  trackerLogo: ImageStyle;
+}
+
+const AniListLogo = ({ styles }: { styles: TrackerStyles }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/anilist.png')}
@@ -31,7 +36,7 @@ const AniListLogo = ({ styles }: { styles: any }) => (
   </View>
 );
 
-const MyAnimeListLogo = ({ styles }: { styles: any }) => (
+const MyAnimeListLogo = ({ styles }: { styles: TrackerStyles }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/mal.png')}
@@ -40,7 +45,7 @@ const MyAnimeListLogo = ({ styles }: { styles: any }) => (
   </View>
 );
 
-const MangaUpdatesLogo = ({ styles }: { styles: any }) => (
+const MangaUpdatesLogo = ({ styles }: { styles: TrackerStyles }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/mangaupdates.png')}
@@ -285,7 +290,12 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
                     styles.modalButtonLabel,
                   ]}
                   onPress={() => {
-                    removeTracker(logoutTrackerName as any);
+                    removeTracker(
+                      logoutTrackerName as
+                        | 'AniList'
+                        | 'MyAnimeList'
+                        | 'MangaUpdates',
+                    );
                     hideModal();
                   }}
                 >

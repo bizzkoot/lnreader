@@ -23,10 +23,23 @@ import TTSScrollBehaviorModal from '../Modals/TTSScrollBehaviorModal';
 
 import AutoResumeModal from '../Modals/AutoResumeModal';
 
+interface TTSVoiceSettings {
+  identifier?: string;
+  name?: string;
+  language?: string;
+}
+
+interface TTSSettings {
+  rate?: number;
+  pitch?: number;
+  voice?: string | TTSVoiceSettings;
+  [key: string]: unknown;
+}
+
 const AccessibilityTab: React.FC = () => {
   // No-op: Reader listens for settings changes via persisted storage and will
   // apply updates live. We keep a helper if needed for web-based debug.
-  const sendTTSSettingsToReader = (_settings: any) => false;
+  const sendTTSSettingsToReader = (_settings: TTSSettings) => false;
   const theme = useTheme();
   const {
     fullScreenMode = true,
@@ -151,7 +164,7 @@ const AccessibilityTab: React.FC = () => {
           name: 'System',
           language: 'System',
           identifier: 'default',
-          quality: 'default' as any,
+          quality: 'default',
         } as TTSVoice,
         ...formattedVoices,
       ]);
@@ -799,7 +812,12 @@ const AccessibilityTab: React.FC = () => {
               );
             } else {
               setChapterGeneralSettings({
-                ttsForwardChapterReset: value as any,
+                ttsForwardChapterReset: value as
+                  | 'none'
+                  | 'reset-next'
+                  | 'reset-until-5'
+                  | 'reset-until-10'
+                  | 'reset-all',
               });
             }
           }}

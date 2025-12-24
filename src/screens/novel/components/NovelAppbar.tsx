@@ -45,7 +45,7 @@ const Menu = React.memo(
             key={index + item.label}
             title={item.label}
             style={{ backgroundColor: theme.surface2 }}
-            titleStyle={{ color: theme.onSurface }}
+            titleStyle={{ color: theme.onSurface } as any}
             onPress={() => {
               onDismiss();
               item.onPress();

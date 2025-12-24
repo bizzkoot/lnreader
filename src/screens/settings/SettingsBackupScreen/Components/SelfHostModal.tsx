@@ -203,8 +203,9 @@ function SetHost({
                   throw new Error(getString('backupScreen.remote.unknownHost'));
                 }
               })
-              .catch((e: any) => {
-                setError(e.message);
+              .catch((e: unknown) => {
+                const message = e instanceof Error ? e.message : String(e);
+                setError(message);
               })
               .finally(() => {
                 setFetching(false);

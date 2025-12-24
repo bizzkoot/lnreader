@@ -1,3 +1,12 @@
-export function getErrorMessage(any: any) {
-  return any?.message || String(any);
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error === null || error === undefined) {
+    return 'Unknown error';
+  }
+  return String(error);
 }
