@@ -81,6 +81,32 @@ const assetsUriPrefix = __DEV__
 
 const readerLog = createRateLimitedLogger('WebViewReader', { windowMs: 1500 });
 
+/**
+ * Validates continuous scrolling settings to prevent invalid values from causing issues.
+ * Provides defensive checks against corrupted storage or invalid inputs.
+ */
+const validateContinuousScrollSettings = (
+  stitchThreshold: number | undefined,
+  transitionThreshold: number | undefined,
+): { stitchThreshold: number; transitionThreshold: number } => {
+  // Validate stitch threshold (valid range: 50-95)
+  const validStitchThreshold = Math.max(
+    50,
+    Math.min(95, Number(stitchThreshold) || 90),
+  );
+
+  // Validate transition threshold (valid range: 5-20)
+  const validTransitionThreshold = Math.max(
+    5,
+    Math.min(20, Number(transitionThreshold) || 15),
+  );
+
+  return {
+    stitchThreshold: validStitchThreshold,
+    transitionThreshold: validTransitionThreshold,
+  };
+};
+
 const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const {
     novel,
@@ -210,6 +236,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   );
 
   const batteryLevel = useMemo(() => getBatteryLevelSync(), []);
+
+  // Validate continuous scrolling settings to prevent invalid values
+  const validatedScrollSettings = useMemo(
+    () =>
+      validateContinuousScrollSettings(
+        chapterGeneralSettings.continuousScrollStitchThreshold,
+        chapterGeneralSettings.continuousScrollTransitionThreshold,
+      ),
+    [
+      chapterGeneralSettings.continuousScrollStitchThreshold,
+      chapterGeneralSettings.continuousScrollTransitionThreshold,
+    ],
+  );
+
   const plugin = getPlugin(novel?.pluginId);
   const pluginCustomJS = `file://${PLUGIN_STORAGE}/${plugin?.id}/custom.js`;
   const pluginCustomCSS = `file://${PLUGIN_STORAGE}/${plugin?.id}/custom.css`;
@@ -439,7 +479,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
           var initialReaderConfig = ${JSON.stringify({
             readerSettings,
-            chapterGeneralSettings,
+            chapterGeneralSettings: {
+              ...chapterGeneralSettings,
+              continuousScrollStitchThreshold:
+                validatedScrollSettings.stitchThreshold,
+              continuousScrollTransitionThreshold:
+                validatedScrollSettings.transitionThreshold,
+            },
             novel,
             chapter: stableChapter,
             nextChapter: initialNextChapter.current,
@@ -478,6 +524,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   }, [
     readerSettings,
     chapterGeneralSettings,
+    validatedScrollSettings,
     stableChapter,
     html,
     novel,
@@ -927,10 +974,12 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   eventData.localParagraphIndex !== undefined &&
                   eventData.localParagraphIndex >= 0
                 ) {
-                  MMKVStorage.set(
+                  await MMKVStorage.set(
                     `chapter_progress_${eventData.chapterId}`,
                     eventData.localParagraphIndex,
                   );
+                  // Small delay to ensure MMKV write is flushed before reload
+                  await new Promise(resolve => setTimeout(resolve, 50));
                   if (__DEV__) {
                     console.log(
                       `WebViewReader: Saved paragraph ${eventData.localParagraphIndex} to MMKV for chapter ${eventData.chapterId}`,
@@ -976,6 +1025,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   );
                 }
                 setIsTransitioning(false);
+                // Add recovery: show toast to inform user
+                showToastMessage('Failed to process chapter transition');
               });
           }
           break;
@@ -1062,6 +1113,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   );
                 }
                 setIsTransitioning(false);
+                // Add recovery: show toast to inform user
+                showToastMessage('Failed to process chapter transition');
               });
           }
           break;

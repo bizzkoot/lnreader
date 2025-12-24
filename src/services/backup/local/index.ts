@@ -144,15 +144,29 @@ export const createBackup = async (
             const backups = dir
               .filter(uri => {
                 // SAF URIs are URL-encoded, decode to get actual filename
-                const decodedUri = decodeURIComponent(uri);
-                const name = decodedUri.split('/').pop() || '';
-                return backupRegex.test(name);
+                // Add error handling for malformed URIs
+                try {
+                  const decodedUri = decodeURIComponent(uri);
+                  const name = decodedUri.split('/').pop() || '';
+                  return backupRegex.test(name);
+                } catch {
+                  // Skip invalid URIs
+                  return false;
+                }
               })
               .map(uri => {
-                const decodedUri = decodeURIComponent(uri);
-                const name = decodedUri.split('/').pop() || '';
-                const match = name.match(backupRegex);
-                const sortKey = match?.[1] || '';
+                // Add error handling for malformed URIs
+                let name = '';
+                let sortKey = '';
+                try {
+                  const decodedUri = decodeURIComponent(uri);
+                  name = decodedUri.split('/').pop() || '';
+                  const match = name.match(backupRegex);
+                  sortKey = match?.[1] || '';
+                } catch {
+                  // Use original URI as fallback for sorting
+                  name = uri.split('/').pop() || '';
+                }
                 return { uri, fileName: name, sortKey }; // Keep original uri for deletion
               })
               .sort((a, b) => a.sortKey.localeCompare(b.sortKey));

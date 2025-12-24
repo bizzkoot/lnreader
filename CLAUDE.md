@@ -65,7 +65,13 @@ pnpm run format:check
 # Run Jest tests
 pnpm run test
 
-# TTS-specific tests
+# Run single test file
+pnpm run test -- --testPathPattern="FileName.test"
+
+# Run tests matching a pattern
+pnpm run test -- --testNamePattern="should do something"
+
+# TTS-specific tests (simulator scripts)
 pnpm run test:tts-refill
 pnpm run test:tts-wake-cycle
 ```
@@ -106,6 +112,17 @@ The TTS system is the most complex feature, using a sophisticated 3-layer archit
 - **Quick Access**: Reader Bottom Sheet → TTS Tab
 - Both sync to same underlying state (`useChapterGeneralSettings` / `useChapterReaderSettings`)
 
+### TTS State Machine
+
+The TTS system uses an explicit state machine (`TTSState` enum) for lifecycle management:
+- **IDLE**: No TTS activity
+- **STARTING**: Initializing session, loading voice, preparing queue
+- **PLAYING**: Actively playing audio
+- **REFILLING**: Refilling native queue during playback
+- **STOPPING**: Cleanup in progress
+
+Valid transitions are enforced via `isValidTransition()` in `src/services/TTSState.ts`.
+
 ### Key TTS Concepts
 
 **Playback Modes:**
@@ -115,9 +132,10 @@ The TTS system is the most complex feature, using a sophisticated 3-layer archit
 
 **Queue Management:**
 
-- Proactive refill mechanism (REFILL_THRESHOLD=10, MIN_BATCH_SIZE=25)
+- Proactive refill mechanism (REFILL_THRESHOLD=10, MIN_BATCH_SIZE=20)
 - Prevents audio gaps during continuous playback
 - Race condition protection for fast speech/short paragraphs
+- `addToBatch()` appends to native queue without stopping playback
 
 **State Persistence:**
 
@@ -156,6 +174,10 @@ The TTS system is the most complex feature, using a sophisticated 3-layer archit
 - **Persisted Hooks**: `src/hooks/persisted/` - Settings and app state
 - **Common Hooks**: `src/hooks/common/` - Reusable logic
 
+Key persisted hooks:
+- `useSettings.ts` - General app settings
+- `useChapterGeneralSettings` / `useChapterReaderSettings` - TTS settings (synced between global and reader UI)
+
 ## Key Implementation Patterns
 
 ### WebView Communication
@@ -171,11 +193,30 @@ The TTS system is the most complex feature, using a sophisticated 3-layer archit
 - **Scroll Sync Dialog**: Scroll position vs TTS position mismatch
 - **Sync Failure Dialog**: Critical wake-up synchronization failure
 
+### TTS Media Notification
+
+Native Android MediaStyle notification with 5-button controls:
+- **Previous Chapter** / **Next Chapter** - Always starts from paragraph 0, marks source chapter 100% complete after 5 paragraphs
+- **Rewind 5** / **Forward 5** - Skip paragraphs
+- **Play/Pause** - Saves progress immediately on pause
+- **Stop** - Stops playback and dismisses notification
+
+Actions debounced by 500ms (`MEDIA_ACTION_DEBOUNCE_MS`) to prevent queue corruption.
+
 ### Settings Management
 
 - Uses MMKV for fast key-value storage
 - Database for structured data (novels, chapters, progress)
 - Real-time sync between different settings locations
+- **Progress Reconciliation**: On load, uses `Math.max(dbIndex, mmkvIndex, nativeIndex)` to find most advanced progress
+
+### Race Condition Protection
+
+Critical refs used to prevent race conditions:
+- `currentParagraphIndexRef` - Source of truth for active TTS position
+- `wakeTransitionInProgressRef` - Ignores events during app wake-up
+- `chapterTransitionTimeRef` - Ignores stale save events after chapter switch
+- `ttsLastStopTime` - 2-second grace period for scroll-based saves after TTS stops
 
 ## Testing Strategy
 
@@ -190,14 +231,16 @@ The TTS system is the most complex feature, using a sophisticated 3-layer archit
 - Strict TypeScript configuration
 - ESLint with React Native rules
 - Prettier for code formatting
+- Pre-commit hooks: Husky with lint-staged (auto-formats and lints staged files)
 
 ## Native Dependencies
 
 ### Android-Specific
 
-- React Native 0.81.5 with New Architecture support
+- React Native 0.82.1 with New Architecture support
 - Expo modules for file system, speech, notifications
 - Custom native modules for TTS highlighting
+- React Compiler (RC.3) enabled via `babel-plugin-react-compiler`
 
 ### Minimum Requirements
 
@@ -207,17 +250,19 @@ The TTS system is the most complex feature, using a sophisticated 3-layer archit
 
 ## Development Notes
 
-- Package manager: pnpm (9.15.0)
+- Package manager: pnpm (10.26.0)
 - Husky for pre-commit hooks with lint-staged
-- Flash List for performant novel lists
+- Flash List (`@legendapp/list`) for performant novel lists
 - WebView for chapter rendering with custom CSS injection
 - MMKV for high-performance key-value storage
+- **Important**: Always read files before editing - use Read tool to understand context
 
 ## Important Files to Understand
 
-1. `src/screens/reader/components/WebViewReader.tsx` - Main reader controller
-2. `src/services/TTSAudioManager.ts` - TTS queue and audio management
-3. `android/app/src/main/assets/js/core.js` - In-page reader logic
-4. `src/plugins/pluginManager.ts` - Dynamic plugin system
-5. `src/hooks/persisted/useSettings.ts` - Settings management
-6. `docs/TTS/TTS_DESIGN.md` - Complete TTS implementation guide
+1. `src/screens/reader/components/WebViewReader.tsx` - Main reader controller (~2000 LOC, manages TTS state, WebView communication)
+2. `src/services/TTSAudioManager.ts` - TTS queue and audio management wrapper for native module
+3. `src/services/TTSState.ts` - TTS state machine with transition validation
+4. `android/app/src/main/assets/js/core.js` - In-page reader logic (DOM parsing, highlighting, scroll)
+5. `src/plugins/pluginManager.ts` - Dynamic plugin loading system
+6. `src/hooks/persisted/useSettings.ts` - Settings management with MMKV persistence
+7. `docs/TTS/TTS_DESIGN.md` - Complete TTS implementation guide with diagrams

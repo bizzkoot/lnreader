@@ -69,6 +69,9 @@ window.reader = new (function () {
   this.pendingChapterFetch = false; // Prevent duplicate fetches
   this.currentVisibleChapter = chapter.id; // Track which chapter is currently visible
   this.chapterBoundaries = []; // Track [{ chapterId, startIndex, endIndex, paragraphCount }]
+  // Boundary initialization flags to prevent duplicate initialization
+  this._boundariesInitializing = false;
+  this._boundariesInitialized = false;
 
   this.post = obj => {
     try {
@@ -173,7 +176,8 @@ window.reader = new (function () {
       return;
     }
 
-    const scrollPercentage = (scrollY / scrollableDistance) * 100;
+    // Use Math.round to prevent floating-point precision issues (e.g., 89.999% vs 90%)
+    const scrollPercentage = Math.round((scrollY / scrollableDistance) * 100);
 
     // Trigger at configured stitch threshold (default 90%)
     const stitchThreshold =
@@ -399,51 +403,72 @@ window.reader = new (function () {
       chapterId: chapterId,
       startIndex: newChapterStart,
       endIndex: newChapterEnd,
-      paragraphCount: newChapterEnd - newChapterStart + 1,
+      // Ensure minimum count of 1 to handle single paragraph chapters
+      paragraphCount: Math.max(1, newChapterEnd - newChapterStart + 1),
     });
 
-    // Update tracking
-    this.loadedChapters.push(chapterId);
-    if (DEBUG) {
-      console.log(
-        `[receiveChapterContent] ReaderId=${this._readerId}, After push: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}, hasPerformedInitialScroll = ${this.hasPerformedInitialScroll}`,
-      );
-    }
+    // Update tracking with error recovery
+    // Wrap the critical section in try-catch to ensure cleanup on failure
+    try {
+      this.loadedChapters.push(chapterId);
+      if (DEBUG) {
+        console.log(
+          `[receiveChapterContent] ReaderId=${this._readerId}, After push: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}, hasPerformedInitialScroll = ${this.hasPerformedInitialScroll}`,
+        );
+      }
 
-    // Update chapter reference for future navigation
-    // Note: React Native side needs to update nextChapter/prevChapter
-    this.post({
-      type: 'chapter-appended',
-      data: {
-        chapterId: chapterId,
-        chapterName: chapterName,
-        loadedChapters: this.loadedChapters,
-      },
-    });
+      // Update chapter reference for future navigation
+      // Note: React Native side needs to update nextChapter/prevChapter
+      this.post({
+        type: 'chapter-appended',
+        data: {
+          chapterId: chapterId,
+          chapterName: chapterName,
+          loadedChapters: this.loadedChapters,
+        },
+      });
 
-    // Refresh layout calculations
-    this.refresh();
-    if (DEBUG) {
-      console.log(
-        `[receiveChapterContent] Before invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
-      );
-    }
-    this.invalidateCache();
-    if (DEBUG) {
-      console.log(
-        `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
-      );
-    }
+      // Refresh layout calculations
+      this.refresh();
+      if (DEBUG) {
+        console.log(
+          `[receiveChapterContent] Before invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+        );
+      }
+      this.invalidateCache();
+      if (DEBUG) {
+        console.log(
+          `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+        );
+      }
 
-    // Reset navigation flag after delay
-    setTimeout(() => {
+      // Reset navigation flag after delay
+      setTimeout(() => {
+        this.isNavigating = false;
+      }, 500);
+
+      if (DEBUG) {
+        console.log(
+          `Reader: Appended chapter ${chapterName} (total loaded: ${this.loadedChapters.length})`,
+        );
+      }
+    } catch (err) {
+      // Cleanup: Remove chapterId from loadedChapters if push succeeded but later operations failed
+      const idx = this.loadedChapters.indexOf(chapterId);
+      if (idx > -1) {
+        this.loadedChapters.splice(idx, 1);
+        if (DEBUG) {
+          console.log(
+            `[receiveChapterContent] Cleanup: Removed ${chapterId} from loadedChapters after error`,
+          );
+        }
+      }
       this.isNavigating = false;
-    }, 500);
-
-    if (DEBUG) {
-      console.log(
-        `Reader: Appended chapter ${chapterName} (total loaded: ${this.loadedChapters.length})`,
+      console.error(
+        '[receiveChapterContent] Error during chapter append:',
+        err,
       );
+      throw err; // Re-throw for upstream error handling
     }
   };
 
@@ -1286,13 +1311,31 @@ window.reader = new (function () {
     }
 
     const elements = [];
+
+    // Defensive check: if window.tts is not available, return empty array
+    if (!window.tts || typeof window.tts.readable !== 'function') {
+      console.warn(
+        '[getReadableElements] window.tts not available, returning empty array',
+      );
+      this._cachedReadableElements = elements;
+      this._cacheInvalidated = false;
+      return elements;
+    }
+
     const traverse = node => {
       if (node.nodeType === Node.ELEMENT_NODE) {
-        if (window.tts.readable(node) && !window.tts.isContainer(node)) {
-          elements.push(node);
-        } else {
-          for (let i = 0; i < node.children.length; i++) {
-            traverse(node.children[i]);
+        try {
+          if (window.tts.readable(node) && !window.tts.isContainer(node)) {
+            elements.push(node);
+          } else {
+            for (let i = 0; i < node.children.length; i++) {
+              traverse(node.children[i]);
+            }
+          }
+        } catch (e) {
+          // Skip elements that cause errors during traversal
+          if (DEBUG) {
+            console.warn('[getReadableElements] Error traversing node:', e);
           }
         }
       }
@@ -3384,8 +3427,12 @@ function calculatePages() {
             );
             reader.hasPerformedInitialScroll = true;
 
-            // Initialize chapter boundary for first chapter (Bug #2 fix)
-            if (reader.chapterBoundaries.length === 0) {
+            // Initialize chapter boundary for first chapter with lock to prevent duplicates
+            if (
+              !reader._boundariesInitialized &&
+              !reader._boundariesInitializing
+            ) {
+              reader._boundariesInitializing = true;
               const allElements = reader.getReadableElements();
               if (allElements && allElements.length > 0) {
                 reader.chapterBoundaries.push({
@@ -3394,12 +3441,14 @@ function calculatePages() {
                   endIndex: allElements.length - 1,
                   paragraphCount: allElements.length,
                 });
+                reader._boundariesInitialized = true;
                 if (DEBUG) {
                   console.log(
                     `Reader: Initialized boundary for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paragraphs)`,
                   );
                 }
               }
+              reader._boundariesInitializing = false;
             }
 
             try {
@@ -3471,8 +3520,9 @@ function calculatePages() {
           }
         }
 
-        // Initialize chapter boundary after recovery
-        if (reader.chapterBoundaries.length === 0) {
+        // Initialize chapter boundary after recovery with lock
+        if (!reader._boundariesInitialized && !reader._boundariesInitializing) {
+          reader._boundariesInitializing = true;
           const allElements = reader.getReadableElements();
           if (allElements && allElements.length > 0) {
             reader.chapterBoundaries.push({
@@ -3481,12 +3531,14 @@ function calculatePages() {
               endIndex: allElements.length - 1,
               paragraphCount: allElements.length,
             });
+            reader._boundariesInitialized = true;
             if (DEBUG) {
               console.log(
                 `Reader: Init boundary (after recovery) for chapter ${reader.chapter.id}: 0-${allElements.length - 1}`,
               );
             }
           }
+          reader._boundariesInitializing = false;
         }
 
         // CRITICAL: Return early to prevent progress scroll trigger below
@@ -3520,8 +3572,9 @@ function calculatePages() {
       }
       reader.hasPerformedInitialScroll = true;
 
-      // Initialize chapter boundary for first chapter (Bug #2 fix - no saved position case)
-      if (reader.chapterBoundaries.length === 0) {
+      // Initialize chapter boundary for first chapter with lock (no saved position case)
+      if (!reader._boundariesInitialized && !reader._boundariesInitializing) {
+        reader._boundariesInitializing = true;
         const allElements = reader.getReadableElements();
         if (allElements && allElements.length > 0) {
           reader.chapterBoundaries.push({
@@ -3530,10 +3583,12 @@ function calculatePages() {
             endIndex: allElements.length - 1,
             paragraphCount: allElements.length,
           });
+          reader._boundariesInitialized = true;
           console.log(
             `Reader: Initialized boundary for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paragraphs)`,
           );
         }
+        reader._boundariesInitializing = false;
       }
     }
 
@@ -3584,9 +3639,10 @@ function calculatePages() {
     }
   }
 
-  // CRITICAL FIX: Initialize chapter boundaries unconditionally
+  // CRITICAL FIX: Initialize chapter boundaries unconditionally with lock
   // This ensures boundaries exist regardless of scroll path taken
-  if (reader.chapterBoundaries.length === 0) {
+  if (!reader._boundariesInitialized && !reader._boundariesInitializing) {
+    reader._boundariesInitializing = true;
     const allElements = reader.getReadableElements();
     if (allElements && allElements.length > 0) {
       reader.chapterBoundaries.push({
@@ -3595,12 +3651,14 @@ function calculatePages() {
         endIndex: allElements.length - 1,
         paragraphCount: allElements.length,
       });
+      reader._boundariesInitialized = true;
       if (DEBUG) {
         console.log(
           `Reader: Init boundary (fallback) for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paras)`,
         );
       }
     }
+    reader._boundariesInitializing = false;
   }
 }
 

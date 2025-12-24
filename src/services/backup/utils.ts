@@ -2,7 +2,6 @@ import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { OLD_TRACKED_NOVEL_PREFIX } from '@hooks/persisted/migrations/trackerMigration';
 import { LAST_UPDATE_TIME } from '@hooks/persisted/useUpdates';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
-import { LOCAL_BACKUP_FOLDER_URI } from '@hooks/persisted/useLocalBackupFolder';
 import { version } from '../../../package.json';
 import {
   _restoreNovelAndChapters,
@@ -57,6 +56,37 @@ interface MMKVEntry {
 }
 
 /**
+ * Type guard to validate MMKV entries at runtime
+ * Ensures the entry structure and type consistency
+ */
+const isValidMMKVEntry = (entry: unknown): entry is MMKVEntry => {
+  if (!entry || typeof entry !== 'object') {
+    return false;
+  }
+
+  const e = entry as Partial<MMKVEntry>;
+
+  // Check required properties exist
+  if (typeof e.t !== 'string' || e.v === undefined) {
+    return false;
+  }
+
+  // Validate type matches value
+  switch (e.t) {
+    case 's':
+      return typeof e.v === 'string';
+    case 'n':
+      return typeof e.v === 'number';
+    case 'b':
+      return typeof e.v === 'boolean';
+    case 'o':
+      return typeof e.v === 'object' && e.v !== null;
+    default:
+      return false; // Unknown type
+  }
+};
+
+/**
  * Backup manifest for v2+ format
  */
 export interface BackupManifest {
@@ -107,8 +137,23 @@ export const CACHE_DIR_PATH =
 // ============================================================================
 
 /**
+ * Device-specific key patterns that should NEVER be restored from backup
+ * These use regex patterns to match device-specific keys
+ */
+const DEVICE_KEY_PATTERNS = [
+  /^LAST_AUTO_BACKUP_TIME$/, // Exact match
+  /^LOCAL_BACKUP_FOLDER_URI$/, // Exact match
+  /^deviceId$/, // Device ID
+  /^installationId$/, // Installation ID
+  // Pattern for future device-specific keys with common prefixes
+  /^device_/, // Any key starting with 'device_'
+  /^installation_/, // Any key starting with 'installation_'
+];
+
+/**
  * Gets list of keys that should NEVER be restored from backup
  * These are device-specific and can cause unintended behavior
+ * Uses pattern matching for extensibility
  * Lazy-loaded to avoid module initialization issues
  */
 const getExcludedMMKVKeys = (): readonly string[] => [
@@ -116,9 +161,15 @@ const getExcludedMMKVKeys = (): readonly string[] => [
   OLD_TRACKED_NOVEL_PREFIX,
   SELF_HOST_BACKUP,
   LAST_UPDATE_TIME,
-  'LAST_AUTO_BACKUP_TIME', // Device-specific, prevents auto backup trigger
-  LOCAL_BACKUP_FOLDER_URI, // Device-specific folder URIs
 ];
+
+/**
+ * Checks if a key is device-specific and should be excluded from backup restore
+ * Uses pattern matching to identify device-specific keys
+ */
+const isDeviceSpecificKey = (key: string): boolean => {
+  return DEVICE_KEY_PATTERNS.some(pattern => pattern.test(key));
+};
 
 // ============================================================================
 // Version Detection & Migration
@@ -246,18 +297,17 @@ export const validateAndRestoreMMKVEntries = (
   const excludedKeys = getExcludedMMKVKeys();
 
   for (const [key, entry] of Object.entries(entries)) {
-    // Skip excluded keys
-    if (excludedKeys.includes(key as any)) {
+    // Skip excluded keys (both hard-coded list and device-specific patterns)
+    if (excludedKeys.includes(key as any) || isDeviceSpecificKey(key)) {
       continue;
     }
 
-    // Validate entry structure
-    if (
-      !entry ||
-      typeof entry !== 'object' ||
-      !('t' in entry) ||
-      !('v' in entry)
-    ) {
+    // Validate entry structure using type guard
+    if (!isValidMMKVEntry(entry)) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn(`[Backup] Skipping invalid entry: ${key} =`, entry);
+      }
       continue;
     }
 
@@ -292,20 +342,26 @@ export const validateAndRestoreMMKVEntries = (
           break;
 
         default:
-          // Unknown type - skip
+          // Unknown type - skip (shouldn't happen due to type guard)
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[Backup] Skipping entry with unknown type: ${key} (${entry.t})`,
+            );
+          }
           break;
       }
-    } catch {
-      // Failed to restore this entry - continue
+    } catch (err) {
+      // Failed to restore this entry - continue with others
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.error(`[Backup] Failed to restore entry: ${key}`, err);
+      }
     }
   }
 
   return restoredCount;
 };
-
-// ============================================================================
-// Legacy Backup Functions (v1 - for backward compatibility)
-// ============================================================================
 
 // ============================================================================
 // Legacy Backup Functions (v1 - for backward compatibility)
