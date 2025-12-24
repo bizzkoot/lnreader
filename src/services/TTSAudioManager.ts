@@ -53,6 +53,9 @@ class TTSAudioManager {
   private _onQueueLowCallback?: () => void;
   // Track if we've already logged "no more items" to reduce spam (logging-only flag, not state)
   private hasLoggedNoMoreItems = false;
+  // CRITICAL-2 FIX: Mutex to prevent concurrent refill operations
+  // Using Promise<unknown> to allow chaining with any return type
+  private refillMutex: Promise<unknown> = Promise.resolve();
   // PERFORMANCE: Cache last known queue size to avoid excessive refill attempts
   // Updated after speak/refill operations and checked before triggering refill
   private lastKnownQueueSize = 0;
@@ -406,206 +409,218 @@ class TTSAudioManager {
   }
 
   async refillQueue(): Promise<boolean> {
-    if (this.currentIndex >= this.currentQueue.length) {
-      // Only log once to reduce spam
-      if (!this.hasLoggedNoMoreItems) {
-        logDebug('TTSAudioManager: No more items to refill');
-        this.hasLoggedNoMoreItems = true;
-      }
-      return false;
-    }
-
-    // Reset the "no more items" flag since we have items to refill
-    this.hasLoggedNoMoreItems = false;
-
-    // BUG FIX: Prevent concurrent refills
-    if (this.state === TTSState.REFILLING) {
-      logDebug('TTSAudioManager: Refill already in progress, skipping');
-      return false;
-    }
-
-    // Transition to REFILLING state
-    this.transitionTo(TTSState.REFILLING);
-    this.devCounters.refillAttempts += 1;
-    logDebug('TTSAudioManager: Starting refill operation');
-
-    try {
-      const queueSize = await TTSHighlight.getQueueSize();
-
-      // Extra safety: if queue is low or near-empty, refill more aggressively.
-      // Prefetch threshold helps avoid queue drain and the fallback paths.
-      const thresholdToUse =
-        queueSize <= EMERGENCY_THRESHOLD
-          ? EMERGENCY_THRESHOLD
-          : PREFETCH_THRESHOLD;
-
-      if (queueSize > thresholdToUse) {
-        // Still enough items in queue
-        this.transitionTo(TTSState.PLAYING);
+    // CRITICAL-2 FIX: Use mutex pattern to prevent concurrent refill operations
+    // This chains refill requests sequentially, avoiding race conditions where
+    // multiple refills could pass the state check simultaneously
+    const doRefill = async (): Promise<boolean> => {
+      if (this.currentIndex >= this.currentQueue.length) {
+        // Only log once to reduce spam
+        if (!this.hasLoggedNoMoreItems) {
+          logDebug('TTSAudioManager: No more items to refill');
+          this.hasLoggedNoMoreItems = true;
+        }
         return false;
       }
 
-      // Add next batch
-      const remainingCount = this.currentQueue.length - this.currentIndex;
-      const nextBatchSize = Math.min(BATCH_SIZE, remainingCount);
+      // Reset the "no more items" flag since we have items to refill
+      this.hasLoggedNoMoreItems = false;
 
-      const nextTexts = this.currentQueue.slice(
-        this.currentIndex,
-        this.currentIndex + nextBatchSize,
-      );
-      const nextIds = this.currentUtteranceIds.slice(
-        this.currentIndex,
-        this.currentIndex + nextBatchSize,
-      );
-
-      // Try addToBatch with retries — native service can intermittently reject
-      const maxAddAttempts = 3;
-      let addSucceeded = false;
-      let addError: any = null;
-      for (let attempt = 1; attempt <= maxAddAttempts; attempt++) {
-        try {
-          logDebug(
-            `TTSAudioManager: addToBatch attempt ${attempt} (${nextBatchSize} items)`,
-          );
-          await TTSHighlight.addToBatch(nextTexts, nextIds);
-
-          // DEV: Log successful refill (voice is implicit from initial batch or fallback)
-          if (__DEV__ && attempt === 1) {
-            ttsLog.debug(
-              'refill-success',
-              `Refilled +${nextBatchSize} items (voice: locked=${this.lockedVoice?.substring(0, 30) || 'none'})`,
-            );
-          }
-
-          addSucceeded = true;
-          break;
-        } catch (err) {
-          addError = err;
-          this.devCounters.addToBatchFailures += 1;
-          logError(
-            `TTSAudioManager: addToBatch failed (attempt ${attempt}):`,
-            err,
-          );
-          // Exponential backoff: base 150ms * 2^(attempt-1)
-          const delayMs = 150 * Math.pow(2, attempt - 1);
-          await new Promise(res => setTimeout(res, delayMs));
-        }
+      // BUG FIX: Prevent concurrent refills (redundant check within mutex)
+      if (this.state === TTSState.REFILLING) {
+        logDebug('TTSAudioManager: Refill already in progress, skipping');
+        return false;
       }
 
-      if (!addSucceeded) {
-        // If addToBatch failed repeatedly, check queue size — if it's empty we can try speakBatch
-        try {
-          const queueSizeAfter = await TTSHighlight.getQueueSize();
-          logDebug(
-            'TTSAudioManager: Queue size after failed addToBatch:',
-            queueSizeAfter,
-          );
-          if (queueSizeAfter === 0) {
-            logError(
-              'TTSAudioManager: Queue empty after failed addToBatch — attempting speakBatch as fallback',
-            );
-            // Guard: do not call speakBatch with zero items
-            if (nextTexts.length === 0) {
-              logError('TTSAudioManager: No next texts to speak in fallback');
-              this.transitionTo(TTSState.PLAYING);
-              // Notify user after repeated failures
-              const msg = 'TTS failed to queue audio. Playback may stop.';
-              if (this.notifyUserCallback) {
-                this.notifyUserCallback(msg);
-              } else if (Platform.OS === 'android') {
-                ToastAndroid.show(msg, ToastAndroid.SHORT);
-              } else {
-                logError(msg);
-              }
-              return false;
-            }
+      // Transition to REFILLING state
+      this.transitionTo(TTSState.REFILLING);
+      this.devCounters.refillAttempts += 1;
+      logDebug('TTSAudioManager: Starting refill operation');
 
-            try {
-              const fallbackVoice = this.sanitizeVoice(
-                this.getPreferredVoiceForFallback(undefined),
-              );
+      try {
+        const queueSize = await TTSHighlight.getQueueSize();
 
-              await TTSHighlight.speakBatch(nextTexts, nextIds, {
-                rate: 1,
-                pitch: 1,
-                voice: fallbackVoice,
-              });
+        // Extra safety: if queue is low or near-empty, refill more aggressively.
+        // Prefetch threshold helps avoid queue drain and the fallback paths.
+        const thresholdToUse =
+          queueSize <= EMERGENCY_THRESHOLD
+            ? EMERGENCY_THRESHOLD
+            : PREFETCH_THRESHOLD;
 
-              // DEV: Log fallback voice to track voice stability
-              if (__DEV__ && fallbackVoice) {
-                ttsLog.debug(
-                  'fallback-voice',
-                  `Fallback batch with voice: ${fallbackVoice.substring(0, 40)}`,
-                );
-              }
-
-              this.hasQueuedNativeThisSession = true;
-              this.devCounters.fallbackSpeakBatchUsed += 1;
-              if (!this.getPreferredVoiceForFallback(undefined)) {
-                this.devCounters.fallbackSystemVoiceUsed += 1;
-              }
-              // Update currentIndex by the number of items we just queued
-              this.currentIndex += nextTexts.length;
-              // Update cache and calibrate after fallback (critical drift scenario)
-              this.lastKnownQueueSize = nextTexts.length;
-              await this.calibrateQueueCache();
-            } catch (fallbackErr) {
-              logError(
-                'TTSAudioManager: Fallback speakBatch also failed:',
-                fallbackErr,
-              );
-              // After fallback failure, surface user notification
-              const msg = 'TTS failed to queue audio. Playback may stop.';
-              if (this.notifyUserCallback) {
-                this.notifyUserCallback(msg);
-              } else if (Platform.OS === 'android') {
-                ToastAndroid.show(msg, ToastAndroid.SHORT);
-              } else {
-                logError(msg);
-              }
-              this.transitionTo(TTSState.PLAYING);
-              return false;
-            }
-            logDebug(
-              `TTSAudioManager: speakBatch fallback started ${nextBatchSize} items`,
-            );
-            this.transitionTo(TTSState.PLAYING);
-            return true;
-          }
-        } catch (err2) {
-          logError('TTSAudioManager: Fallback speakBatch also failed:', err2);
+        if (queueSize > thresholdToUse) {
+          // Still enough items in queue
+          this.transitionTo(TTSState.PLAYING);
+          return false;
         }
 
-        // Ultimately fail the refill
-        logError(
-          'TTSAudioManager: Failed to add next batch to native queue after retries.',
-          addError,
+        // Add next batch
+        const remainingCount = this.currentQueue.length - this.currentIndex;
+        const nextBatchSize = Math.min(BATCH_SIZE, remainingCount);
+
+        const nextTexts = this.currentQueue.slice(
+          this.currentIndex,
+          this.currentIndex + nextBatchSize,
         );
+        const nextIds = this.currentUtteranceIds.slice(
+          this.currentIndex,
+          this.currentIndex + nextBatchSize,
+        );
+
+        // Try addToBatch with retries — native service can intermittently reject
+        const maxAddAttempts = 3;
+        let addSucceeded = false;
+        let addError: any = null;
+        for (let attempt = 1; attempt <= maxAddAttempts; attempt++) {
+          try {
+            logDebug(
+              `TTSAudioManager: addToBatch attempt ${attempt} (${nextBatchSize} items)`,
+            );
+            await TTSHighlight.addToBatch(nextTexts, nextIds);
+
+            // DEV: Log successful refill (voice is implicit from initial batch or fallback)
+            if (__DEV__ && attempt === 1) {
+              ttsLog.debug(
+                'refill-success',
+                `Refilled +${nextBatchSize} items (voice: locked=${this.lockedVoice?.substring(0, 30) || 'none'})`,
+              );
+            }
+
+            addSucceeded = true;
+            break;
+          } catch (err) {
+            addError = err;
+            this.devCounters.addToBatchFailures += 1;
+            logError(
+              `TTSAudioManager: addToBatch failed (attempt ${attempt}):`,
+              err,
+            );
+            // Exponential backoff: base 150ms * 2^(attempt-1)
+            const delayMs = 150 * Math.pow(2, attempt - 1);
+            await new Promise(res => setTimeout(res, delayMs));
+          }
+        }
+
+        if (!addSucceeded) {
+          // If addToBatch failed repeatedly, check queue size — if it's empty we can try speakBatch
+          try {
+            const queueSizeAfter = await TTSHighlight.getQueueSize();
+            logDebug(
+              'TTSAudioManager: Queue size after failed addToBatch:',
+              queueSizeAfter,
+            );
+            if (queueSizeAfter === 0) {
+              logError(
+                'TTSAudioManager: Queue empty after failed addToBatch — attempting speakBatch as fallback',
+              );
+              // Guard: do not call speakBatch with zero items
+              if (nextTexts.length === 0) {
+                logError('TTSAudioManager: No next texts to speak in fallback');
+                this.transitionTo(TTSState.PLAYING);
+                // Notify user after repeated failures
+                const msg = 'TTS failed to queue audio. Playback may stop.';
+                if (this.notifyUserCallback) {
+                  this.notifyUserCallback(msg);
+                } else if (Platform.OS === 'android') {
+                  ToastAndroid.show(msg, ToastAndroid.SHORT);
+                } else {
+                  logError(msg);
+                }
+                return false;
+              }
+
+              try {
+                const fallbackVoice = this.sanitizeVoice(
+                  this.getPreferredVoiceForFallback(undefined),
+                );
+
+                await TTSHighlight.speakBatch(nextTexts, nextIds, {
+                  rate: 1,
+                  pitch: 1,
+                  voice: fallbackVoice,
+                });
+
+                // DEV: Log fallback voice to track voice stability
+                if (__DEV__ && fallbackVoice) {
+                  ttsLog.debug(
+                    'fallback-voice',
+                    `Fallback batch with voice: ${fallbackVoice.substring(0, 40)}`,
+                  );
+                }
+
+                this.hasQueuedNativeThisSession = true;
+                this.devCounters.fallbackSpeakBatchUsed += 1;
+                if (!this.getPreferredVoiceForFallback(undefined)) {
+                  this.devCounters.fallbackSystemVoiceUsed += 1;
+                }
+                // Update currentIndex by the number of items we just queued
+                this.currentIndex += nextTexts.length;
+                // Update cache and calibrate after fallback (critical drift scenario)
+                this.lastKnownQueueSize = nextTexts.length;
+                await this.calibrateQueueCache();
+              } catch (fallbackErr) {
+                logError(
+                  'TTSAudioManager: Fallback speakBatch also failed:',
+                  fallbackErr,
+                );
+                // After fallback failure, surface user notification
+                const msg = 'TTS failed to queue audio. Playback may stop.';
+                if (this.notifyUserCallback) {
+                  this.notifyUserCallback(msg);
+                } else if (Platform.OS === 'android') {
+                  ToastAndroid.show(msg, ToastAndroid.SHORT);
+                } else {
+                  logError(msg);
+                }
+                this.transitionTo(TTSState.PLAYING);
+                return false;
+              }
+              logDebug(
+                `TTSAudioManager: speakBatch fallback started ${nextBatchSize} items`,
+              );
+              this.transitionTo(TTSState.PLAYING);
+              return true;
+            }
+          } catch (err2) {
+            logError('TTSAudioManager: Fallback speakBatch also failed:', err2);
+          }
+
+          // Ultimately fail the refill
+          logError(
+            'TTSAudioManager: Failed to add next batch to native queue after retries.',
+            addError,
+          );
+          this.transitionTo(TTSState.PLAYING);
+          return false;
+        }
+
+        this.currentIndex += nextBatchSize;
+
+        // Update queue size cache after successful refill
+        this.lastKnownQueueSize += nextBatchSize;
+
+        // Calibrate cache after successful refill
+        await this.calibrateQueueCache();
+
+        logDebug(
+          `TTSAudioManager: Refilled queue with ${nextBatchSize} items, ${
+            this.currentQueue.length - this.currentIndex
+          } remaining`,
+        );
+
+        this.transitionTo(TTSState.PLAYING);
+        return true;
+      } catch (error) {
+        logError('TTSAudioManager: Failed to refill queue:', error);
         this.transitionTo(TTSState.PLAYING);
         return false;
       }
+    };
 
-      this.currentIndex += nextBatchSize;
-
-      // Update queue size cache after successful refill
-      this.lastKnownQueueSize += nextBatchSize;
-
-      // Calibrate cache after successful refill
-      await this.calibrateQueueCache();
-
-      logDebug(
-        `TTSAudioManager: Refilled queue with ${nextBatchSize} items, ${
-          this.currentQueue.length - this.currentIndex
-        } remaining`,
-      );
-
-      this.transitionTo(TTSState.PLAYING);
-      return true;
-    } catch (error) {
-      logError('TTSAudioManager: Failed to refill queue:', error);
-      this.transitionTo(TTSState.PLAYING);
-      return false;
-    }
+    // Chain onto the mutex to ensure only one refill runs at a time
+    this.refillMutex = this.refillMutex.then(
+      () => doRefill(),
+      () => doRefill(),
+    );
+    return this.refillMutex as Promise<boolean>;
   }
 
   async stop(): Promise<boolean> {

@@ -73,6 +73,11 @@ type WebViewReaderProps = {
 const { RNDeviceInfo } = NativeModules;
 const deviceInfoEmitter = new NativeEventEmitter(RNDeviceInfo);
 
+// CRITICAL-1 FIX: Use refs for module-level dependencies to ensure stable references
+// These are module-level constants but ESLint can't verify they won't change
+const stableMMKVStorageRef = { current: MMKVStorage };
+const stableDeviceInfoEmitterRef = { current: deviceInfoEmitter };
+
 const assetsUriPrefix = __DEV__
   ? 'http://localhost:8081/assets'
   : 'file:///android_asset';
@@ -342,17 +347,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // ============================================================================
 
   useEffect(() => {
-    const mmkvListener = MMKVStorage.addOnValueChangedListener(key => {
+    const MMKV = stableMMKVStorageRef.current;
+    const emitter = stableDeviceInfoEmitterRef.current;
+
+    const mmkvListener = MMKV.addOnValueChangedListener(key => {
       switch (key) {
         case CHAPTER_READER_SETTINGS:
           webViewRef.current?.injectJavaScript(
-            `reader.readerSettings.val = ${MMKVStorage.getString(
+            `reader.readerSettings.val = ${MMKV.getString(
               CHAPTER_READER_SETTINGS,
             )}`,
           );
           break;
         case CHAPTER_GENERAL_SETTINGS:
-          const newSettings = MMKVStorage.getString(CHAPTER_GENERAL_SETTINGS);
+          const newSettings = MMKV.getString(CHAPTER_GENERAL_SETTINGS);
           readerLog.debug(
             'mmkv-general-settings',
             'MMKV listener fired for CHAPTER_GENERAL_SETTINGS',
@@ -368,7 +376,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       }
     });
 
-    const currentSettings = MMKVStorage.getString(CHAPTER_GENERAL_SETTINGS);
+    const currentSettings = MMKV.getString(CHAPTER_GENERAL_SETTINGS);
     if (currentSettings) {
       webViewRef.current?.injectJavaScript(
         `setTimeout(() => {
@@ -393,7 +401,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       );
     }
 
-    const subscription = deviceInfoEmitter.addListener(
+    const subscription = emitter.addListener(
       'RNDeviceInfo_batteryLevelDidChange',
       (level: number) => {
         webViewRef.current?.injectJavaScript(
@@ -580,6 +588,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       }
 
       const event = msg as unknown as WebViewPostEvent;
+      const MMKV = stableMMKVStorageRef.current; // CRITICAL-1 FIX: Use stable ref
 
       // Handle console logs in dev mode
       if (event.type === 'console') {
@@ -692,10 +701,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
             if (event.paragraphIndex !== undefined) {
               tts.latestParagraphIndexRef.current = event.paragraphIndex;
-              MMKVStorage.set(
-                `chapter_progress_${chapter.id}`,
-                event.paragraphIndex,
-              );
+              MMKV.set(`chapter_progress_${chapter.id}`, event.paragraphIndex);
             }
             if (savePercent !== undefined) {
               saveProgress(
@@ -712,7 +718,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case 'save-tts-position':
           if (event.data && typeof event.data === 'object') {
-            MMKVStorage.set('tts_button_position', JSON.stringify(event.data));
+            MMKV.set('tts_button_position', JSON.stringify(event.data));
           }
           break;
         case 'tts-apply-settings':
@@ -962,7 +968,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   eventData.localParagraphIndex !== undefined &&
                   eventData.localParagraphIndex >= 0
                 ) {
-                  await MMKVStorage.set(
+                  await MMKV.set(
                     `chapter_progress_${eventData.chapterId}`,
                     eventData.localParagraphIndex,
                   );
@@ -1036,7 +1042,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               eventData.currentParagraphIndex !== undefined &&
               eventData.currentParagraphIndex >= 0
             ) {
-              MMKVStorage.set(
+              MMKV.set(
                 `chapter_progress_${eventData.currentChapterId}`,
                 eventData.currentParagraphIndex,
               );

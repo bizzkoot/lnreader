@@ -158,6 +158,10 @@ test('refillQueue sets state to REFILLING during operation', async () => {
   // Start refill
   const refillPromise = (TTSAudioManager as any).refillQueue();
 
+  // CRITICAL-2 FIX: With mutex pattern, refill is wrapped in promise chain
+  // Let microtask queue process so mutex can start the refill operation
+  await Promise.resolve();
+
   // During refill, state should be REFILLING
   expect((TTSAudioManager as any).state).toBe(TTSState.REFILLING);
 
