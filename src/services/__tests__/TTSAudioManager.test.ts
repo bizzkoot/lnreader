@@ -24,12 +24,9 @@ jest.mock('../TTSAudioManager', () => ({
   speakBatch: jest.fn(),
   stop: jest.fn(),
   fullStop: jest.fn(),
-  setRestartInProgress: jest.fn(),
-  isRestartInProgress: jest.fn(),
-  setRefillInProgress: jest.fn(),
-  isRefillInProgress: jest.fn(),
   hasRemainingItems: jest.fn(),
   getState: jest.fn(),
+  hasQueuedNativeInCurrentSession: jest.fn(),
 }));
 
 describe('TTSHighlight Service', () => {
@@ -122,27 +119,7 @@ describe('TTSHighlight Service', () => {
     });
   });
 
-  describe('restart management', () => {
-    it('should set restart in progress', () => {
-      const mockSetRestartInProgress =
-        TTSAudioManager.setRestartInProgress as jest.Mock;
-
-      TTSHighlight.setRestartInProgress(true);
-
-      expect(mockSetRestartInProgress).toHaveBeenCalledWith(true);
-    });
-
-    it('should check if restart is in progress', () => {
-      const mockIsRestartInProgress =
-        TTSAudioManager.isRestartInProgress as jest.Mock;
-      mockIsRestartInProgress.mockReturnValue(true);
-
-      const result = TTSHighlight.isRestartInProgress();
-
-      expect(mockIsRestartInProgress).toHaveBeenCalled();
-      expect(result).toBe(true);
-    });
-
+  describe('state management', () => {
     it('should check restart using state enum', () => {
       const mockGetState = TTSAudioManager.getState as jest.Mock;
       mockGetState.mockReturnValue(TTSState.STARTING);
@@ -151,28 +128,6 @@ describe('TTSHighlight Service', () => {
 
       expect(result).toBe(TTSState.STARTING);
       expect([TTSState.STARTING, TTSState.STOPPING]).toContain(result);
-    });
-  });
-
-  describe('refill management', () => {
-    it('should set refill in progress', () => {
-      const mockSetRefillInProgress =
-        TTSAudioManager.setRefillInProgress as jest.Mock;
-
-      TTSHighlight.setRefillInProgress(true);
-
-      expect(mockSetRefillInProgress).toHaveBeenCalledWith(true);
-    });
-
-    it('should check if refill is in progress', () => {
-      const mockIsRefillInProgress =
-        TTSAudioManager.isRefillInProgress as jest.Mock;
-      mockIsRefillInProgress.mockReturnValue(true);
-
-      const result = TTSHighlight.isRefillInProgress();
-
-      expect(mockIsRefillInProgress).toHaveBeenCalled();
-      expect(result).toBe(true);
     });
 
     it('should check refill using state enum', () => {
@@ -183,7 +138,9 @@ describe('TTSHighlight Service', () => {
 
       expect(result).toBe(TTSState.REFILLING);
     });
+  });
 
+  describe('queue management', () => {
     it('should check if remaining items exist', () => {
       const mockHasRemainingItems =
         TTSAudioManager.hasRemainingItems as jest.Mock;
@@ -396,32 +353,6 @@ describe('TTSHighlight Service', () => {
       // After stop completes → IDLE
       mockGetState.mockReturnValue(TTSState.IDLE);
       expect(TTSAudioManager.getState()).toBe(TTSState.IDLE);
-    });
-
-    it('should maintain backward compatibility with isRestartInProgress', () => {
-      const mockIsRestartInProgress =
-        TTSAudioManager.isRestartInProgress as jest.Mock;
-      const mockGetState = TTSAudioManager.getState as jest.Mock;
-
-      // When state is STARTING, isRestartInProgress should return true
-      mockGetState.mockReturnValue(TTSState.STARTING);
-      mockIsRestartInProgress.mockReturnValue(true);
-
-      expect(TTSHighlight.isRestartInProgress()).toBe(true);
-      expect(TTSAudioManager.getState()).toBe(TTSState.STARTING);
-    });
-
-    it('should maintain backward compatibility with isRefillInProgress', () => {
-      const mockIsRefillInProgress =
-        TTSAudioManager.isRefillInProgress as jest.Mock;
-      const mockGetState = TTSAudioManager.getState as jest.Mock;
-
-      // When state is REFILLING, isRefillInProgress should return true
-      mockGetState.mockReturnValue(TTSState.REFILLING);
-      mockIsRefillInProgress.mockReturnValue(true);
-
-      expect(TTSHighlight.isRefillInProgress()).toBe(true);
-      expect(TTSAudioManager.getState()).toBe(TTSState.REFILLING);
     });
   });
 });

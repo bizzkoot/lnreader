@@ -45,7 +45,9 @@ export function buildWebViewPostMessageInject(
             message,
           )}));
         }
-      } catch (e) {}
+      } catch (e) {
+        // Intentionally empty: Security sandbox - ignore errors in injected code
+      }
     })();
     true;
   `;
@@ -59,7 +61,9 @@ export function buildWebViewWindowInjection(
     (function(){
       try {
         window[${JSON.stringify(name)}] = ${JSON.stringify(value)};
-      } catch (e) {}
+      } catch (e) {
+        // Intentionally empty: Security sandbox - ignore errors in injected code
+      }
     })();
     true;
   `;
@@ -170,6 +174,7 @@ export function parseWebViewMessage<TType extends string, TData>(
       ...rest,
     };
   } catch {
+    // Parse error - return null (malicious/invalid message)
     return null;
   }
 }

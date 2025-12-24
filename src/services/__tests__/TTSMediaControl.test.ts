@@ -24,10 +24,6 @@ jest.mock('../TTSAudioManager', () => ({
   speakBatch: jest.fn().mockResolvedValue(2),
   stop: jest.fn().mockResolvedValue(true),
   fullStop: jest.fn().mockResolvedValue(true),
-  setRestartInProgress: jest.fn(),
-  isRestartInProgress: jest.fn().mockReturnValue(false),
-  setRefillInProgress: jest.fn(),
-  isRefillInProgress: jest.fn().mockReturnValue(false),
   hasRemainingItems: jest.fn().mockReturnValue(false),
   getState: jest.fn(),
 }));

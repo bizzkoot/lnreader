@@ -15,6 +15,8 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@navigators/types';
 
 import TTSHighlight from '@services/TTSHighlight';
+import TTSAudioManager from '@services/TTSAudioManager';
+import { TTSState } from '@services/TTSState';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import {
@@ -33,6 +35,7 @@ import NativeFile from '@specs/NativeFile';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { getString } from '@strings/translations';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import { ignoreError } from '@utils/error';
 
 // Phase 1 Extracted Hooks
 import { useDialogState } from './useDialogState';
@@ -1909,7 +1912,7 @@ export function useTTSController(
               try {
                 await markChapterUnread(chapterId);
               } catch (e) {
-                // ignore
+                ignoreError(e, 'markChapterUnread (source in-progress)');
               }
             } catch (e) {
               ttsCtrlLog.warn(
@@ -1924,12 +1927,12 @@ export function useTTSController(
               try {
                 await markChapterUnread(prevChapter.id);
               } catch (e) {
-                // ignore
+                ignoreError(e, 'markChapterUnread (reset prev)');
               }
               try {
                 MMKVStorage.set(`chapter_progress_${prevChapter.id}`, 0);
               } catch (e) {
-                // ignore
+                ignoreError(e, 'MMKVStorage.set (reset prev progress)');
               }
             } catch (e) {
               ttsCtrlLog.warn(
@@ -1974,7 +1977,7 @@ export function useTTSController(
               try {
                 await markChapterRead(chapterId);
               } catch (e) {
-                // ignore
+                ignoreError(e, 'markChapterRead (source read)');
               }
             } catch (e) {
               ttsCtrlLog.warn(
@@ -1989,12 +1992,12 @@ export function useTTSController(
               try {
                 await markChapterUnread(nextChapter.id);
               } catch (e) {
-                // ignore
+                ignoreError(e, 'markChapterUnread (reset next)');
               }
               try {
                 MMKVStorage.set(`chapter_progress_${nextChapter.id}`, 0);
               } catch (e) {
-                // ignore
+                ignoreError(e, 'MMKVStorage.set (reset next progress)');
               }
             } catch (e) {
               ttsCtrlLog.warn(
@@ -2015,7 +2018,8 @@ export function useTTSController(
             updateTtsMediaNotificationState(true);
           }
         } catch (e) {
-          // Best-effort
+          // Best-effort - ignore any errors in media action handler
+          ignoreError(e, 'onMediaAction handler');
         }
       },
     );
@@ -2026,18 +2030,22 @@ export function useTTSController(
       async () => {
         ttsCtrlLog.debug('queue-empty-received', 'onQueueEmpty event received');
 
-        if (TTSHighlight.isRestartInProgress()) {
+        const currentState = TTSAudioManager.getState();
+        if (
+          currentState === TTSState.STARTING ||
+          currentState === TTSState.STOPPING
+        ) {
           ttsCtrlLog.debug(
             'queue-empty-restart-progress',
-            'Queue empty ignored - restart in progress',
+            `Queue empty ignored - state is ${currentState}`,
           );
           return;
         }
 
-        if (TTSHighlight.isRefillInProgress()) {
+        if (currentState === TTSState.REFILLING) {
           ttsCtrlLog.debug(
             'queue-empty-refill-progress',
-            'Queue empty ignored - refill in progress',
+            `Queue empty ignored - state is ${currentState}`,
           );
           return;
         }

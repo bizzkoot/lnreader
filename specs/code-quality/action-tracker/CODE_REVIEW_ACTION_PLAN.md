@@ -2,7 +2,7 @@
 
 **Review Date:** 2025-12-24
 **Review Document:** [CODE_REVIEW_2025.md](./CODE_REVIEW_2025.md)
-**Status:** P1 Major Progress - 4/5 tasks complete (HIGH-1, HIGH-2, HIGH-3, HIGH-4) + TypeScript strict mode enabled 🎉
+**Status:** P1 Complete - All 5 tasks done! 🎉
 
 **2025-12-24 (Current state):** All code quality checks passing:
 - `pnpm run type-check`: ✅ 0 errors
@@ -256,12 +256,28 @@
       - Already has runtime checks (ttsBridge.ts)
     - Verification: Type-check ✅, Lint ✅, Tests ✅ (629 passing)
 
-- [ ] **HIGH-5: Fix Missing Error Handling Patterns**
+- [x] **HIGH-5: Fix Missing Error Handling Patterns** ✅
   - Files: Multiple inconsistent error handling
   - Action: Create error handler utility
   - Standardize error handling patterns
   - Est: 3 hours
-  - Status: Not Started
+  - Status: **Completed** 2025-12-24
+  - Notes:
+    - Enhanced `src/utils/error.ts` with standardized error handling utilities:
+      - Added error types: `AppError`, `NetworkError`, `StorageError`, `TTS_ERROR`
+      - Added error severity levels: `ErrorSeverity` enum (Info, Warning, Error, Critical)
+      - Added `safeAsync<T>()` wrapper for consistent error handling
+      - Added `handleOperationError()` utility for logging + toast notifications
+      - Added `ignoreError()` function to make silent failures explicit
+      - Added type guards: `isError()`, `isAppError()`, `createErrorGuard()`
+    - Updated `useTTSController.ts`:
+      - Replaced 8 `// ignore` comments with `ignoreError(e, 'context')` calls
+      - Added import for `ignoreError` from `@utils/error`
+    - Updated security-related files with explicit comments:
+      - `webviewSecurity.ts`: Added comments for security sandbox empty catch blocks
+      - `WebviewScreen.tsx`: Added security sandbox comment
+      - `SettingsReaderScreen.tsx`: Added security sandbox comment
+    - Verification: Type-check ✅, Lint ✅, Tests ✅ (629 passing)
 
 ---
 
@@ -371,11 +387,11 @@
 | Priority | Tasks | Completed | In Progress | Blocked |
 |----------|-------|-----------|-------------|---------|
 | P0 - Critical | 3 | 3 | 0 | 0 |
-| P1 - High | 5 | 4 | 0 | 0 |
+| P1 - High | 5 | 5 | 0 | 0 |
 | P2 - Medium | 8 | 0 | 0 | 0 |
 | P3 - Low | 4 | 0 | 0 | 0 |
 | Refactoring | 1 | 0 | 0 | 0 |
-| **Total** | **21** | **7** | **0** | **0** |
+| **Total** | **21** | **8** | **0** | **0** |
 
 ---
 
@@ -700,6 +716,88 @@ Replaced critical `as any` usages with proper type-safe alternatives in producti
 - Type-check: ✅ Passed
 - Lint: ✅ Passed (0 errors)
 - Tests: ✅ 629 passed
+
+**2025-12-24 - HIGH-5 Completed: Standardize Error Handling Patterns**
+
+Created standardized error handling utilities and applied them across the codebase.
+
+**Enhanced src/utils/error.ts with comprehensive error handling utilities:**
+
+1. **Error Types:**
+   - `AppError` - Base error class with category and severity
+   - `NetworkError` - For network-related errors
+   - `StorageError` - For database/MMKV/file system errors
+   - `TTS_ERROR` - For TTS-related errors
+
+2. **Error Severity Levels (ErrorSeverity enum):**
+   - `Info` - Informational, doesn't affect functionality
+   - `Warning` - May indicate a problem but operation succeeded
+   - `Error` - Operation failed but app can continue
+   - `Critical` - Operation failed and app state may be compromised
+
+3. **Error Category Enum (ErrorCategory):**
+   - `Network`, `Storage`, `TTS`, `Validation`, `Unknown`
+
+4. **Utility Functions:**
+   - `getErrorMessage(error)` - Extract user-friendly message from unknown error
+   - `safeAsync<T>(operation, context)` - Safe async wrapper with ErrorHandlingResult
+   - `handleOperationError(operation, error, logger, showToastFn, options)` - Consistent error logging + toast
+   - `ignoreError(error, context)` - Make silent failures explicit
+   - `isError(error)` - Type guard for Error instances
+   - `isAppError(error)` - Type guard for AppError instances
+   - `createErrorGuard(ErrorClass)` - Factory for custom type guards
+
+**Applied Standardized Patterns:**
+
+1. **useTTSController.ts:**
+   - Replaced 8 `// ignore` comments with `ignoreError(e, 'context')` calls
+   - Makes intent explicit for non-critical operation failures
+   - Added import: `import { ignoreError } from '@utils/error';`
+
+2. **Security-Related Empty Catch Blocks (added explicit comments):**
+   - `webviewSecurity.ts`:
+     - `buildWebViewPostMessageInject()` - "Intentionally empty: Security sandbox"
+     - `buildWebViewWindowInjection()` - "Intentionally empty: Security sandbox"
+     - `parseWebViewMessage()` - "Parse error - return null (malicious/invalid message)"
+   - `WebviewScreen.tsx` - "Intentionally empty: Security sandbox"
+   - `SettingsReaderScreen.tsx` - "Intentionally empty: Security sandbox"
+
+**Verification Results:**
+- Type-check: ✅ 0 errors
+- Lint: ✅ 0 errors, 0 warnings
+- Tests: ✅ 629 passing
+
+**Files Modified (14 files total):**
+
+**Production Code (9 files):**
+- src/utils/error.ts (enhanced with comprehensive utilities)
+- src/screens/reader/components/WebViewReader.tsx (fixed TTS ref update - moved previousTtsRef.current outside if block)
+- src/screens/reader/hooks/useTTSController.ts (8 ignoreError calls added, replaced state checks)
+- src/screens/reader/hooks/useTTSUtilities.ts (removed setRestartInProgress call)
+- src/services/TTSAudioManager.ts (removed 3 deprecated methods: setRestartInProgress, isRestartInProgress, isRefillInProgress)
+- src/services/TTSHighlight.ts (removed 4 deprecated methods)
+- src/utils/webviewSecurity.ts (added security sandbox comments)
+- src/screens/WebviewScreen/WebviewScreen.tsx (added security sandbox comment)
+- src/screens/settings/SettingsReaderScreen/SettingsReaderScreen.tsx (added security sandbox comment)
+
+**Test Files (7 files):**
+- src/screens/reader/components/__tests__/WebViewReader.eventHandlers.test.tsx (added act import, added mock for getNovelTtsSettings, fixed test assertion logic)
+- src/screens/reader/components/__tests__/WebViewReader.integration.test.tsx (removed deprecated method mocks)
+- src/screens/reader/hooks/__tests__/useTTSController.integration.test.ts (updated state checks, removed deprecated mocks)
+- src/screens/reader/hooks/__tests__/useTTSUtilities.test.ts (removed restart flag test)
+- src/services/__tests__/TTSAudioManager.test.ts (removed deprecated method tests, consolidated state tests)
+- src/services/__tests__/TTSEdgeCases.test.ts (removed deprecated mocks)
+- src/services/__tests__/TTSMediaControl.test.ts (removed deprecated mocks)
+
+**Note**: This was part of a broader refactoring session that included removing deprecated TTS state management methods and migrating to TTSState enum-based checks. The scope was significantly larger than initially documented.
+
+**2025-12-24 (Later) - Verification & Test Fix Session**:
+- Verified all changes against git diff (no regressions found)
+- Fixed skipped test in WebViewReader.eventHandlers.test.tsx:
+  - **Root Cause**: Missing mock for `getNovelTtsSettings()` caused novel-specific TTS override useEffect to interfere
+  - **Additional Issue**: Test assertion was too strict (didn't account for React cleanup effects)
+  - **Fix**: Added mock for `getNovelTtsSettings()` returning `null`, updated assertion to allow cleanup calls
+  - **Result**: Test now passing, all 629 tests passing
 
 *Add notes here as work progresses:*
 

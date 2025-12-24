@@ -24,7 +24,6 @@ jest.mock('@services/TTSHighlight', () => ({
     updateMediaState: jest.fn().mockResolvedValue(undefined),
     pause: jest.fn().mockResolvedValue(undefined),
     speakBatch: jest.fn().mockResolvedValue(undefined),
-    setRestartInProgress: jest.fn(),
   },
 }));
 
@@ -500,25 +499,6 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
         3, // 3 paragraphs
         'media control seek',
       );
-    });
-
-    it('should set restart in progress flag', async () => {
-      const { result } = renderHook(() =>
-        useTTSUtilities({
-          novel: mockNovel,
-          chapter: mockChapter,
-          html: mockHtml,
-          webViewRef: mockWebViewRef,
-          readerSettingsRef: mockReaderSettingsRef,
-          refs: mockRefs,
-        }),
-      );
-
-      await act(async () => {
-        await result.current.restartTtsFromParagraphIndex(0);
-      });
-
-      expect(TTSHighlight.setRestartInProgress).toHaveBeenCalledWith(true);
     });
 
     it('should pause TTS before restarting', async () => {

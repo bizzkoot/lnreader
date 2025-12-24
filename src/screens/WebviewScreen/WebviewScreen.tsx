@@ -75,7 +75,7 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
   });
 
   const injectJavaScriptCode =
-    'try { window.ReactNativeWebView.postMessage(JSON.stringify({ localStorage, sessionStorage })); } catch (e) {}';
+    'try { window.ReactNativeWebView.postMessage(JSON.stringify({ localStorage, sessionStorage })); } catch (e) { /* Intentionally empty: Security sandbox */ }';
 
   return (
     <>

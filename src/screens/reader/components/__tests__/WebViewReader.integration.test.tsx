@@ -132,10 +132,7 @@ jest.mock('@services/TTSHighlight', () => ({
   speak: jest.fn(),
   stop: jest.fn(),
   speakBatch: jest.fn(() => Promise.resolve()),
-  isRestartInProgress: jest.fn(() => false),
-  isRefillInProgress: jest.fn(() => false),
   hasRemainingItems: jest.fn(() => false),
-  setRestartInProgress: jest.fn(),
   pause: jest.fn(),
   getSavedTTSPosition: jest.fn().mockResolvedValue(-1),
 }));

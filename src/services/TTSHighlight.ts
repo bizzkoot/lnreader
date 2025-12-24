@@ -98,36 +98,6 @@ class TTSHighlightService {
   }
 
   /**
-   * Mark that a restart operation is beginning.
-   * This prevents onQueueEmpty from firing during intentional stop/restart cycles.
-   */
-  setRestartInProgress(value: boolean) {
-    TTSAudioManager.setRestartInProgress(value);
-  }
-
-  /**
-   * Check if a restart operation is in progress.
-   */
-  isRestartInProgress(): boolean {
-    return TTSAudioManager.isRestartInProgress();
-  }
-
-  /**
-   * Mark that a refill operation is beginning.
-   * This prevents onQueueEmpty from firing during async refill operations.
-   */
-  setRefillInProgress(value: boolean) {
-    TTSAudioManager.setRefillInProgress(value);
-  }
-
-  /**
-   * Check if a refill operation is in progress.
-   */
-  isRefillInProgress(): boolean {
-    return TTSAudioManager.isRefillInProgress();
-  }
-
-  /**
    * Check if TTSAudioManager still has items remaining to queue.
    * Used to prevent premature onQueueEmpty from triggering chapter navigation.
    */

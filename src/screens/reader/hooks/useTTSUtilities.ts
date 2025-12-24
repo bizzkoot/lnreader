@@ -135,10 +135,8 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
         'media control seek',
       );
 
-      // Prevent false onQueueEmpty during stop/restart cycles
-      TTSHighlight.setRestartInProgress(true);
-
       // Pause/stop audio but keep foreground notification
+      // Note: speakBatch() will transition to STARTING state, preventing false onQueueEmpty
       await TTSHighlight.pause();
 
       const remaining = paragraphs.slice(clamped);

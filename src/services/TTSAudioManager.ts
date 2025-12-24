@@ -103,39 +103,8 @@ class TTSAudioManager {
     return this.state;
   }
 
-  /**
-   * @deprecated Use getState() === TTSState.STARTING || getState() === TTSState.STOPPING instead
-   */
-  setRestartInProgress(value: boolean) {
-    if (value) {
-      this.transitionTo(TTSState.STARTING);
-    }
-    logDebug(`TTSAudioManager: [DEPRECATED] setRestartInProgress(${value})`);
-  }
-
-  /**
-   * @deprecated Use getState() === TTSState.STARTING || getState() === TTSState.STOPPING instead
-   */
-  isRestartInProgress(): boolean {
-    return this.state === TTSState.STARTING || this.state === TTSState.STOPPING;
-  }
-
-  /**
-   * @deprecated Internal state management - do not use directly
-   */
-  setRefillInProgress(value: boolean) {
-    logDebug(`TTSAudioManager: [DEPRECATED] setRefillInProgress(${value})`);
-  }
-
   setNotifyUserCallback(cb?: (msg: string) => void) {
     this.notifyUserCallback = cb;
-  }
-
-  /**
-   * @deprecated Use getState() === TTSState.REFILLING instead
-   */
-  isRefillInProgress(): boolean {
-    return this.state === TTSState.REFILLING;
   }
 
   /**

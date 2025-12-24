@@ -322,7 +322,6 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       // Only proceed if settings actually changed
       if (settingsChanged) {
         // Update both refs with new settings
-        previousTtsRef.current = liveReaderTts;
         readerSettingsRef.current = {
           ...readerSettingsRef.current,
           tts: liveReaderTts,
@@ -338,7 +337,6 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             'TTS settings changed while playing, restarting with new settings',
           );
 
-          TTSHighlight.setRestartInProgress(true);
           TTSHighlight.stop();
 
           const idx = tts.currentParagraphIndex;
@@ -346,11 +344,12 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
           if (paragraphs && paragraphs.length > idx) {
             tts.restartTtsFromParagraphIndex(idx);
-          } else {
-            TTSHighlight.setRestartInProgress(false);
           }
         }
       }
+
+      // Always update the ref after comparison to prevent false positives on next render
+      previousTtsRef.current = liveReaderTts;
     }
   }, [liveReaderTts, webViewRef, html, tts]);
 
