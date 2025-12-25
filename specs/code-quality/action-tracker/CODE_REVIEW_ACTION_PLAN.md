@@ -379,12 +379,48 @@
     - Files modified: src/services/TTSAudioManager.ts
     - Verification: Type-check ✅, Lint ✅, Tests ✅ (629 passing)
 
-- [ ] **MEDIUM-7: Improve Test Coverage** (Deferred - Needs Investigation)
-  - Current: ~67%
+- [ ] **MEDIUM-7: Improve Test Coverage** (In Progress - Phase 1 Partial Complete)
+  - Current: **38.45%** (1702/4426 lines covered) ⬆️ from 38.09%
+    - Statements: 37.82% (1733/4582)
+    - Branches: 26.25% (621/2365)
+    - Functions: 23.98% (189/788)
   - Target: 80%+
-  - Action: Add tests for WebView messages, TTS transitions, error paths
-  - Est: 8 hours
-  - Status: **Deferred** - Requires coverage analysis to identify gaps
+  - Action: Multi-phase test coverage improvement
+  - Est: 52 hours total (broken into 4 phases)
+  - Status: **In Progress** - Phase 1 Tasks 1.1 & 1.2 complete (Task 1.3 in progress)
+  
+  **Phase Breakdown:**
+  - **Phase 1** (8h): TTS/WebView critical paths → 45% coverage
+    - ✅ **Task 1.1**: TTS error path tests (12 tests added - TTSAudioManager.errorPaths.test.ts)
+      - Voice unavailable scenarios (fallback to system voice)
+      - Queue empty during refill operations
+      - Concurrent refill prevention (mutex validation)
+      - addToBatch retry logic (transient failures, persistent failures)
+      - State transitions during errors
+      - Notification callback edge cases
+    - ✅ **Task 1.2**: WebView message validation tests (28 tests added - webviewSecurity.extended.test.ts)
+      - Missing required fields (type, nonce, data)
+      - Type coercion attack attempts (numeric type, object nonce, array nonce)
+      - JSON attack vectors (nested JSON, large payloads, deeply nested objects, unicode)
+      - Whitespace and control characters
+      - Rate limiter edge cases (zero maxPerWindow, small windowMs, burst at boundary, high limits, backwards timestamps)
+      - Multiple allowed types
+      - Complex data types (arrays, objects, null, boolean)
+    - ⏳ **Task 1.3**: TTS state transition tests (partially covered, needs dedicated tests)
+    - ⏳ **Task 1.4**: Verify Phase 1 completion
+  - **Phase 2** (16h): Database queries + hooks → 60% coverage
+  - **Phase 3** (20h): UI component integration tests → 75% coverage
+  - **Phase 4** (8h): Edge cases + final push → 80% coverage
+  
+  **2025-12-25 Progress Notes (Task 1.1 & 1.2 Complete):**
+  - Added 40 new tests across 2 test files
+  - All 662 tests passing (increased from 622)
+  - Type-check: ✅ 0 errors
+  - Lint: ✅ 0 errors
+  - Coverage increased: 38.09% → 38.45% (+0.36% / +16 lines)
+  - Files modified:
+    - src/services/__tests__/TTSAudioManager.errorPaths.test.ts (NEW - 294 lines)
+    - src/utils/__tests__/webviewSecurity.extended.test.ts (NEW - 388 lines)
 
 - [ ] **MEDIUM-8: Standardize Error Handling** (Already Completed - See HIGH-5)
   - Files: Multiple inconsistent patterns
