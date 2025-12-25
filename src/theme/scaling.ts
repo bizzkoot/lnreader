@@ -13,7 +13,9 @@ const UI_SCALE_MAX = 1.3;
  * @returns Clamped scale within safe bounds
  */
 export const clampUIScale = (value: number): number => {
-  return Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value));
+  // Handle undefined/NaN by defaulting to 1.0
+  const safeValue = typeof value === 'number' && !isNaN(value) ? value : 1.0;
+  return Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, safeValue));
 };
 
 /**

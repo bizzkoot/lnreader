@@ -22,6 +22,11 @@ TTS Per-Novel Settings Auto-Load Fix (2025-12-25).
 
 ## Recent Fixes
 
+### Filter Icon Crash in Browse Source Screen (2025-12-25)
+- **Root Cause**: `clampUIScale(undefined)` returned `NaN` when `uiScale` was missing from MMKV storage (partial data from older app versions).
+- **Fix**: Added defensive null checks in `scaling.ts` and `useSettings.ts` to default `uiScale` to `1.0`.
+- **Files**: `src/theme/scaling.ts`, `src/hooks/persisted/useSettings.ts`.
+
 ### TTS Per-Novel Settings Auto-Load (2025-12-25)
 - **Root Cause**: `WebViewReader.tsx` updated only local ref (`readerSettingsRef`) on novel entry, not MMKV.
 - **Fix**: Call `setChapterReaderSettings({ tts: stored.tts })` to sync settings to MMKV. Reset to global defaults when novel has no per-novel settings.

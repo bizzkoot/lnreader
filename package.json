@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@cd-z/react-native-epub-creator": "^3.0.0",
-    "@gorhom/bottom-sheet": "^5.2.6",
+    "@gorhom/bottom-sheet": "^5.2.8",
     "@legendapp/list": "^2.0.16",
     "@react-native-community/slider": "^5.1.1",
     "@react-native-cookies/cookies": "^6.2.1",

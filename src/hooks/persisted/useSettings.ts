@@ -382,7 +382,7 @@ export const useAppSettings = () => {
   // Clamp uiScale on load (migration for existing out-of-range values)
   const clampedSettings = {
     ...appSettings,
-    uiScale: clampUIScale(appSettings.uiScale),
+    uiScale: clampUIScale(appSettings.uiScale ?? 1.0),
   };
 
   const setAppSettings = (values: Partial<AppSettings>) => {
