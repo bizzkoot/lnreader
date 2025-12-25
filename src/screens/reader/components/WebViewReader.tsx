@@ -201,13 +201,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
 
+  // Get setChapterReaderSettings to sync per-novel TTS settings to MMKV
+  const { setChapterReaderSettings } = useChapterReaderSettings();
+
   // Apply per-novel TTS overrides (if enabled) on chapter/novel changes.
+  // This syncs settings to MMKV so UI and TTS engine use the same settings from the start.
   useEffect(() => {
     try {
       if (!novel?.id) return;
 
       const stored = getNovelTtsSettings(novel.id);
       if (stored?.enabled && stored.tts) {
+        // Per-novel TTS settings exist and are enabled: sync to MMKV
+        setChapterReaderSettings({ tts: stored.tts });
+
         const nextReaderSettings = {
           ...readerSettingsRef.current,
           tts: {
@@ -221,11 +228,31 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           nextReaderSettings.tts as TTSSettings,
           webViewRef,
         );
+      } else {
+        // No per-novel settings: reset to global defaults
+        // This prevents carrying over previous novel's TTS settings
+        const globalTts = readerSettings.tts;
+        setChapterReaderSettings({ tts: globalTts });
+
+        readerSettingsRef.current = {
+          ...readerSettingsRef.current,
+          tts: globalTts,
+        } as ChapterReaderSettings;
+
+        if (globalTts) {
+          applyTtsUpdateToWebView(globalTts as TTSSettings, webViewRef);
+        }
       }
     } catch {
       // Best-effort: never block reader load
     }
-  }, [novel?.id, chapter.id, webViewRef]);
+  }, [
+    novel?.id,
+    chapter.id,
+    webViewRef,
+    setChapterReaderSettings,
+    readerSettings.tts,
+  ]);
 
   // CRITICAL FIX: Capture initial nextChapter/prevChapter to prevent HTML regeneration
   // These values are only used for initial WebView load. Updates after that are via injectJavaScript.
