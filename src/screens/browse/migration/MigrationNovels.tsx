@@ -21,7 +21,7 @@ export interface SourceSearchResult {
   lang: string;
   loading: boolean;
   novels: NovelItem[];
-  error?: any;
+  error?: string;
 }
 
 const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
@@ -47,7 +47,7 @@ const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
         lang: item.lang,
         loading: true,
         novels: [],
-        error: null,
+        error: undefined,
       })),
     );
 
@@ -66,14 +66,15 @@ const MigrationNovels = ({ navigation, route }: MigrateNovelScreenProps) => {
                 : { ...pluginItem },
             ),
           );
-        } catch (e: any) {
+        } catch (e: unknown) {
+          const errorMessage = e instanceof Error ? e.message : String(e ?? '');
           setSearchResults(prevState =>
             prevState.map(pluginItem =>
               pluginItem.id === item.id
                 ? {
                     ...pluginItem,
                     loading: false,
-                    error: e?.message,
+                    error: errorMessage,
                   }
                 : pluginItem,
             ),

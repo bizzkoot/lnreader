@@ -5,6 +5,7 @@ import {
 } from '@screens/library/constants/constants';
 import { useMMKVObject } from 'react-native-mmkv';
 import { Voice } from 'expo-speech';
+import { clampUIScale } from '@theme/scaling';
 
 export const APP_SETTINGS = 'APP_SETTINGS';
 export const BROWSE_SETTINGS = 'BROWSE_SETTINGS';
@@ -31,8 +32,8 @@ export interface AppSettings {
   disableLoadingAnimations: boolean;
   /**
    * UI Scale factor for app-wide UI element sizing (padding, margins, icons, etc.)
-   * - Range: 0.2 (20% - extremely compact) to 1.5 (150% - very spacious)
-   * - Default: 0.8 (80% - comfortable, Material Design 3 adapted for mobile)
+   * - Range: 0.8 (80%) to 1.3 (130%) - Safe range prevents UX disasters
+   * - Default: 1.0 (100% - Material Design 3 baseline)
    * - Note: Does NOT affect chapter text size (use textSize for that)
    */
   uiScale: number;
@@ -83,6 +84,18 @@ export interface AppSettings {
    * Maximum number of automatic backups to keep (oldest are deleted)
    */
   maxAutoBackups: 1 | 2 | 3 | 4 | 5;
+
+  /**
+   * Backup contents selection for local backups.
+   * When true, that category is included in the backup zip.
+   */
+  backupIncludeOptions?: {
+    settings: boolean;
+    novelsAndChapters: boolean;
+    categories: boolean;
+    repositories: boolean;
+    downloads: boolean;
+  };
 }
 
 export interface BrowseSettings {
@@ -160,6 +173,56 @@ export interface ChapterGeneralSettings {
     | 'reset-until-5'
     | 'reset-until-10'
     | 'reset-all';
+  /**
+   * Automatically mark short chapters (that fit entirely on screen) as 100% read
+   * when navigating to the next chapter.
+   * - true: Auto-mark short chapters (default)
+   * - false: Don't auto-mark
+   */
+  autoMarkShortChapters: boolean;
+  /**
+   * Continuous scrolling mode - automatically load next chapter when scrolling near the end
+   * - 'disabled': Manual navigation only (default)
+   * - 'always': Auto-load next chapter at 95% scroll
+   * - 'ask': Show confirmation dialog before loading
+   */
+  continuousScrolling: 'disabled' | 'always' | 'ask';
+  /**
+   * Chapter boundary display style for continuous scrolling
+   * Only applies when continuousScrolling is not 'disabled'
+   * - 'bordered': Show chapter markers with gap (default)
+   * - 'stitched': Seamless flow without visual separation
+   */
+  continuousScrollBoundary: 'stitched' | 'bordered';
+  /**
+   * Threshold for automatic chapter transition when using continuous scrolling.
+   * When user scrolls past this percentage into an appended chapter, the app
+   * automatically navigates to that chapter (clears previous chapter from DOM).
+   * This keeps DOM clean and prevents TTS issues.
+   *
+   * Options: 5, 10, 15, 20 (percent)
+   * Default: 15
+   */
+  continuousScrollTransitionThreshold: 5 | 10 | 15 | 20;
+  /**
+   * Threshold for automatic chapter stitching when using continuous scrolling.
+   * When user scrolls past this percentage in current chapter, automatically
+   * fetch and append the next chapter to the DOM.
+   *
+   * Options: 50, 55, 60, 65, 70, 75, 80, 85, 90, 95 (percent)
+   * Default: 90
+   */
+  continuousScrollStitchThreshold:
+    | 50
+    | 55
+    | 60
+    | 65
+    | 70
+    | 75
+    | 80
+    | 85
+    | 90
+    | 95;
 }
 
 export interface ReaderTheme {
@@ -243,6 +306,14 @@ const initialAppSettings: AppSettings = {
    */
   autoBackupFrequency: 'manual',
   maxAutoBackups: 2,
+
+  backupIncludeOptions: {
+    settings: true,
+    novelsAndChapters: true,
+    categories: true,
+    repositories: true,
+    downloads: true,
+  },
 };
 
 const initialBrowseSettings: BrowseSettings = {
@@ -276,6 +347,11 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsAutoDownload: 'disabled',
   ttsAutoDownloadAmount: '10',
   ttsForwardChapterReset: 'none',
+  autoMarkShortChapters: true,
+  continuousScrolling: 'disabled',
+  continuousScrollBoundary: 'bordered',
+  continuousScrollTransitionThreshold: 15,
+  continuousScrollStitchThreshold: 90,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {
@@ -303,11 +379,23 @@ export const useAppSettings = () => {
   const [appSettings = initialAppSettings, setSettings] =
     useMMKVObject<AppSettings>(APP_SETTINGS);
 
-  const setAppSettings = (values: Partial<AppSettings>) =>
-    setSettings({ ...appSettings, ...values });
+  // Clamp uiScale on load (migration for existing out-of-range values)
+  const clampedSettings = {
+    ...appSettings,
+    uiScale: clampUIScale(appSettings.uiScale ?? 1.0),
+  };
+
+  const setAppSettings = (values: Partial<AppSettings>) => {
+    // Clamp uiScale on write
+    const valuesToSet = { ...values };
+    if (valuesToSet.uiScale !== undefined) {
+      valuesToSet.uiScale = clampUIScale(valuesToSet.uiScale);
+    }
+    setSettings({ ...clampedSettings, ...valuesToSet });
+  };
 
   return {
-    ...appSettings,
+    ...clampedSettings,
     setAppSettings,
   };
 };

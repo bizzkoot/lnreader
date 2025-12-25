@@ -11,6 +11,7 @@ import { getString } from '@strings/translations';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
+import { MMKVStorage } from '@utils/mmkv/mmkv';
 
 // #region Mutations
 
@@ -80,19 +81,42 @@ export const markChaptersRead = (chapterIds: number[]) =>
     `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${chapterIds.join(',')})`,
   );
 
-export const markChapterUnread = (chapterId: number) =>
-  db.runAsync('UPDATE Chapter SET `unread` = 1 WHERE id = ?', chapterId);
+export const markChapterUnread = (chapterId: number) => {
+  // Clear MMKV saved progress when marking unread
+  MMKVStorage.delete(`chapter_progress_${chapterId}`);
+  return db.runAsync('UPDATE Chapter SET `unread` = 1 WHERE id = ?', chapterId);
+};
 
-export const markChaptersUnread = (chapterIds: number[]) =>
-  db.execAsync(
+export const markChaptersUnread = (chapterIds: number[]) => {
+  // Clear MMKV saved progress for all chapters being marked unread
+  chapterIds.forEach(id => {
+    MMKVStorage.delete(`chapter_progress_${id}`);
+  });
+  return db.execAsync(
     `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${chapterIds.join(',')})`,
   );
+};
 
 export const markAllChaptersRead = (novelId: number) =>
   db.runAsync('UPDATE Chapter SET `unread` = 0 WHERE novelId = ?', novelId);
 
-export const markAllChaptersUnread = (novelId: number) =>
-  db.runAsync('UPDATE Chapter SET `unread` = 1 WHERE novelId = ?', novelId);
+export const markAllChaptersUnread = async (novelId: number) => {
+  // Get all chapter IDs for this novel
+  const chapters = await db.getAllAsync<{ id: number }>(
+    'SELECT id FROM Chapter WHERE novelId = ?',
+    novelId,
+  );
+
+  // Clear MMKV saved progress for all chapters
+  chapters.forEach(chapter => {
+    MMKVStorage.delete(`chapter_progress_${chapter.id}`);
+  });
+
+  return db.runAsync(
+    'UPDATE Chapter SET `unread` = 1 WHERE novelId = ?',
+    novelId,
+  );
+};
 
 const deleteDownloadedFiles = async (
   pluginId: string,
@@ -199,15 +223,28 @@ export const markPreviuschaptersRead = (chapterId: number, novelId: number) =>
     novelId,
   );
 
-export const markPreviousChaptersUnread = (
+export const markPreviousChaptersUnread = async (
   chapterId: number,
   novelId: number,
-) =>
-  db.runAsync(
+) => {
+  // Get all chapter IDs that will be marked unread
+  const chapters = await db.getAllAsync<{ id: number }>(
+    'SELECT id FROM Chapter WHERE id <= ? AND novelId = ?',
+    chapterId,
+    novelId,
+  );
+
+  // Clear MMKV saved progress for all affected chapters
+  chapters.forEach(chapter => {
+    MMKVStorage.delete(`chapter_progress_${chapter.id}`);
+  });
+
+  return db.runAsync(
     'UPDATE Chapter SET `unread` = 1 WHERE id <= ? AND novelId = ?',
     chapterId,
     novelId,
   );
+};
 
 export const markChaptersBeforePositionRead = (
   novelId: number,

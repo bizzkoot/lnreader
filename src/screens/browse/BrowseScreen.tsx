@@ -1,4 +1,4 @@
-/* eslint-disable react-native/no-inline-styles */
+/* eslint-disable react-native/no-inline-styles -- Dynamic styles require inline approach for theme-dependent values */
 import React, { useEffect, useMemo } from 'react';
 import { TabView, TabBar } from 'react-native-tab-view';
 

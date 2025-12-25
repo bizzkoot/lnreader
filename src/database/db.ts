@@ -24,6 +24,9 @@ import { getErrorMessage } from '@utils/error';
 import { showToast } from '@utils/showToast';
 import { MigrationRunner } from './utils/migrationRunner';
 import { migrations } from './migrations';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const dbLog = createRateLimitedLogger('Database', { windowMs: 1500 });
 
 const dbName = 'lnreader.db';
 
@@ -73,13 +76,11 @@ export const initializeDatabase = () => {
     userVersion = result?.user_version ?? 0;
   } catch (error) {
     // If PRAGMA query fails, assume fresh database
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        'Failed to get database version, assuming fresh install:',
-        error,
-      );
-    }
+    dbLog.warn(
+      'fresh-install',
+      'Failed to get database version, assuming fresh install:',
+      error,
+    );
     userVersion = 0;
   }
 

@@ -19,7 +19,7 @@ const LoadingScreen: React.FC<{ theme: ThemeColors }> = ({ theme }) => {
           justifyContent: 'center',
         },
       }),
-    [uiScale],
+    [],
   );
 
   return (

@@ -115,3 +115,24 @@ Android optimizes battery by not rendering WebViews while app is backgrounded. T
 - Background TTS Effect bypasses WebView sync by setting isWebViewSyncedRef=true immediately
 - Wake resume handler injects blocking flags in handleWebViewLoadEnd before WebView JS initializes
 - Chapter Change Effect uses 300ms timer fallback for WebView sync, but Background TTS bypasses this entirely
+
+
+## Boundary-Based Content Management
+
+Track chapter boundaries within stitched DOM content to enable intelligent content trimming and progress synchronization across chapters without losing user's reading position.
+
+### Examples
+
+- Continuous scrolling boundary tracking in core.js lines 290-300
+- WebView opacity transition in WebViewReader.tsx
+- Chapter boundary calculation using countReadableInContainer()
+- TrimPreviousChapter handling both original and stitched chapters
+
+
+## WebView IIFE Self-Reference Pattern
+
+Inside the reader constructor IIFE, use 'const self = this' to capture the instance reference before nested IIFEs. Cannot use 'reader.' because window.reader doesn't exist until the constructor completes.
+
+### Examples
+
+- core.js initialEnhancement() - uses self.chapterElement instead of reader.chapterElement

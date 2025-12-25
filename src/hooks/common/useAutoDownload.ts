@@ -8,9 +8,11 @@ import {
   checkAndTriggerAutoDownload,
   AutoDownloadConfig,
 } from '@services/download/autoDownload';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
-// eslint-disable-next-line no-console
-const logDebug = __DEV__ ? console.log : () => {};
+const autoDownloadHookLog = createRateLimitedLogger('useAutoDownload', {
+  windowMs: 1500,
+});
 
 interface UseAutoDownloadOptions {
   novel: NovelInfo;
@@ -94,17 +96,25 @@ export const useAutoDownload = ({
         const config = getConfig();
 
         if (!config.enabled) {
-          logDebug('AutoDownload: Disabled, skipping check');
+          autoDownloadHookLog.debug(
+            'disabled',
+            'AutoDownload: Disabled, skipping check',
+          );
           return false;
         }
 
-        logDebug(
-          `AutoDownload: Checking chapter ${currentChapter.name} (TTS: ${isTTSPlaying})`,
+        autoDownloadHookLog.debug(
+          'checking-chapter',
+          `Checking chapter ${currentChapter.name} (TTS: ${isTTSPlaying})`,
         );
 
         return await checkAndTriggerAutoDownload(novel, currentChapter, config);
       } catch (error) {
-        logDebug('AutoDownload: Error checking:', error);
+        autoDownloadHookLog.debug(
+          'error',
+          'AutoDownload: Error checking:',
+          error,
+        );
         return false;
       } finally {
         isChecking.current = false;

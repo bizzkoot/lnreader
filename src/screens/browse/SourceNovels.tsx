@@ -12,7 +12,15 @@ import { useLibraryContext } from '@components/Context/LibraryContext';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
-  // Add any scaled styles needed for this component
+  listViewPadding: {
+    paddingHorizontal: scaled.padding.md / 1.33,
+    paddingVertical: scaled.padding.sm,
+  },
+  extensionIcon: {
+    borderRadius: scaled.borderRadius.sm,
+    height: scaled.iconSize.xl + 6,
+    width: scaled.iconSize.xl + 6,
+  },
 });
 
 const SourceNovels = ({ navigation, route }: SourceNovelsScreenProps) => {

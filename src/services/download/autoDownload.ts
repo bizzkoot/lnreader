@@ -1,9 +1,11 @@
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { db } from '@database/db';
 import ServiceManager from '@services/ServiceManager';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
-// eslint-disable-next-line no-console
-const logDebug = __DEV__ ? console.log : () => {};
+const autoDownloadLog = createRateLimitedLogger('AutoDownload', {
+  windowMs: 1500,
+});
 
 export interface AutoDownloadConfig {
   /** Whether auto-download is enabled */
@@ -84,8 +86,9 @@ export const checkAndTriggerAutoDownload = async (
     currentChapter.page ?? '1',
   );
 
-  logDebug(
-    `AutoDownload: ${remainingCount} downloaded chapters remaining (threshold: ${config.remainingThreshold})`,
+  autoDownloadLog.debug(
+    'remaining-chapters',
+    `${remainingCount} downloaded chapters remaining (threshold: ${config.remainingThreshold})`,
   );
 
   if (remainingCount <= config.remainingThreshold) {
@@ -97,8 +100,9 @@ export const checkAndTriggerAutoDownload = async (
     );
 
     if (chaptersToDownload.length > 0) {
-      logDebug(
-        `AutoDownload: Queueing ${chaptersToDownload.length} chapters for download`,
+      autoDownloadLog.debug(
+        'queueing-chapters',
+        `Queueing ${chaptersToDownload.length} chapters for download`,
       );
 
       // Queue downloads through ServiceManager

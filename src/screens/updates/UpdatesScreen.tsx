@@ -23,6 +23,11 @@ import ServiceManager from '@services/ServiceManager';
 import { UpdateScreenProps } from '@navigators/types';
 import { UpdateOverview } from '@database/types';
 import { useUpdateContext } from '@components/Context/UpdateContext';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const updatesScreenLog = createRateLimitedLogger('UpdatesScreen', {
+  windowMs: 1500,
+});
 
 const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
   const theme = useTheme();
@@ -114,18 +119,22 @@ const UpdatesScreen = ({ navigation }: UpdateScreenProps) => {
             <Suspense fallback={<UpdatesSkeletonLoading theme={theme} />}>
               <UpdateNovelCard
                 deleteChapter={chapter => {
-                  deleteChapter(
-                    chapter.pluginId,
-                    chapter.novelId,
-                    chapter.id,
-                  ).then(() => {
-                    showToast(
-                      getString('common.deleted', {
-                        name: chapter.name,
-                      }),
-                    );
-                    getUpdates();
-                  });
+                  deleteChapter(chapter.pluginId, chapter.novelId, chapter.id)
+                    .then(() => {
+                      showToast(
+                        getString('common.deleted', {
+                          name: chapter.name,
+                        }),
+                      );
+                      getUpdates();
+                    })
+                    .catch(err => {
+                      updatesScreenLog.error(
+                        'delete-chapter-failed',
+                        'Failed to delete chapter',
+                        err,
+                      );
+                    });
                 }}
                 chapterListInfo={item}
                 descriptionText={getString('updatesScreen.updatesLower')}

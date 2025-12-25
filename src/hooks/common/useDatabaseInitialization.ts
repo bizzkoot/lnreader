@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
 import { initializeDatabase } from '@database/db';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const dbInitLog = createRateLimitedLogger('useDatabaseInit', {
+  windowMs: 1500,
+});
 
 interface UseDatabaseInitializationResult {
   isDbReady: boolean;
@@ -24,10 +29,7 @@ export const useDatabaseInitialization =
             ? error
             : new Error('Database initialization failed');
         setDbError(dbInitError);
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.error('Database initialization error:', error);
-        }
+        dbInitLog.error('init-failed', 'Database initialization error:', error);
       }
     };
 

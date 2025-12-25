@@ -5,6 +5,8 @@ import {
   useWindowDimensions,
   Pressable,
   Image,
+  ImageStyle,
+  ViewStyle,
 } from 'react-native';
 
 import AppText from '@components/AppText';
@@ -284,6 +286,29 @@ function NovelCover<
 
 export default memo(NovelCover);
 
+interface ScaledStyles {
+  LeftBorderRadius: ViewStyle;
+  RightBorderRadius: ViewStyle;
+  activityBadge: ViewStyle;
+  activityIndicatorSize: number;
+  badgePosition: ViewStyle;
+  badgeFontSize: number;
+  compactTitlePosition: ViewStyle;
+  downloadBadge: ViewStyle;
+  extensionIcon: ImageStyle;
+  inLibraryBadge: ViewStyle;
+  linearGradient: ViewStyle;
+  listViewPadding: ViewStyle;
+  novelCoverBorderRadius: ViewStyle;
+  opacPadding: ViewStyle;
+  padding4: ViewStyle;
+  standardBorderRadius: ViewStyle;
+  titlePadding: ViewStyle;
+  titleFontSize: number;
+  titleBorderRadius: ViewStyle;
+  unreadBadge: ViewStyle;
+}
+
 const ComfortableTitle = ({
   theme,
   novelName,
@@ -293,7 +318,7 @@ const ComfortableTitle = ({
   theme: ThemeColors;
   novelName: string;
   width?: number;
-  scaledStyles: any;
+  scaledStyles: ScaledStyles;
 }) => (
   <AppText
     numberOfLines={2}
@@ -316,7 +341,7 @@ const CompactTitle = ({
   scaledStyles,
 }: {
   novelName: string;
-  scaledStyles: any;
+  scaledStyles: ScaledStyles;
 }) => (
   <View style={[styles.titleContainer, scaledStyles.titleBorderRadius]}>
     <LinearGradient
@@ -343,7 +368,7 @@ const InLibraryBadge = ({
   scaledStyles,
 }: {
   theme: ThemeColors;
-  scaledStyles: any;
+  scaledStyles: ScaledStyles;
 }) => (
   <AppText
     style={[
@@ -364,7 +389,7 @@ const InActivityBadge = ({
   scaledStyles,
 }: {
   theme: ThemeColors;
-  scaledStyles: any;
+  scaledStyles: ScaledStyles;
 }) => (
   <View
     style={[
@@ -387,7 +412,7 @@ interface BadgeProps {
   chaptersDownloaded: number;
   chaptersUnread: number;
   theme: ThemeColors;
-  scaledStyles: any;
+  scaledStyles: ScaledStyles;
 }
 interface UnreadBadgeProps extends BadgeProps {
   showDownloadBadges: boolean;
@@ -412,7 +437,6 @@ const UnreadBadge: React.FC<UnreadBadgeProps> = ({
         backgroundColor: theme.primary,
         color: theme.onPrimary,
         fontSize: scaledStyles.badgeFontSize,
-        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
@@ -436,7 +460,6 @@ const DownloadBadge: React.FC<DownloadBadgeProps> = ({
         backgroundColor: theme.tertiary,
         color: theme.onTertiary,
         fontSize: scaledStyles.badgeFontSize,
-        fontFamily: 'pt-sans-bold',
       },
     ]}
   >
@@ -511,6 +534,7 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
     borderTopLeftRadius: scaled.borderRadius.sm,
     paddingHorizontal: scaled.padding.xs + 1,
     paddingTop: scaled.padding.xs / 2,
+    fontFamily: 'pt-sans-bold',
   },
   extensionIcon: {
     borderRadius: scaled.borderRadius.sm,
@@ -551,6 +575,7 @@ const getScaledStyles = (scaled: ReturnType<typeof useScaledDimensions>) => ({
     borderTopRightRadius: scaled.borderRadius.sm,
     paddingHorizontal: scaled.padding.xs,
     paddingTop: scaled.padding.xs / 2,
+    fontFamily: 'pt-sans-bold',
   },
   badgeFontSize: scaled.iconSize.sm - 4,
 });

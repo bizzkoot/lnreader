@@ -12,6 +12,9 @@ interface TTSScrollSyncDialogProps {
   theme: ThemeColors;
   currentIndex: number;
   visibleIndex: number;
+  currentChapterName?: string;
+  visibleChapterName?: string;
+  isStitched?: boolean;
   onSyncToVisible: () => void;
   onKeepCurrent: () => void;
   onDismiss: () => void;
@@ -22,6 +25,9 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
   theme,
   currentIndex,
   visibleIndex,
+  currentChapterName,
+  visibleChapterName,
+  isStitched,
   onSyncToVisible,
   onKeepCurrent,
   onDismiss,
@@ -77,15 +83,37 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
           Change TTS Reading Position?
         </Dialog.Title>
         <Dialog.Content>
-          <Text style={[styles.content, { color: theme.onSurface }]}>
-            You have scrolled{' '}
-            <Text style={[styles.boldText, { color: theme.onSurface }]}>
-              {directionText}
-            </Text>{' '}
-            to paragraph {visibleIndex + 1}.{'\n\n'}
-            Do you want to continue reading from here, or go back to where you
-            paused (paragraph {currentIndex + 1})?
-          </Text>
+          {isStitched && currentChapterName && visibleChapterName ? (
+            <Text style={[styles.content, { color: theme.onSurface }]}>
+              You have scrolled{' '}
+              <Text style={[styles.boldText, { color: theme.onSurface }]}>
+                {directionText}
+              </Text>{' '}
+              to:{'\n'}
+              <Text style={[styles.boldText, { color: theme.primary }]}>
+                • {visibleChapterName}
+              </Text>
+              {'\n'}• Paragraph {visibleIndex + 1}
+              {'\n\n'}
+              TTS was paused at:{'\n'}
+              <Text style={[styles.boldText, { color: theme.primary }]}>
+                • {currentChapterName}
+              </Text>
+              {'\n'}• Paragraph {currentIndex + 1}
+              {'\n\n'}
+              Continue from current position or resume where you paused?
+            </Text>
+          ) : (
+            <Text style={[styles.content, { color: theme.onSurface }]}>
+              You have scrolled{' '}
+              <Text style={[styles.boldText, { color: theme.onSurface }]}>
+                {directionText}
+              </Text>{' '}
+              to paragraph {visibleIndex + 1}.{'\n\n'}
+              Do you want to continue reading from here, or go back to where you
+              paused (paragraph {currentIndex + 1})?
+            </Text>
+          )}
         </Dialog.Content>
         <View style={styles.buttonCtn}>
           <Button
@@ -93,14 +121,22 @@ const TTSScrollSyncDialog: React.FC<TTSScrollSyncDialogProps> = ({
               onSyncToVisible();
               onDismiss();
             }}
-            title={`Continue from Here (Para ${visibleIndex + 1})`}
+            title={
+              isStitched && visibleChapterName
+                ? `Continue: ${visibleChapterName.length > 35 ? visibleChapterName.substring(0, 32) + '...' : visibleChapterName}`
+                : `Continue from Here (Para ${visibleIndex + 1})`
+            }
           />
           <Button
             onPress={() => {
               onKeepCurrent();
               onDismiss();
             }}
-            title={`Resume from Saved (Para ${currentIndex + 1})`}
+            title={
+              isStitched && currentChapterName
+                ? `Resume: ${currentChapterName.length > 35 ? currentChapterName.substring(0, 32) + '...' : currentChapterName}`
+                : `Resume from Saved (Para ${currentIndex + 1})`
+            }
             mode="outlined"
           />
         </View>

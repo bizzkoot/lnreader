@@ -183,7 +183,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           {filter.options.map(val => {
             return (
               <Menu.Item
-                key={val.label}
+                key={val.value}
                 title={val.label}
                 titleStyle={{ color: theme.onSurfaceVariant }}
                 onPress={() => {
@@ -225,7 +225,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           ? filter.options.map(val => {
               return (
                 <Checkbox
-                  key={val.label}
+                  key={val.value}
                   label={val.label}
                   theme={theme}
                   status={value.includes(val.value)}
@@ -305,7 +305,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
           ? filter.options.map(val => {
               return (
                 <Checkbox
-                  key={val.label}
+                  key={val.value}
                   label={val.label}
                   theme={theme}
                   status={

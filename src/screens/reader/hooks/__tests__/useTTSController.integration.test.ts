@@ -27,6 +27,12 @@ jest.mock('@services/TTSAudioManager', () => ({
     speak: jest.fn(),
     pause: jest.fn(),
     stop: jest.fn(),
+    speakBatch: jest.fn(),
+    fullStop: jest.fn(),
+    addToBatch: jest.fn(),
+    getState: jest.fn(() => ({ IDLE: 'IDLE' })),
+    hasRemainingItems: jest.fn(() => false),
+    hasQueuedNativeInCurrentSession: jest.fn(() => true),
   },
 }));
 
@@ -62,9 +68,6 @@ jest.mock('@services/TTSHighlight', () => ({
     addToBatch: jest.fn().mockResolvedValue(undefined),
     updateMediaState: jest.fn().mockResolvedValue(undefined),
     getSavedTTSPosition: jest.fn().mockResolvedValue(-1),
-    isRestartInProgress: jest.fn().mockReturnValue(false),
-    isRefillInProgress: jest.fn().mockReturnValue(false),
-    setRestartInProgress: jest.fn(),
     addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
     hasRemainingItems: jest.fn().mockReturnValue(false),
     hasQueuedNativeInCurrentSession: jest.fn().mockReturnValue(true),
@@ -828,7 +831,6 @@ describe('useTTSController - Integration Tests', () => {
     (TTSHighlight.pause as jest.Mock).mockResolvedValue(undefined);
     (TTSHighlight.fullStop as jest.Mock).mockResolvedValue(undefined);
     (TTSHighlight.getSavedTTSPosition as jest.Mock).mockResolvedValue(-1);
-    (TTSHighlight.isRestartInProgress as jest.Mock).mockReturnValue(false);
 
     // Mock MMKV
     (MMKVStorage.getNumber as jest.Mock).mockReturnValue(null);
@@ -1409,8 +1411,6 @@ describe('useTTSController - Integration Tests', () => {
         });
 
         // Mock TTSHighlight methods to allow onQueueEmpty to proceed
-        (TTSHighlight.isRestartInProgress as jest.Mock).mockReturnValue(false);
-        (TTSHighlight.isRefillInProgress as jest.Mock).mockReturnValue(false);
         (TTSHighlight.hasRemainingItems as jest.Mock).mockReturnValue(false);
 
         // Clear previous save calls
@@ -1425,7 +1425,12 @@ describe('useTTSController - Integration Tests', () => {
       });
 
       it('should ignore onQueueEmpty during restart', async () => {
-        (TTSHighlight.isRestartInProgress as jest.Mock).mockReturnValue(true);
+        // Mock TTSAudioManager.getState to return STARTING state
+        const TTSAudioManager = require('@services/TTSAudioManager').default;
+        const { TTSState } = require('@services/TTSState');
+        (TTSAudioManager.getState as jest.Mock).mockReturnValue(
+          TTSState.STARTING,
+        );
 
         const params = createDefaultParams();
         renderHook(() => useTTSController(params));

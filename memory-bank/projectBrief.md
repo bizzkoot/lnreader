@@ -1,4 +1,4 @@
-# LNReader TTS Media Control
+# Continuous Scrolling Implementation
 
 ## Purpose
 
@@ -55,5 +55,26 @@ This section should contain a short, consumable summary for stakeholders and new
 
 ## Project Summary
 
+LNReader continuous scrolling allows users to read through chapters without interruption, automatically loading the next chapter at 95% scroll and optimizing performance by trimming previous chapters at 15% progression.
+
+
+
 Phase 1 delivered: NotificationCompat-based TTS control with enhanced progress and 6 actions. MediaSessionCompat integration deferred due to dependency issues; follow-up required to migrate to Media3 or resolve imports.
+
+
+
+## Goals
+
+- Provide continuous reading experience across chapter boundaries
+- Maintain accurate progress tracking and TTS functionality
+- Enable seamless chapter transitions without user interaction
+- Improve reading immersion with configurable auto-trim threshold
+
+
+
+## Constraints
+
+- 350ms transition flash during auto-trim (acceptable with opacity fade)
+- TTS requires WebView reload for position synchronization
+- Android WebView optimization requires isBackground flag for chapter transitions
 

@@ -124,8 +124,9 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
       if (resultUri) {
         setUri(resultUri.uri);
       }
-    } catch (error: any) {
-      showToast(error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(message);
     }
   };
 

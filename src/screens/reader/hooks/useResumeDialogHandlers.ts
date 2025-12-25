@@ -12,12 +12,16 @@
  *   - handleResumeCancel (used by: useTTSConfirmationHandler) ← KEY OUTPUT
  *   - handleRestartChapter (used by: useTTSController return)
  */
-/* eslint-disable no-console */
 
 import { useCallback, RefObject } from 'react';
 import WebView from 'react-native-webview';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { TTSPersistenceState } from '../types/tts';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const resumeLog = createRateLimitedLogger('useResumeDialogHandlers', {
+  windowMs: 1500,
+});
 
 /**
  * Resume dialog handlers parameters
@@ -93,19 +97,10 @@ export function useResumeDialogHandlers(
     refs.latestParagraphIndexRef.current = lastReadParagraph;
 
     const ttsState = chapterTtsState ? JSON.parse(chapterTtsState) : {};
-    if (__DEV__) {
-      console.log(
-        'useTTSController: Resuming TTS. Resolved index:',
-        lastReadParagraph,
-        '(Ref:',
-        refValue,
-        'MMKV:',
-        mmkvValue,
-        'Prop:',
-        savedIndex,
-        ')',
-      );
-    }
+    resumeLog.debug(
+      'resuming-tts',
+      `Resuming TTS. Resolved index: ${lastReadParagraph} (Ref: ${refValue}, MMKV: ${mmkvValue}, Prop: ${savedIndex})`,
+    );
     callbacks.resumeTTS({
       ...ttsState,
       paragraphIndex: lastReadParagraph,

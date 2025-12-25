@@ -92,6 +92,15 @@
     "categoryFileWriteFailed": "Failed to write category file: %{error}",
     "createBackup": "Create backup",
     "createBackupDesc": "Can be used to restore current library",
+    "backupIncludeOptions": "Include in backup",
+    "backupIncludeOptionsDesc": "Choose what to include in new backups",
+    "include": {
+      "settings": "Settings",
+      "novelsAndChapters": "Novels & chapters",
+      "categories": "Categories",
+      "repositories": "Repositories",
+      "downloads": "Downloaded files"
+    },
     "createBackupWarning": "Create backup may not work on devices with Android 9 or lower.",
     "downloadingData": "Downloading Data",
     "downloadingDownloadedFiles": "Downloading Downloaded Files",
@@ -110,6 +119,8 @@
     "settingsRestoreFailed": "Failed to restore settings: %{error}",
     "settingsFileWriteFailed": "Failed to write settings file: %{error}",
     "versionFileWriteFailed": "Failed to write version file: %{error}",
+    "manifestFileWriteFailed": "Failed to write manifest file: %{error}",
+    "sectionsFileWriteFailed": "Failed to write sections file: %{error}",
     "drive": {
       "backup": "Drive Backup",
       "backupInterruped": "Drive Backup Interrupted",
@@ -155,7 +166,8 @@
     "repositoriesRestoredWithErrors": "Restored %{count} repositories (%{failedCount} failed)",
     "repositoryRestoreFailed": "Failed to restore repository: %{url} - %{error}",
     "repositoryFileReadFailed": "Failed to read repository file: %{error}",
-    "repositoryFileWriteFailed": "Failed to write repository file: %{error}"
+    "repositoryFileWriteFailed": "Failed to write repository file: %{error}",
+    "autoBackupLimitNote": "This limit applies independently to both auto and manual backups."
   },
   "browse": "Browse",
   "browseScreen": {

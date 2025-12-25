@@ -130,7 +130,7 @@ const StatsScreen = () => {
         <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('statsScreen.genreDistribution')}
         </AppText>
-        <Row style={[styles.statsRow, styles.genreRow]}>
+        <Row style={StyleSheet.flatten([styles.statsRow, styles.genreRow])}>
           {Object.entries(stats.genres || {}).map(item => (
             <StatsCard key={item[0]} label={item[0]} value={item[1]} />
           ))}
@@ -138,7 +138,7 @@ const StatsScreen = () => {
         <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
           {getString('statsScreen.statusDistribution')}
         </AppText>
-        <Row style={[styles.statsRow, styles.genreRow]}>
+        <Row style={StyleSheet.flatten([styles.statsRow, styles.genreRow])}>
           {Object.entries(stats.status || {}).map(item => (
             <StatsCard
               key={item[0]}

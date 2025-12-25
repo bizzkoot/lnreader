@@ -15,8 +15,8 @@
     "generate:string-types": "node scripts/generate-string-types.cjs",
     "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "pnpm run lint -- --fix",
-    "format": "prettier --write \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
-    "format:check": "prettier --check \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts",
+    "format": "prettier --write \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts \"./android/app/src/main/assets/js/**/*.js\"",
+    "format:check": "prettier --check \"./src/**/*.{js,jsx,ts,tsx}\" ./scripts \"./android/app/src/main/assets/js/**/*.js\"",
     "type-check": "tsc --noEmit",
     "test": "jest --passWithNoTests && node ./scripts/tts_wake_cycle_test.js",
     "test:tts-refill": "node ./scripts/tts_refill_simulator.js",
@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@cd-z/react-native-epub-creator": "^3.0.0",
-    "@gorhom/bottom-sheet": "^5.2.6",
+    "@gorhom/bottom-sheet": "^5.2.8",
     "@legendapp/list": "^2.0.16",
     "@react-native-community/slider": "^5.1.1",
     "@react-native-cookies/cookies": "^6.2.1",
@@ -134,6 +134,7 @@
     "@typescript-eslint/parser": "^8.48.1",
     "babel-plugin-module-resolver": "^5.0.2",
     "babel-plugin-react-compiler": "19.1.0-rc.3",
+    "babel-plugin-transform-remove-console": "^6.9.4",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -149,7 +150,7 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
-      "prettier --check"
+      "prettier --write"
     ]
   },
   "engines": {

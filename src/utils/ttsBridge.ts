@@ -1,12 +1,24 @@
-export function postTtsSettingsToWebView(settings: any) {
+interface TTSSettings {
+  [key: string]: unknown;
+}
+
+interface WebViewWindow extends Window {
+  ReactNativeWebView?: {
+    postMessage: (message: string) => void;
+  };
+  __LNREADER_NONCE__?: string;
+}
+
+export function postTtsSettingsToWebView(settings: TTSSettings): boolean {
   try {
     if (
       typeof window !== 'undefined' &&
-      (window as any).ReactNativeWebView &&
-      (window as any).ReactNativeWebView.postMessage
+      (window as unknown as WebViewWindow).ReactNativeWebView &&
+      (window as unknown as WebViewWindow).ReactNativeWebView?.postMessage
     ) {
-      const nonce = (window as any).__LNREADER_NONCE__;
-      (window as any).ReactNativeWebView.postMessage(
+      const webViewWindow = window as unknown as WebViewWindow;
+      const nonce = webViewWindow.__LNREADER_NONCE__;
+      webViewWindow.ReactNativeWebView?.postMessage(
         JSON.stringify({
           type: 'tts-update-settings',
           data: settings,
@@ -17,7 +29,7 @@ export function postTtsSettingsToWebView(settings: any) {
     }
     // Not available - nothing to do
     return false;
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 }

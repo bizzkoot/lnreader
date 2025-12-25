@@ -6,6 +6,13 @@ This file contains the architectural decisions and design patterns for the Memor
 
 ## Architectural Decisions
 
+- Use WebView opacity transitions to hide DOM regeneration during auto-trim
+- Implement boundary tracking system for intelligent chapter management
+- Use getChapter() instead of setChapter() for proper chapter transitions
+- Handle both original chapters (no wrapper) and stitched chapters (with wrapper) in trim logic
+
+
+
 - TTS wake/resume queue handling: clear stale queue on wake start, track ttsSession, add wake-resume grace period, validate queue bounds and enforce monotonic lastSpokenIndex. Added Unified Batch playback resilience and exit dialog smart resume heuristics.
 
 - Retry + fallback in TTSAudioManager.refillQueue to handle intermittent addToBatch rejections; try addToBatch up to 3 attempts with backoff, then if native queue is empty fallback to speakBatch to restart playback.
@@ -129,6 +136,13 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 
 ## Design Considerations
 
+- 350ms transition flash is acceptable for current implementation
+- Dual WebView architecture could eliminate transition flash but adds complexity
+- Threshold customization would improve user experience
+- Adaptive timing could reduce transition delay
+
+
+
 - Prevented paragraph duplication/skips on screen wake cycles
 
 - Native TTS can intermittently return non-SUCCESS; this leads to failing queue refills which stops background TTS.
@@ -136,6 +150,31 @@ If you need a full chronological log or the 16-commit delta you mentioned earlie
 - Keep debug logs minimal and rely on existing logDebug/logError helpers; avoid leaving experimental [DEBUG] markers.
 
 ## Components
+
+### Continuous Scroll Engine
+
+Core functionality for stitching chapters and managing boundaries
+
+**Responsibilities:**
+
+- Track chapter boundaries
+- Trigger chapter appends at 95% scroll
+- Calculate trim thresholds
+- Execute DOM transitions
+
+### Session Persistence System
+
+Progress tracking across chapter boundaries
+
+**Responsibilities:**
+
+- Save progress for stitched chapters
+- Maintain chapter_BOUNDARY data
+- Handle session restore correctly
+
+
+
+
 
 ### WebViewReader
 

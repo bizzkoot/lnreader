@@ -73,3 +73,19 @@ Key architectural improvements:
 
 Recommendation: STOP here. Further refactoring (Phase 3) has HIGH RISK due to complex wake cycle, WebView message handler, and native event listeners. Current state is production-ready. |
 | 2025-12-18 | Force Novel chapter list to refresh on progress changes by adding a progress-derived aggregate to LegendList `extraData` (`chaptersProgressSum`). | LegendList virtualization + possibly stable `chapters` reference prevented frequent re-renders; progress updates were saved correctly but UI stayed stale. Using a cheap aggregate avoids heavy refetch and keeps ChapterItem memoization. |
+| 2025-12-20 | Added comprehensive debug logs to diagnose boundary mismatch bug instead of guessing at fixes | User tested DOM trim fix twice - both times failed. Logs revealed paragraphs 214+ (Ch3) were NOT matching any boundary, causing trim check to never run. Rather than guess at another fix, added debug logs to reveal:
+1. Exact boundary calculation during append (total elements, chapter elements, start/end indices)
+2. All boundary ranges before matching (to see if ranges are correct)
+3. Which boundary each paragraph matches (or if no match)
+
+This approach ensures we fix the ACTUAL root cause (boundary calculation or matching logic) instead of iterating blindly. Also discovered dev builds cache `core.js` - user's logs showed OLD format instead of NEW code. |
+| 2025-12-21 | Continuous Scrolling Implementation Completed Successfully | All core features of continuous scrolling have been implemented and validated through user testing:
+1. DOM stitching at 95% scroll seamless
+2. Auto-trim triggers at 15% progression into next chapter
+3. TTS integration works correctly after trim operations
+4. Session persistence with accurate save states
+5. WebView opacity transition hides DOM regeneration (350ms)
+
+The feature is production-ready with documented enhancement opportunities for future improvements. |
+| 2025-12-21 | Abandoned dual WebView approach for reader transitions - React Native layout engine splits container 50/50 between two WebViews regardless of opacity/z-index | Investigation revealed React Native cannot properly layout two full-screen WebViews in same container. Researched Mihon (Tachiyomi) manga reader - they use RecyclerView/ViewPager with item recycling, NOT dual overlaying WebViews. Original single WebView with opacity transitions is the correct solution. Optimized transition timing from 350ms to 200ms (43% faster) for better UX. |
+| 2025-12-22 | EPUB TTS synchronization fix - call enhanceChapterTitles() on initial page load via IIFE | HTML is pre-loaded in WebView template before core.js runs, so enhanceChapterTitles was never called on initial load. Added initialEnhancement() IIFE that runs once when page loads. Used 'const self = this' pattern because window.reader doesn't exist during constructor execution. Changed title styling to 'color: inherit' for TTS highlight visibility. |

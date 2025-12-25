@@ -1,17 +1,24 @@
-# Progress (Updated: 2025-12-18)
+# Progress (Updated: 2025-12-25)
 
 ## Done
 
-- Fix TTS WebView save to use paragraph-based percentage (matches unified save)
-- Add Jest coverage for WebView save handler + update exit dialog handler tests
-- Fix chapter list refresh to reflect live progress updates during TTS
-- Unblock TS type-check by excluding legacy WebViewReader_Backup.tsx
+- Phase 1 Task 1.1: TTS error path tests (12 tests added)
+- Phase 1 Task 1.2: WebView security tests (28 tests added)
+- Coverage increased: 38.09% → 38.45% (+16 lines)
+- All 662 tests passing (quality gates: type-check ✅ lint ✅)
+- CODE_REVIEW_ACTION_PLAN.md updated with Phase 1 progress
+- Git commit & push successful (commit 24018eacc)
+- Session summary created (.agents/SESSION_SUMMARY_2025-12-25.md)
 
 ## Doing
 
-
+- Phase 1 Task 1.3: TTS state transition tests (not started, paused for next session)
 
 ## Next
 
-- Commit and push changes
-- (Optional) Remove noisy ResizeObserver console logs before release
+- Resume Phase 1 Task 1.3: Add TTS state transition tests
+- Test assertValidTransition() with invalid transitions
+- Add TTSHighlight error path tests (currently 71% covered)
+- Add reader hook edge case tests
+- Verify Phase 1 completion (45% coverage target)
+- Continue to Phase 2 after Phase 1 complete

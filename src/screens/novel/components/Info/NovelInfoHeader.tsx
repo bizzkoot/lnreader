@@ -26,7 +26,7 @@ import { getString } from '@strings/translations';
 import { filterColor } from '@theme/colors';
 import { ChapterInfo, NovelInfo as NovelData } from '@database/types';
 import { ThemeColors } from '@theme/types';
-import { GlobalSearchScreenProps } from '@navigators/types';
+import { GlobalSearchScreenProps, RootStackParamList } from '@navigators/types';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { UseBooleanReturnType } from '@hooks';
 import { useAppSettings } from '@hooks/persisted';
@@ -36,6 +36,7 @@ import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { AVAILABLE_PLUGINS } from '@hooks/persisted/usePlugins';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 import {
   NovelMetaSkeleton,
@@ -51,7 +52,9 @@ interface NovelInfoHeaderProps {
   isLoading: boolean;
   lastRead?: ChapterInfo;
   navigateToChapter: (chapter: ChapterInfo) => void;
-  navigation: GlobalSearchScreenProps['navigation'];
+  navigation:
+    | GlobalSearchScreenProps['navigation']
+    | StackNavigationProp<RootStackParamList>;
   novel: NovelData | (Omit<NovelData, 'id'> & { id: 'NO_ID' });
   novelBottomSheetRef: React.RefObject<BottomSheetModalMethods | null>;
   onRefreshPage: (page: string) => void;

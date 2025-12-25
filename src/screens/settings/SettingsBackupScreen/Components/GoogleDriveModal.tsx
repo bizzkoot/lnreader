@@ -15,6 +15,11 @@ import dayjs from 'dayjs';
 import ServiceManager from '@services/ServiceManager';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const driveModalLog = createRateLimitedLogger('GoogleDriveModal', {
+  windowMs: 1500,
+});
 enum BackupModal {
   UNAUTHORIZED,
   AUTHORIZED,
@@ -34,10 +39,20 @@ function Authorized({
   styles: GoogleDriveStyles;
 }) {
   const signOut = () => {
-    GoogleSignin.signOut().then(() => {
-      setUser();
-      setBackupModal(BackupModal.UNAUTHORIZED);
-    });
+    GoogleSignin.signOut()
+      .then(() => {
+        setUser();
+        setBackupModal(BackupModal.UNAUTHORIZED);
+      })
+      .catch(err => {
+        driveModalLog.error(
+          'signout-failed',
+          'Failed to sign out from Google',
+          err,
+        );
+        setUser();
+        setBackupModal(BackupModal.UNAUTHORIZED);
+      });
   };
   return (
     <>
@@ -81,6 +96,14 @@ function UnAuthorized({
       .then(response => {
         setUser(response?.data);
         setBackupModal(BackupModal.AUTHORIZED);
+      })
+      .catch(err => {
+        driveModalLog.error(
+          'signin-failed',
+          'Failed to sign in to Google',
+          err,
+        );
+        showToast('Failed to sign in to Google');
       });
   };
   return (
@@ -138,13 +161,22 @@ function CreateBackup({
           disabled={backupName.trim().length === 0 || fetching}
           title={getString('common.ok')}
           onPress={() => {
-            prepare().then(folder => {
-              closeModal();
-              ServiceManager.manager.addTask({
-                name: 'DRIVE_BACKUP',
-                data: folder,
+            prepare()
+              .then(folder => {
+                closeModal();
+                ServiceManager.manager.addTask({
+                  name: 'DRIVE_BACKUP',
+                  data: folder,
+                });
+              })
+              .catch(err => {
+                driveModalLog.error(
+                  'prepare-backup-failed',
+                  'Failed to prepare backup folder',
+                  err,
+                );
+                showToast('Failed to prepare backup folder');
               });
-            });
           }}
         />
         <Button
@@ -169,11 +201,21 @@ function RestoreBackup({
 }) {
   const [backupList, setBackupList] = useState<DriveFile[]>([]);
   useEffect(() => {
-    exists('LNReader', true, undefined, true).then(rootFolder => {
-      if (rootFolder) {
-        getBackups(rootFolder.id, true).then(backups => setBackupList(backups));
-      }
-    });
+    exists('LNReader', true, undefined, true)
+      .then(rootFolder => {
+        if (rootFolder) {
+          return getBackups(rootFolder.id, true);
+        }
+        return [];
+      })
+      .then(backups => setBackupList(backups))
+      .catch(err => {
+        driveModalLog.error(
+          'load-backups-failed',
+          'Failed to load backup list',
+          err,
+        );
+      });
   }, []);
 
   const emptyComponent = useCallback(() => {
@@ -362,15 +404,23 @@ export default function GoogleDriveModal({
             <TouchableOpacity
               onLongPress={() => {
                 if (user?.user.email) {
-                  Clipboard.setStringAsync(user.user.email).then(success => {
-                    if (success) {
-                      showToast(
-                        getString('common.copiedToClipboard', {
-                          name: user.user.email,
-                        }),
+                  Clipboard.setStringAsync(user.user.email)
+                    .then(success => {
+                      if (success) {
+                        showToast(
+                          getString('common.copiedToClipboard', {
+                            name: user.user.email,
+                          }),
+                        );
+                      }
+                    })
+                    .catch(err => {
+                      driveModalLog.error(
+                        'copy-email-failed',
+                        'Failed to copy email to clipboard',
+                        err,
                       );
-                    }
-                  });
+                    });
                 }
               }}
             >

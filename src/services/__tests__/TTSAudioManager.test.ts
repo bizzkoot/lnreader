@@ -1,5 +1,6 @@
 import TTSHighlight, { TTSVoice, TTSParams } from '../TTSHighlight';
 import TTSAudioManager from '../TTSAudioManager';
+import { TTSState } from '../TTSState';
 
 // Mock dependencies
 jest.mock('react-native', () => ({
@@ -23,11 +24,9 @@ jest.mock('../TTSAudioManager', () => ({
   speakBatch: jest.fn(),
   stop: jest.fn(),
   fullStop: jest.fn(),
-  setRestartInProgress: jest.fn(),
-  isRestartInProgress: jest.fn(),
-  setRefillInProgress: jest.fn(),
-  isRefillInProgress: jest.fn(),
   hasRemainingItems: jest.fn(),
+  getState: jest.fn(),
+  hasQueuedNativeInCurrentSession: jest.fn(),
 }));
 
 describe('TTSHighlight Service', () => {
@@ -120,49 +119,28 @@ describe('TTSHighlight Service', () => {
     });
   });
 
-  describe('restart management', () => {
-    it('should set restart in progress', () => {
-      const mockSetRestartInProgress =
-        TTSAudioManager.setRestartInProgress as jest.Mock;
+  describe('state management', () => {
+    it('should check restart using state enum', () => {
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
+      mockGetState.mockReturnValue(TTSState.STARTING);
 
-      TTSHighlight.setRestartInProgress(true);
+      const result = TTSAudioManager.getState();
 
-      expect(mockSetRestartInProgress).toHaveBeenCalledWith(true);
+      expect(result).toBe(TTSState.STARTING);
+      expect([TTSState.STARTING, TTSState.STOPPING]).toContain(result);
     });
 
-    it('should check if restart is in progress', () => {
-      const mockIsRestartInProgress =
-        TTSAudioManager.isRestartInProgress as jest.Mock;
-      mockIsRestartInProgress.mockReturnValue(true);
+    it('should check refill using state enum', () => {
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
+      mockGetState.mockReturnValue(TTSState.REFILLING);
 
-      const result = TTSHighlight.isRestartInProgress();
+      const result = TTSAudioManager.getState();
 
-      expect(mockIsRestartInProgress).toHaveBeenCalled();
-      expect(result).toBe(true);
+      expect(result).toBe(TTSState.REFILLING);
     });
   });
 
-  describe('refill management', () => {
-    it('should set refill in progress', () => {
-      const mockSetRefillInProgress =
-        TTSAudioManager.setRefillInProgress as jest.Mock;
-
-      TTSHighlight.setRefillInProgress(true);
-
-      expect(mockSetRefillInProgress).toHaveBeenCalledWith(true);
-    });
-
-    it('should check if refill is in progress', () => {
-      const mockIsRefillInProgress =
-        TTSAudioManager.isRefillInProgress as jest.Mock;
-      mockIsRefillInProgress.mockReturnValue(true);
-
-      const result = TTSHighlight.isRefillInProgress();
-
-      expect(mockIsRefillInProgress).toHaveBeenCalled();
-      expect(result).toBe(true);
-    });
-
+  describe('queue management', () => {
     it('should check if remaining items exist', () => {
       const mockHasRemainingItems =
         TTSAudioManager.hasRemainingItems as jest.Mock;
@@ -290,6 +268,91 @@ describe('TTSHighlight Service', () => {
 
       expect(result).toContain('English (US)');
       expect(result).toContain('Voice');
+    });
+  });
+
+  describe('State transitions', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should start in IDLE state', () => {
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
+      mockGetState.mockReturnValue(TTSState.IDLE);
+
+      expect(TTSAudioManager.getState()).toBe(TTSState.IDLE);
+    });
+
+    it('should transition IDLE → STARTING → PLAYING on speakBatch', async () => {
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
+      const mockSpeakBatch = TTSAudioManager.speakBatch as jest.Mock;
+
+      // Initially IDLE
+      mockGetState.mockReturnValue(TTSState.IDLE);
+      expect(TTSAudioManager.getState()).toBe(TTSState.IDLE);
+
+      // After speakBatch starts → STARTING
+      mockSpeakBatch.mockResolvedValue(2);
+
+      // Call speakBatch
+      const speakPromise = TTSHighlight.speakBatch(
+        ['text1', 'text2'],
+        ['id1', 'id2'],
+        {},
+      );
+
+      // During execution, state should be STARTING
+      mockGetState.mockReturnValue(TTSState.STARTING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.STARTING);
+
+      await speakPromise;
+
+      expect(mockSpeakBatch).toHaveBeenCalled();
+
+      // After speakBatch completes → PLAYING
+      mockGetState.mockReturnValue(TTSState.PLAYING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.PLAYING);
+    });
+
+    it('should transition PLAYING → REFILLING → PLAYING during refill', () => {
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
+
+      // Currently PLAYING
+      mockGetState.mockReturnValueOnce(TTSState.PLAYING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.PLAYING);
+
+      // During refill → REFILLING
+      mockGetState.mockReturnValueOnce(TTSState.REFILLING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.REFILLING);
+
+      // After refill completes → PLAYING
+      mockGetState.mockReturnValueOnce(TTSState.PLAYING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.PLAYING);
+    });
+
+    it('should transition to IDLE after stop', async () => {
+      const mockGetState = TTSAudioManager.getState as jest.Mock;
+      const mockStop = TTSAudioManager.stop as jest.Mock;
+
+      // Currently PLAYING
+      mockGetState.mockReturnValue(TTSState.PLAYING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.PLAYING);
+
+      // Stop initiated
+      mockStop.mockResolvedValue(true);
+      const stopPromise = TTSHighlight.stop();
+
+      // During stop → STOPPING
+      mockGetState.mockReturnValue(TTSState.STOPPING);
+      expect(TTSAudioManager.getState()).toBe(TTSState.STOPPING);
+
+      await stopPromise;
+
+      expect(mockStop).toHaveBeenCalled();
+
+      // After stop completes → IDLE
+      mockGetState.mockReturnValue(TTSState.IDLE);
+      expect(TTSAudioManager.getState()).toBe(TTSState.IDLE);
     });
   });
 });

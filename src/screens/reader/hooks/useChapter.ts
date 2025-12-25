@@ -149,8 +149,12 @@ export default function useChapter(
           ),
         );
         setAdjacentChapter([nextChap!, prevChap!]);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError(String(e));
+        }
       } finally {
         setLoading(false);
       }
@@ -315,6 +319,7 @@ export default function useChapter(
       setChapter,
       setLoading,
       getChapter,
+      setAdjacentChapter, // Expose for DOM stitching nextChapter updates
       savedParagraphIndex: MMKVStorage.getNumber(
         `chapter_progress_${chapter.id}`,
       ),
@@ -335,6 +340,7 @@ export default function useChapter(
       setChapter,
       setLoading,
       getChapter,
+      setAdjacentChapter,
     ],
   );
 }

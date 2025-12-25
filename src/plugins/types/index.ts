@@ -69,7 +69,7 @@ export interface ImageRequestInit {
 export interface Plugin extends PluginItem {
   imageRequestInit: ImageRequestInit;
   filters?: Filters;
-  pluginSettings: any;
+  pluginSettings: Record<string, unknown>;
   popularNovels: (
     pageNo: number,
     options?: PopularNovelsOptions<Filters>,

@@ -1,5 +1,12 @@
 /* eslint-disable no-console */
+// Global DEBUG flag - must be before window.reader to be accessible by all functions
+// eslint-disable-next-line no-var
+var DEBUG = initialReaderConfig.DEBUG;
+
 window.reader = new (function () {
+  // Unique ID to track reader object instances
+  this._readerId = 'reader_' + Date.now() + '_' + Math.random();
+
   const {
     readerSettings,
     chapterGeneralSettings,
@@ -9,9 +16,12 @@ window.reader = new (function () {
     prevChapter,
     batteryLevel,
     autoSaveInterval,
-    DEBUG,
     strings,
   } = initialReaderConfig;
+
+  if (DEBUG) {
+    console.log('[Reader] Created new reader instance:', this._readerId);
+  }
 
   // state
   this.hidden = van.state(true);
@@ -50,11 +60,25 @@ window.reader = new (function () {
   this.isUserScrolling = false;
   this.scrollTimeout = null;
 
+  // Reader Enhancements: Auto-mark short chapters & Continuous scrolling
+  this.hasAutoMarkedShortChapter = false; // Flag to prevent duplicate auto-mark
+  this.isNavigating = false; // Flag to prevent duplicate navigation in continuous scroll
+
+  // DOM Stitching: Multi-chapter support
+  this.loadedChapters = [chapter.id]; // Track chapters loaded in DOM
+  this.pendingChapterFetch = false; // Prevent duplicate fetches
+  this.currentVisibleChapter = chapter.id; // Track which chapter is currently visible
+  this.chapterBoundaries = []; // Track [{ chapterId, startIndex, endIndex, paragraphCount }]
+  // Boundary initialization flags to prevent duplicate initialization
+  this._boundariesInitializing = false;
+  this._boundariesInitialized = false;
+
   this.post = obj => {
     try {
       if (typeof window.__LNREADER_NONCE__ === 'string') {
         obj.nonce = window.__LNREADER_NONCE__;
       }
+      obj.ts = Date.now();
     } catch (e) {}
     window.ReactNativeWebView.postMessage(JSON.stringify(obj));
   };
@@ -63,6 +87,1098 @@ window.reader = new (function () {
       this.chapterWidth = this.chapterElement.scrollWidth;
     } else {
       this.chapterHeight = this.chapterElement.scrollHeight + this.paddingTop;
+    }
+  };
+
+  // Reader Enhancements: Auto-mark short chapters (Phase 2)
+  this.checkShortChapterAutoMark = function () {
+    // Only auto-mark if feature is enabled
+    if (!this.generalSettings.val.autoMarkShortChapters) {
+      return;
+    }
+
+    // Prevent duplicate auto-mark (already done for this chapter)
+    if (this.hasAutoMarkedShortChapter) {
+      return;
+    }
+
+    // Skip if TTS is active (let TTS control progression)
+    if (window.tts && window.tts.reading) {
+      return;
+    }
+
+    // Wait for layout to stabilize (fonts + images)
+    const attemptAutoMark = () => {
+      // Refresh dimensions
+      this.chapterHeight = this.chapterElement.scrollHeight + this.paddingTop;
+
+      // Check if chapter is shorter than screen (no scrolling possible)
+      const isShortChapter = this.chapterHeight <= this.layoutHeight;
+
+      if (isShortChapter) {
+        // Get final paragraph index for TTS state
+        const paragraphs = Array.from(
+          this.chapterElement.querySelectorAll('p'),
+        );
+        const finalParagraphIndex = Math.max(0, paragraphs.length - 1);
+
+        // Mark chapter as 100% read
+        this.post({
+          type: 'save',
+          data: 100, // 100% progress
+          chapterId: this.chapter.id,
+          paragraphIndex: finalParagraphIndex,
+        });
+
+        this.hasAutoMarkedShortChapter = true;
+        if (DEBUG) {
+          console.log(
+            `Reader: Auto-marked short chapter (height: ${this.chapterHeight}px, screen: ${this.layoutHeight}px)`,
+          );
+        }
+      }
+    };
+
+    // Delay for image loading (500ms is safe for most images)
+    setTimeout(attemptAutoMark, 500);
+  };
+
+  // Reader Enhancements: Continuous scrolling (Phase 3)
+  this.checkContinuousScroll = function () {
+    // Only if continuous scrolling is enabled
+    if (this.generalSettings.val.continuousScrolling === 'disabled') {
+      return;
+    }
+
+    // Skip if TTS is reading (TTS has own chapter progression)
+    if (window.tts && window.tts.reading) {
+      return;
+    }
+
+    // Skip if no next chapter
+    if (!this.nextChapter) {
+      return;
+    }
+
+    // Prevent duplicate navigation (debounce)
+    if (this.isNavigating) {
+      return;
+    }
+
+    // Calculate scroll percentage
+    const scrollY = window.scrollY;
+    const scrollHeight = this.chapterElement.scrollHeight;
+    const clientHeight = window.innerHeight;
+    const scrollableDistance = scrollHeight - clientHeight;
+
+    if (scrollableDistance <= 0) {
+      // Chapter is shorter than screen, no scrolling possible
+      return;
+    }
+
+    // Use Math.round to prevent floating-point precision issues (e.g., 89.999% vs 90%)
+    const scrollPercentage = Math.round((scrollY / scrollableDistance) * 100);
+
+    // Trigger at configured stitch threshold (default 90%)
+    const stitchThreshold =
+      this.generalSettings.val.continuousScrollStitchThreshold || 90;
+    if (scrollPercentage >= stitchThreshold) {
+      this.performContinuousNavigation();
+    }
+  };
+
+  this.performContinuousNavigation = function () {
+    const mode = this.generalSettings.val.continuousScrolling;
+    const boundaryMode = this.generalSettings.val.continuousScrollBoundary;
+
+    // Set navigation flag to prevent duplicate triggers
+    this.isNavigating = true;
+
+    // Save 100% progress before loading next chapter
+    this.post({
+      type: 'save',
+      data: 100,
+      chapterId: this.chapter.id,
+      paragraphIndex: this.getReadableElements().length - 1,
+    });
+
+    if (DEBUG) {
+      console.log(
+        `Reader: Continuous scroll triggered (mode: ${mode}, boundary: ${boundaryMode}, next: ${this.nextChapter.name})`,
+      );
+    }
+
+    // Trigger DOM stitching - append next chapter content
+    this.loadAndAppendNextChapter();
+  };
+
+  // DOM Stitching: Load and append next chapter to DOM
+  this.loadAndAppendNextChapter = function () {
+    if (this.pendingChapterFetch) {
+      if (DEBUG) {
+        console.log('Reader: Already fetching chapter, skipping');
+      }
+      return;
+    }
+
+    if (!this.nextChapter) {
+      if (DEBUG) {
+        console.log('Reader: No next chapter available');
+      }
+      this.isNavigating = false;
+      return;
+    }
+
+    // Check if next chapter is already loaded (prevent duplicates)
+    if (this.loadedChapters.includes(this.nextChapter.id)) {
+      if (DEBUG) {
+        console.log(
+          `Reader: Chapter ${this.nextChapter.id} already loaded, skipping`,
+        );
+      }
+      this.isNavigating = false;
+      return;
+    }
+
+    this.pendingChapterFetch = true;
+
+    // Show loading indicator
+    this.post({
+      type: 'show-toast',
+      data: 'Loading next chapter...',
+    });
+
+    // Request chapter content from React Native
+    this.post({
+      type: 'fetch-chapter-content',
+      data: {
+        chapter: this.nextChapter, // Pass full chapter object
+      },
+    });
+  };
+
+  // DOM Stitching: Receive and append chapter content from React Native
+  this.receiveChapterContent = function (chapterId, chapterName, chapterHtml) {
+    this.pendingChapterFetch = false;
+
+    if (!chapterHtml) {
+      console.error('Reader: Received empty chapter content');
+      this.isNavigating = false;
+      return;
+    }
+
+    const boundaryMode = this.generalSettings.val.continuousScrollBoundary;
+
+    // Create chapter container with boundary
+    const chapterContainer = document.createElement('div');
+    chapterContainer.className = 'stitched-chapter';
+    chapterContainer.setAttribute('data-chapter-id', chapterId);
+    chapterContainer.setAttribute('data-chapter-name', chapterName);
+
+    // Add boundary based on mode
+    if (boundaryMode === 'bordered') {
+      // Bordered mode: visible separator with chapter title
+      // Get previous chapter name from DOM (last loaded chapter)
+      const previousChapters =
+        this.chapterElement.querySelectorAll('[data-chapter-id]');
+      const previousChapterName =
+        previousChapters.length > 0
+          ? previousChapters[previousChapters.length - 1].getAttribute(
+              'data-chapter-name',
+            )
+          : this.chapter.name;
+
+      const separator = document.createElement('div');
+      separator.className = 'chapter-boundary-bordered';
+      separator.innerHTML = `
+        <div class="chapter-boundary-end">— End of ${previousChapterName} —</div>
+        <div class="chapter-boundary-start">— ${chapterName} —</div>
+      `;
+      chapterContainer.appendChild(separator);
+    } else {
+      // Stitched mode: show floating badge briefly
+      this.showChapterBadge(chapterName);
+    }
+
+    // Add chapter content
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'stitched-chapter-content';
+
+    // INVESTIGATION: Debug stitched chapter enhancement
+    if (DEBUG) {
+      console.log('[STITCHED] Method called!');
+      console.log('[STITCHED] chapterData type:', typeof chapterData);
+      console.log('[STITCHED] chapterData:', chapterData);
+      console.log(
+        '[STITCHED] enhanceChapterTitles exists:',
+        typeof this.enhanceChapterTitles,
+      );
+    }
+
+    // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
+    // Check if chapter has a title in chapterData, enhance if needed
+    if (DEBUG) {
+      console.log(
+        '[ENHANCE] Stitched chapter enhancement - checking data:',
+        typeof chapterData,
+      );
+    }
+
+    let chapterTitle = '';
+    if (typeof chapterData === 'object' && chapterData.name) {
+      chapterTitle = chapterData.name;
+    } else if (typeof chapterData === 'string') {
+      chapterTitle = chapterData;
+    } else {
+      chapterTitle = `Chapter ${chapterData.id || 'Unknown'}`;
+    }
+
+    if (DEBUG) {
+      console.log('[ENHANCE] Stitched chapter - using title:', chapterTitle);
+    }
+    if (chapterTitle) {
+      chapterHtml = this.enhanceChapterTitles(chapterHtml, chapterTitle);
+      if (DEBUG) {
+        console.log(
+          '[STITCHED] Stitched enhancement completed. New HTML length:',
+          chapterHtml.length,
+        );
+      }
+    } else {
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Stitched chapter - no title available, skipping enhancement',
+        );
+      }
+    }
+
+    contentDiv.innerHTML = chapterHtml;
+    chapterContainer.appendChild(contentDiv);
+
+    // Append to main chapter element
+    this.chapterElement.appendChild(chapterContainer);
+
+    // Calculate and store boundary for this chapter
+    // IMPORTANT: Must invalidate cache BEFORE getting elements so the new chapter's elements are included
+    this.invalidateCache();
+    const allElements = this.getReadableElements();
+
+    // Count readable elements in the new chapter container using the same logic as getReadableElements()
+    // NOTE: We can't use querySelectorAll('.readable') because elements don't have that class.
+    // Readable elements are identified by nodeName (P, DIV, H1-H6, etc.) via window.tts.readable()
+    const countReadableInContainer = container => {
+      let count = 0;
+      const traverse = node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (window.tts.readable(node) && !window.tts.isContainer(node)) {
+            count++;
+          } else {
+            for (let i = 0; i < node.children.length; i++) {
+              traverse(node.children[i]);
+            }
+          }
+        }
+      };
+      traverse(container);
+      return count;
+    };
+
+    const chapterElementCount = countReadableInContainer(chapterContainer);
+    const newChapterStart = allElements.length - chapterElementCount;
+    const newChapterEnd = allElements.length - 1;
+
+    if (DEBUG) {
+      console.log(
+        `[receiveChapterContent] BOUNDARY DEBUG - ` +
+          `Chapter: ${chapterId}, ` +
+          `Total elements: ${allElements.length}, ` +
+          `Chapter elements: ${chapterElementCount}, ` +
+          `Calculated start: ${newChapterStart}, ` +
+          `Calculated end: ${newChapterEnd}, ` +
+          `Count: ${newChapterEnd - newChapterStart + 1}`,
+      );
+    }
+
+    this.chapterBoundaries.push({
+      chapterId: chapterId,
+      startIndex: newChapterStart,
+      endIndex: newChapterEnd,
+      // Ensure minimum count of 1 to handle single paragraph chapters
+      paragraphCount: Math.max(1, newChapterEnd - newChapterStart + 1),
+    });
+
+    // Update tracking with error recovery
+    // Wrap the critical section in try-catch to ensure cleanup on failure
+    try {
+      this.loadedChapters.push(chapterId);
+      if (DEBUG) {
+        console.log(
+          `[receiveChapterContent] ReaderId=${this._readerId}, After push: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}, hasPerformedInitialScroll = ${this.hasPerformedInitialScroll}`,
+        );
+      }
+
+      // Update chapter reference for future navigation
+      // Note: React Native side needs to update nextChapter/prevChapter
+      this.post({
+        type: 'chapter-appended',
+        data: {
+          chapterId: chapterId,
+          chapterName: chapterName,
+          loadedChapters: this.loadedChapters,
+        },
+      });
+
+      // Refresh layout calculations
+      this.refresh();
+      if (DEBUG) {
+        console.log(
+          `[receiveChapterContent] Before invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+        );
+      }
+      this.invalidateCache();
+      if (DEBUG) {
+        console.log(
+          `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
+        );
+      }
+
+      // Reset navigation flag after delay
+      setTimeout(() => {
+        this.isNavigating = false;
+      }, 500);
+
+      if (DEBUG) {
+        console.log(
+          `Reader: Appended chapter ${chapterName} (total loaded: ${this.loadedChapters.length})`,
+        );
+      }
+    } catch (err) {
+      // Cleanup: Remove chapterId from loadedChapters if push succeeded but later operations failed
+      const idx = this.loadedChapters.indexOf(chapterId);
+      if (idx > -1) {
+        this.loadedChapters.splice(idx, 1);
+        if (DEBUG) {
+          console.log(
+            `[receiveChapterContent] Cleanup: Removed ${chapterId} from loadedChapters after error`,
+          );
+        }
+      }
+      this.isNavigating = false;
+      console.error(
+        '[receiveChapterContent] Error during chapter append:',
+        err,
+      );
+      throw err; // Re-throw for upstream error handling
+    }
+  };
+
+  // DOM Stitching: Show chapter badge for stitched mode
+  this.showChapterBadge = function (chapterName) {
+    // Create or reuse badge element
+    let badge = document.getElementById('chapter-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'chapter-badge';
+      badge.className = 'chapter-badge';
+      document.body.appendChild(badge);
+    }
+
+    badge.textContent = chapterName;
+    badge.classList.add('visible');
+
+    // Fade out after 3 seconds
+    setTimeout(() => {
+      badge.classList.remove('visible');
+    }, 3000);
+  };
+
+  // DOM Stitching: Clear stitched chapters to currently visible chapter (for TTS)
+  this.clearStitchedChapters = function () {
+    if (this.loadedChapters.length <= 1) {
+      return false; // Nothing to clear
+    }
+
+    if (DEBUG) {
+      console.log(
+        `Reader: Clearing ${this.loadedChapters.length - 1} stitched chapters for TTS`,
+      );
+    }
+
+    // CRITICAL FIX: Find which chapter is currently visible
+    const readableElements = this.getReadableElements();
+    let firstVisibleIndex = -1;
+
+    for (let i = 0; i < readableElements.length; i++) {
+      const element = readableElements[i];
+      if (!element) continue;
+
+      const rect = element.getBoundingClientRect();
+      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+      if (isVisible) {
+        firstVisibleIndex = i;
+        break;
+      }
+    }
+
+    // Determine visible chapter from boundaries
+    let visibleChapterId = this.chapter.id;
+    let visibleChapterName = this.chapter.name;
+    let visibleChapterIndex = 0;
+    let foundBoundaryMatch = false;
+
+    if (firstVisibleIndex !== -1 && this.chapterBoundaries.length > 0) {
+      for (let i = 0; i < this.chapterBoundaries.length; i++) {
+        const boundary = this.chapterBoundaries[i];
+        if (
+          firstVisibleIndex >= boundary.startIndex &&
+          firstVisibleIndex <= boundary.endIndex
+        ) {
+          visibleChapterId = boundary.chapterId;
+          visibleChapterIndex = i;
+          foundBoundaryMatch = true;
+
+          // Get chapter name from DOM
+          const chapterEl = this.chapterElement.querySelector(
+            `[data-chapter-id="${visibleChapterId}"]`,
+          );
+          if (chapterEl) {
+            visibleChapterName =
+              chapterEl.getAttribute('data-chapter-name') || this.chapter.name;
+          }
+
+          if (DEBUG) {
+            console.log(
+              `Reader: Visible chapter is ${visibleChapterName} (ID: ${visibleChapterId}, index: ${i})`,
+            );
+          }
+          break;
+        }
+      }
+
+      // WARN if no boundary matched - this indicates a boundary calculation bug
+      if (!foundBoundaryMatch) {
+        console.warn(
+          `Reader: WARNING - Paragraph ${firstVisibleIndex} did not match any boundary! Boundaries: ${JSON.stringify(this.chapterBoundaries.map(b => ({ id: b.chapterId, start: b.startIndex, end: b.endIndex })))}`,
+        );
+      }
+    }
+
+    // Remove ALL chapter elements from DOM
+    const allStitchedElements =
+      this.chapterElement.querySelectorAll('.stitched-chapter');
+
+    if (DEBUG) {
+      console.log(
+        `Reader: Found ${allStitchedElements.length} stitched chapter elements`,
+      );
+      console.log(
+        `Reader: Visible chapter is at boundary index ${visibleChapterIndex} (ID: ${visibleChapterId})`,
+      );
+    }
+
+    if (visibleChapterIndex === 0) {
+      // Visible chapter is the ORIGINAL chapter (not stitched)
+      // Remove all stitched elements (Chapter 3, 4, etc.)
+      if (DEBUG) {
+        console.log(
+          'Reader: Visible chapter is original, removing all stitched chapters',
+        );
+      }
+      allStitchedElements.forEach(el => el.remove());
+      this.loadedChapters = [this.chapter.id];
+
+      // Keep original boundaries (just first chapter)
+      if (this.chapterBoundaries.length > 0) {
+        this.chapterBoundaries = [this.chapterBoundaries[0]];
+      }
+    } else {
+      // Visible chapter is a STITCHED chapter (Chapter 3 or 4)
+      // Find the stitched chapter element by ID
+      const visibleStitchedElement = Array.from(allStitchedElements).find(
+        el => el.getAttribute('data-chapter-id') === String(visibleChapterId),
+      );
+
+      if (!visibleStitchedElement) {
+        console.error(
+          `Reader: Could not find stitched chapter element for ID ${visibleChapterId}`,
+        );
+        // Fallback: keep original chapter
+        allStitchedElements.forEach(el => el.remove());
+        this.loadedChapters = [this.chapter.id];
+      } else {
+        console.log(
+          `Reader: Visible chapter is stitched (ID: ${visibleChapterId}), removing others`,
+        );
+
+        // Remove ORIGINAL chapter content (all non-stitched elements)
+        const originalElements = Array.from(
+          this.chapterElement.childNodes,
+        ).filter(
+          node =>
+            node.nodeType === 1 && !node.classList.contains('stitched-chapter'),
+        );
+        originalElements.forEach(el => el.remove());
+
+        // Remove all OTHER stitched chapters
+        allStitchedElements.forEach(el => {
+          if (el !== visibleStitchedElement) {
+            el.remove();
+          }
+        });
+
+        // Update tracking
+        this.loadedChapters = [visibleChapterId];
+
+        // Reset boundaries to just the visible chapter
+        // Recalculate since we removed content
+        const remainingElements = this.getReadableElements();
+        this.chapterBoundaries = [
+          {
+            chapterId: visibleChapterId,
+            startIndex: 0,
+            endIndex: remainingElements.length - 1,
+            paragraphCount: remainingElements.length,
+          },
+        ];
+
+        // CRITICAL FIX: Update this.chapter IMMEDIATELY to match the visible chapter
+        // This allows TTS to work correctly during the 200ms auto-restart delay
+        // Without this, TTS commands fail with "stale chapter" errors because
+        // this.chapter.id is still the old chapter until React Native reloads
+        this.chapter = {
+          ...this.chapter,
+          id: visibleChapterId,
+          name: visibleChapterName,
+        };
+
+        if (DEBUG) {
+          console.log(
+            `Reader: Updated chapter context immediately - ID: ${visibleChapterId}, Name: ${visibleChapterName}`,
+          );
+        }
+      }
+    }
+
+    this.pendingChapterFetch = false;
+    this.isNavigating = false;
+
+    // Refresh layout calculations
+    this.refresh();
+    this.invalidateCache();
+
+    // Notify React Native to update chapter context
+    // Include localParagraphIndex so React Native can restore scroll position after reload
+    this.post({
+      type: 'stitched-chapters-cleared',
+      data: {
+        chapterId: visibleChapterId,
+        chapterName: visibleChapterName,
+        localParagraphIndex: this.ttsRestartParagraphInChapter, // The target paragraph in the cleared chapter
+      },
+    });
+
+    if (DEBUG) {
+      console.log(
+        `Reader: Stitched chapters cleared, DOM reset to single chapter (${visibleChapterName})`,
+      );
+    }
+
+    // AUTO-RESTART TTS: If TTS was paused and user chose to resume after clear
+    if (this.ttsRestartPending && this.ttsRestartTargetChapterId !== null) {
+      const targetChapterId = this.ttsRestartTargetChapterId;
+      const targetParagraphInChapter = this.ttsRestartParagraphInChapter;
+      const shouldResume = this.ttsRestartAfterClear;
+
+      // Clear flags before restart
+      this.ttsRestartPending = false;
+      this.ttsRestartTargetChapterId = null;
+      this.ttsRestartParagraphInChapter = null;
+      this.ttsRestartAfterClear = false;
+
+      if (DEBUG) {
+        console.log(
+          `Reader: Auto-restart pending for chapter ${targetChapterId}, paragraph ${targetParagraphInChapter}, resume: ${shouldResume}`,
+        );
+      }
+
+      // Verify we cleared to the correct chapter
+      if (visibleChapterId !== targetChapterId) {
+        console.error(
+          `Reader: Auto-restart aborted - cleared to wrong chapter. Expected: ${targetChapterId}, Got: ${visibleChapterId}`,
+        );
+        return true;
+      }
+
+      // Wait for DOM to stabilize after clear
+      setTimeout(() => {
+        const readableElements = this.getReadableElements();
+        if (DEBUG) {
+          console.log(
+            `Reader: Auto-restart executing - ${readableElements.length} paragraphs available`,
+          );
+        }
+
+        if (
+          targetParagraphInChapter >= 0 &&
+          targetParagraphInChapter < readableElements.length
+        ) {
+          // Update TTS position to the target paragraph
+          if (window.tts && window.tts.changeParagraphPosition) {
+            window.tts.changeParagraphPosition(targetParagraphInChapter);
+
+            // Only resume if flag was set AND TTS is not already reading
+            if (shouldResume && !window.tts.reading) {
+              if (DEBUG) {
+                console.log(
+                  `Reader: Auto-resuming TTS at paragraph ${targetParagraphInChapter}`,
+                );
+              }
+              window.tts.resume(true); // forceResume=true to skip scroll check
+            } else if (shouldResume && window.tts.reading) {
+              if (DEBUG) {
+                console.log(
+                  'Reader: TTS already reading, skipping resume call',
+                );
+              }
+            }
+          }
+        } else {
+          console.error(
+            `Reader: Invalid restart paragraph ${targetParagraphInChapter} (total: ${readableElements.length})`,
+          );
+        }
+      }, 200);
+    }
+
+    return true;
+  };
+
+  /**
+   * Set TTS restart intent after stitched chapter clear
+   * Called by scroll sync dialog when user chooses to start TTS in a specific chapter
+   *
+   * @param {number} targetChapterId - The chapter ID to restart in (after clear, only this chapter remains)
+   * @param {number} paragraphInChapter - The paragraph index WITHIN that chapter (not global)
+   * @param {boolean} shouldResume - Whether to auto-resume after position change
+   */
+  this.setTTSRestartIntent = function (
+    targetChapterId,
+    paragraphInChapter,
+    shouldResume = false,
+  ) {
+    this.ttsRestartPending = true;
+    this.ttsRestartTargetChapterId = targetChapterId;
+    this.ttsRestartParagraphInChapter = paragraphInChapter;
+    this.ttsRestartAfterClear = shouldResume;
+    if (DEBUG) {
+      console.log(
+        `Reader: TTS restart intent stored - chapter ${targetChapterId}, paragraph ${paragraphInChapter}, resume: ${shouldResume}`,
+      );
+    }
+  };
+
+  /**
+   * Clear TTS restart intent
+   */
+  this.clearTTSRestartIntent = function () {
+    this.ttsRestartPending = false;
+    this.ttsRestartTargetChapterId = null;
+    this.ttsRestartParagraphInChapter = null;
+    this.ttsRestartAfterClear = false;
+    if (DEBUG) {
+      console.log('Reader: TTS restart intent cleared');
+    }
+  };
+
+  /**
+   * Get chapter name for a given paragraph index
+   * Used for TTS scroll sync dialog to show chapter context
+   */
+  this.getChapterNameAtParagraph = function (paragraphIndex) {
+    if (this.chapterBoundaries.length === 0) {
+      return this.chapter.name;
+    }
+
+    for (let i = 0; i < this.chapterBoundaries.length; i++) {
+      const boundary = this.chapterBoundaries[i];
+      if (
+        paragraphIndex >= boundary.startIndex &&
+        paragraphIndex <= boundary.endIndex
+      ) {
+        // Get chapter name from DOM element
+        const chapterEl = this.chapterElement.querySelector(
+          `[data-chapter-id="${boundary.chapterId}"]`,
+        );
+        if (chapterEl) {
+          return (
+            chapterEl.getAttribute('data-chapter-name') || this.chapter.name
+          );
+        }
+        return this.chapter.name;
+      }
+    }
+
+    return this.chapter.name;
+  };
+
+  /**
+   * Get chapter ID and local paragraph index for a global paragraph index
+   * Used for TTS restart after stitched chapter clear
+   *
+   * @param {number} globalParagraphIndex - The paragraph index in current stitched DOM
+   * @returns {{chapterId: number, localIndex: number, chapterName: string} | null}
+   */
+  this.getChapterInfoForParagraph = function (globalParagraphIndex) {
+    if (this.chapterBoundaries.length === 0) {
+      // Single chapter mode - paragraph index is already local
+      return {
+        chapterId: this.chapter.id,
+        localIndex: globalParagraphIndex,
+        chapterName: this.chapter.name,
+      };
+    }
+
+    for (let i = 0; i < this.chapterBoundaries.length; i++) {
+      const boundary = this.chapterBoundaries[i];
+      if (
+        globalParagraphIndex >= boundary.startIndex &&
+        globalParagraphIndex <= boundary.endIndex
+      ) {
+        // Convert global index to local index within this chapter
+        const localIndex = globalParagraphIndex - boundary.startIndex;
+
+        // Get chapter name
+        const chapterEl = this.chapterElement.querySelector(
+          `[data-chapter-id="${boundary.chapterId}"]`,
+        );
+        const chapterName = chapterEl
+          ? chapterEl.getAttribute('data-chapter-name') || this.chapter.name
+          : this.chapter.name;
+
+        if (DEBUG) {
+          console.log(
+            `Reader: Paragraph ${globalParagraphIndex} → Chapter ${boundary.chapterId} (${chapterName}), Local Index ${localIndex}`,
+          );
+        }
+
+        return {
+          chapterId: boundary.chapterId,
+          localIndex: localIndex,
+          chapterName: chapterName,
+        };
+      }
+    }
+
+    console.error(
+      `Reader: Paragraph ${globalParagraphIndex} not found in any boundary`,
+    );
+    return null;
+  };
+
+  // DOM Stitching: Auto-trim previous chapter when user scrolls into next
+  this.trimPreviousChapter = function () {
+    if (this.loadedChapters.length <= 1 || this.chapterBoundaries.length <= 1) {
+      return false; // Only one chapter, nothing to trim
+    }
+
+    if (DEBUG) {
+      console.log('Reader: Trimming previous chapter from DOM');
+    }
+
+    // SCROLL POSITION PRESERVATION: Find a reference element that will remain after trim
+    // We use the first visible paragraph in the CURRENT chapter (the one that stays)
+    const readableElements = this.getReadableElements();
+    let referenceElement = null;
+    let referenceOffsetFromTop = 0;
+
+    // Find the first visible element that's in the second chapter (will remain after trim)
+    const secondChapterBoundary = this.chapterBoundaries[1];
+    if (
+      secondChapterBoundary &&
+      readableElements.length > secondChapterBoundary.startIndex
+    ) {
+      for (
+        let i = secondChapterBoundary.startIndex;
+        i < readableElements.length && i <= secondChapterBoundary.endIndex;
+        i++
+      ) {
+        const el = readableElements[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          // Found a visible element in the remaining chapter
+          referenceElement = el;
+          referenceOffsetFromTop = rect.top;
+          if (DEBUG) {
+            console.log(
+              `Reader: Scroll lock - Reference element at index ${i}, offset ${referenceOffsetFromTop.toFixed(1)}px from top`,
+            );
+          }
+          break;
+        }
+      }
+    }
+
+    // Get the first (oldest) chapter ID to remove
+    const chapterToRemove = this.loadedChapters[0];
+
+    // Check if the chapter to remove is a stitched chapter or original content
+    const stitchedChapters = Array.from(
+      this.chapterElement.querySelectorAll('.stitched-chapter'),
+    );
+    const originalElements = Array.from(this.chapterElement.children).filter(
+      child => !child.classList.contains('stitched-chapter'),
+    );
+
+    // Determine what to remove based on what exists
+    if (originalElements.length > 0) {
+      // Original chapter content exists - remove it
+      if (DEBUG) {
+        console.log(
+          `Reader: Removing ${originalElements.length} original chapter element(s)`,
+        );
+      }
+      originalElements.forEach(el => el.remove());
+    } else if (stitchedChapters.length > 0) {
+      // No original content, remove the first stitched chapter
+      const firstStitched = stitchedChapters[0];
+      const removedId = firstStitched.getAttribute('data-chapter-id');
+      if (DEBUG) {
+        console.log(
+          `Reader: Removing first stitched chapter element (ID: ${removedId})`,
+        );
+      }
+      firstStitched.remove();
+    } else {
+      console.warn('Reader: No content found to trim');
+      return false;
+    }
+
+    // Remove first chapter from tracking
+    const removedChapterId = this.loadedChapters.shift();
+    const removedBoundary = this.chapterBoundaries.shift();
+
+    // Recalculate boundaries (indices shifted down)
+    const shiftAmount = removedBoundary.paragraphCount;
+    this.chapterBoundaries.forEach(boundary => {
+      boundary.startIndex -= shiftAmount;
+      boundary.endIndex -= shiftAmount;
+    });
+
+    // Refresh layout
+    this.refresh();
+    this.invalidateCache();
+
+    // SCROLL POSITION RESTORATION: Restore the reference element to its original screen position
+    if (referenceElement && referenceElement.isConnected) {
+      const newRect = referenceElement.getBoundingClientRect();
+      const scrollAdjustment = newRect.top - referenceOffsetFromTop;
+
+      if (Math.abs(scrollAdjustment) > 5) {
+        // Only adjust if significant difference
+        window.scrollBy(0, scrollAdjustment);
+        if (DEBUG) {
+          console.log(
+            `Reader: Scroll position restored - adjusted by ${scrollAdjustment.toFixed(1)}px`,
+          );
+        }
+      } else {
+        if (DEBUG) {
+          console.log(
+            'Reader: Scroll position preserved (no adjustment needed)',
+          );
+        }
+      }
+    } else {
+      console.warn(
+        'Reader: Could not restore scroll position - reference element not found',
+      );
+    }
+
+    // Get the new current chapter info (first one after trim)
+    const newCurrentChapterId = this.loadedChapters[0];
+    const newCurrentBoundary = this.chapterBoundaries[0];
+
+    // Get chapter name from DOM if it's a stitched chapter
+    let newChapterName = this.chapter.name;
+    const stitchedEl = this.chapterElement.querySelector(
+      `[data-chapter-id="${newCurrentChapterId}"]`,
+    );
+    if (stitchedEl) {
+      newChapterName =
+        stitchedEl.getAttribute('data-chapter-name') || this.chapter.name;
+    }
+
+    // Calculate the current paragraph index relative to the NEW chapter
+    // The reference element's index within the new chapter
+    let currentLocalParagraphIndex = 0;
+    if (
+      referenceElement &&
+      referenceElement.isConnected &&
+      newCurrentBoundary
+    ) {
+      const readableElements = this.getReadableElements();
+      const globalIndex =
+        Array.from(readableElements).indexOf(referenceElement);
+      if (globalIndex >= 0) {
+        // Convert global index to local index within the new chapter
+        currentLocalParagraphIndex =
+          globalIndex - newCurrentBoundary.startIndex;
+        console.log(
+          `Reader: Reference element at global index ${globalIndex}, local index ${currentLocalParagraphIndex} (boundary start: ${newCurrentBoundary.startIndex})`,
+        );
+      }
+    }
+
+    // Notify React Native about the chapter transition
+    // This is critical for updating the header and saving progress correctly
+    this.post({
+      type: 'chapter-transition',
+      data: {
+        previousChapterId: removedChapterId,
+        currentChapterId: newCurrentChapterId,
+        currentChapterName: newChapterName,
+        loadedChapters: this.loadedChapters,
+        currentParagraphIndex: currentLocalParagraphIndex,
+        reason: 'trim',
+      },
+    });
+
+    if (DEBUG) {
+      console.log(
+        `Reader: Trimmed chapter ${removedChapterId}, ${this.loadedChapters.length} chapter(s) remaining, current: ${newCurrentChapterId}`,
+      );
+    }
+    return true;
+  };
+
+  // DOM Stitching: Monitor scroll and auto-trim when threshold crossed
+  this.manageStitchedChapters = function () {
+    // Safety checks
+    if (this.loadedChapters.length <= 1) {
+      if (DEBUG) {
+        console.log(
+          '[manageStitchedChapters] Only one chapter loaded, skipping',
+        );
+      }
+      return; // Only one chapter, nothing to manage
+    }
+
+    if (!this.chapterBoundaries || this.chapterBoundaries.length === 0) {
+      console.warn(
+        'Reader: manageStitchedChapters called but chapterBoundaries is empty',
+      );
+      return;
+    }
+
+    // Get threshold from settings (5%, 10%, 15%, 20%)
+    const threshold =
+      this.generalSettings.val.continuousScrollTransitionThreshold || 15;
+    const readableElements = this.getReadableElements();
+
+    if (!readableElements || readableElements.length === 0) {
+      if (DEBUG) {
+        console.log('[manageStitchedChapters] No readable elements found');
+      }
+      return;
+    }
+
+    // OPTIMIZATION: Find FIRST visible paragraph only (O(n) with early exit)
+    let firstVisibleIndex = -1;
+    for (let i = 0; i < readableElements.length; i++) {
+      const element = readableElements[i];
+      if (!element) continue;
+
+      const rect = element.getBoundingClientRect();
+      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+      if (isVisible) {
+        firstVisibleIndex = i;
+        break; // Stop immediately after finding first visible paragraph
+      }
+    }
+
+    if (firstVisibleIndex === -1) {
+      if (DEBUG) {
+        console.log('[manageStitchedChapters] No visible paragraphs found');
+      }
+      return; // No visible paragraphs found
+    }
+
+    console.log(
+      `[manageStitchedChapters] First visible: ${firstVisibleIndex}, Boundaries: ${this.chapterBoundaries.length}, Threshold: ${threshold}%`,
+    );
+
+    // DEBUG: Log ALL boundaries
+    console.log(
+      `[manageStitchedChapters] BOUNDARIES DEBUG: ${JSON.stringify(
+        this.chapterBoundaries.map(b => ({
+          id: b.chapterId,
+          start: b.startIndex,
+          end: b.endIndex,
+          count: b.paragraphCount,
+        })),
+      )}`,
+    );
+
+    // Find which chapter this paragraph belongs to
+    for (let i = 0; i < this.chapterBoundaries.length; i++) {
+      const boundary = this.chapterBoundaries[i];
+
+      if (
+        firstVisibleIndex >= boundary.startIndex &&
+        firstVisibleIndex <= boundary.endIndex
+      ) {
+        // Calculate progress within this specific chapter
+        const progressInChapter =
+          ((firstVisibleIndex - boundary.startIndex) /
+            boundary.paragraphCount) *
+          100;
+
+        if (DEBUG) {
+          console.log(
+            `[manageStitchedChapters] Paragraph ${firstVisibleIndex} belongs to boundary ${i} (chapter ${boundary.chapterId}), progress: ${progressInChapter.toFixed(1)}%, i=${i}, threshold=${threshold}`,
+          );
+        }
+
+        // NEW CALCULATION: For 2nd+ chapter, calculate trim based on absolute paragraph numbers
+        if (i > 0) {
+          // Get previous chapter boundary
+          const prevBoundary = this.chapterBoundaries[i - 1];
+
+          // Calculate threshold paragraph number
+          // = previous chapter paragraphs + (threshold % of current chapter paragraphs)
+          const thresholdParagraphCount =
+            prevBoundary.paragraphCount +
+            Math.ceil((boundary.paragraphCount * threshold) / 100);
+
+          // firstVisibleIndex is global (0-based from first chapter)
+          // Compare against threshold paragraph count
+          const shouldTrim = firstVisibleIndex >= thresholdParagraphCount;
+
+          if (DEBUG) {
+            console.log(
+              `[manageStitchedChapters] TRIM CHECK - ` +
+                `Prev chapter paras: ${prevBoundary.paragraphCount}, ` +
+                `Current chapter paras: ${boundary.paragraphCount}, ` +
+                `Threshold para: ${thresholdParagraphCount} (${prevBoundary.paragraphCount} + ${Math.ceil((boundary.paragraphCount * threshold) / 100)}), ` +
+                `Current visible: ${firstVisibleIndex}, ` +
+                `Should trim: ${shouldTrim}`,
+            );
+          }
+
+          if (shouldTrim) {
+            if (DEBUG) {
+              console.log(
+                `Reader: User at paragraph ${firstVisibleIndex} (>= ${thresholdParagraphCount}), trimming previous chapter ${prevBoundary.chapterId}`,
+              );
+            }
+            this.trimPreviousChapter();
+          }
+        }
+        return; // Exit after processing current chapter
+      }
     }
   };
 
@@ -168,9 +1284,11 @@ window.reader = new (function () {
   this.getReadableElements = () => {
     // NEW: Check if chapterElement is still valid. If not, re-query it.
     if (!this.chapterElement || !this.chapterElement.isConnected) {
-      console.log(
-        'Reader: chapterElement is disconnected or missing, re-querying...',
-      );
+      if (DEBUG) {
+        console.log(
+          'Reader: chapterElement is disconnected or missing, re-querying...',
+        );
+      }
       this.chapterElement = document.querySelector('#LNReader-chapter');
       this._cacheInvalidated = true;
     }
@@ -181,9 +1299,11 @@ window.reader = new (function () {
         this._cachedReadableElements.length > 0 &&
         !this._cachedReadableElements[0].isConnected
       ) {
-        console.log(
-          'Reader: Cached elements are disconnected, invalidating cache...',
-        );
+        if (DEBUG) {
+          console.log(
+            'Reader: Cached elements are disconnected, invalidating cache...',
+          );
+        }
         this._cacheInvalidated = true;
       } else {
         return this._cachedReadableElements;
@@ -191,13 +1311,31 @@ window.reader = new (function () {
     }
 
     const elements = [];
+
+    // Defensive check: if window.tts is not available, return empty array
+    if (!window.tts || typeof window.tts.readable !== 'function') {
+      console.warn(
+        '[getReadableElements] window.tts not available, returning empty array',
+      );
+      this._cachedReadableElements = elements;
+      this._cacheInvalidated = false;
+      return elements;
+    }
+
     const traverse = node => {
       if (node.nodeType === Node.ELEMENT_NODE) {
-        if (window.tts.readable(node) && !window.tts.isContainer(node)) {
-          elements.push(node);
-        } else {
-          for (let i = 0; i < node.children.length; i++) {
-            traverse(node.children[i]);
+        try {
+          if (window.tts.readable(node) && !window.tts.isContainer(node)) {
+            elements.push(node);
+          } else {
+            for (let i = 0; i < node.children.length; i++) {
+              traverse(node.children[i]);
+            }
+          }
+        } catch (e) {
+          // Skip elements that cause errors during traversal
+          if (DEBUG) {
+            console.warn('[getReadableElements] Error traversing node:', e);
           }
         }
       }
@@ -247,7 +1385,9 @@ window.reader = new (function () {
     }
 
     if (this.suppressSaveOnScroll) {
-      console.log('Skipping save on initial scroll');
+      if (DEBUG) {
+        console.log('Skipping save on initial scroll');
+      }
       // FIX: Do NOT reset this here. Let calculatePages reset it after the timeout.
       return;
     }
@@ -281,7 +1421,9 @@ window.reader = new (function () {
   this.processScroll = currentScrollY => {
     // CRITICAL: Block scroll processing entirely during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
-      console.log('processScroll: BLOCKED - Screen wake sync pending');
+      if (DEBUG) {
+        console.log('processScroll: BLOCKED - Screen wake sync pending');
+      }
       this.accumulatedScrollDelta = 0;
       return;
     }
@@ -394,7 +1536,9 @@ window.reader = new (function () {
 
     // BUG FIX: Block saves during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
-      console.log('processScroll: Skipping save - screen wake sync pending');
+      if (DEBUG) {
+        console.log('processScroll: Skipping save - screen wake sync pending');
+      }
       return;
     }
 
@@ -403,11 +1547,13 @@ window.reader = new (function () {
     const timeSinceInitialScroll =
       Date.now() - (reader.initialScrollCompleteTime || 0);
     if (reader.initialScrollCompleteTime && timeSinceInitialScroll < 1000) {
-      console.log(
-        'processScroll: Skipping save - initial scroll grace period (' +
-          timeSinceInitialScroll +
-          'ms)',
-      );
+      if (DEBUG) {
+        console.log(
+          'processScroll: Skipping save - initial scroll grace period (' +
+            timeSinceInitialScroll +
+            'ms)',
+        );
+      }
       return;
     }
 
@@ -416,16 +1562,24 @@ window.reader = new (function () {
     const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
     if (timeSinceTTSStop < 2000) {
       // 2 second grace period
-      console.log(
-        'processScroll: Skipping save - TTS grace period (' +
-          timeSinceTTSStop +
-          'ms)',
-      );
+      if (DEBUG) {
+        console.log(
+          'processScroll: Skipping save - TTS grace period (' +
+            timeSinceTTSStop +
+            'ms)',
+        );
+      }
       return;
     }
 
     if (!this.generalSettings.val.pageReader) {
       this.saveProgress();
+
+      // Check for continuous scroll after saving progress
+      this.checkContinuousScroll();
+
+      // Auto-trim previous chapter when threshold crossed
+      this.manageStitchedChapters();
     }
   };
 
@@ -451,15 +1605,38 @@ window.reader = new (function () {
     }
 
     if (paragraphIndex !== -1 && totalParagraphs > 0) {
-      // Calculate progress from paragraph position (unified with TTS)
+      // DOM Stitching: Find which chapter this paragraph belongs to
+      let targetChapterId = this.chapter.id;
+      let relativeIndex = paragraphIndex;
+
+      // Iterate boundaries to find the matching chapter
+      if (this.chapterBoundaries && this.chapterBoundaries.length > 0) {
+        for (const boundary of this.chapterBoundaries) {
+          if (
+            paragraphIndex >= boundary.startIndex &&
+            paragraphIndex <= boundary.endIndex
+          ) {
+            targetChapterId = boundary.chapterId;
+            relativeIndex = paragraphIndex - boundary.startIndex;
+            break;
+          }
+        }
+      }
+
+      // Calculate progress relative to THAT chapter's length
+      // If we don't have boundaries (single chapter), totalParagraphs is correct
+      // If we have boundaries, we should calculate percentage based on that chapter's size
+      // But for now, let's keep it simple and just ensure valid index
+
       const progress = Math.round(
         ((paragraphIndex + 1) / totalParagraphs) * 100,
       );
+
       this.post({
         type: 'save',
         data: progress,
-        paragraphIndex,
-        chapterId: this.chapter.id,
+        paragraphIndex: relativeIndex, // Send RELATIVE index
+        chapterId: targetChapterId, // Send CORRECT chapter ID
       });
     }
   };
@@ -488,6 +1665,207 @@ window.reader = new (function () {
 
   document.addEventListener('scroll', this.onScroll, { passive: true });
 
+  // FIX: Enhance chapter titles for EPUB TTS synchronization
+  // Only adds title if first few VISIBLE elements don't contain chapter title text
+  this.enhanceChapterTitles = (html, chapterName) => {
+    // Debug logging helper - only logs in debug builds
+    const dbg = (...args) => {
+      if (DEBUG) console.log('[ENHANCE]', ...args);
+    };
+
+    dbg('============ CHAPTER TITLE ENHANCEMENT DEBUG ============');
+    dbg('Chapter name from metadata:', chapterName);
+    dbg('HTML length:', html.length);
+
+    try {
+      // Create a temporary container to parse HTML
+      // NOTE: We don't append to document - just parse the HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+
+      let hasVisibleTitle = false;
+      let foundTitleText = '';
+
+      // Check first 5 readable elements for visible chapter title content
+      const readableSelectors = 'p, div, h1, h2, h3, h4, h5, h6, span';
+      const elements = tempDiv.querySelectorAll(readableSelectors);
+      const firstFew = Array.from(elements).slice(0, 5);
+
+      dbg('Total elements found:', elements.length);
+      dbg('Checking first', firstFew.length, 'elements...');
+
+      // LOG: Show what TTS would see at first few paragraphs
+      // NOTE: In detached DOM, check inline styles only (computed styles don't work)
+      if (DEBUG) {
+        console.log('[ENHANCE] ===== FIRST 5 ELEMENTS =====');
+        firstFew.forEach((el, idx) => {
+          const inlineStyle = el.getAttribute('style') || '';
+          const isExplicitlyHidden =
+            inlineStyle.includes('display:none') ||
+            inlineStyle.includes('display: none') ||
+            inlineStyle.includes('visibility:hidden') ||
+            inlineStyle.includes('visibility: hidden');
+          const text = el.textContent?.trim() || '';
+          console.log(
+            `[ENHANCE] [${idx}] Tag: ${el.tagName}, ExplicitlyHidden: ${isExplicitlyHidden}, Text: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`,
+          );
+        });
+        console.log('[ENHANCE] ===== END FIRST 5 ELEMENTS =====');
+      }
+
+      for (const el of firstFew) {
+        // Check inline style for explicit hiding (computed styles don't work in detached DOM)
+        const inlineStyle = el.getAttribute('style') || '';
+        const isExplicitlyHidden =
+          inlineStyle.includes('display:none') ||
+          inlineStyle.includes('display: none') ||
+          inlineStyle.includes('visibility:hidden') ||
+          inlineStyle.includes('visibility: hidden');
+
+        if (isExplicitlyHidden) {
+          dbg('Skipping explicitly hidden element:', el.tagName);
+          continue;
+        }
+
+        const text = el.textContent?.trim() || '';
+        if (text.length === 0) continue;
+
+        // Check if text looks like a chapter title
+        const lowerText = text.toLowerCase();
+        const lowerName = chapterName.toLowerCase();
+
+        // Log the pattern matching
+        const matchName = lowerText.includes(lowerName);
+        const matchChapter = lowerText.includes('chapter');
+        const matchChap = lowerText.includes('chap');
+        const matchPattern1 =
+          /^(ch\.?\s*\d+|chapter\s+\d+|\d+\.?\s*[-–—])/i.test(text);
+        const matchPattern2 = /^\d+\.\s/.test(text);
+        const matchPattern3 = /^\d+\s/.test(text);
+
+        if (DEBUG) {
+          console.log('[ENHANCE] Pattern check for:', text.substring(0, 50));
+          console.log(
+            '[ENHANCE]   matchName:',
+            matchName,
+            '| matchChapter:',
+            matchChapter,
+            '| matchChap:',
+            matchChap,
+          );
+          console.log(
+            '[ENHANCE]   matchPattern1:',
+            matchPattern1,
+            '| matchPattern2:',
+            matchPattern2,
+            '| matchPattern3:',
+            matchPattern3,
+          );
+        }
+
+        const looksLikeTitle =
+          matchName ||
+          matchChapter ||
+          matchChap ||
+          matchPattern1 ||
+          matchPattern2 ||
+          matchPattern3;
+
+        if (looksLikeTitle) {
+          hasVisibleTitle = true;
+          foundTitleText = text;
+          dbg('*** FOUND VISIBLE TITLE:', text.substring(0, 100));
+          break;
+        }
+      }
+
+      dbg('RESULT: Has existing title =', hasVisibleTitle);
+      dbg('RESULT: Found title text =', foundTitleText.substring(0, 100));
+
+      // If no visible chapter title found, add one at the beginning
+      if (!hasVisibleTitle) {
+        dbg('ACTION: Adding enhanced chapter title');
+
+        // Use inherit for color to match chapter content text
+        const titleHtml = `<div class="enhanced-chapter-title lnreader-chapter-title" style="
+          font-size: 1.5em !important;
+          font-weight: bold !important;
+          margin: 15px 0 15px 0 !important;
+          padding: 10px 0 !important;
+          color: inherit !important;
+          text-align: center !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          clear: both !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        ">${chapterName}</div>`;
+
+        // Insert title after body tag or at the beginning
+        if (html.toLowerCase().includes('<body')) {
+          html = html.replace(/<body([^>]*)>/i, `<body$1>${titleHtml}`);
+          dbg('Inserted title after body tag');
+        } else {
+          html = titleHtml + html;
+          dbg('Inserted title at beginning (no body tag)');
+        }
+      } else {
+        dbg('ACTION: Skipping - visible title already exists');
+      }
+
+      dbg('============ END ENHANCEMENT DEBUG ============');
+      return html;
+    } catch (e) {
+      console.error('[ENHANCE] Failed to enhance chapter title:', e);
+      return html;
+    }
+  };
+
+  // INITIAL LOAD: Enhance chapter title for TTS synchronization
+  // This runs once when page loads to ensure chapter title is visible at Paragraph 0
+  // Fixes: TTS highlight +1 offset issue in EPUBs where titles are hidden/unstyled
+  // NOTE: We use 'this' because we're still inside the reader constructor IIFE
+  const self = this;
+  (function initialEnhancement() {
+    if (DEBUG) {
+      console.log(
+        '[INITIAL-ENHANCE] Running initial chapter title enhancement',
+      );
+      console.log('[INITIAL-ENHANCE] chapter object:', self.chapter);
+      console.log('[INITIAL-ENHANCE] chapter name:', self.chapter?.name);
+    }
+
+    if (self.chapter && self.chapter.name) {
+      const originalHtml = self.chapterElement.innerHTML;
+      const enhancedHtml = self.enhanceChapterTitles(
+        originalHtml,
+        self.chapter.name,
+      );
+
+      // Only update DOM if enhancement actually changed the HTML
+      if (enhancedHtml !== originalHtml) {
+        self.chapterElement.innerHTML = enhancedHtml;
+        self.rawHTML = enhancedHtml;
+        if (DEBUG) {
+          console.log(
+            '[INITIAL-ENHANCE] Chapter title enhanced on initial load',
+          );
+        }
+      } else {
+        if (DEBUG) {
+          console.log(
+            '[INITIAL-ENHANCE] No changes needed - title already exists',
+          );
+        }
+      }
+    } else {
+      if (DEBUG) {
+        console.log('[INITIAL-ENHANCE] Skipped - no chapter name available');
+      }
+    }
+  })();
+
   this.cleanup = () => {
     if (this.onScroll) {
       document.removeEventListener('scroll', this.onScroll);
@@ -510,7 +1888,7 @@ window.reader = new (function () {
   if (DEBUG) {
     console = new Object();
     console.log = function (...data) {
-      reader.post({ 'type': 'console', 'msg': data?.join(' ') });
+      reader.post({ type: 'console', data: data?.join(' ') });
     };
     console.debug = console.log;
     console.info = console.log;
@@ -836,11 +2214,15 @@ window.tts = new (function () {
     }
 
     if (!config || !config.shouldResume) {
-      console.log('TTS: No resume needed');
+      if (DEBUG) {
+        console.log('TTS: No resume needed');
+      }
       this.hasAutoResumed = true;
 
       if (config?.startFromBeginning) {
-        console.log('TTS: User chose to restart from beginning');
+        if (DEBUG) {
+          console.log('TTS: User chose to restart from beginning');
+        }
         this.start();
       }
       return;
@@ -965,14 +2347,16 @@ window.tts = new (function () {
           );
         }
       } else {
-        console.log(
-          'TTS: Skipping resume. hasAutoResumed:',
-          this.hasAutoResumed,
-          'savedIndex:',
-          savedIndex,
-          'Setting:',
-          autoResumeSetting,
-        );
+        if (DEBUG) {
+          console.log(
+            'TTS: Skipping resume. hasAutoResumed:',
+            this.hasAutoResumed,
+            'savedIndex:',
+            savedIndex,
+            'Setting:',
+            autoResumeSetting,
+          );
+        }
       }
 
       // Priority 2: First "Significant" Visible Element (Manual Start)
@@ -1021,7 +2405,9 @@ window.tts = new (function () {
         );
         this.currentElement = bestElement;
       } else {
-        console.log('TTS: No visible element found, starting from beginning');
+        if (DEBUG) {
+          console.log('TTS: No visible element found, starting from beginning');
+        }
         this.currentElement = reader.chapterElement;
       }
     }
@@ -1051,9 +2437,11 @@ window.tts = new (function () {
         if (!forceResume) {
           // If the current TTS element is still visible, we don't need to prompt
           if (this.isElementInViewport(this.currentElement)) {
-            console.log(
-              'TTS: Current element is visible, skipping scroll check',
-            );
+            if (DEBUG) {
+              console.log(
+                'TTS: Current element is visible, skipping scroll check',
+              );
+            }
           } else {
             const readableElements = reader.getReadableElements();
             let visibleParagraphIndex = -1;
@@ -1075,16 +2463,23 @@ window.tts = new (function () {
               visibleParagraphIndex !== -1 &&
               Math.abs(visibleParagraphIndex - currentTTSIndex) >= 2
             ) {
-              console.log(
-                `TTS: Resume requested but user scrolled away. TTS: ${currentTTSIndex}, Visible: ${visibleParagraphIndex}`,
-              );
+              if (DEBUG) {
+                console.log(
+                  `TTS: Resume requested but user scrolled away. TTS: ${currentTTSIndex}, Visible: ${visibleParagraphIndex}`,
+                );
+              }
 
-              // Send prompt to React Native
+              // Send prompt to React Native with chapter context
               reader.post({
                 type: 'tts-resume-location-prompt',
                 data: {
                   currentIndex: currentTTSIndex,
                   visibleIndex: visibleParagraphIndex,
+                  currentChapterName: reader.chapter.name,
+                  visibleChapterName: reader.getChapterNameAtParagraph(
+                    visibleParagraphIndex,
+                  ),
+                  isStitched: reader.loadedChapters.length > 1,
                 },
               });
               return;
@@ -1191,13 +2586,15 @@ window.tts = new (function () {
       const percentage = Math.round(
         ((ttsIndex + 1) / readableElements.length) * 100,
       );
-      console.log(
-        'TTS stop: Saving TTS position',
-        ttsIndex,
-        'of',
-        readableElements.length,
-        '(' + percentage + '%)',
-      );
+      if (DEBUG) {
+        console.log(
+          'TTS stop: Saving TTS position',
+          ttsIndex,
+          'of',
+          readableElements.length,
+          '(' + percentage + '%)',
+        );
+      }
       reader.post({
         type: 'save',
         data: percentage,
@@ -1210,15 +2607,19 @@ window.tts = new (function () {
       // BUT: respect grace period to avoid overwriting TTS pause position
       const timeSinceTTSStop = Date.now() - (window.ttsLastStopTime || 0);
       if (timeSinceTTSStop < 2000) {
-        console.log(
-          'TTS stop: Skipping fallback save - grace period (' +
-            timeSinceTTSStop +
-            'ms)',
-        );
+        if (DEBUG) {
+          console.log(
+            'TTS stop: Skipping fallback save - grace period (' +
+              timeSinceTTSStop +
+              'ms)',
+          );
+        }
       } else {
-        console.log(
-          'TTS stop: No TTS element tracked, falling back to scroll-based save',
-        );
+        if (DEBUG) {
+          console.log(
+            'TTS stop: No TTS element tracked, falling back to scroll-based save',
+          );
+        }
         reader.saveProgress();
       }
     }
@@ -1280,7 +2681,9 @@ window.tts = new (function () {
 
     // NEW: If checkVisibility is true and element is fully visible, skip scroll
     if (checkVisibility && isFullyVisible) {
-      console.log('TTS: Element is fully visible, skipping initial scroll');
+      if (DEBUG) {
+        console.log('TTS: Element is fully visible, skipping initial scroll');
+      }
       return;
     }
 
@@ -1328,12 +2731,23 @@ window.tts = new (function () {
         return;
       }
 
+      // CRITICAL: Clear any stitched chapters before extracting paragraphs
+      // Multi-chapter DOM causes paragraph indices to be wrong for TTS
+      if (reader.loadedChapters && reader.loadedChapters.length > 1) {
+        if (DEBUG) {
+          console.log('TTS: Clearing stitched chapters before speak');
+        }
+        reader.clearStitchedChapters();
+      }
+
       // Set global TTS operation flag to protect against ResizeObserver
       window.ttsOperationActive = true;
 
       // CRITICAL: During manual mode dialog, prevent any position changes
       if (this.dialogActive) {
-        console.log('TTS: Dialog active - speaking from locked position');
+        if (DEBUG) {
+          console.log('TTS: Dialog active - speaking from locked position');
+        }
         this.reading = true;
 
         const text = this.currentElement.textContent;
@@ -1445,14 +2859,18 @@ window.tts = new (function () {
   };
 
   this.handleManualModeDialog = action => {
-    console.log(`TTS: Manual mode dialog action: ${action}`);
+    if (DEBUG) {
+      console.log(`TTS: Manual mode dialog action: ${action}`);
+    }
 
     if (action === 'continue') {
       // User wants to continue TTS following - restore normal operation
       this.dialogActive = false;
       this.lockedCurrentElement = null;
       this.lockedParagraphIndex = null;
-      console.log('TTS: Resumed normal following mode');
+      if (DEBUG) {
+        console.log('TTS: Resumed normal following mode');
+      }
 
       // Continue with normal TTS progression from current locked position
       setTimeout(() => {
@@ -1461,7 +2879,9 @@ window.tts = new (function () {
     } else if (action === 'stop') {
       // User wants to stop TTS and read manually
       this.dialogActive = false;
-      console.log('TTS: Stopped - user chose manual reading');
+      if (DEBUG) {
+        console.log('TTS: Stopped - user chose manual reading');
+      }
       this.stop();
     }
   };
@@ -1487,7 +2907,9 @@ window.tts = new (function () {
         this.currentElement.classList.add('highlight');
       }
 
-      console.log(`TTS: Position changed to paragraph ${paragraphIndex}`);
+      if (DEBUG) {
+        console.log(`TTS: Position changed to paragraph ${paragraphIndex}`);
+      }
       return true;
     }
 
@@ -1499,9 +2921,11 @@ window.tts = new (function () {
   this.highlightParagraph = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter causing wrong scrolls
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(
-        `TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
-      );
+      if (DEBUG) {
+        console.log(
+          `TTS: highlightParagraph ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
+        );
+      }
       return false;
     }
 
@@ -1543,13 +2967,17 @@ window.tts = new (function () {
   this.updateState = (paragraphIndex, chapterId) => {
     // CRITICAL: Validate chapter ID to prevent stale events from old chapter corrupting state
     if (chapterId !== undefined && chapterId !== reader.chapter.id) {
-      console.log(
-        `TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
-      );
+      if (DEBUG) {
+        console.log(
+          `TTS: updateState ignored - stale chapter ${chapterId}, current is ${reader.chapter.id}`,
+        );
+      }
       return;
     }
 
-    console.log(`TTS: updateState called with index ${paragraphIndex}`);
+    if (DEBUG) {
+      console.log(`TTS: updateState called with index ${paragraphIndex}`);
+    }
     const readableElements = reader.getReadableElements();
     if (paragraphIndex >= 0 && paragraphIndex < readableElements.length) {
       // Mark background playback as active
@@ -1778,7 +3206,9 @@ function calculatePages() {
   // BUG 3 FIX: Block calculatePages during screen wake sync to prevent scroll jumble
   // This flag is set by RN when screen wakes during background TTS playback
   if (window.ttsScreenWakeSyncPending) {
-    console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    if (DEBUG) {
+      console.log('[calculatePages] BLOCKED - Screen wake sync pending');
+    }
     return;
   }
 
@@ -1798,11 +3228,13 @@ function calculatePages() {
     !isFirstCall &&
     timeSinceLastCall < CALCULATE_PAGES_DEBOUNCE
   ) {
-    console.log(
-      '[calculatePages] BLOCKED - Debounced (',
-      timeSinceLastCall,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[calculatePages] BLOCKED - Debounced (',
+        timeSinceLastCall,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -1814,18 +3246,22 @@ function calculatePages() {
     window.ttsOperationActive ||
     (window.tts && (window.tts.reading || window.tts.cleanupInProgress))
   ) {
-    console.log('[calculatePages] BLOCKED - TTS operation active');
+    if (DEBUG) {
+      console.log('[calculatePages] BLOCKED - TTS operation active');
+    }
     return;
   }
 
   // COOLDOWN CHECK: Block if TTS operation ended recently (within 1 second)
   const timeSinceTTSOperation = now - window.ttsOperationEndTime;
   if (timeSinceTTSOperation < 1000) {
-    console.log(
-      '[calculatePages] BLOCKED - TTS operation cooldown (',
-      timeSinceTTSOperation,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[calculatePages] BLOCKED - TTS operation cooldown (',
+        timeSinceTTSOperation,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -1836,7 +3272,9 @@ function calculatePages() {
     (controller.dataset.dragging === 'true' ||
       controller.dataset.cleanupInProgress === 'true')
   ) {
-    console.log('[calculatePages] BLOCKED - TTS controller drag in progress');
+    if (DEBUG) {
+      console.log('[calculatePages] BLOCKED - TTS controller drag in progress');
+    }
     return;
   }
 
@@ -1847,7 +3285,11 @@ function calculatePages() {
     initialReaderConfig.savedParagraphIndex !== undefined &&
     initialReaderConfig.savedParagraphIndex >= 0
   ) {
-    console.log('[calculatePages] BLOCKED - Initial scroll already performed');
+    if (DEBUG) {
+      console.log(
+        '[calculatePages] BLOCKED - Initial scroll already performed',
+      );
+    }
     return;
   }
 
@@ -1872,27 +3314,52 @@ function calculatePages() {
     );
   } else {
     // NEW SCROLL LOGIC
+    if (DEBUG) {
+      console.log(
+        `[calculatePages START] ReaderId=${reader._readerId}, loadedChapters=${JSON.stringify(reader.loadedChapters)}, hasPerformedInitialScroll=${reader.hasPerformedInitialScroll}`,
+      );
+    }
+
+    // CRITICAL FIX: Skip initial scroll if DOM stitching is active (multiple chapters loaded)
+    const isStitchedMode =
+      reader.loadedChapters && reader.loadedChapters.length > 1;
+
+    if (DEBUG) {
+      console.log(
+        `[calculatePages] ReaderId=${reader._readerId}, Stitched mode check: loadedChapters=`,
+        reader.loadedChapters,
+        'length=',
+        reader.loadedChapters ? reader.loadedChapters.length : 0,
+        'isStitchedMode=',
+        isStitchedMode,
+      );
+    }
+
     if (
       !reader.hasPerformedInitialScroll &&
+      !isStitchedMode && // Don't re-scroll when chapters are stitched
       initialReaderConfig.savedParagraphIndex !== undefined &&
       initialReaderConfig.savedParagraphIndex >= 0
     ) {
       const readableElements = reader.getReadableElements();
-      console.log(
-        '[calculatePages] readableElements length:',
-        readableElements.length,
-      );
+      if (DEBUG) {
+        console.log(
+          `[calculatePages] ReaderId=${reader._readerId}, About to scroll to paragraph: ${initialReaderConfig.savedParagraphIndex}, readableElements length: ${readableElements.length}, hasPerformedInitialScroll: ${reader.hasPerformedInitialScroll}`,
+        );
+      }
 
       if (readableElements[initialReaderConfig.savedParagraphIndex]) {
         reader.initialScrollPending = true; // Set pending flag
-        console.log(
-          '[calculatePages] Scrolling to paragraph',
-          initialReaderConfig.savedParagraphIndex,
-          'hasPerformedInitialScroll:',
-          reader.hasPerformedInitialScroll,
-          'timeSinceLastCall:',
-          Date.now() - window.lastCalculatePagesCall,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Scrolling to paragraph',
+            initialReaderConfig.savedParagraphIndex,
+            'hasPerformedInitialScroll:',
+            reader.hasPerformedInitialScroll,
+            'timeSinceLastCall:',
+            Date.now() - window.lastCalculatePagesCall,
+          );
+        }
 
         reader.suppressSaveOnScroll = true;
 
@@ -1905,6 +3372,9 @@ function calculatePages() {
               '[calculatePages] Target element disconnected, aborting scroll',
             );
             reader.initialScrollPending = false; // Reset pending flag
+            console.log(
+              `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (disconnected case, line 2396)`,
+            );
             reader.hasPerformedInitialScroll = true;
             reader.suppressSaveOnScroll = false;
             return;
@@ -1917,10 +3387,12 @@ function calculatePages() {
             inline: 'nearest',
           });
 
-          console.log(
-            '[calculatePages] Scrolled to paragraph',
-            initialReaderConfig.savedParagraphIndex,
-          );
+          if (DEBUG) {
+            console.log(
+              '[calculatePages] Scrolled to paragraph',
+              initialReaderConfig.savedParagraphIndex,
+            );
+          }
 
           // Verify by checking if element is in viewport (the RIGHT way)
           setTimeout(() => {
@@ -1930,16 +3402,18 @@ function calculatePages() {
             const isPartiallyVisible =
               rect.top < viewportHeight && rect.bottom > 0;
 
-            console.log(
-              '[calculatePages] Element position: top=',
-              rect.top,
-              'bottom=',
-              rect.bottom,
-              'visible=',
-              isVisible || isPartiallyVisible,
-            );
+            if (DEBUG) {
+              console.log(
+                '[calculatePages] Element position: top=',
+                rect.top,
+                'bottom=',
+                rect.bottom,
+                'visible=',
+                isVisible || isPartiallyVisible,
+              );
 
-            console.log('[calculatePages] Initial scroll complete');
+              console.log('[calculatePages] Initial scroll complete');
+            }
 
             // Set a marker to block processScroll saves for a longer grace period
             // This prevents stale scroll events from saving wrong positions
@@ -1948,7 +3422,34 @@ function calculatePages() {
             // Reset flags
             reader.suppressSaveOnScroll = false;
             reader.initialScrollPending = false;
+            console.log(
+              `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (scroll complete, line 2439)`,
+            );
             reader.hasPerformedInitialScroll = true;
+
+            // Initialize chapter boundary for first chapter with lock to prevent duplicates
+            if (
+              !reader._boundariesInitialized &&
+              !reader._boundariesInitializing
+            ) {
+              reader._boundariesInitializing = true;
+              const allElements = reader.getReadableElements();
+              if (allElements && allElements.length > 0) {
+                reader.chapterBoundaries.push({
+                  chapterId: reader.chapter.id,
+                  startIndex: 0,
+                  endIndex: allElements.length - 1,
+                  paragraphCount: allElements.length,
+                });
+                reader._boundariesInitialized = true;
+                if (DEBUG) {
+                  console.log(
+                    `Reader: Initialized boundary for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paragraphs)`,
+                  );
+                }
+              }
+              reader._boundariesInitializing = false;
+            }
 
             try {
               reader.post({
@@ -1968,16 +3469,127 @@ function calculatePages() {
 
         return;
       } else {
-        console.log(
-          '[calculatePages] Paragraph not found at index',
-          initialReaderConfig.savedParagraphIndex,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Paragraph not found at index',
+            initialReaderConfig.savedParagraphIndex,
+          );
+        }
+
+        // CRITICAL FIX: Skip recovery scroll if stitched mode (multiple chapters loaded)
+        const isStitchedMode =
+          reader.loadedChapters && reader.loadedChapters.length > 1;
+
+        if (isStitchedMode) {
+          if (DEBUG) {
+            console.log(
+              '[calculatePages] Skipping paragraph recovery - stitched mode active (paragraph belongs to different chapter)',
+            );
+            console.log(
+              `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip, line 2489)`,
+            );
+          }
+          reader.hasPerformedInitialScroll = true;
+          return;
+        }
+
+        // FIX: Graceful recovery - scroll to 0% or 100% based on saved progress
+        const savedProgress = reader.chapter.progress;
+        if (DEBUG) {
+          console.log(
+            `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (paragraph recovery, line 2495)`,
+          );
+        }
+        reader.hasPerformedInitialScroll = true;
+
+        if (savedProgress && savedProgress > 0.5) {
+          // Progress > 50%, likely near end - scroll to bottom
+          window.scrollTo(0, document.body.scrollHeight);
+          if (DEBUG) {
+            console.log(
+              `[calculatePages] Recovered from missing paragraph - scrolled to 100% (progress: ${savedProgress})`,
+            );
+          }
+        } else {
+          // Progress ≤ 50% or no progress, scroll to top
+          window.scrollTo(0, 0);
+          if (DEBUG) {
+            console.log(
+              `[calculatePages] Recovered from missing paragraph - scrolled to 0% (progress: ${savedProgress || 0})`,
+            );
+          }
+        }
+
+        // Initialize chapter boundary after recovery with lock
+        if (!reader._boundariesInitialized && !reader._boundariesInitializing) {
+          reader._boundariesInitializing = true;
+          const allElements = reader.getReadableElements();
+          if (allElements && allElements.length > 0) {
+            reader.chapterBoundaries.push({
+              chapterId: reader.chapter.id,
+              startIndex: 0,
+              endIndex: allElements.length - 1,
+              paragraphCount: allElements.length,
+            });
+            reader._boundariesInitialized = true;
+            if (DEBUG) {
+              console.log(
+                `Reader: Init boundary (after recovery) for chapter ${reader.chapter.id}: 0-${allElements.length - 1}`,
+              );
+            }
+          }
+          reader._boundariesInitializing = false;
+        }
+
+        // CRITICAL: Return early to prevent progress scroll trigger below
+        return;
       }
     } else if (!reader.hasPerformedInitialScroll) {
-      console.log(
-        '[calculatePages] No valid savedParagraphIndex or already scrolled',
-      );
+      // CRITICAL FIX: Skip if stitched mode (multiple chapters loaded)
+      const isStitchedMode =
+        reader.loadedChapters && reader.loadedChapters.length > 1;
+
+      if (isStitchedMode) {
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Skipping initial scroll - stitched mode active (multiple chapters loaded)',
+          );
+          console.log(
+            `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (stitched mode skip no saved pos, line 2540)`,
+          );
+        }
+        reader.hasPerformedInitialScroll = true;
+        return;
+      }
+
+      if (DEBUG) {
+        console.log(
+          '[calculatePages] No valid savedParagraphIndex or already scrolled',
+        );
+        console.log(
+          `[calculatePages] ReaderId=${reader._readerId}, Setting hasPerformedInitialScroll=true (no saved pos, line 2547)`,
+        );
+      }
       reader.hasPerformedInitialScroll = true;
+
+      // Initialize chapter boundary for first chapter with lock (no saved position case)
+      if (!reader._boundariesInitialized && !reader._boundariesInitializing) {
+        reader._boundariesInitializing = true;
+        const allElements = reader.getReadableElements();
+        if (allElements && allElements.length > 0) {
+          reader.chapterBoundaries.push({
+            chapterId: reader.chapter.id,
+            startIndex: 0,
+            endIndex: allElements.length - 1,
+            paragraphCount: allElements.length,
+          });
+          reader._boundariesInitialized = true;
+          console.log(
+            `Reader: Initialized boundary for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paragraphs)`,
+          );
+        }
+        reader._boundariesInitializing = false;
+      }
     }
 
     const shouldScrollToProgress = !window.tts || !window.tts.reading;
@@ -1994,19 +3606,23 @@ function calculatePages() {
           (controller.dataset.dragging === 'true' ||
             controller.dataset.cleanupInProgress === 'true'))
       ) {
-        console.log(
-          '[calculatePages] Progress scroll blocked - TTS operation protection',
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] Progress scroll blocked - TTS operation protection',
+          );
+        }
         return;
       }
 
       setTimeout(() => {
-        console.log(
-          '[calculatePages] PROGRESS SCROLL EXECUTING - progress:',
-          reader.chapter.progress,
-          'hasPerformedInitialScroll:',
-          reader.hasPerformedInitialScroll,
-        );
+        if (DEBUG) {
+          console.log(
+            '[calculatePages] PROGRESS SCROLL EXECUTING - progress:',
+            reader.chapter.progress,
+            'hasPerformedInitialScroll:',
+            reader.hasPerformedInitialScroll,
+          );
+        }
         window.scrollTo({
           top:
             (reader.chapterHeight * reader.chapter.progress) / 100 -
@@ -2015,10 +3631,34 @@ function calculatePages() {
         });
       }, 100);
     } else {
-      console.log(
-        '[calculatePages] Skipping progress scroll - TTS currently reading',
-      );
+      if (DEBUG) {
+        console.log(
+          '[calculatePages] Skipping progress scroll - TTS currently reading',
+        );
+      }
     }
+  }
+
+  // CRITICAL FIX: Initialize chapter boundaries unconditionally with lock
+  // This ensures boundaries exist regardless of scroll path taken
+  if (!reader._boundariesInitialized && !reader._boundariesInitializing) {
+    reader._boundariesInitializing = true;
+    const allElements = reader.getReadableElements();
+    if (allElements && allElements.length > 0) {
+      reader.chapterBoundaries.push({
+        chapterId: reader.chapter.id,
+        startIndex: 0,
+        endIndex: allElements.length - 1,
+        paragraphCount: allElements.length,
+      });
+      reader._boundariesInitialized = true;
+      if (DEBUG) {
+        console.log(
+          `Reader: Init boundary (fallback) for chapter ${reader.chapter.id}: 0-${allElements.length - 1} (${allElements.length} paras)`,
+        );
+      }
+    }
+    reader._boundariesInitializing = false;
   }
 }
 
@@ -2038,7 +3678,9 @@ const CALCULATE_PAGES_DEBOUNCE = 500; // 500ms minimum between calls
 const ro = new ResizeObserver(() => {
   // BUG 3 FIX: Block during screen wake sync
   if (window.ttsScreenWakeSyncPending) {
-    console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    if (DEBUG) {
+      console.log('[ResizeObserver] BLOCKED - Screen wake sync pending');
+    }
     return;
   }
 
@@ -2059,11 +3701,13 @@ const ro = new ResizeObserver(() => {
     !isFirstCall &&
     timeSinceLastCall < CALCULATE_PAGES_DEBOUNCE
   ) {
-    console.log(
-      '[ResizeObserver] BLOCKED - Debounced (',
-      timeSinceLastCall,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[ResizeObserver] BLOCKED - Debounced (',
+        timeSinceLastCall,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -2072,18 +3716,22 @@ const ro = new ResizeObserver(() => {
     window.ttsOperationActive ||
     (window.tts && (window.tts.reading || window.tts.cleanupInProgress))
   ) {
-    console.log('[ResizeObserver] BLOCKED - TTS operation active');
+    if (DEBUG) {
+      console.log('[ResizeObserver] BLOCKED - TTS operation active');
+    }
     return;
   }
 
   // COOLDOWN CHECK: Block if TTS operation ended recently (within 1 second)
   const timeSinceTTSOperation = now - window.ttsOperationEndTime;
   if (timeSinceTTSOperation < 1000) {
-    console.log(
-      '[ResizeObserver] BLOCKED - TTS operation cooldown (',
-      timeSinceTTSOperation,
-      'ms)',
-    );
+    if (DEBUG) {
+      console.log(
+        '[ResizeObserver] BLOCKED - TTS operation cooldown (',
+        timeSinceTTSOperation,
+        'ms)',
+      );
+    }
     return;
   }
 
@@ -2094,36 +3742,40 @@ const ro = new ResizeObserver(() => {
     (controller.dataset.dragging === 'true' ||
       controller.dataset.cleanupInProgress === 'true')
   ) {
-    console.log('[ResizeObserver] BLOCKED - TTS controller drag in progress');
+    if (DEBUG) {
+      console.log('[ResizeObserver] BLOCKED - TTS controller drag in progress');
+    }
     return;
   }
 
   // Update last call timestamp
   window.lastCalculatePagesCall = now;
 
-  console.log('[ResizeObserver] TRIGGERED! Stack:', new Error().stack);
-  console.log(
-    '[ResizeObserver] Trigger state - TTS Reading:',
-    window.tts && window.tts.reading,
-  );
-  console.log(
-    '[ResizeObserver] Trigger state - TTS Cleanup:',
-    window.tts && window.tts.cleanupInProgress,
-  );
-  console.log(
-    '[ResizeObserver] TTS Operation Active:',
-    window.ttsOperationActive,
-  );
-
-  if (
-    window.tts &&
-    (window.tts.reading ||
-      window.tts.cleanupInProgress ||
-      window.ttsOperationActive)
-  ) {
+  if (DEBUG) {
+    console.log('[ResizeObserver] TRIGGERED! Stack:', new Error().stack);
     console.log(
-      '[ResizeObserver] TRIGGERED during TTS operation - Potential race condition',
+      '[ResizeObserver] Trigger state - TTS Reading:',
+      window.tts && window.tts.reading,
     );
+    console.log(
+      '[ResizeObserver] Trigger state - TTS Cleanup:',
+      window.tts && window.tts.cleanupInProgress,
+    );
+    console.log(
+      '[ResizeObserver] TTS Operation Active:',
+      window.ttsOperationActive,
+    );
+
+    if (
+      window.tts &&
+      (window.tts.reading ||
+        window.tts.cleanupInProgress ||
+        window.ttsOperationActive)
+    ) {
+      console.log(
+        '[ResizeObserver] TRIGGERED during TTS operation - Potential race condition',
+      );
+    }
   }
 
   // Always call calculatePages - it will handle both pageReader and scroll modes appropriately
@@ -2147,14 +3799,18 @@ const ro = new ResizeObserver(() => {
           (controller.dataset.dragging !== 'true' &&
             controller.dataset.cleanupInProgress !== 'true'))
       ) {
-        console.log(
-          '[ResizeObserver] Calling calculatePages again for initial scroll',
-        );
+        if (DEBUG) {
+          console.log(
+            '[ResizeObserver] Calling calculatePages again for initial scroll',
+          );
+        }
         calculatePages();
       } else {
-        console.log(
-          '[ResizeObserver] Initial scroll blocked - TTS operation or scroll in progress detected',
-        );
+        if (DEBUG) {
+          console.log(
+            '[ResizeObserver] Initial scroll blocked - TTS operation or scroll in progress detected',
+          );
+        }
       }
     }, 200); // Increased delay for better protection
   }
@@ -2165,6 +3821,11 @@ ro.observe(reader.chapterElement);
 window.addEventListener('load', () => {
   document.fonts.ready.then(() => {
     requestAnimationFrame(() => setTimeout(calculatePages, 0));
+
+    // Check if short chapter should be auto-marked after layout ready
+    requestAnimationFrame(() => {
+      reader.checkShortChapterAutoMark();
+    });
   });
 });
 
@@ -2232,13 +3893,17 @@ document.addEventListener('message', __handleNativeMessage);
     const timeSinceLastScroll =
       Date.now() - (window.tts?.lastAutoScrollTime || 0);
     if (window.tts && timeSinceLastScroll < window.tts.SCROLL_COOLDOWN) {
-      console.log('TTS: Click blocked during scroll cooldown');
+      if (DEBUG) {
+        console.log('TTS: Click blocked during scroll cooldown');
+      }
       return;
     }
 
     // NEW: Don't process clicks during TTS auto-scroll
     if (window.tts && window.tts.isAutoScrolling) {
-      console.log('TTS: Click ignored during auto-scroll');
+      if (DEBUG) {
+        console.log('TTS: Click ignored during auto-scroll');
+      }
       return; // Prevent settings toggle during TTS scroll animation
     }
 
@@ -2354,9 +4019,11 @@ document.addEventListener('message', __handleNativeMessage);
       currentBionic !== prevBionicReading ||
       currentSpacing !== prevRemoveSpacing;
 
-    console.log(
-      `Text options: Check rebuild. Bionic: ${prevBionicReading}->${currentBionic}, Spacing: ${prevRemoveSpacing}->${currentSpacing}. Needs rebuild: ${needsRebuild}`,
-    );
+    if (DEBUG) {
+      console.log(
+        `Text options: Check rebuild. Bionic: ${prevBionicReading}->${currentBionic}, Spacing: ${prevRemoveSpacing}->${currentSpacing}. Needs rebuild: ${needsRebuild}`,
+      );
+    }
 
     if (!needsRebuild) {
       console.log('Text options: Skipping DOM rebuild (no relevant changes)');
@@ -2407,13 +4074,57 @@ document.addEventListener('message', __handleNativeMessage);
         scrollY: window.scrollY,
       };
 
-      console.log(
-        'Text options: Saved TTS state before rebuild:',
-        savedTTSState,
-      );
+      if (DEBUG) {
+        console.log(
+          'Text options: Saved TTS state before rebuild:',
+          savedTTSState,
+        );
+      }
 
       // Pause TTS before DOM manipulation
       window.tts.pause();
+    }
+
+    // INVESTIGATION: Debug why enhancement isn't being called
+    if (DEBUG) {
+      console.log('[SETHTML] Method called!');
+      console.log('[SETHTML] reader.chapter exists:', !!reader.chapter);
+      console.log('[SETHTML] reader.chapter:', reader.chapter);
+      console.log(
+        '[SETHTML] enhanceChapterTitles exists:',
+        typeof reader.enhanceChapterTitles,
+      );
+    }
+
+    // FIX: Enhance EPUB chapter titles to prevent TTS audio-highlight desynchronization
+    // Many EPUBs have hidden/unstyled chapter titles that TTS reads but users don't see clearly
+    // This makes chapter titles visible to align TTS audio with highlighting
+    if (DEBUG) {
+      console.log('[ENHANCE] Main chapter loading - checking for enhancement');
+      console.log('[ENHANCE] Chapter object:', reader.chapter);
+    }
+
+    if (reader.chapter) {
+      const chapterName =
+        reader.chapter.name || `Chapter ${reader.chapter.id || 'Unknown'}`;
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Main loading - using chapter name:',
+          chapterName,
+        );
+      }
+      html = reader.enhanceChapterTitles(html, chapterName);
+    } else {
+      if (DEBUG) {
+        console.log('[ENHANCE] Main loading - no chapter object available');
+      }
+    }
+
+    if (DEBUG) {
+      console.log(
+        '[SETHTML] Enhancement step completed. HTML length:',
+        html.length,
+      );
     }
 
     reader.chapterElement.innerHTML = html;
@@ -2435,10 +4146,12 @@ document.addEventListener('message', __handleNativeMessage);
           // Restore scroll position
           window.scrollTo({ top: savedTTSState.scrollY, behavior: 'auto' });
 
-          console.log(
-            'Text options: Restored TTS to paragraph',
-            savedTTSState.paragraphIndex,
-          );
+          if (DEBUG) {
+            console.log(
+              'Text options: Restored TTS to paragraph',
+              savedTTSState.paragraphIndex,
+            );
+          }
 
           // Resume if it was playing
           if (savedTTSState.wasReading) {

@@ -1,8 +1,25 @@
 import type { RefObject } from 'react';
+import type WebView from 'react-native-webview';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const ttsHelpersLog = createRateLimitedLogger('ttsHelpers', { windowMs: 1500 });
+
+export interface TTSVoiceSettings {
+  identifier?: string;
+  name?: string;
+  language?: string;
+}
+
+export interface TTSSettings {
+  rate?: number;
+  pitch?: number;
+  voice?: string | TTSVoiceSettings;
+  [key: string]: unknown;
+}
 
 export function applyTtsUpdateToWebView(
-  settings: any,
-  webViewRef: RefObject<any>,
+  settings: TTSSettings,
+  webViewRef: RefObject<WebView | null>,
 ) {
   try {
     if (webViewRef && webViewRef.current) {
@@ -17,7 +34,7 @@ export function applyTtsUpdateToWebView(
       return true;
     }
     return false;
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 }
@@ -33,7 +50,7 @@ export function applyTtsUpdateToWebView(
  * @returns true if injection succeeded, false otherwise
  */
 export function safeInjectJS(
-  webViewRef: RefObject<any>,
+  webViewRef: RefObject<WebView | null>,
   script: string,
   context?: string,
 ): boolean {
@@ -45,7 +62,7 @@ export function safeInjectJS(
     const suffix = script.trimEnd().endsWith('true;') ? '' : '\ntrue;';
     webViewRef.current.injectJavaScript(`${script}${suffix}`);
     return true;
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 }
@@ -67,14 +84,10 @@ export function validateAndClampParagraphIndex(
 ): number {
   // Handle edge cases
   if (totalParagraphs <= 0) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `validateAndClampParagraphIndex: No paragraphs available${
-          context ? ` (${context})` : ''
-        }`,
-      );
-    }
+    ttsHelpersLog.warn(
+      'no-paragraphs',
+      `No paragraphs available${context ? ` (${context})` : ''}`,
+    );
     return 0;
   }
 
@@ -86,15 +99,10 @@ export function validateAndClampParagraphIndex(
   // Check if index exceeds available paragraphs
   const maxValidIndex = totalParagraphs - 1;
   if (paragraphIndex > maxValidIndex) {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `validateAndClampParagraphIndex: Index ${paragraphIndex} exceeds available paragraphs ` +
-          `(max: ${maxValidIndex})${
-            context ? ` - ${context}` : ''
-          }. Clamping to ${maxValidIndex}.`,
-      );
-    }
+    ttsHelpersLog.warn(
+      'index-exceeds-max',
+      `Index ${paragraphIndex} exceeds available paragraphs (max: ${maxValidIndex})${context ? ` - ${context}` : ''}. Clamping to ${maxValidIndex}.`,
+    );
     return maxValidIndex;
   }
 

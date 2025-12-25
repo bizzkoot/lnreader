@@ -19,10 +19,28 @@ import TTSScrollBehaviorModal from '@screens/settings/SettingsReaderScreen/Modal
 import Switch from '@components/Switch/Switch';
 import { useChapterContext } from '../../ChapterContext';
 import { scaleDimension } from '@theme/scaling';
+import {
+  getNovelTtsSettings,
+  setNovelTtsSettings,
+} from '@services/tts/novelTtsSettings';
+import { NovelInfo } from '@database/types';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
-const ReaderTTSTab: React.FC = React.memo(() => {
+const readerTTSTabLog = createRateLimitedLogger('ReaderTTSTab', {
+  windowMs: 1500,
+});
+
+interface ReaderTTSTabProps {
+  novel: NovelInfo;
+}
+
+const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
+  const debugLog = useCallback((...args: unknown[]) => {
+    readerTTSTabLog.debug('novel-tts', ...args);
+  }, []);
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
+  // webViewRef comes from context; novel is passed as prop to work around Portal context issue
   const { webViewRef } = useChapterContext();
   const {
     TTSEnable = false,
@@ -119,7 +137,82 @@ const ReaderTTSTab: React.FC = React.memo(() => {
   );
 
   const { tts, setChapterReaderSettings } = useChapterReaderSettings();
+  const effectiveTts = useMemo(() => tts ?? { rate: 1, pitch: 1 }, [tts]);
   const [voices, setVoices] = useState<TTSVoice[]>([]);
+
+  // novel can be undefined during tab pre-rendering (react-native-tab-view renders all tabs)
+  // novel is passed as prop and is guaranteed to exist
+  const novelId = novel.id;
+  const [useNovelTtsSettings, setUseNovelTtsSettings] = useState(false);
+
+  // DEBUG: Log novel object details on every render
+  useEffect(() => {
+    debugLog('========== NOVEL ID FLOW DEBUG ==========');
+    debugLog('novel object:', novel ? 'EXISTS' : 'UNDEFINED');
+    debugLog('  novel.id:', novel.id);
+    debugLog('  novel.name:', novel.name);
+    debugLog('  novel.pluginId:', novel.pluginId);
+    debugLog('  novel.isLocal:', novel.isLocal);
+    debugLog('novelId extracted:', novelId, '(type:', typeof novelId, ')');
+    debugLog('==========================================');
+  }, [novel, novelId, debugLog]);
+
+  useEffect(() => {
+    debugLog('novelId useEffect triggered', { novelId, type: typeof novelId });
+
+    const stored = getNovelTtsSettings(novelId);
+    debugLog('read stored novel tts settings', { novelId, stored });
+    setUseNovelTtsSettings(stored?.enabled === true);
+
+    // If enabled and has saved settings, sync UI/global reader settings to match.
+    // This keeps sliders/voice reflecting the novel override.
+    if (stored?.enabled && stored.tts) {
+      setChapterReaderSettings({ tts: stored.tts });
+    }
+  }, [novelId, setChapterReaderSettings, debugLog]);
+
+  const persistNovelTtsEnabled = useCallback(
+    (enabled: boolean) => {
+      if (typeof novelId !== 'number') return;
+
+      const previous = getNovelTtsSettings(novelId);
+
+      debugLog('persistNovelTtsEnabled', {
+        novelId,
+        enabled,
+        previous,
+      });
+
+      setNovelTtsSettings(novelId, {
+        enabled,
+        tts: previous?.tts ?? effectiveTts,
+      });
+
+      debugLog('after persistNovelTtsEnabled write', {
+        novelId,
+        next: getNovelTtsSettings(novelId),
+      });
+    },
+    [debugLog, novelId, effectiveTts],
+  );
+
+  const setTtsSettings = useCallback(
+    (nextTts: NonNullable<typeof tts>) => {
+      setChapterReaderSettings({ tts: nextTts });
+
+      if (useNovelTtsSettings && typeof novelId === 'number') {
+        const previous = getNovelTtsSettings(novelId);
+        setNovelTtsSettings(novelId, {
+          enabled: true,
+          tts: {
+            ...previous?.tts,
+            ...nextTts,
+          },
+        });
+      }
+    },
+    [novelId, setChapterReaderSettings, useNovelTtsSettings],
+  );
 
   // Local state for slider values to enable real-time display during drag
   const [localRate, setLocalRate] = useState(tts?.rate || 1);
@@ -145,6 +238,17 @@ const ReaderTTSTab: React.FC = React.memo(() => {
       }
     },
     [webViewRef],
+  );
+
+  const handleVoiceSelect = useCallback(
+    (selected: TTSVoice) => {
+      setTtsSettings({
+        ...tts,
+        voice: selected as unknown as Voice,
+      });
+      postTTSSettingsToWebView({ voice: selected.identifier });
+    },
+    [postTTSSettingsToWebView, setTtsSettings, tts],
   );
 
   // Sync local state when tts settings change externally
@@ -190,7 +294,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
           name: 'System',
           language: 'System',
           identifier: 'default',
-          quality: 'default' as any,
+          quality: 'default',
         } as TTSVoice,
         ...formattedVoices,
       ]);
@@ -200,20 +304,21 @@ const ReaderTTSTab: React.FC = React.memo(() => {
   const resetTTSSettings = useCallback(() => {
     setLocalRate(1);
     setLocalPitch(1);
-    setChapterReaderSettings({
-      tts: {
-        pitch: 1,
-        rate: 1,
-        voice: {
-          name: 'System',
-          language: 'System',
-          identifier: 'default',
-          quality: 'Default' as VoiceQuality,
-        } as Voice,
-      },
-    });
+
+    const next = {
+      pitch: 1,
+      rate: 1,
+      voice: {
+        name: 'System',
+        language: 'System',
+        identifier: 'default',
+        quality: 'Default' as VoiceQuality,
+      } as Voice,
+    };
+
+    setTtsSettings(next);
     postTTSSettingsToWebView({ rate: 1, pitch: 1, voice: 'default' });
-  }, [setChapterReaderSettings, postTTSSettingsToWebView]);
+  }, [setTtsSettings, postTTSSettingsToWebView]);
 
   return (
     <>
@@ -241,6 +346,57 @@ const ReaderTTSTab: React.FC = React.memo(() => {
 
         {TTSEnable && (
           <>
+            {/* Per-novel TTS toggle */}
+            <View style={styles.section}>
+              <View style={styles.switchItem}>
+                <AppText
+                  style={[styles.switchLabel, { color: theme.onSurface }]}
+                >
+                  Use settings for this novel
+                </AppText>
+                <Switch
+                  value={useNovelTtsSettings}
+                  onValueChange={() => {
+                    if (typeof novelId !== 'number') {
+                      debugLog('toggle blocked: invalid novelId', {
+                        novelId,
+                        type: typeof novelId,
+                      });
+                      return;
+                    }
+
+                    const enabled = !useNovelTtsSettings;
+
+                    debugLog('toggle pressed', {
+                      novelId,
+                      prev: useNovelTtsSettings,
+                      next: enabled,
+                    });
+
+                    setUseNovelTtsSettings(enabled);
+                    persistNovelTtsEnabled(enabled);
+
+                    if (enabled && tts) {
+                      // Capture current global TTS as novel baseline immediately.
+                      setNovelTtsSettings(novelId, {
+                        enabled: true,
+                        tts,
+                      });
+
+                      debugLog('saved baseline tts on enable', {
+                        novelId,
+                        tts,
+                        next: getNovelTtsSettings(novelId),
+                      });
+                    }
+
+                    // When turning ON, capture current global TTS as novel baseline.
+                    // When turning OFF, we just stop persisting novel overrides.
+                  }}
+                />
+              </View>
+            </View>
+
             {/* Voice Settings */}
             <View style={styles.section}>
               <List.Item
@@ -270,9 +426,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     onPress={() => {
                       const newValue = Math.max(0.1, localRate - 0.1);
                       setLocalRate(newValue);
-                      setChapterReaderSettings({
-                        tts: { ...tts, rate: newValue },
-                      });
+                      setTtsSettings({ ...tts, rate: newValue });
                       postTTSSettingsToWebView({ rate: newValue });
                     }}
                   >
@@ -298,9 +452,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     onValueChange={setLocalRate}
                     onSlidingComplete={value => {
                       setIsDraggingRate(false);
-                      setChapterReaderSettings({
-                        tts: { ...tts, rate: value },
-                      });
+                      setTtsSettings({ ...tts, rate: value });
                       postTTSSettingsToWebView({ rate: value });
                     }}
                   />
@@ -309,9 +461,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     onPress={() => {
                       const newValue = Math.min(3, localRate + 0.1);
                       setLocalRate(newValue);
-                      setChapterReaderSettings({
-                        tts: { ...tts, rate: newValue },
-                      });
+                      setTtsSettings({ ...tts, rate: newValue });
                       postTTSSettingsToWebView({ rate: newValue });
                     }}
                   >
@@ -347,9 +497,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     onPress={() => {
                       const newValue = Math.max(0.1, localPitch - 0.1);
                       setLocalPitch(newValue);
-                      setChapterReaderSettings({
-                        tts: { ...tts, pitch: newValue },
-                      });
+                      setTtsSettings({ ...tts, pitch: newValue });
                       postTTSSettingsToWebView({ pitch: newValue });
                     }}
                   >
@@ -375,9 +523,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     onValueChange={setLocalPitch}
                     onSlidingComplete={value => {
                       setIsDraggingPitch(false);
-                      setChapterReaderSettings({
-                        tts: { ...tts, pitch: value },
-                      });
+                      setTtsSettings({ ...tts, pitch: value });
                       postTTSSettingsToWebView({ pitch: value });
                     }}
                   />
@@ -386,9 +532,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
                     onPress={() => {
                       const newValue = Math.min(2, localPitch + 0.1);
                       setLocalPitch(newValue);
-                      setChapterReaderSettings({
-                        tts: { ...tts, pitch: newValue },
-                      });
+                      setTtsSettings({ ...tts, pitch: newValue });
                       postTTSSettingsToWebView({ pitch: newValue });
                     }}
                   >
@@ -488,9 +632,7 @@ const ReaderTTSTab: React.FC = React.memo(() => {
           visible={voiceModalVisible}
           onDismiss={hideVoiceModal}
           voices={voices}
-          onVoiceSelect={(voice: TTSVoice) => {
-            postTTSSettingsToWebView({ voice: voice.identifier });
-          }}
+          onVoiceSelect={handleVoiceSelect}
         />
         <TTSScrollBehaviorModal
           visible={ttsAutoDownloadModalVisible}

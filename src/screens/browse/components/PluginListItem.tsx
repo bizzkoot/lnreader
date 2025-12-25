@@ -65,7 +65,7 @@ export const PluginListItem = memo(
     );
 
     const handleWebviewPress = useCallback(
-      (ref: any) => {
+      (ref: { close: () => void }) => {
         ref.close();
         navigation.navigate('WebviewScreen', {
           name: item.name,
@@ -77,7 +77,7 @@ export const PluginListItem = memo(
     );
 
     const handlePinPress = useCallback(
-      (ref: any) => {
+      (ref: { close: () => void }) => {
         ref.close();
         togglePinPlugin(item.id);
         showToast(
@@ -89,7 +89,7 @@ export const PluginListItem = memo(
       [togglePinPlugin, item.id, item.name, isPluginPinned],
     );
 
-    const handleDeletePress = useCallback((ref: any) => {
+    const handleDeletePress = useCallback((ref: { close: () => void }) => {
       ref.close();
       setShowDeleteDialog(true);
     }, []);
@@ -126,7 +126,7 @@ export const PluginListItem = memo(
     }, [navigateToSource, item]);
 
     const renderRightActions = useCallback(
-      (_progress: any, _dragX: any, ref: any) => (
+      (_progress: unknown, _dragX: unknown, ref: { close: () => void }) => (
         <View style={styles.rightActionsContainer}>
           <View style={rightActionStyle}>
             <IconButtonV2
@@ -161,8 +161,10 @@ export const PluginListItem = memo(
         handleWebviewPress,
         handlePinPress,
         handleDeletePress,
+        iconSize.sm,
         isPluginPinned,
         rightActionStyle,
+        styles.rightActionsContainer,
         theme,
       ],
     );

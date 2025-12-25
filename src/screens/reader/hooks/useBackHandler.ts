@@ -1,12 +1,16 @@
-/* eslint-disable no-console */
 import { useCallback, RefObject, MutableRefObject } from 'react';
 import WebView from 'react-native-webview';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@navigators/types';
+
+const backLog = createRateLimitedLogger('useBackHandler', { windowMs: 1500 });
 
 interface BackHandlerParams {
   chapterId: number;
   webViewRef: RefObject<WebView | null>;
   saveProgress: (progress: number) => void;
-  navigation: any;
+  navigation: StackNavigationProp<RootStackParamList>;
   showExitDialog: boolean;
   showChapterSelectionDialog: boolean;
   refs: {
@@ -58,8 +62,9 @@ export const useBackHandler = ({
 
     if (refs.isTTSReadingRef.current) {
       const ttsPosition = refs.currentParagraphIndexRef.current ?? 0;
-      console.log(
-        `useTTSController: Back pressed while TTS playing. Saving TTS position: ${ttsPosition}`,
+      backLog.info(
+        'back-while-playing',
+        `Back pressed while TTS playing. Saving TTS position: ${ttsPosition}`,
       );
 
       callbacks.handleStopTTS();

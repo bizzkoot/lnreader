@@ -346,8 +346,8 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               <Slider
                 style={styles.slider}
                 value={localUiScale}
-                minimumValue={0.2}
-                maximumValue={1.5}
+                minimumValue={0.8}
+                maximumValue={1.3}
                 step={0.05}
                 minimumTrackTintColor={theme.primary}
                 maximumTrackTintColor={theme.surfaceVariant}
@@ -362,7 +362,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               <Pressable
                 style={styles.sliderButton}
                 onPress={() => {
-                  const newValue = Math.min(1.5, localUiScale + 0.05);
+                  const newValue = Math.min(1.3, localUiScale + 0.05);
                   setLocalUiScale(newValue);
                   setAppSettings({ uiScale: newValue });
                 }}

@@ -35,11 +35,13 @@ import FileManager from '@specs/NativeFile';
 import { downloadFile } from '@plugins/helpers/fetch';
 import { StorageAccessFramework } from 'expo-file-system/legacy';
 import PagePaginationControl from './PagePaginationControl';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@navigators/types';
 
 type NovelScreenListProps = {
   headerOpacity: SharedValue<number>;
   listRef: React.RefObject<LegendListRef | null>;
-  navigation: any;
+  navigation: StackNavigationProp<RootStackParamList>;
   selected: ChapterInfo[];
   setSelected: React.Dispatch<React.SetStateAction<ChapterInfo[]>>;
   getNextChapterBatch: () => void;
@@ -238,7 +240,7 @@ const NovelScreenList = ({
   const navigateToChapter = (chapter: ChapterInfo) => {
     navigation.navigate('ReaderStack', {
       screen: 'Chapter',
-      params: { novel, chapter },
+      params: { novel: novel as NovelInfo, chapter },
     });
   };
 
@@ -304,8 +306,9 @@ const NovelScreenList = ({
         FileManager.copyFile(cover, coverDestUri);
       }
       showToast(getString('novelScreen.coverSaved'));
-    } catch (err: any) {
-      showToast(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast(message);
     } finally {
       if (tempCoverUri) {
         FileManager.unlink(tempCoverUri);

@@ -188,6 +188,7 @@ const GlobalSearchSourceResults: React.FC<{ item: GlobalSearchResult }> = ({
       noResultsColor,
       novelInLibrary,
       switchNovelToLibrary,
+      styles,
       theme,
     ],
   );

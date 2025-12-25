@@ -1,5 +1,11 @@
 import React, { memo, useRef, useState, useMemo } from 'react';
-import { Pressable, StyleSheet, View, TextInput } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  TextInput,
+  TextStyle,
+  View,
+} from 'react-native';
 
 import IconButtonV2 from '../IconButtonV2/IconButtonV2';
 import { ThemeColors } from '../../theme/types';
@@ -46,8 +52,8 @@ const Searchbar: React.FC<SearcbarProps> = ({
   onLeftIconPress,
   theme,
 }) => {
-  const searchbarRef = useRef<any>(null);
-  const focusSearchbar = () => searchbarRef.current.focus();
+  const searchbarRef = useRef<TextInput>(null);
+  const focusSearchbar = () => searchbarRef.current?.focus();
   const [extraMenu, showExtraMenu] = useState(false);
   const { uiScale = 1.0 } = useAppSettings();
 
@@ -165,9 +171,11 @@ const Searchbar: React.FC<SearcbarProps> = ({
                 key={index}
                 title={button.title}
                 style={{ backgroundColor: theme.surface2 }}
-                titleStyle={{
-                  color: theme.onSurface,
-                }}
+                titleStyle={
+                  {
+                    color: theme.onSurface,
+                  } as TextStyle
+                }
                 onPress={() => {
                   showExtraMenu(false);
                   setTimeout(() => {

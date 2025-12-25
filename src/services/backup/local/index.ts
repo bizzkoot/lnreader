@@ -8,13 +8,14 @@ import { Share } from 'react-native';
 import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { ROOT_STORAGE } from '@utils/Storages';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
 import { ZipBackupName } from '../types';
 import NativeFile from '@specs/NativeFile';
 import { getString } from '@strings/translations';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 import { sleep } from '@utils/sleep';
 import { LOCAL_BACKUP_FOLDER_URI } from '@hooks/persisted/useLocalBackupFolder';
+import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
 
 // Helper function to share backup file via Android share sheet
 const shareBackupFile = async (filePath: string) => {
@@ -29,8 +30,20 @@ export const createBackup = async (
   setMeta?: (
     transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
   ) => void,
+  opts?: { isAuto?: boolean },
 ) => {
   try {
+    const isAuto = !!opts?.isAuto;
+    const appSettings =
+      getMMKVObject<AppSettings>(APP_SETTINGS) || ({} as AppSettings);
+    const include = appSettings.backupIncludeOptions || {
+      settings: true,
+      novelsAndChapters: true,
+      categories: true,
+      repositories: true,
+      downloads: true,
+    };
+
     setMeta?.(meta => ({
       ...meta,
       isRunning: true,
@@ -40,18 +53,20 @@ export const createBackup = async (
 
     await prepareBackupData(CACHE_DIR_PATH);
 
-    setMeta?.(meta => ({
-      ...meta,
-      progress: 1 / 4,
-      progressText: getString('backupScreen.uploadingDownloadedFiles'),
-    }));
+    if (include.downloads) {
+      setMeta?.(meta => ({
+        ...meta,
+        progress: 1 / 4,
+        progressText: getString('backupScreen.uploadingDownloadedFiles'),
+      }));
 
-    await sleep(200);
+      await sleep(200);
 
-    await NativeZipArchive.zip(
-      ROOT_STORAGE,
-      CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
-    );
+      await NativeZipArchive.zip(
+        ROOT_STORAGE,
+        CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
+      );
+    }
 
     setMeta?.(meta => ({
       ...meta,
@@ -90,7 +105,11 @@ export const createBackup = async (
           .toISOString()
           .replace(/[:.]/g, '-')
           .slice(0, -5);
-        const fileName = `lnreader_backup_${timestamp}.zip`;
+
+        const prefix = isAuto
+          ? 'lnreader_auto_backup_'
+          : 'lnreader_manual_backup_';
+        const fileName = `${prefix}${timestamp}.zip`;
 
         const destUri = await StorageAccessFramework.createFileAsync(
           defaultFolderUri,
@@ -108,6 +127,68 @@ export const createBackup = async (
           base64Content,
           { encoding: FileSystem.EncodingType.Base64 },
         );
+
+        // Prune old backups (applies to both auto and manual independently)
+        const maxBackups = appSettings.maxAutoBackups ?? 2;
+        if (maxBackups > 0) {
+          try {
+            const dir =
+              await StorageAccessFramework.readDirectoryAsync(defaultFolderUri);
+
+            // Filter files matching the CURRENT type (auto or manual)
+            const backupRegex = new RegExp(
+              `^${prefix}(\\d{4}-\\d{2}-\\d{2}t\\d{2}-\\d{2}-\\d{2})\\.zip$`,
+              'i',
+            );
+
+            const backups = dir
+              .filter(uri => {
+                // SAF URIs are URL-encoded, decode to get actual filename
+                // Add error handling for malformed URIs
+                try {
+                  const decodedUri = decodeURIComponent(uri);
+                  const name = decodedUri.split('/').pop() || '';
+                  return backupRegex.test(name);
+                } catch {
+                  // Skip invalid URIs
+                  return false;
+                }
+              })
+              .map(uri => {
+                // Add error handling for malformed URIs
+                let name = '';
+                let sortKey = '';
+                try {
+                  const decodedUri = decodeURIComponent(uri);
+                  name = decodedUri.split('/').pop() || '';
+                  const match = name.match(backupRegex);
+                  sortKey = match?.[1] || '';
+                } catch {
+                  // Use original URI as fallback for sorting
+                  name = uri.split('/').pop() || '';
+                }
+                return { uri, fileName: name, sortKey }; // Keep original uri for deletion
+              })
+              .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+
+            // We verified the creation was successful (destUri exists)
+            // Now check if we exceed the limit
+            const overflow = backups.length - maxBackups;
+
+            if (overflow > 0) {
+              // Delete oldest files
+              for (const old of backups.slice(0, overflow)) {
+                try {
+                  await StorageAccessFramework.deleteAsync(old.uri);
+                } catch {
+                  // best-effort deletion
+                }
+              }
+            }
+          } catch (e) {
+            // Pruning failed, but backup is safe. Log/Ignore.
+          }
+        }
 
         showToast(getString('backupScreen.backupSavedToFolder'));
       } catch (error) {
@@ -144,6 +225,16 @@ export const restoreBackup = async (
   ) => void,
 ) => {
   try {
+    const appSettings =
+      getMMKVObject<AppSettings>(APP_SETTINGS) || ({} as AppSettings);
+    const include = appSettings.backupIncludeOptions || {
+      settings: true,
+      novelsAndChapters: true,
+      categories: true,
+      repositories: true,
+      downloads: true,
+    };
+
     setMeta?.(meta => ({
       ...meta,
       isRunning: true,
@@ -223,19 +314,20 @@ export const restoreBackup = async (
 
     await restoreData(CACHE_DIR_PATH);
 
-    setMeta?.(meta => ({
-      ...meta,
-      progress: 3 / 4,
-      progressText: getString('backupScreen.downloadingDownloadedFiles'),
-    }));
+    if (include.downloads) {
+      setMeta?.(meta => ({
+        ...meta,
+        progress: 3 / 4,
+        progressText: getString('backupScreen.downloadingDownloadedFiles'),
+      }));
 
-    await sleep(200);
+      await sleep(200);
 
-    // TODO: unlink here too?
-    await NativeZipArchive.unzip(
-      CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD,
-      ROOT_STORAGE,
-    );
+      const downloadZipPath = CACHE_DIR_PATH + '/' + ZipBackupName.DOWNLOAD;
+      if (NativeFile.exists(downloadZipPath)) {
+        await NativeZipArchive.unzip(downloadZipPath, ROOT_STORAGE);
+      }
+    }
 
     setMeta?.(meta => ({
       ...meta,

@@ -109,7 +109,7 @@ const ChaptersSettingsSheet = ({
         />
       </View>
     ),
-    [filter, filterChapters, theme],
+    [filter, filterChapters, theme, uiScale],
   );
 
   const SecondRoute = useCallback(
@@ -149,7 +149,7 @@ const ChaptersSettingsSheet = ({
         />
       </View>
     ),
-    [sort, sortChapters, theme],
+    [sort, sortChapters, theme, uiScale],
   );
 
   const ThirdRoute = useCallback(
@@ -169,29 +169,34 @@ const ChaptersSettingsSheet = ({
         />
       </View>
     ),
-    [setShowChapterTitles, showChapterTitles, theme],
+    [setShowChapterTitles, showChapterTitles, theme, uiScale],
   );
 
   const renderScene = useMemo(
     () =>
       SceneMap({
-        first: (props: any) => <FirstRoute {...props} />,
-        second: (props: any) => <SecondRoute {...props} />,
-        third: (props: any) => <ThirdRoute {...props} />,
+        first: () => <FirstRoute />,
+        second: () => <SecondRoute />,
+        third: () => <ThirdRoute />,
       }),
-    [],
+    [FirstRoute, SecondRoute, ThirdRoute],
   );
+
+  interface Route {
+    key: string;
+    title: string;
+  }
 
   const layout = useWindowDimensions();
 
   const [index, setIndex] = useState(0);
-  const [routes] = useState([
+  const [routes] = useState<Route[]>([
     { key: 'first', title: getString('common.filter') },
     { key: 'second', title: getString('common.sort') },
     { key: 'third', title: getString('common.display') },
   ]);
 
-  const renderTabBar: TabViewProps<any>['renderTabBar'] = props => (
+  const renderTabBar: TabViewProps<Route>['renderTabBar'] = props => (
     <TabBar
       {...props}
       indicatorStyle={{ backgroundColor: theme.primary }}
@@ -209,7 +214,7 @@ const ChaptersSettingsSheet = ({
   );
 
   const renderLabel = useCallback(
-    ({ route, color: localColor }: { route: any; color: string }) => {
+    ({ route, color: localColor }: { route: Route; color: string }) => {
       return <Text style={{ color: localColor }}>{route.title}</Text>;
     },
     [],

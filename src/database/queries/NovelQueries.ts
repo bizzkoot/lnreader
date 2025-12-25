@@ -20,6 +20,7 @@ import { downloadFile } from '@plugins/helpers/fetch';
 import { getPlugin } from '@plugins/pluginManager';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
+import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
 
 export const insertNovelAndChapters = async (
   pluginId: string,
@@ -148,6 +149,9 @@ export const removeNovelsFromLibrary = (novelIds: Array<number>) => {
     [`UPDATE Novel SET inLibrary = 0 WHERE id IN (${novelIds.join(', ')});`],
     [`DELETE FROM NovelCategory WHERE novelId IN (${novelIds.join(', ')});`],
   ]);
+
+  // Keep MMKV tidy: remove per-novel TTS overrides when removed from library.
+  novelIds.forEach(id => deleteNovelTtsSettings(id));
   showToast(getString('browseScreen.removeFromLibrary'));
 };
 
@@ -302,7 +306,7 @@ export const updateNovelCategories = async (
   return runSync(queries);
 };
 
-const restoreObjectQuery = (table: string, obj: any) => {
+const restoreObjectQuery = (table: string, obj: Record<string, unknown>) => {
   return `
   INSERT INTO ${table}
   (${Object.keys(obj).join(',')})
@@ -322,7 +326,10 @@ export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
     );
     for (const chapter of chapters) {
       await db.runAsync(
-        restoreObjectQuery('Chapter', chapter),
+        restoreObjectQuery(
+          'Chapter',
+          chapter as unknown as Record<string, unknown>,
+        ),
         Object.values(chapter) as string[] | number[],
       );
     }

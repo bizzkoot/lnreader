@@ -5,15 +5,32 @@ import {
   SQLiteRunResult,
 } from 'expo-sqlite';
 import { noop } from 'lodash-es';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
-function logError(error: any) {
-  // eslint-disable-next-line no-console
-  console.error(error);
+const helpersLog = createRateLimitedLogger('DBHelpers', { windowMs: 1500 });
+
+interface DatabaseError extends Error {
+  code?: number;
+}
+
+function isDatabaseError(error: unknown): error is DatabaseError {
+  return (
+    error instanceof Error ||
+    (typeof error === 'object' && error !== null && 'message' in error)
+  );
+}
+
+function logError(error: unknown) {
+  if (isDatabaseError(error)) {
+    helpersLog.error('query-error', 'Database query error:', error);
+  } else {
+    helpersLog.error('query-error', 'Unknown database error:', String(error));
+  }
 }
 
 type query = string;
 type SQLiteResultFunction<T> = (data: T) => void;
-type SQLiteErrorFunction = (data: any) => void;
+type SQLiteErrorFunction = (error: unknown) => void;
 
 export type QueryObject<T = unknown> =
   | [query, SQLiteBindParams, SQLiteResultFunction<T>, SQLiteErrorFunction]
@@ -34,7 +51,7 @@ function defaultQuerySync<T = unknown, Array extends boolean = false>(
     const result = db[fn](query, params) as Array extends true ? T[] : T;
     callback(result);
     return result;
-  } catch (e) {
+  } catch (e: unknown) {
     catchCallback(e);
     return errorReturn;
   }
@@ -57,8 +74,13 @@ async function defaultQueryAsync<T = unknown, Array extends boolean = false>(
         : T;
       callback(result);
       return result;
-    } catch (e: any) {
-      const msg = String(e?.message || e || '');
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error
+          ? String(e.message ?? e)
+          : typeof e === 'string'
+            ? e
+            : String(e ?? '');
       // If it's a database locked error, retry with backoff
       if (msg.includes('database is locked') && attempt < maxAttempts - 1) {
         const wait = 50 * Math.pow(2, attempt); // 50ms, 100ms, 200ms

@@ -1,4 +1,9 @@
 import { Linking } from 'react-native';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const webViewSecurityLog = createRateLimitedLogger('WebViewSecurity', {
+  windowMs: 1500,
+});
 
 type WebViewNavLike = {
   url: string;
@@ -13,6 +18,8 @@ export type WebViewInboundMessage<
   type: TType;
   data?: TData;
   nonce?: string;
+  ts?: number;
+  [key: string]: unknown;
 };
 
 export const READER_WEBVIEW_ORIGIN_WHITELIST = ['about:blank', 'file://*'];
@@ -38,7 +45,9 @@ export function buildWebViewPostMessageInject(
             message,
           )}));
         }
-      } catch (e) {}
+      } catch (e) {
+        // Intentionally empty: Security sandbox - ignore errors in injected code
+      }
     })();
     true;
   `;
@@ -52,7 +61,9 @@ export function buildWebViewWindowInjection(
     (function(){
       try {
         window[${JSON.stringify(name)}] = ${JSON.stringify(value)};
-      } catch (e) {}
+      } catch (e) {
+        // Intentionally empty: Security sandbox - ignore errors in injected code
+      }
     })();
     true;
   `;
@@ -145,12 +156,25 @@ export function parseWebViewMessage<TType extends string, TData>(
     if (nonce !== undefined && typeof nonce !== 'string') {
       return null;
     }
+    const ts = obj.ts;
+    if (ts !== undefined && (typeof ts !== 'number' || ts <= 0)) {
+      webViewSecurityLog.warn('invalid-timestamp', `Invalid timestamp: ${ts}`);
+      // Continue parsing, just don't include invalid timestamp
+    }
+
+    // Preserve additional top-level keys (e.g. `chapterId`, `paragraphIndex`) so
+    // event handlers can read them without forcing everything into `data`.
+    // Security remains enforced via allowed type + nonce + rate limiting.
+    const { type: _t, data: _d, nonce: _n, ts: _ts, ...rest } = obj;
     return {
       type: type as TType,
       data: obj.data as TData,
       nonce: nonce as string | undefined,
+      ts: typeof ts === 'number' && ts > 0 ? ts : undefined,
+      ...rest,
     };
   } catch {
+    // Parse error - return null (malicious/invalid message)
     return null;
   }
 }

@@ -9,6 +9,7 @@ import { fetchNovel } from '@services/plugin/fetch';
 import { parseChapterNumber } from '@utils/parseChapterNumber';
 
 import { getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
+import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
 import {
   LAST_READ_PREFIX,
   NOVEL_SETTINSG_PREFIX,
@@ -92,6 +93,9 @@ export const migrateNovel = async (
     );
     await db.runAsync('DELETE FROM Novel WHERE id = ?', fromNovel.id);
   });
+
+  // When the old novel row is deleted, remove any novel-scoped overrides.
+  deleteNovelTtsSettings(fromNovel.id);
 
   setMMKVObject(
     `${NOVEL_SETTINSG_PREFIX}_${toNovel!.pluginId}_${toNovel!.path}`,

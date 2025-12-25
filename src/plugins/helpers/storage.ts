@@ -7,8 +7,8 @@ const WEBVIEW_LOCAL_STORAGE = '_LocalStorage';
 const WEBVIEW_SESSION_STORAGE = '_SessionStorage';
 
 interface StoredItem {
-  created: Date;
-  value: any;
+  created: string; // ISO date string
+  value: unknown;
   expires?: number; // timestamp (miliseconds)
 }
 
@@ -23,12 +23,12 @@ class Storage {
    * Sets a key-value pair in storage.
    *
    * @param {string} key - The key to set.
-   * @param {any} value - The value to set.
+   * @param {unknown} value - The value to set.
    * @param {Date | number} [expires] - Optional expiry date or time in milliseconds.
    */
-  set(key: string, value: any, expires?: Date | number): void {
+  set(key: string, value: unknown, expires?: Date | number): void {
     const item: StoredItem = {
-      created: new Date(),
+      created: new Date().toISOString(),
       value,
       expires: expires instanceof Date ? expires.getTime() : expires,
     };
@@ -40,9 +40,9 @@ class Storage {
    *
    * @param {string} key - The key to retrieve the value for.
    * @param {boolean} [raw] - Optional flag to return the raw stored item.
-   * @returns {any} The stored value or undefined if key is not found.
+   * @returns {unknown} The stored value or undefined if key is not found.
    */
-  get(key: string, raw?: boolean): any {
+  get(key: string, raw?: boolean): unknown {
     const storedItem = store.getString(this.#pluginID + PLUGIN_STORAGE + key);
     if (storedItem) {
       const item: StoredItem = JSON.parse(storedItem);

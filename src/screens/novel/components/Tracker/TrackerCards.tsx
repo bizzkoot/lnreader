@@ -49,6 +49,19 @@ export const AddTrackingCard: React.FC<AddTrackingCardProps> = ({
           borderRadius: scaleDimension(8, uiScale),
           margin: scaleDimension(8, uiScale),
         },
+        cardSurface: {
+          borderRadius: scaleDimension(8, uiScale),
+          margin: scaleDimension(8, uiScale),
+        },
+        dividerBorderBottom: {
+          borderBottomColor: 'rgba(0, 0, 0, 0.12)',
+        },
+        dividerBorderRight: {
+          borderRightColor: 'rgba(0, 0, 0, 0.12)',
+        },
+        dividerBorderLeft: {
+          borderLeftColor: 'rgba(0, 0, 0, 0.12)',
+        },
         flex1: {
           flex: 1,
         },
@@ -215,6 +228,19 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
           borderRadius: scaleDimension(8, uiScale),
           margin: scaleDimension(8, uiScale),
         },
+        cardSurface: {
+          borderRadius: scaleDimension(8, uiScale),
+          margin: scaleDimension(8, uiScale),
+        },
+        dividerBorderBottom: {
+          borderBottomColor: borderColor,
+        },
+        dividerBorderRight: {
+          borderRightColor: borderColor,
+        },
+        dividerBorderLeft: {
+          borderLeftColor: borderColor,
+        },
         flex1: {
           flex: 1,
         },
@@ -287,13 +313,8 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
   }, [trackItem.progress, trackItem.totalChapters]);
 
   return (
-    <View style={[{ backgroundColor: theme.surface }, styles.cardContainer]}>
-      <View
-        style={[
-          styles.titleContainer,
-          { borderBottomColor: 'rgba(0, 0, 0, 0.12)' },
-        ]}
-      >
+    <View style={[styles.cardSurface, { backgroundColor: theme.surface }]}>
+      <View style={[styles.titleContainer, styles.dividerBorderBottom]}>
         <Image source={icon} style={styles.trackerIconSmall} />
         <View style={styles.listItemContainer}>
           <AppText
@@ -312,10 +333,7 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
       </View>
       <View style={styles.trackedItemRow}>
         <Pressable
-          style={[
-            { borderRightColor: 'rgba(0, 0, 0, 0.12)' },
-            styles.listItemLeft,
-          ]}
+          style={[styles.dividerBorderRight, styles.listItemLeft]}
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetStatus}
         >
@@ -333,10 +351,7 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
           </AppText>
         </Pressable>
         <Pressable
-          style={[
-            { borderLeftColor: 'rgba(0, 0, 0, 0.12)' },
-            styles.listItemRight,
-          ]}
+          style={[styles.dividerBorderLeft, styles.listItemRight]}
           android_ripple={{ color: theme.rippleColor }}
           onPress={onSetScore}
         >

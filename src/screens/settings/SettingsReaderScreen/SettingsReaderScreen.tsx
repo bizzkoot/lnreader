@@ -210,7 +210,7 @@ const SettingsReaderScreen = () => {
             (function(){
               try { window.__LNREADER_NONCE__ = ${JSON.stringify(
                 webViewNonceRef.current,
-              )}; } catch (e) {}
+              )}; } catch (e) { /* Intentionally empty: Security sandbox */ }
             })();
             true;
           `}

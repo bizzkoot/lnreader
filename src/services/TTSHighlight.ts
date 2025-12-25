@@ -5,6 +5,11 @@ import {
 } from 'react-native';
 import { getVoiceMapping } from './VoiceMapper';
 import TTSAudioManager from './TTSAudioManager';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const highlightLog = createRateLimitedLogger('TTSHighlight', {
+  windowMs: 1500,
+});
 
 const { TTSHighlight } = NativeModules;
 
@@ -53,10 +58,10 @@ class TTSHighlightService {
     try {
       await TTSHighlight.speak(text, { rate, pitch, utteranceId });
       // Fallback notification: log warning
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.error('Preferred TTS voice unavailable, using system default.');
-      }
+      highlightLog.error(
+        'voice-fallback',
+        'Preferred TTS voice unavailable, using system default.',
+      );
       return utteranceId || Date.now().toString();
     } catch (error) {
       throw lastError || error;
@@ -90,36 +95,6 @@ class TTSHighlightService {
    */
   fullStop(): Promise<boolean> {
     return TTSAudioManager.fullStop();
-  }
-
-  /**
-   * Mark that a restart operation is beginning.
-   * This prevents onQueueEmpty from firing during intentional stop/restart cycles.
-   */
-  setRestartInProgress(value: boolean) {
-    TTSAudioManager.setRestartInProgress(value);
-  }
-
-  /**
-   * Check if a restart operation is in progress.
-   */
-  isRestartInProgress(): boolean {
-    return TTSAudioManager.isRestartInProgress();
-  }
-
-  /**
-   * Mark that a refill operation is beginning.
-   * This prevents onQueueEmpty from firing during async refill operations.
-   */
-  setRefillInProgress(value: boolean) {
-    TTSAudioManager.setRefillInProgress(value);
-  }
-
-  /**
-   * Check if a refill operation is in progress.
-   */
-  isRefillInProgress(): boolean {
-    return TTSAudioManager.isRefillInProgress();
   }
 
   /**

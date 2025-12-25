@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { useMMKVNumber, useMMKVObject } from 'react-native-mmkv';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -35,6 +34,10 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import { useAppSettings } from './useSettings';
 import NativeFile from '@specs/NativeFile';
 import { useLibraryContext } from '@components/Context/LibraryContext';
+import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const novelLog = createRateLimitedLogger('useNovel', { windowMs: 1500 });
 
 // #region constants
 
@@ -72,7 +75,9 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const { defaultChapterSort } = useAppSettings();
 
-  const novelPath = novel?.path ?? (novelOrPath as string);
+  // Type guard: if novel exists, use its path; otherwise novelOrPath must be a string
+  const novelPath =
+    novel?.path ?? (typeof novelOrPath === 'string' ? novelOrPath : '');
 
   const [pageIndex = defaultPageIndex, setPageIndex] = useMMKVNumber(`
     ${NOVEL_PAGE_INDEX_PREFIX}_${pluginId}_${novelPath}
@@ -204,14 +209,27 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   );
 
   const followNovel = useCallback(() => {
-    switchNovelToLibrary(novelPath, pluginId).then(() => {
-      if (novel) {
-        setNovel({
-          ...novel,
-          inLibrary: !novel?.inLibrary,
-        });
-      }
-    });
+    switchNovelToLibrary(novelPath, pluginId)
+      .then(() => {
+        if (novel) {
+          setNovel({
+            ...novel,
+            inLibrary: !novel?.inLibrary,
+          });
+        }
+      })
+      .catch(error => {
+        novelLog.error(
+          'followNovel-failed',
+          'Failed to follow/unfollow novel',
+          error,
+        );
+        showToast(
+          novel?.inLibrary
+            ? 'Failed to remove novel from library'
+            : 'Failed to add novel to library',
+        );
+      });
   }, [novel, novelPath, pluginId, switchNovelToLibrary]);
 
   // #endregion
@@ -255,7 +273,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
         try {
           newChapters = getPageChaptersBatched(...config) || [];
         } catch (error) {
-          console.error('teaser', error);
+          novelLog.error('teaser-batch', 'Teaser batch error:', error);
         }
       }
       // Fetch next page if no chapters
@@ -307,7 +325,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
             nextBatch,
           ) || [];
       } catch (error) {
-        console.error('teaser', error);
+        novelLog.error('teaser-next-batch', 'Teaser next batch error:', error);
       }
       setBatchInformation({ ...batchInformation, batch: nextBatch });
       extendChapters(newChapters);
@@ -535,7 +553,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
     setFetching(true);
     getChapters()
       .catch(e => {
-        if (__DEV__) console.error(e);
+        novelLog.error('get-chapters-failed', 'Failed to get chapters:', e);
 
         showToast(e.message);
         setFetching(false);
@@ -617,6 +635,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 export const deleteCachedNovels = async () => {
   const cachedNovels = await _getCachedNovels();
   for (const novel of cachedNovels) {
+    deleteNovelTtsSettings(novel.id);
     MMKVStorage.delete(`${TRACKED_NOVEL_PREFIX}_${novel.id}`);
     MMKVStorage.delete(
       `${NOVEL_PAGE_INDEX_PREFIX}_${novel.pluginId}_${novel.path}`,

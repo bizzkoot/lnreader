@@ -41,6 +41,21 @@ applyTo: '**'
 
 - WebView security hardening (2025-12-12): Added `src/utils/webviewSecurity.ts` utilities for reader WebViews: strict local-only navigation (`onShouldStartLoadWithRequest`), nonce injection (`window.__LNREADER_NONCE__`) and nonce-validated message parsing + rate limiting. Updated `android/app/src/main/assets/js/core.js` to attach nonce to all bridge messages.
 
+# 2025-12-20: Continuous Scrolling Bug Fixes
+
+- Fixed critical stack overflow in `manageStitchedChapters()` (android/app/src/main/assets/js/core.js): Replaced nested O(n²) loop with optimized O(n) "find first visible paragraph" approach with early exit. Added safety checks for empty boundaries and null elements.
+- Fixed missing boundaries initialization: Added boundary creation for first chapter after `hasPerformedInitialScroll` flag is set in `calculatePages()`. Handles both saved position and no-saved-position cases.
+- Added Settings UI for auto-trim threshold: Created `TransitionThresholdModal.tsx` component (cloned from ChapterBoundaryModal pattern) with options 5%, 10%, 15%, 20%. Updated `NavigationTab.tsx` to display threshold selector when continuous scrolling is enabled.
+- **Performance Pattern**: When checking DOM element visibility in scroll handlers, always use early exit strategy - find first visible element and stop. Avoid nested loops with `getBoundingClientRect()` calls (expensive at scale with 400+ paragraphs).
+- **Modal Pattern**: For new settings modals, clone existing modal components (ChapterBoundaryModal.tsx, ContinuousScrollingModal.tsx) which include Portal, RadioButton, theme support, and UI scaling.
+- **Boundary Initialization Pattern**: Initialize chapter boundaries after DOM is stable (after initial scroll completes) with check `if (chapterBoundaries.length === 0)` to prevent duplicate initialization.
+
+Files modified in this set:
+
+- android/app/src/main/assets/js/core.js
+- src/screens/settings/SettingsReaderScreen/tabs/NavigationTab.tsx
+- src/screens/settings/SettingsReaderScreen/Modals/TransitionThresholdModal.tsx (NEW)
+
 Files modified in this set:
 
 - src/screens/reader/components/WebViewReader.tsx
@@ -59,6 +74,71 @@ Action / Next checks
 
 - Keep `authoritative-voice-map.ts` up-to-date from web-speech-recommended-voices when possible.
 - Add cross-language voice mappings in future iterations (currently English-focused dataset added).
+
+---
+
+# 2025-12-23: P1 Code Quality Fixes Completion
+
+## WebView Message Format Standardization
+- **Pattern**: Single-parse security wrapper with optional timestamp field
+- **Implementation**: `parseWebViewMessage()` utility enforces single JSON.parse
+- All messages flow through security validator (nonce + type whitelist + rate limiting)
+- Timestamp field (`ts?: number`) optional but validated when present (rejects ≤ 0)
+- Consolidated duplicate logging handler into main parse flow
+- **Tests**: 5 new timestamp validation tests + 4 existing security tests = 9 total passing
+- **Files**: webviewSecurity.ts, WebViewReader.tsx, core.js
+- **Key insight**: Audit concern was preventative - no double-parse patterns existed, enhancement adds timestamp for replay attack prevention
+
+## TTS State Machine Pattern
+- **Pattern**: Explicit state enum replaces boolean soup (reduces 64 possible states to 5 valid ones)
+- **States**: IDLE → STARTING → PLAYING → REFILLING → STOPPING → IDLE
+- **Validator**: `assertValidTransition()` catches invalid transitions in dev mode (console.error)
+- **Implementation**: TTSState.ts enum + TTSAudioManager.ts refactor
+- Replaced flags: `isPlaying`, `restartInProgress`, `refillInProgress` → single `state: TTSState`
+- Helper method: `transitionTo(newState)` validates + logs transitions in __DEV__
+- Backward compatibility: Deprecated methods `isRestartInProgress()`, `isRefillInProgress()` maintained for external code
+- **Tests**: Updated 7 test suites + added 7 new state transition tests = 625 total tests passing
+- **Benefit**: Eliminates race conditions (atomic state checks), clearer lifecycle, easier debugging
+
+## UI Scale Safe Boundaries
+- **Pattern**: Clamp user input to safe ranges before storage to prevent UX disasters
+- **Range**: 0.8-1.3 (80%-130%) prevents extreme values
+- **Implementation**: `clampUIScale()` in scaling.ts
+- Applied at: utility function (scaleDimension auto-clamps), storage hook (read/write), UI sliders (min/max bounds)
+- **Prevents**:
+  - Text illegibility: <80% makes 14px → 11px (minimum readable)
+  - Layout overflow: >130% causes modals to clip offscreen
+  - Touch target failures: <80% reduces 44dp targets to 35dp (still usable)
+- **Tests**: 16 new tests covering clamping, scaling, and UX disaster scenarios, all passing
+- Migration: Existing users with 0.2 or 1.5 automatically clamped on next app load
+- Future consideration: Split `textScale` (0.8-1.2) + `layoutScale` (0.5-1.5) deferred to separate feature (Option B)
+- **Files**: scaling.ts, useSettings.ts, OnboardingScreen.tsx, SettingsAppearanceScreen.tsx
+
+## Code Quality Patterns Learned
+
+### State Management
+- Boolean flags → Enums when >2 flags represent lifecycle
+- Always add transition validators in dev mode
+- Keep deprecated methods for backward compatibility
+- Document state transitions explicitly
+
+### Security & Validation
+- Single-parse + validation at entry point
+- Optional fields should validate when present (warn, don't fail)
+- Timestamp fields useful for debugging, not just security
+- Consolidate duplicate parsers into single validated flow
+
+### User Input Clamping
+- Clamp at multiple layers: utility, storage, UI
+- Document "why" for ranges (UX disasters at extremes)
+- Provide migration for existing out-of-range values
+- Test extreme values explicitly (0, negative, Infinity)
+
+### Testing Strategy
+- Add positive + negative + edge case tests
+- Test backward compatibility explicitly
+- State transition tests validate sequences, not just individual states
+- Clamping tests should include real-world UX scenarios (text size, button height, touch targets)
 
 ---
 
