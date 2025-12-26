@@ -266,6 +266,7 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {
+        @Suppress("DEPRECATION")
         if (reactContext.hasActiveCatalystInstance()) {
             reactContext
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
@@ -273,6 +274,7 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onCatalystInstanceDestroy() {
         if (isBound) {
             reactContext.unbindService(connection)

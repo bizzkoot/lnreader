@@ -451,7 +451,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             // ignore release errors
         }
-        stopForeground(true)
+        stopForeground(Service.STOP_FOREGROUND_REMOVE)
         isServiceForeground = false
     }
     

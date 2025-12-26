@@ -41,7 +41,7 @@ class NativeFile(context: ReactApplicationContext) :
 
     init {
         val cookieContainer = okHttpClient.cookieJar as CookieJarContainer
-        val cookieHandler = ForwardingCookieHandler(reactApplicationContext)
+        val cookieHandler = ForwardingCookieHandler()
         cookieContainer.setCookieJar(JavaNetCookieJar(cookieHandler))
     }
 

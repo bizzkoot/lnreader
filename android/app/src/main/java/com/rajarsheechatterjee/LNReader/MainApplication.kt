@@ -19,6 +19,7 @@ import com.rajarsheechatterjee.NativeZipArchive.NativeZipArchivePackage
 import expo.modules.ApplicationLifecycleDispatcher
 
 class MainApplication : Application(), ReactApplication {
+    @Suppress("DEPRECATION")
     override val reactNativeHost: ReactNativeHost =
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
