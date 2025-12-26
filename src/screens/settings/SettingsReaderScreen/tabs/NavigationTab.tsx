@@ -22,6 +22,7 @@ const NavigationTab: React.FC = () => {
   const theme = useTheme();
   const {
     useVolumeButtons = false,
+    volumeButtonsOffset = null,
     verticalSeekbar = true,
     swipeGestures = false,
     pageReader = false,
@@ -117,6 +118,28 @@ const NavigationTab: React.FC = () => {
           }
           theme={theme}
         />
+        {useVolumeButtons && (
+          <View style={styles.inputContainer}>
+            <TextInput
+              label={getString('readerSettings.volumeButtonsOffset')}
+              mode="outlined"
+              keyboardType="numeric"
+              defaultValue={defaultTo(
+                volumeButtonsOffset,
+                Math.round(screenHeight * 0.75),
+              ).toString()}
+              onChangeText={text => {
+                if (text) {
+                  setChapterGeneralSettings({
+                    volumeButtonsOffset: Number(text),
+                  });
+                }
+              }}
+              style={styles.textInput}
+              theme={{ colors: { ...theme } }}
+            />
+          </View>
+        )}
         <SettingSwitch
           label={getString('readerScreen.bottomSheet.verticalSeekbar')}
           description={getString('readerSettings.verticalSeekbarDesc')}
