@@ -53,7 +53,8 @@ const AccessibilityTab: React.FC = () => {
     ttsScrollPrompt = 'always-ask',
     ttsScrollBehavior = 'continue',
     ttsBackgroundPlayback = true,
-    ttsContinueToNextChapter = 'none',
+    ttsAutoStopMode = 'off',
+    ttsAutoStopAmount = 0,
     ttsAutoDownload = 'disabled',
     ttsAutoDownloadAmount = '10',
     ttsForwardChapterReset = 'none',
@@ -123,9 +124,14 @@ const AccessibilityTab: React.FC = () => {
     setFalse: hideScrollBehaviorModal,
   } = useBoolean();
   const {
-    value: continueNextChapterModalVisible,
-    setTrue: showContinueNextChapterModal,
-    setFalse: hideContinueNextChapterModal,
+    value: ttsAutoStopModeModalVisible,
+    setTrue: showTtsAutoStopModeModal,
+    setFalse: hideTtsAutoStopModeModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoStopAmountModalVisible,
+    setTrue: showTtsAutoStopAmountModal,
+    setFalse: hideTtsAutoStopAmountModal,
   } = useBoolean();
   const {
     value: ttsAutoDownloadModalVisible,
@@ -350,6 +356,36 @@ const AccessibilityTab: React.FC = () => {
                 }
                 theme={theme}
               />
+
+              <List.SubHeader theme={theme}>Auto Stop</List.SubHeader>
+              <List.Item
+                title="Mode"
+                description={
+                  ttsAutoStopMode === 'off'
+                    ? 'Off (continuous)'
+                    : ttsAutoStopMode === 'minutes'
+                      ? 'Time'
+                      : ttsAutoStopMode === 'chapters'
+                        ? 'Chapters'
+                        : 'Paragraphs'
+                }
+                onPress={showTtsAutoStopModeModal}
+                theme={theme}
+              />
+              {ttsAutoStopMode !== 'off' && (
+                <List.Item
+                  title="Limit"
+                  description={
+                    ttsAutoStopMode === 'minutes'
+                      ? `${ttsAutoStopAmount} minutes`
+                      : ttsAutoStopMode === 'chapters'
+                        ? `${ttsAutoStopAmount} chapters`
+                        : `${ttsAutoStopAmount} paragraphs`
+                  }
+                  onPress={showTtsAutoStopAmountModal}
+                  theme={theme}
+                />
+              )}
               <List.Item
                 title="Auto Resume"
                 description={
@@ -621,20 +657,6 @@ const AccessibilityTab: React.FC = () => {
                 TTS Chapter Navigation
               </List.SubHeader>
               <List.Item
-                title="Continue to next chapter"
-                description={
-                  ttsContinueToNextChapter === 'none'
-                    ? 'No (stop at end of chapter)'
-                    : ttsContinueToNextChapter === '5'
-                      ? 'Up to 5 chapters'
-                      : ttsContinueToNextChapter === '10'
-                        ? 'Up to 10 chapters'
-                        : 'Continuously (until stopped)'
-                }
-                onPress={showContinueNextChapterModal}
-                theme={theme}
-              />
-              <List.Item
                 title="Auto-reset future progress"
                 description={
                   ttsForwardChapterReset === 'none'
@@ -732,26 +754,72 @@ const AccessibilityTab: React.FC = () => {
           ]}
         />
         <TTSScrollBehaviorModal
-          visible={continueNextChapterModalVisible}
-          onDismiss={hideContinueNextChapterModal}
+          visible={ttsAutoStopModeModalVisible}
+          onDismiss={hideTtsAutoStopModeModal}
           theme={theme}
-          title="Continue to next chapter"
-          currentValue={ttsContinueToNextChapter}
+          title="Auto Stop Mode"
+          currentValue={ttsAutoStopMode}
+          onSelect={value => {
+            const nextMode = value as
+              | 'off'
+              | 'minutes'
+              | 'chapters'
+              | 'paragraphs';
+            const defaultAmount =
+              nextMode === 'minutes'
+                ? 15
+                : nextMode === 'chapters'
+                  ? 1
+                  : nextMode === 'paragraphs'
+                    ? 5
+                    : 0;
+            setChapterGeneralSettings({
+              ttsAutoStopMode: nextMode,
+              ttsAutoStopAmount: defaultAmount,
+            });
+          }}
+          options={[
+            { label: 'Off (continuous)', value: 'off' },
+            { label: 'Time', value: 'minutes' },
+            { label: 'Chapters', value: 'chapters' },
+            { label: 'Paragraphs', value: 'paragraphs' },
+          ]}
+        />
+
+        <TTSScrollBehaviorModal
+          visible={ttsAutoStopAmountModalVisible}
+          onDismiss={hideTtsAutoStopAmountModal}
+          theme={theme}
+          title="Auto Stop Limit"
+          currentValue={String(ttsAutoStopAmount)}
           onSelect={value =>
             setChapterGeneralSettings({
-              ttsContinueToNextChapter: value as
-                | 'none'
-                | '5'
-                | '10'
-                | 'continuous',
+              ttsAutoStopAmount: Number(value),
             })
           }
-          options={[
-            { label: 'No (stop at end of chapter)', value: 'none' },
-            { label: 'Up to 5 chapters', value: '5' },
-            { label: 'Up to 10 chapters', value: '10' },
-            { label: 'Continuously (until stopped)', value: 'continuous' },
-          ]}
+          options={
+            ttsAutoStopMode === 'minutes'
+              ? [
+                  { label: '15 minutes', value: '15' },
+                  { label: '30 minutes', value: '30' },
+                  { label: '45 minutes', value: '45' },
+                  { label: '60 minutes', value: '60' },
+                ]
+              : ttsAutoStopMode === 'chapters'
+                ? [
+                    { label: '1 chapter', value: '1' },
+                    { label: '3 chapters', value: '3' },
+                    { label: '5 chapters', value: '5' },
+                    { label: '10 chapters', value: '10' },
+                  ]
+                : [
+                    { label: '5 paragraphs', value: '5' },
+                    { label: '10 paragraphs', value: '10' },
+                    { label: '15 paragraphs', value: '15' },
+                    { label: '20 paragraphs', value: '20' },
+                    { label: '30 paragraphs', value: '30' },
+                  ]
+          }
         />
         <TTSScrollBehaviorModal
           visible={ttsAutoDownloadModalVisible}

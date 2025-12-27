@@ -1,6 +1,6 @@
 # In Progress
 
-> Current work session notes for TTS Sleep Timer + Smart Rewind
+> Current work session notes for TTS Auto-Stop (Redesign)
 
 ## Session: [DATE]
 
@@ -18,4 +18,8 @@
 ## Backlog
 
 <!-- Items to pick up next session -->
-- [ ] ...
+- [ ] Add `ttsAutoStopMode` + `ttsAutoStopAmount` to settings schema, defaults, and types
+- [ ] Remove/deprecate `ttsContinueToNextChapter` and update usages/tests
+- [ ] Implement `AutoStopService` + unit tests
+- [ ] Integrate triggers into `useTTSController` (paragraph + chapter + timer start/reset)
+- [ ] Add Global Settings UI below “Background playback”

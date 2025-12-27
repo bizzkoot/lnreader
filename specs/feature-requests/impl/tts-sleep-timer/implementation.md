@@ -1,8 +1,10 @@
-# TTS Sleep Timer + Smart Rewind
+# TTS Auto-Stop (Redesign)
 
 ## Goal
 
-Add player-grade TTS controls: sleep timer (stop after N minutes/paragraphs/end of chapter) and smart rewind (on resume after pause, rewind N paragraphs based on pause duration).
+Fix the issue where “TTS Sleep Timer” fails to stop playback after the configured limit by redesigning it into a unified, strict **Auto-Stop** feature.
+
+This removes all screen-off checks and device-state dependencies. Auto-Stop is a straight playback limit.
 
 ---
 
@@ -12,87 +14,60 @@ Add player-grade TTS controls: sleep timer (stop after N minutes/paragraphs/end 
 
 #### [MODIFY] [useSettings.ts](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/hooks/persisted/useSettings.ts)
 
-Add to `ChapterGeneralSettings` interface:
+Replace the legacy chapter-continue setting with Auto-Stop.
 
-```typescript
-// TTS Sleep Timer
-ttsSleepTimerEnabled: boolean;
-ttsSleepTimerMode: 'minutes' | 'endOfChapter' | 'paragraphs';
-ttsSleepTimerMinutes: number;  // 5, 10, 15, 30, 45, 60
-ttsSleepTimerParagraphs: number;  // Number of paragraphs
+1) Remove:
 
-// TTS Smart Rewind
-ttsSmartRewindEnabled: boolean;
-ttsSmartRewindParagraphs: number;  // 1-5
-ttsSmartRewindThresholdMs: number;  // e.g., 120000 (2 min)
+```ts
+ttsContinueToNextChapter: 'none' | '5' | '10' | 'continuous';
 ```
 
-Add to `initialChapterGeneralSettings`:
+2) Add:
 
-```typescript
-ttsSleepTimerEnabled: false,
-ttsSleepTimerMode: 'minutes',
-ttsSleepTimerMinutes: 15,
-ttsSleepTimerParagraphs: 5,
-ttsSmartRewindEnabled: true,
-ttsSmartRewindParagraphs: 2,
-ttsSmartRewindThresholdMs: 120000, // 2 minutes
+```ts
+ttsAutoStopMode: 'off' | 'paragraphs' | 'chapters' | 'minutes';
+ttsAutoStopAmount: number;
 ```
+
+Defaults:
+- `ttsAutoStopMode: 'off'`
+- `ttsAutoStopAmount: 0` (ignored when mode is `off`)
 
 ---
 
-### Sleep Timer Service
+### Auto-Stop Service
 
-#### [NEW] [SleepTimer.ts](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/services/tts/SleepTimer.ts)
+#### [NEW] [AutoStopService.ts](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/services/tts/AutoStopService.ts)
 
 ```typescript
-/**
- * TTS Sleep Timer
- * 
- * Singleton scheduler that triggers pause/stop after:
- * - N minutes from start
- * - End of current chapter
- * - N paragraphs spoken
- */
+type AutoStopMode = 'off' | 'minutes' | 'chapters' | 'paragraphs';
 
-type SleepTimerMode = 'minutes' | 'endOfChapter' | 'paragraphs';
+type AutoStopReason = 'minutes' | 'chapters' | 'paragraphs';
 
-interface SleepTimerConfig {
-  mode: SleepTimerMode;
-  minutes?: number;
-  paragraphs?: number;
+interface AutoStopConfig {
+  mode: AutoStopMode;
+  amount: number;
 }
 
-interface SleepTimerState {
-  isActive: boolean;
-  startedAt: number;
-  remainingMs: number;
-  remainingParagraphs: number;
-  mode: SleepTimerMode;
+export class AutoStopService {
+  start(config: AutoStopConfig, onAutoStop: (reason: AutoStopReason) => void): void;
+  stop(): void;
+
+  onParagraphSpoken(): void;
+  onChapterFinished(): void;
+
+  resetCounters(): void; // for manual seek/restart
 }
 
-export class SleepTimer {
-  private timer: NodeJS.Timeout | null = null;
-  private config: SleepTimerConfig | null = null;
-  private onExpire: (() => void) | null = null;
-  private paragraphsSpoken: number = 0;
-  private startTime: number = 0;
-  
-  start(config: SleepTimerConfig, onExpire: () => void): void;
-  cancel(): void;
-  getState(): SleepTimerState;
-  onParagraphSpoken(): void; // For paragraph-count mode
-}
-
-export const sleepTimer = new SleepTimer();
+export const autoStopService = new AutoStopService();
 ```
 
 Key behaviors:
-- Single active timer per reader session
-- `start()` arms timer, stores callback
-- `cancel()` disarms on manual stop or TTS stop
-- `onParagraphSpoken()` called by TTS controller each paragraph
-- Fires callback when condition met (pause TTS via existing action)
+- Strict: NO screen-off checks (applies whether screen is ON/OFF)
+- Minutes: starts counting when TTS starts; resets on manual position change
+- Paragraphs: increments per paragraph spoken; stops at `>= amount`
+- Chapters: increments per chapter completion; stops at `>= amount`
+- Auto-Stop calls back into controller to pause playback (and show optional toast)
 
 ---
 
@@ -100,114 +75,37 @@ Key behaviors:
 
 #### [MODIFY] [useTTSController.ts](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/hooks/useTTSController.ts)
 
-**Add session tracking state** (around line 266 in hook body):
+Start:
+- When TTS starts, call `autoStopService.start({ mode, amount }, callback)`.
 
-```typescript
-// Session tracking for smart rewind
-const lastPausedAtRef = useRef<number | null>(null);
-const lastParagraphAtPauseRef = useRef<number>(0);
-```
+Updates:
+- When a paragraph completes: `autoStopService.onParagraphSpoken()`.
+- When a chapter finishes: `autoStopService.onChapterFinished()`.
 
-**On TTS start/resume** (in existing play path):
+Reset:
+- On manual seek/restart/explicit paragraph jump: `autoStopService.resetCounters()`.
 
-```typescript
-// Arm sleep timer if enabled
-if (settings.ttsSleepTimerEnabled) {
-  sleepTimer.start({
-    mode: settings.ttsSleepTimerMode,
-    minutes: settings.ttsSleepTimerMinutes,
-    paragraphs: settings.ttsSleepTimerParagraphs,
-  }, () => {
-    // Callback on expire
-    pauseTTS();
-    showToastMessage(getString('tts.sleepTimerExpired'));
-  });
-}
-```
+Stop:
+- On manual stop or chapter change: `autoStopService.stop()`.
 
-**On TTS pause/stop** (in existing pause path):
-
-```typescript
-// Record pause time + index for smart rewind
-lastPausedAtRef.current = Date.now();
-lastParagraphAtPauseRef.current = currentParagraphIndexRef.current;
-sleepTimer.cancel();
-```
-
-**On TTS resume** (in existing resume path):
-
-```typescript
-// Smart rewind decision
-if (settings.ttsSmartRewindEnabled && lastPausedAtRef.current) {
-  const pauseDuration = Date.now() - lastPausedAtRef.current;
-  if (pauseDuration > settings.ttsSmartRewindThresholdMs) {
-    const rewindTo = Math.max(0, 
-      lastParagraphAtPauseRef.current - settings.ttsSmartRewindParagraphs
-    );
-    // Start from `rewindTo` instead of current position
-    currentParagraphIndexRef.current = rewindTo;
-  }
-}
-lastPausedAtRef.current = null;
-```
-
-**On each paragraph spoken** (in `onTTSComplete` handler):
-
-```typescript
-sleepTimer.onParagraphSpoken();
-```
+Callback behavior:
+- On auto-stop trigger, the service calls the callback which should pause TTS via the existing pause flow (e.g. `TTSHighlight.pause()` or the hook’s pause handler).
 
 ---
 
-### UI Controls
+### UI (Global Reader Settings)
 
-#### [MODIFY] [ReaderTTSTab.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/reader/components/ReaderBottomSheet/ReaderTTSTab.tsx)
+#### [MODIFY] [AccessibilityTab.tsx](file:///Users/muhammadfaiz/Custom%20APP/LNreader/src/screens/settings/SettingsReaderScreen/tabs/AccessibilityTab.tsx)
 
-Add sleep timer section after existing TTS controls:
+Requirement: Insert the new UI just below “Background playback” in the Global TTS settings section.
 
-```tsx
-{/* Sleep Timer */}
-<View style={styles.section}>
-  <View style={styles.row}>
-    <AppText>Sleep Timer</AppText>
-    <Switch
-      value={chapterGeneralSettings.ttsSleepTimerEnabled}
-      onValueChange={v => setChapterGeneralSettings({ ttsSleepTimerEnabled: v })}
-    />
-  </View>
-  
-  {chapterGeneralSettings.ttsSleepTimerEnabled && (
-    <>
-      {/* Mode picker: minutes/endOfChapter/paragraphs */}
-      <SegmentedButtons
-        value={chapterGeneralSettings.ttsSleepTimerMode}
-        onValueChange={v => setChapterGeneralSettings({ ttsSleepTimerMode: v })}
-        buttons={[
-          { value: 'minutes', label: 'Time' },
-          { value: 'endOfChapter', label: 'Chapter' },
-          { value: 'paragraphs', label: 'Paragraphs' },
-        ]}
-      />
-      
-      {/* Time presets */}
-      {chapterGeneralSettings.ttsSleepTimerMode === 'minutes' && (
-        <Slider
-          minimumValue={5}
-          maximumValue={60}
-          step={5}
-          value={chapterGeneralSettings.ttsSleepTimerMinutes}
-          onValueChange={v => setChapterGeneralSettings({ ttsSleepTimerMinutes: v })}
-        />
-      )}
-      
-      {/* Status chip when active */}
-      {sleepTimerState.isActive && (
-        <Chip icon="timer">{formatRemaining(sleepTimerState.remainingMs)}</Chip>
-      )}
-    </>
-  )}
-</View>
-```
+UI:
+- New section header: “Auto Stop”
+- Mode selector: Off / Time / Chapter / Paragraph
+- Chips/presets per mode:
+  - Time: 15m / 30m / 45m / 60m
+  - Chapter: 1 / 3 / 5 / 10
+  - Paragraph: 5 / 10 / 15 / 20 / 30
 
 ---
 
@@ -215,31 +113,24 @@ Add sleep timer section after existing TTS controls:
 
 ### Automated Tests
 
-#### Unit Tests for SleepTimer
+#### Unit Tests for AutoStopService
 
-Create `src/services/tts/__tests__/SleepTimer.test.ts`:
+Create `src/services/tts/__tests__/AutoStopService.test.ts`:
+- Stops after N minutes (use fake timers)
+- Stops after N paragraphs
+- Stops after N chapters
+- `stop()` prevents callback
+- `resetCounters()` resets paragraph/chapter counters and restarts minute timer window as intended
 
-```typescript
-describe('SleepTimer', () => {
-  it('fires callback after specified minutes', () => { ... });
-  it('fires callback after N paragraphs spoken', () => { ... });
-  it('cancel() prevents callback', () => { ... });
-  it('getState() returns accurate remaining time', () => { ... });
-});
-```
+#### Integration Tests
 
-**Run**: `pnpm test -- SleepTimer.test.ts`
+Add to existing TTS controller integration tests:
+- “Auto Stop: paragraphs stops after 5”
+- “Auto Stop: minutes stops after 15m” (fake timers)
 
-#### Integration Tests for Smart Rewind
-
-Add to existing TTS tests:
-
-```typescript
-describe('Smart Rewind', () => {
-  it('rewinds N paragraphs if pause > threshold', () => { ... });
-  it('does not rewind if pause < threshold', () => { ... });
-  it('respects smart rewind enabled setting', () => { ... });
-});
+Commands:
+- `pnpm run type-check`
+- `pnpm test -- AutoStopService.test.ts`
 ```
 
 **Run**: `pnpm test -- useTTSController.integration.test.ts`

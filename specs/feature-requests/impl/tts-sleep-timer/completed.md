@@ -1,15 +1,15 @@
 # Completed Items
 
-> Finished work for TTS Sleep Timer + Smart Rewind
+> Finished work for TTS Auto-Stop redesign
 
-| Item                         | Completed | Verified |
-| ---------------------------- | --------- | -------- |
-| Settings types added         | ⬜         | ⬜        |
-| SleepTimer.ts created        | ⬜         | ⬜        |
-| useTTSController integration | ⬜         | ⬜        |
-| ReaderTTSTab UI              | ⬜         | ⬜        |
-| Unit tests passing           | ⬜         | ⬜        |
-| Manual testing done          | ⬜         | ⬜        |
+| Item                                  | Completed | Verified |
+| ------------------------------------- | --------- | -------- |
+| Auto-Stop settings schema updated     | ⬜         | ⬜        |
+| AutoStopService implemented           | ⬜         | ⬜        |
+| useTTSController trigger integration  | ⬜         | ⬜        |
+| Global Settings UI (below background) | ⬜         | ⬜        |
+| Unit tests passing                    | ⬜         | ⬜        |
+| Manual testing done                   | ⬜         | ⬜        |
 
 ---
 

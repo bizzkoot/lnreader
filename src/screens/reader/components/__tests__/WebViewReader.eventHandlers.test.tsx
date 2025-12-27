@@ -72,7 +72,8 @@ jest.mock('@hooks/persisted', () => ({
     readerSettings: {},
     chapterGeneralSettings: {
       ttsBackgroundPlayback: false,
-      ttsContinueToNextChapter: 'none',
+      ttsAutoStopMode: 'off',
+      ttsAutoStopAmount: 0,
     },
   })),
 }));
@@ -96,7 +97,8 @@ jest.mock('@utils/mmkv/mmkv', () => ({
     if (key === 'CHAPTER_GENERAL_SETTINGS') {
       return {
         ttsBackgroundPlayback: false,
-        ttsContinueToNextChapter: 'none',
+        ttsAutoStopMode: 'off',
+        ttsAutoStopAmount: 0,
       };
     }
     if (key === 'CHAPTER_READER_SETTINGS') {

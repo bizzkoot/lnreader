@@ -36,6 +36,7 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import { getString } from '@strings/translations';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 import { ignoreError } from '@utils/error';
+import { autoStopService } from '@services/tts/AutoStopService';
 
 // Phase 1 Extracted Hooks
 import { useDialogState } from './useDialogState';
@@ -1407,6 +1408,23 @@ export function useTTSController(
       const startFromZero = forceStartFromParagraphZeroRef.current;
       forceStartFromParagraphZeroRef.current = false;
 
+      const autoStopMode =
+        chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+      const autoStopAmount =
+        chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
+
+      autoStopService.start(
+        { mode: autoStopMode, amount: autoStopAmount },
+        () => {
+          // Use the native pause to stop background playback reliably
+          TTSHighlight.pause();
+        },
+      );
+
+      if (startFromZero) {
+        autoStopService.resetCounters();
+      }
+
       setTimeout(() => {
         if (startFromZero) {
           webViewRef.current?.injectJavaScript(`
@@ -1449,6 +1467,7 @@ export function useTTSController(
     getChapter,
     webViewRef,
     readerSettingsRef,
+    chapterGeneralSettingsRef,
     updateTtsMediaNotificationState,
   ]);
 
@@ -1533,6 +1552,8 @@ export function useTTSController(
               );
             }
             currentParagraphIndexRef.current = nextIndex;
+
+            autoStopService.onParagraphSpoken();
 
             if (ttsStateRef.current) {
               ttsStateRef.current = {
@@ -1841,6 +1862,7 @@ export function useTTSController(
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               isTTSPausedRef.current = true;
+              autoStopService.stop();
               await TTSHighlight.pause();
               updateTtsMediaNotificationState(false);
               return;
@@ -1853,6 +1875,7 @@ export function useTTSController(
             );
 
             await restartTtsFromParagraphIndex(idx);
+            autoStopService.resetCounters();
             return;
           }
 
@@ -1862,6 +1885,7 @@ export function useTTSController(
             const last = total > 0 ? total - 1 : idx;
             const target = Math.min(last, idx + 5);
             await restartTtsFromParagraphIndex(target);
+            autoStopService.resetCounters();
             return;
           }
 
@@ -1875,6 +1899,7 @@ export function useTTSController(
 
             try {
               await restartTtsFromParagraphIndex(target);
+              autoStopService.resetCounters();
             } catch (err) {
               ttsCtrlLog.error(
                 'seek-back-failed',
@@ -1887,6 +1912,7 @@ export function useTTSController(
                   setTimeout(r, TTS_CONSTANTS.SEEK_BACK_FALLBACK_DELAY_MS),
                 );
                 await restartTtsFromParagraphIndex(target);
+                autoStopService.resetCounters();
               } catch (err2) {
                 ttsCtrlLog.error(
                   'seek-back-fallback-failed',
@@ -2087,35 +2113,45 @@ export function useTTSController(
           return;
         }
 
-        const continueMode =
-          chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
-        ttsCtrlLog.debug(
-          'queue-empty-continue-mode',
-          `Queue empty - continueMode: ${continueMode}`,
-        );
+        // Mark current chapter as finished for Auto-Stop (chapters mode)
+        autoStopService.onChapterFinished();
 
-        if (continueMode === 'none') {
+        const autoStopMode =
+          chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+        const autoStopAmount =
+          chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
+
+        // If Auto-Stop is set to stop by chapters, we allow continuing until the limit is reached.
+        // Otherwise (off/minutes/paragraphs), default is to stop at end-of-chapter.
+        if (autoStopMode !== 'chapters') {
           ttsCtrlLog.debug(
-            'queue-empty-stop-none',
-            'ttsContinueToNextChapter is "none", stopping',
+            'queue-empty-stop-no-chapter-mode',
+            `Queue empty - autoStopMode=${autoStopMode}, stopping at end of chapter`,
           );
           isTTSReadingRef.current = false;
           isTTSPlayingRef.current = false;
           return;
         }
 
-        if (continueMode !== 'continuous') {
-          const limit = parseInt(continueMode, 10);
-          if (chaptersAutoPlayedRef.current >= limit) {
-            ttsCtrlLog.info(
-              'chapter-limit-reached',
-              `Chapter limit (${limit}) reached, stopping`,
-            );
-            chaptersAutoPlayedRef.current = 0;
-            isTTSReadingRef.current = false;
-            isTTSPlayingRef.current = false;
-            return;
-          }
+        if (!Number.isFinite(autoStopAmount) || autoStopAmount <= 0) {
+          ttsCtrlLog.debug(
+            'queue-empty-stop-invalid-limit',
+            `Queue empty - invalid autoStopAmount=${autoStopAmount}, stopping`,
+          );
+          isTTSReadingRef.current = false;
+          isTTSPlayingRef.current = false;
+          return;
+        }
+
+        if (chaptersAutoPlayedRef.current >= autoStopAmount) {
+          ttsCtrlLog.info(
+            'auto-stop-chapter-limit-reached',
+            `Auto-stop chapter limit (${autoStopAmount}) reached, stopping`,
+          );
+          chaptersAutoPlayedRef.current = 0;
+          isTTSReadingRef.current = false;
+          isTTSPlayingRef.current = false;
+          return;
         }
 
         if (nextChapterRef.current) {
@@ -2198,6 +2234,7 @@ export function useTTSController(
           forceStartFromParagraphZeroRef.current = true;
           currentParagraphIndexRef.current = 0;
           latestParagraphIndexRef.current = 0;
+          autoStopService.resetCounters();
           chaptersAutoPlayedRef.current += 1;
           nextChapterScreenVisibleRef.current = true;
           navigateChapterRef.current('NEXT');

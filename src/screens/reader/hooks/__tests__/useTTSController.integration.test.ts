@@ -1383,7 +1383,8 @@ describe('useTTSController - Integration Tests', () => {
         const params = createDefaultParams({
           chapterGeneralSettingsRef: {
             current: {
-              ttsContinueToNextChapter: 'continuous', // Enable continue to next chapter
+              ttsAutoStopMode: 'chapters',
+              ttsAutoStopAmount: 10, // Allow multiple chapter advances during test
             } as ChapterGeneralSettings,
           },
         });

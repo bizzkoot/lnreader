@@ -685,25 +685,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case 'next':
           if (event.autoStartTTS) {
-            const continueMode =
-              chapterGeneralSettingsRef.current.ttsContinueToNextChapter ||
-              'none';
+            const autoStopMode =
+              chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+            const autoStopAmount =
+              chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
 
-            if (continueMode === 'none') {
+            if (autoStopMode !== 'chapters') {
               tts.autoStartTTSRef.current = false;
               tts.chaptersAutoPlayedRef.current = 0;
-            } else if (continueMode === 'continuous') {
+            } else if (
+              !Number.isFinite(autoStopAmount) ||
+              autoStopAmount <= 0
+            ) {
+              tts.autoStartTTSRef.current = false;
+              tts.chaptersAutoPlayedRef.current = 0;
+            } else if (tts.chaptersAutoPlayedRef.current < autoStopAmount) {
               tts.autoStartTTSRef.current = true;
               tts.chaptersAutoPlayedRef.current += 1;
             } else {
-              const limit = parseInt(continueMode, 10);
-              if (tts.chaptersAutoPlayedRef.current < limit) {
-                tts.autoStartTTSRef.current = true;
-                tts.chaptersAutoPlayedRef.current += 1;
-              } else {
-                tts.autoStartTTSRef.current = false;
-                tts.chaptersAutoPlayedRef.current = 0;
-              }
+              tts.autoStartTTSRef.current = false;
+              tts.chaptersAutoPlayedRef.current = 0;
             }
           }
           navigateChapter('NEXT');
