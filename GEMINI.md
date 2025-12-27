@@ -22,6 +22,12 @@ TTS Per-Novel Settings Auto-Load Fix (2025-12-25).
 
 ## Recent Fixes
 
+### MainActivity Startup Crash (2025-12-27)
+- **Root Cause**: `window.insetsController` accessed before `super.onCreate()`, causing NPE when DecorView was null.
+- **Fix**: Move `super.onCreate()` before WindowInsetsController API usage.
+- **File**: `MainActivity.kt` - `onCreate()` method.
+
+
 ### Filter Icon Crash in Browse Source Screen (2025-12-25)
 - **Root Cause**: `clampUIScale(undefined)` returned `NaN` when `uiScale` was missing from MMKV storage (partial data from older app versions).
 - **Fix**: Added defensive null checks in `scaling.ts` and `useSettings.ts` to default `uiScale` to `1.0`.
