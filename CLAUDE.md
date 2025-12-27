@@ -276,6 +276,60 @@ Critical refs used to prevent race conditions:
 - MMKV for high-performance key-value storage
 - **Important**: Always read files before editing - use Read tool to understand context
 
+## Upstream Repository Status
+
+### Repository Configuration
+- **Origin**: https://github.com/bizzkoot/lnreader (your fork)
+- **Upstream**: https://github.com/lnreader/lnreader
+- **Current Branch**: dev
+- **Divergence**: ~190 commits AHEAD of upstream/master
+
+### Recently Merged Upstream PRs (2024-2025) - Status: ✅ ALL ADOPTED
+
+| PR # | Title | Merge Date | Status in Fork |
+|------|-------|------------|----------------|
+| #1685 | Volume Button Offset Setting | Dec 2025 | ✅ Adopted (commit a19a0fa5f) |
+| #1667 | Replace React Native Paper Components | Nov 2025 | ✅ Dependencies adopted, custom UI preserved |
+| #1664 | TTS Reading Logic Refactor | Nov 2025 | ✅ Adopted (commit 9d5816172) |
+| #1631 | Update Translations | Nov 2025 | ✅ Adopted (commit 8d15e418e) |
+| #1612 | Revamp Reader Settings UI | Oct 2025 | ✅ Adopted (commit f1c825f82) |
+| #1621 | Structured Database Migration System | Oct 2025 | ✅ Adopted (commit 41ea7eb7b) |
+| #1613 | MangaUpdates Tracker | Oct 2025 | ✅ Adopted (commit c06d6f932) |
+| #1609 | Polyfill onscrollend | Oct 2025 | ✅ Adopted (commit 41ea7eb7b) |
+| #1604 | General Plugin DX Improvements | Oct 2025 | ✅ Adopted (commit 0dd9f2bd9) |
+| #1603 | Reimplement Local Backup | Oct 2025 | ✅ Adopted (commit 0dd9f2bd9) |
+
+### Fork-Specific Improvements
+
+**Superior UI Scaling Support:**
+- Custom `BottomTabBar` component uses `useScaledDimensions` hook for dynamic scaling
+- Custom `Menu` component uses `useAppSettings` uiScale + `scaleDimension()` function
+- Upstream PR #1667 uses hardcoded values (no scaling support)
+- **Your implementation is SUPERIOR** - maintains accessibility for different screen sizes/UI scales
+
+**Ahead on Dependencies:**
+- React Native: 0.82.1 (upstream PR had 0.81.5)
+- React Native Reanimated: 4.2.0 (upstream PR had 4.1.5)
+- React Native Worklets: 0.7.1 (upstream PR had 0.6.1)
+- @react-native/codegen: 0.82.1 (upstream PR had 0.81.5)
+
+### Recommendations for Future Merges
+
+1. **UI Component PRs**: Be cautious when merging UI component changes from upstream. Your fork has superior scaling support that should be preserved.
+
+2. **Dependency Updates**: Most upstream dependency updates are safe to adopt, but verify they don't conflict with TTS functionality.
+
+3. **Periodic Monitoring**: Check upstream every 1-2 months for new PRs using:
+   ```bash
+   gh pr list --repo lnreader/lnreader --state merged --limit 20
+   ```
+
+4. **TTS-Specific Changes**: The fork has significant TTS enhancements not present in upstream. Be careful when adopting changes that affect TTS behavior.
+
+### Last Analysis
+- **Date**: December 27, 2025
+- **Finding**: All compatible upstream PRs (2024-2025) have been adopted. No immediate action needed.
+
 ## Path Aliases
 
 The project uses TypeScript path aliases (defined in `tsconfig.json`):

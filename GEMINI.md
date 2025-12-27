@@ -6,19 +6,19 @@ LNReader is a React Native application for reading light novels.
 
 ## Current Task
 
-TTS Per-Novel Settings Auto-Load Fix (2025-12-25).
+TTS Sleep Timer + Smart Rewind Implementation (2025-12-27).
 
-- **Goal**: Fix TTS per-novel settings to auto-load on reader entry, not just when opening TTS tab.
-- **Result**: Fixed. Settings now sync to MMKV on novel entry; reset to global defaults when switching novels.
+- **Goal**: Add sleep timer (stop after N minutes/paragraphs/end of chapter) and smart rewind (rewind N paragraphs on resume after long pause).
+- **Result**: Implemented. Settings in `useSettings.ts`, `SleepTimer.ts` service, controller hooks, UI in `ReaderTTSTab.tsx`. All 917 tests passing.
 
 ## Key Files (TTS)
 
-- `src/screens/reader/hooks/useTTSController.ts`: Main TTS orchestration, `onQueueEmpty` handler, download wait logic.
-- `src/screens/reader/components/WebViewReader.tsx`: Per-novel TTS settings initialization.
+- `src/screens/reader/hooks/useTTSController.ts`: Main TTS orchestration, sleep timer integration hooks.
+- `src/screens/reader/components/ReaderBottomSheet/ReaderTTSTab.tsx`: TTS settings UI including sleep timer/smart rewind.
+- `src/services/tts/SleepTimer.ts`: Sleep timer service with 3 modes (minutes, endOfChapter, paragraphs).
 - `src/services/tts/novelTtsSettings.ts`: Per-novel TTS settings storage.
-- `android/app/src/main/assets/js/core.js`: WebView scroll/save logic, `enhanceChapterTitles()` function.
-- `android/app/src/main/java/.../TTSForegroundService.kt`: Native TTS service, `saveTTSPosition()`.
-- `android/app/src/main/java/.../TTSHighlightModule.kt`: RN bridge for TTS position read/write.
+- `src/hooks/persisted/useSettings.ts`: TTS settings including sleep timer and smart rewind defaults.
+- `android/app/src/main/assets/js/core.js`: WebView scroll/save logic.
 
 ## Recent Fixes
 
