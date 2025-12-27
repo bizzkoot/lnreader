@@ -27,7 +27,9 @@ TTS Per-Novel Settings Auto-Load Fix (2025-12-25).
 - **Fix**: Move `super.onCreate()` before WindowInsetsController API usage.
 - **File**: `MainActivity.kt` - `onCreate()` method.
 
-
+### Upstream PR Adoptions (2025-12-27)
+- **PR #1573**: Added `'style'` attribute to `<span>` tags in `sanitizeChapterText.ts` for EPUB styling preservation.
+- **PR #1599**: Added `clean_summary()` function to `Epub.cpp` to strip HTML tags and convert entities in EPUB summaries.
 ### Filter Icon Crash in Browse Source Screen (2025-12-25)
 - **Root Cause**: `clampUIScale(undefined)` returned `NaN` when `uiScale` was missing from MMKV storage (partial data from older app versions).
 - **Fix**: Added defensive null checks in `scaling.ts` and `useSettings.ts` to default `uiScale` to `1.0`.
