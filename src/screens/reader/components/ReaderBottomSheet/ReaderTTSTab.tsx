@@ -48,6 +48,8 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
     ttsBackgroundPlayback = true,
     ttsAutoDownload = 'disabled',
     ttsAutoDownloadAmount = '10',
+    ttsAutoStopMode = 'off',
+    ttsAutoStopAmount = 0,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -278,6 +280,16 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
     value: ttsAutoDownloadAmountModalVisible,
     setTrue: showTtsAutoDownloadAmountModal,
     setFalse: hideTtsAutoDownloadAmountModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoStopModeModalVisible,
+    setTrue: showTtsAutoStopModeModal,
+    setFalse: hideTtsAutoStopModeModal,
+  } = useBoolean();
+  const {
+    value: ttsAutoStopAmountModalVisible,
+    setTrue: showTtsAutoStopAmountModal,
+    setFalse: hideTtsAutoStopAmountModal,
   } = useBoolean();
 
   useEffect(() => {
@@ -621,6 +633,39 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
                 />
               )}
             </View>
+
+            {/* Auto-Stop Settings */}
+            <View style={styles.section}>
+              <List.SubHeader theme={theme}>Auto Stop</List.SubHeader>
+              <List.Item
+                title="Mode"
+                description={
+                  ttsAutoStopMode === 'off'
+                    ? 'Off (continuous)'
+                    : ttsAutoStopMode === 'minutes'
+                      ? 'Time'
+                      : ttsAutoStopMode === 'chapters'
+                        ? 'Chapters'
+                        : 'Paragraphs'
+                }
+                onPress={showTtsAutoStopModeModal}
+                theme={theme}
+              />
+              {ttsAutoStopMode !== 'off' && (
+                <List.Item
+                  title="Limit"
+                  description={
+                    ttsAutoStopMode === 'minutes'
+                      ? `${ttsAutoStopAmount} minutes`
+                      : ttsAutoStopMode === 'chapters'
+                        ? `${ttsAutoStopAmount} chapters`
+                        : `${ttsAutoStopAmount} paragraphs`
+                  }
+                  onPress={showTtsAutoStopAmountModal}
+                  theme={theme}
+                />
+              )}
+            </View>
           </>
         )}
 
@@ -667,6 +712,73 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
             { label: '10 chapters', value: '10' },
             { label: '15 chapters', value: '15' },
           ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsAutoStopModeModalVisible}
+          onDismiss={hideTtsAutoStopModeModal}
+          theme={theme}
+          title="Auto Stop Mode"
+          currentValue={ttsAutoStopMode}
+          onSelect={value => {
+            const nextMode = value as
+              | 'off'
+              | 'minutes'
+              | 'chapters'
+              | 'paragraphs';
+            const defaultAmount =
+              nextMode === 'minutes'
+                ? 15
+                : nextMode === 'chapters'
+                  ? 1
+                  : nextMode === 'paragraphs'
+                    ? 5
+                    : 0;
+            setChapterGeneralSettings({
+              ttsAutoStopMode: nextMode,
+              ttsAutoStopAmount: defaultAmount,
+            });
+          }}
+          options={[
+            { label: 'Off (continuous)', value: 'off' },
+            { label: 'Time', value: 'minutes' },
+            { label: 'Chapters', value: 'chapters' },
+            { label: 'Paragraphs', value: 'paragraphs' },
+          ]}
+        />
+        <TTSScrollBehaviorModal
+          visible={ttsAutoStopAmountModalVisible}
+          onDismiss={hideTtsAutoStopAmountModal}
+          theme={theme}
+          title="Auto Stop Limit"
+          currentValue={String(ttsAutoStopAmount)}
+          onSelect={value =>
+            setChapterGeneralSettings({
+              ttsAutoStopAmount: Number(value),
+            })
+          }
+          options={
+            ttsAutoStopMode === 'minutes'
+              ? [
+                  { label: '15 minutes', value: '15' },
+                  { label: '30 minutes', value: '30' },
+                  { label: '45 minutes', value: '45' },
+                  { label: '60 minutes', value: '60' },
+                ]
+              : ttsAutoStopMode === 'chapters'
+                ? [
+                    { label: '1 chapter', value: '1' },
+                    { label: '3 chapters', value: '3' },
+                    { label: '5 chapters', value: '5' },
+                    { label: '10 chapters', value: '10' },
+                  ]
+                : [
+                    { label: '5 paragraphs', value: '5' },
+                    { label: '10 paragraphs', value: '10' },
+                    { label: '15 paragraphs', value: '15' },
+                    { label: '20 paragraphs', value: '20' },
+                    { label: '30 paragraphs', value: '30' },
+                  ]
+          }
         />
       </Portal>
     </>
