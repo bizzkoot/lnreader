@@ -20,8 +20,9 @@ const mockWebViewRef = {
   },
 };
 
-// Mock dialog state
+// Mock callbacks
 const mockHideScrollSyncDialog = jest.fn();
+const mockRestartTtsFromParagraphIndex = jest.fn().mockResolvedValue(undefined);
 
 describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
   let ttsScrollPromptDataRef: { current: TTSScrollPromptData | null };
@@ -30,6 +31,19 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
     jest.clearAllMocks();
     ttsScrollPromptDataRef = { current: null };
   });
+
+  const renderTestHook = () => {
+    return renderHook(() =>
+      useScrollSyncHandlers({
+        webViewRef: mockWebViewRef as any,
+        refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
+        callbacks: {
+          hideScrollSyncDialog: mockHideScrollSyncDialog,
+          restartTtsFromParagraphIndex: mockRestartTtsFromParagraphIndex,
+        },
+      }),
+    );
+  };
 
   describe('Stitched Mode: Continue from visible position', () => {
     test('should calculate chapter info and trigger clear when user continues in stitched chapter', () => {
@@ -44,13 +58,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         isResume: true,
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       // ACT: User clicks "Continue from here" button
       result.current.handleTTSScrollSyncConfirm();
@@ -91,13 +99,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         isResume: true,
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       // ACT
       result.current.handleTTSScrollSyncConfirm();
@@ -110,8 +112,8 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
       // Should call changeParagraphPosition directly
       expect(injectedCode).toContain('window.tts.changeParagraphPosition(50)');
 
-      // Should call resume
-      expect(injectedCode).toContain('window.tts.resume(true)');
+      // Should also restart native TTS queue (Bug fix: drift enforcement)
+      expect(mockRestartTtsFromParagraphIndex).toHaveBeenCalledWith(50);
 
       // Should NOT trigger stitched chapter logic
       expect(injectedCode).not.toContain('getChapterInfoForParagraph');
@@ -131,13 +133,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         isResume: true,
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       // ACT: User clicks "Resume from saved" button
       result.current.handleTTSScrollSyncCancel();
@@ -178,13 +174,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         isResume: true,
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       // ACT
       result.current.handleTTSScrollSyncCancel();
@@ -204,13 +194,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
     test('should handle null ref gracefully', () => {
       ttsScrollPromptDataRef.current = null;
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       // Should not crash
       expect(() => result.current.handleTTSScrollSyncConfirm()).not.toThrow();
@@ -233,13 +217,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         // currentChapterName and visibleChapterName are undefined
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       // Should not crash
       expect(() => result.current.handleTTSScrollSyncConfirm()).not.toThrow();
@@ -261,13 +239,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         isResume: false, // Initial start, not resume
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       result.current.handleTTSScrollSyncConfirm();
 
@@ -308,13 +280,7 @@ describe('useScrollSyncHandlers - Stitched Chapter TTS Restart', () => {
         isResume: true,
       };
 
-      const { result } = renderHook(() =>
-        useScrollSyncHandlers({
-          webViewRef: mockWebViewRef as any,
-          refs: { ttsScrollPromptDataRef: ttsScrollPromptDataRef as any },
-          callbacks: { hideScrollSyncDialog: mockHideScrollSyncDialog },
-        }),
-      );
+      const { result } = renderTestHook();
 
       result.current.handleTTSScrollSyncConfirm();
 

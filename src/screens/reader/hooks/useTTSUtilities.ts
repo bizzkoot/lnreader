@@ -135,9 +135,9 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
         'media control seek',
       );
 
-      // Pause/stop audio but keep foreground notification
+      // Stop audio completely before restarting from new position
       // Note: speakBatch() will transition to STARTING state, preventing false onQueueEmpty
-      await TTSHighlight.pause();
+      await TTSHighlight.stop();
 
       const remaining = paragraphs.slice(clamped);
       const ids = remaining.map(

@@ -109,6 +109,25 @@ class TTSHighlightService {
     return TTSAudioManager.hasQueuedNativeInCurrentSession();
   }
 
+  /**
+   * Set callback for drift enforcement.
+   * Called when cache drift exceeds threshold and TTS needs to restart from correct position.
+   * @param cb Callback that receives the correct paragraph index to restart from
+   */
+  setOnDriftEnforceCallback(cb?: (correctIndex: number) => void): void {
+    TTSAudioManager.setOnDriftEnforceCallback(cb);
+  }
+
+  /**
+   * Update the last spoken paragraph index.
+   * Call this when a paragraph finishes to ensure drift enforcement
+   * uses the correct position.
+   * @param index The paragraph index that just finished speaking
+   */
+  setLastSpokenIndex(index: number): void {
+    TTSAudioManager.setLastSpokenIndex(index);
+  }
+
   pause(): Promise<boolean> {
     return TTSHighlight.pause();
   }

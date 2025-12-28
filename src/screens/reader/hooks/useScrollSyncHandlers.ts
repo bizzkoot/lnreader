@@ -26,6 +26,8 @@ export interface ScrollSyncHandlersParams {
   };
   callbacks: {
     hideScrollSyncDialog: () => void;
+    /** Restart TTS from a specific paragraph (clears and rebuilds native queue) */
+    restartTtsFromParagraphIndex: (index: number) => Promise<void>;
   };
 }
 
@@ -49,7 +51,7 @@ export function useScrollSyncHandlers(
   const {
     webViewRef,
     refs: { ttsScrollPromptDataRef },
-    callbacks: { hideScrollSyncDialog },
+    callbacks: { hideScrollSyncDialog, restartTtsFromParagraphIndex },
   } = params;
 
   /**
@@ -96,19 +98,37 @@ export function useScrollSyncHandlers(
           true;
         `);
       } else {
-        // Normal single-chapter mode - no stitched clear needed
+        // Normal single-chapter mode
+        // CRITICAL FIX: Restart the native TTS queue from the new position
+        // Without this, audio continues from cached paragraphs (Bug: drift not enforced)
+        syncLog.info(
+          'sync-confirm',
+          `Restarting TTS from paragraph ${visibleIndex}`,
+        );
+
+        // First update WebView state for visual sync
         webViewRef.current?.injectJavaScript(`
           if (window.tts && window.tts.changeParagraphPosition) {
             window.tts.changeParagraphPosition(${visibleIndex});
-            ${isResume ? 'window.tts.resume(true);' : ''}
           }
           true;
         `);
+
+        // THEN restart the native TTS queue from the new position
+        // This clears the cached batch and rebuilds from visibleIndex
+        restartTtsFromParagraphIndex(visibleIndex).catch(err => {
+          syncLog.error('sync-confirm', 'Failed to restart TTS queue', err);
+        });
       }
     }
     ttsScrollPromptDataRef.current = null;
     hideScrollSyncDialog();
-  }, [webViewRef, ttsScrollPromptDataRef, hideScrollSyncDialog]);
+  }, [
+    webViewRef,
+    ttsScrollPromptDataRef,
+    hideScrollSyncDialog,
+    restartTtsFromParagraphIndex,
+  ]);
 
   /**
    * Handle TTS scroll sync cancel - keep TTS at current position

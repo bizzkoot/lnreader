@@ -160,6 +160,13 @@ jest.mock('@services/TTSHighlight', () => ({
   speak: jest.fn(),
   stop: jest.fn(),
   hasRemainingItems: jest.fn(() => false),
+  setOnDriftEnforceCallback: jest.fn(),
+  setLastSpokenIndex: jest.fn(),
+}));
+
+jest.mock('@utils/ScreenStateListener', () => ({
+  isActive: jest.fn().mockResolvedValue(true),
+  addListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 const mockChapter = { id: 10, name: 'Chapter 1', progress: 0 };

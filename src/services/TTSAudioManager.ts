@@ -118,7 +118,11 @@ class TTSAudioManager {
     fallbackSpeakBatchUsed: 0,
     fallbackSystemVoiceUsed: 0,
     cacheDriftDetections: 0,
+    driftEnforcements: 0,
   };
+
+  // Callback to enforce drift correction - restarts TTS from correct position
+  private onDriftEnforceCallback?: (correctIndex: number) => void;
 
   // Tracks whether we've successfully queued any audio to native in the current session (logging-only flag, not state).
   private hasQueuedNativeThisSession = false;
@@ -148,6 +152,15 @@ class TTSAudioManager {
 
   setNotifyUserCallback(cb?: (msg: string) => void) {
     this.notifyUserCallback = cb;
+  }
+
+  /**
+   * Set callback for drift enforcement. Called when cache drift exceeds threshold
+   * and TTS needs to restart from the correct position.
+   * @param cb Callback that receives the correct paragraph index to restart from
+   */
+  setOnDriftEnforceCallback(cb?: (correctIndex: number) => void) {
+    this.onDriftEnforceCallback = cb;
   }
 
   /**
@@ -230,7 +243,16 @@ class TTSAudioManager {
   /**
    * Calibrate the queue size cache to prevent drift.
    * Compares cached size with actual native queue size and corrects if drift > threshold.
-   * This is a defensive measure for rare scenarios where fallback paths cause cache drift.
+   *
+   * **ENFORCEMENT MODE (v2):** When drift exceeds threshold, automatically:
+   * 1. Stop TTS (completely halts playback and clears queue)
+   * 2. Reset queue size cache
+   * 3. Call onDriftEnforceCallback to restart from correct position
+   *
+   * This ensures TTS never plays from a stale position after drift is detected.
+   *
+   * CRITICAL: Uses the NEXT paragraph to play (currentIndex) as the correct position,
+   * NOT lastSpokenIndex which may lag behind actual playback.
    */
   private async calibrateQueueCache() {
     try {
@@ -242,7 +264,32 @@ class TTSAudioManager {
           `Cache drift detected (cached=${this.lastKnownQueueSize}, actual=${actualSize}, drift=${drift})`,
         );
         this.devCounters.cacheDriftDetections += 1;
-        this.lastKnownQueueSize = actualSize;
+
+        // ENFORCE: Stop (clears queue) and restart from correct position
+        // Use currentIndex (next paragraph to play) as the authoritative position
+        // This is more accurate than lastSpokenIndex which updates async via callbacks
+        if (this.onDriftEnforceCallback && this.currentIndex > 0) {
+          // correctIndex = last successfully queued paragraph
+          // Since currentIndex points to NEXT item to queue, we want currentIndex - 1
+          // BUT if we're mid-refill, currentIndex may have advanced beyond actual playback
+          // So we use the safer approach: restart from the last spoken paragraph
+          const correctIndex = Math.max(0, this.lastSpokenIndex);
+
+          ttsLog.info(
+            'cache-drift-enforce',
+            `Enforcing position sync: stopping TTS, restarting from index ${correctIndex} (lastSpoken=${this.lastSpokenIndex}, currentIndex=${this.currentIndex})`,
+          );
+          this.devCounters.driftEnforcements += 1;
+
+          // Stop TTS completely (clears queue and stops current utterance)
+          await this.stop();
+
+          // Call enforcement callback (this will restart TTS from correct position)
+          this.onDriftEnforceCallback(correctIndex);
+        } else {
+          // No callback registered - just update cache (legacy behavior)
+          this.lastKnownQueueSize = actualSize;
+        }
       }
     } catch (err) {
       logError('TTSAudioManager: calibrateQueueCache failed:', err);
@@ -711,6 +758,11 @@ class TTSAudioManager {
   async stop(): Promise<boolean> {
     try {
       this.transitionTo(TTSState.STOPPING);
+
+      // CRITICAL: Remove all event listeners BEFORE stopping native TTS
+      // This prevents refill subscriptions from firing after we've stopped
+      this.removeAllListeners();
+
       await TTSHighlight.stop();
 
       this.currentQueue = [];

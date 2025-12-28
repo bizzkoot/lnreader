@@ -666,7 +666,10 @@ export function useTTSController(
   const scrollSyncHandlers = useScrollSyncHandlers({
     webViewRef,
     refs: { ttsScrollPromptDataRef },
-    callbacks: { hideScrollSyncDialog },
+    callbacks: {
+      hideScrollSyncDialog,
+      restartTtsFromParagraphIndex, // FIX: Pass restart callback for non-stitched sync
+    },
   });
 
   const { handleTTSScrollSyncConfirm, handleTTSScrollSyncCancel } =
@@ -842,6 +845,27 @@ export function useTTSController(
               ttsCtrlLog.info(
                 'start-batch',
                 `index=${paragraphIdx} chapter=${chapterId}`,
+              );
+
+              // Initialize auto-stop service when manually starting TTS
+              const autoStopMode =
+                chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+              const autoStopAmount =
+                chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
+
+              autoStopService.start(
+                { mode: autoStopMode, amount: autoStopAmount },
+                reason => {
+                  TTSHighlight.stop();
+
+                  // Show toast notification
+                  const messages = {
+                    minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+                    paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+                    chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+                  };
+                  showToastMessage(messages[reason]);
+                },
               );
 
               const remaining = paragraphs.slice(paragraphIdx);
@@ -1104,6 +1128,7 @@ export function useTTSController(
       handleRequestTTSConfirmation,
       showScrollSyncDialog,
       showManualModeDialog,
+      showToastMessage,
     ],
   );
 
@@ -1415,9 +1440,16 @@ export function useTTSController(
 
       autoStopService.start(
         { mode: autoStopMode, amount: autoStopAmount },
-        () => {
-          // Use the native pause to stop background playback reliably
-          TTSHighlight.pause();
+        reason => {
+          TTSHighlight.stop();
+
+          // Show toast notification
+          const messages = {
+            minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+            paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+            chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+          };
+          showToastMessage(messages[reason]);
         },
       );
 
@@ -1469,6 +1501,7 @@ export function useTTSController(
     readerSettingsRef,
     chapterGeneralSettingsRef,
     updateTtsMediaNotificationState,
+    showToastMessage,
   ]);
 
   // ===========================================================================
@@ -1491,6 +1524,24 @@ export function useTTSController(
     const saveProgressOnUnmount = saveProgressRef.current;
     const getProgressOnUnmount = () => progressRef.current ?? 0;
     const saveProgressFromRef = saveProgressRef.current;
+
+    // Set up drift enforcement callback to auto-restart TTS from correct position
+    // when cache drift exceeds threshold
+    TTSHighlight.setOnDriftEnforceCallback((correctIndex: number) => {
+      ttsCtrlLog.info(
+        'drift-enforce-callback',
+        `Restarting TTS from correct index ${correctIndex} due to cache drift`,
+      );
+
+      // Use the same restart logic as media controls
+      restartTtsFromParagraphIndex(correctIndex).catch(err => {
+        ttsCtrlLog.error(
+          'drift-enforce-failed',
+          'Failed to restart TTS after drift enforcement',
+          err,
+        );
+      });
+    });
 
     // onSpeechDone - Handle paragraph completion
     const onSpeechDoneSubscription = TTSHighlight.addListener(
@@ -1552,6 +1603,11 @@ export function useTTSController(
               );
             }
             currentParagraphIndexRef.current = nextIndex;
+
+            // CRITICAL: Update lastSpokenIndex in TTSAudioManager
+            // This ensures drift enforcement uses correct paragraph position
+            // We use currentIdx (just finished) as the last spoken index
+            TTSAudioManager.setLastSpokenIndex(currentIdx);
 
             autoStopService.onParagraphSpoken();
 
@@ -2583,6 +2639,29 @@ export function useTTSController(
                             texts: remaining,
                           };
 
+                          // Restart auto-stop service for wake resume
+                          const autoStopMode =
+                            chapterGeneralSettingsRef.current.ttsAutoStopMode ??
+                            'off';
+                          const autoStopAmount =
+                            chapterGeneralSettingsRef.current
+                              .ttsAutoStopAmount ?? 0;
+
+                          autoStopService.start(
+                            { mode: autoStopMode, amount: autoStopAmount },
+                            reason => {
+                              TTSHighlight.stop();
+
+                              // Show toast notification
+                              const messages = {
+                                minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+                                paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+                                chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+                              };
+                              showToastMessage(messages[reason]);
+                            },
+                          );
+
                           // Start batch playback from the resolved index
                           TTSHighlight.speakBatch(remaining, ids, {
                             voice:
@@ -2697,6 +2776,10 @@ export function useTTSController(
           e,
         );
       }
+
+      // Clear drift enforcement callback
+      TTSHighlight.setOnDriftEnforceCallback(undefined);
+
       try {
         TTSHighlight.stop();
       } catch (e) {

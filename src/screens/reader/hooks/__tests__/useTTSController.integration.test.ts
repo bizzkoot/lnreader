@@ -33,6 +33,7 @@ jest.mock('@services/TTSAudioManager', () => ({
     getState: jest.fn(() => ({ IDLE: 'IDLE' })),
     hasRemainingItems: jest.fn(() => false),
     hasQueuedNativeInCurrentSession: jest.fn(() => true),
+    setLastSpokenIndex: jest.fn(),
   },
 }));
 
@@ -71,6 +72,8 @@ jest.mock('@services/TTSHighlight', () => ({
     addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
     hasRemainingItems: jest.fn().mockReturnValue(false),
     hasQueuedNativeInCurrentSession: jest.fn().mockReturnValue(true),
+    setOnDriftEnforceCallback: jest.fn(),
+    setLastSpokenIndex: jest.fn(),
   },
 }));
 

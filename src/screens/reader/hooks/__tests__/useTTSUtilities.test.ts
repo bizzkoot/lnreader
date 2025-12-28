@@ -23,7 +23,9 @@ jest.mock('@services/TTSHighlight', () => ({
   default: {
     updateMediaState: jest.fn().mockResolvedValue(undefined),
     pause: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
     speakBatch: jest.fn().mockResolvedValue(undefined),
+    setLastSpokenIndex: jest.fn(),
   },
 }));
 
@@ -472,7 +474,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
         await result.current.restartTtsFromParagraphIndex(0);
       });
 
-      expect(TTSHighlight.pause).not.toHaveBeenCalled();
+      expect(TTSHighlight.stop).not.toHaveBeenCalled();
       expect(TTSHighlight.speakBatch).not.toHaveBeenCalled();
     });
 
@@ -501,7 +503,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
       );
     });
 
-    it('should pause TTS before restarting', async () => {
+    it('should stop TTS before restarting', async () => {
       const { result } = renderHook(() =>
         useTTSUtilities({
           novel: mockNovel,
@@ -517,7 +519,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
         await result.current.restartTtsFromParagraphIndex(1);
       });
 
-      expect(TTSHighlight.pause).toHaveBeenCalled();
+      expect(TTSHighlight.stop).toHaveBeenCalled();
     });
 
     it('should update ttsQueueRef with remaining paragraphs', async () => {
