@@ -1,652 +1,266 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# LNReader Agent Context
 
 ## Project Overview
-
 LNReader is a free and open source light novel reader for Android, built with React Native. Inspired by Tachiyomi, it specializes in reading light novels with advanced Text-to-Speech (TTS) capabilities.
 
-## Development Commands
-
-### Basic Development
-
+## Commands
 ```bash
-# Install dependencies
-pnpm install
-
-# Start Metro bundler
-pnpm run dev:start
-
-# Run on Android device/emulator
-pnpm run dev:android
-
-# Clean start with cache reset
+# Development
+pnpm run dev:start && pnpm run dev:android
 pnpm run dev:clean-start
-```
 
-### Building & Release
-
-```bash
-# Generate environment files for debug
-pnpm run generate:env:debug
-
-# Generate environment files for release
-pnpm run generate:env:release
-
-# Build release APK
+# Build & Release
 pnpm run build:release:android
-
-# Open built APK location
 pnpm run build:open-apk
-```
 
-### Code Quality
-
-```bash
-# Lint code
-pnpm run lint
-
-# Fix linting issues
+# Code Quality (ALWAYS format before commit)
+pnpm run format && git add . && git commit -m "msg"
 pnpm run lint:fix
-
-# Type checking
 pnpm run type-check
 
-# Format code
-pnpm run format
-
-# Check formatting
-pnpm run format:check
-```
-
-### Git Workflow
-
-**IMPORTANT:** Always run `pnpm run format` before staging files for commit to avoid pre-commit hook failures.
-
-```bash
-# 1. Make your changes
-# 2. Format code before staging
-pnpm run format
-
-# 3. Stage your changes
-git add <files>
-
-# 4. Commit (pre-commit hooks will auto-run lint + format)
-git commit -m "message"
-
-# 5. Push
-git push
-```
-
-### Testing
-
-```bash
-# Run Jest tests
+# Testing
 pnpm run test
-
-# Run single test file
 pnpm run test -- --testPathPattern="FileName.test"
-
-# Run tests matching a pattern
-pnpm run test -- --testNamePattern="should do something"
-
-# TTS-specific tests (simulator scripts)
 pnpm run test:tts-refill
 pnpm run test:tts-wake-cycle
 ```
 
-### Environment Management
+## Current Task
+TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
+- **Features**: Sleep timer (minutes/paragraphs/end of chapter), smart rewind (N paragraphs after pause)
+- **Files**: `useSettings.ts`, `SleepTimer.ts`, `useTTSController.ts`, `ReaderTTSTab.tsx`
+- **Status**: All 917 tests passing
 
-- Uses `react-native-dotenv` with environment generation scripts
-- Debug: `node scripts/generate-env-file.cjs Debug`
-- Release: `node scripts/generate-env-file.cjs Release`
+## TTS Architecture (3-Layer Hybrid)
 
-## Architecture Overview
+**Layers:**
+1. **React Native**: `WebViewReader.tsx` (controller), `useTTSController.ts` (state machine), `TTSAudioManager.ts` (native wrapper)
+2. **WebView**: `core.js` (DOM parsing, highlighting, scroll)
+3. **Native Android**: `TTSHighlightModule.kt`, `TTSForegroundService.kt`
 
-### Core TTS Architecture (3-Layer Hybrid Design)
+**State Machine:** IDLE → STARTING → PLAYING → REFILLING → PLAYING (loop)
 
-The TTS system is the most complex feature, using a sophisticated 3-layer architecture:
+**Key Concepts:**
+- **Queue Management**: Proactive refill (threshold=10, batch=20), prevents audio gaps
+- **Playback Modes**: Foreground (per-paragraph, stops when screen off) vs Background (batch, continues in background, default)
+- **Race Protection**: Refs for `currentParagraphIndexRef`, `wakeTransitionInProgressRef`, `chapterTransitionTimeRef`, `ttsLastStopTime` (2s grace)
+- **Progress Reconciliation**: `Math.max(dbIndex, mmkvIndex, nativeIndex)` on load
+- **State Persistence**: Database (`ChapterQueries`) + MMKV
 
-1. **React Native Layer** (`src/screens/reader/components/WebViewReader.tsx`)
-   - Main controller and state management
-   - Handles background playback queueing
-   - Manages TTS settings and UI
-   - Key file: `src/services/TTSAudioManager.ts` - JS wrapper for Native Module
+**TTS Settings Locations:**
+- Global: More → Settings → Reader → Accessibility Tab
+- Quick Access: Reader Bottom Sheet → TTS Tab
+- Both sync via `useChapterGeneralSettings` / `useChapterReaderSettings`
 
-2. **WebView Layer** (`android/app/src/main/assets/js/core.js`)
-   - Renders chapter content
-   - Parses DOM to find readable text nodes
-   - Handles visual highlighting and scrolling
-   - Drives "Foreground" playback loop
-   - Provides `window.reader` and `window.tts` APIs
+**Media Notification:** 5-button controls (Prev/Next Chapter, Rewind/Forward 5, Play/Pause), 500ms debounce
 
-3. **Native Android Layer**
-   - `TTSHighlightModule.kt`: Exposes system TTS engine to RN
-   - `TTSForegroundService.kt`: Keeps app alive during background playback
-   - `UtteranceProgressListener`: Provides speech events (`onSpeechStart`, `onSpeechDone`, `onRangeStart`)
+## Critical Files
+1. `src/screens/reader/components/WebViewReader.tsx` - Main reader (~2000 LOC)
+2. `src/screens/reader/hooks/useTTSController.ts` - TTS state machine
+3. `src/services/TTSAudioManager.ts` - Native module wrapper
+4. `android/app/src/main/assets/js/core.js` - WebView logic
+5. `src/hooks/persisted/useSettings.ts` - Settings (MMKV)
+6. `src/services/TTSState.ts` - State machine with transition validation
+7. `src/plugins/pluginManager.ts` - Dynamic plugin loading
 
-### TTS Settings Locations
+## Recent Fixes
 
-- **Global Settings**: More → Settings → Reader → Accessibility Tab
-- **Quick Access**: Reader Bottom Sheet → TTS Tab
-- Both sync to same underlying state (`useChapterGeneralSettings` / `useChapterReaderSettings`)
+### MainActivity Startup Crash (2025-12-27)
+- **Cause**: `window.insetsController` accessed before `super.onCreate()` → NPE when DecorView null
+- **Fix**: Move `super.onCreate()` first in `MainActivity.kt`
 
-### TTS State Machine
+### Upstream PR Adoptions (2025-12-27)
+- **#1573**: Added `'style'` to `<span>` in `sanitizeChapterText.ts` (EPUB styling preservation)
+- **#1599**: `clean_summary()` in `Epub.cpp` (strip HTML tags/entities from EPUB summaries)
 
-The TTS system uses an explicit state machine (`TTSState` enum) for lifecycle management:
-- **IDLE**: No TTS activity
-- **STARTING**: Initializing session, loading voice, preparing queue
-- **PLAYING**: Actively playing audio
-- **REFILLING**: Refilling native queue during playback
-- **STOPPING**: Cleanup in progress
+### Filter Icon Crash (2025-12-25)
+- **Cause**: `clampUIScale(undefined)` → NaN (missing MMKV data from older versions)
+- **Fix**: Default `uiScale` to `1.0` in `scaling.ts`, `useSettings.ts`
 
-Valid transitions are enforced via `isValidTransition()` in `src/services/TTSState.ts`.
+### TTS Per-Novel Settings Auto-Load (2025-12-25)
+- **Cause**: `WebViewReader.tsx` updated ref only, not MMKV
+- **Fix**: Call `setChapterReaderSettings({ tts: stored.tts })` to sync. Reset to global defaults when no per-novel settings
 
-### Key TTS Concepts
+### TTS Per-Novel Settings Toggle (2025-12-23)
+- **Cause**: `@gorhom/bottom-sheet` Portal breaks React context
+- **Fix**: Pass `novel` as props through `ReaderScreen` → `ReaderBottomSheetV2` → `ReaderTTSTab`
 
-**Playback Modes:**
+### Chapter Title Duplication (2025-12-23)
+- **Cause**: Temp div `visibility:hidden` → `getComputedStyle()` inherited, all elements appeared hidden
+- **Fix**: Don't append temp div to document. Check only inline styles for explicit `display:none`/`visibility:hidden` in `core.js`
 
-- **Foreground (per-paragraph)**: `speak()` - stops when screen off/minimized
-- **Background (batch)**: `speakBatch()` - continues in background, default mode
-
-**Queue Management:**
-
-- Proactive refill mechanism (REFILL_THRESHOLD=10, MIN_BATCH_SIZE=20)
-- Prevents audio gaps during continuous playback
-- Race condition protection for fast speech/short paragraphs
-- `addToBatch()` appends to native queue without stopping playback
-
-**State Persistence:**
-
-- Progress saved to Database (`ChapterQueries`) and MMKV
-- Refs protect against race conditions (`currentParagraphIndexRef`, `wakeTransitionInProgressRef`)
+## Code Style
+- **Imports**: Path aliases (`@components`, `@utils`, etc.)
+- **Format**: 2 spaces, single quotes, trailing commas (Prettier)
+- **TypeScript**: Strict mode, no unused locals, ES2022
+- **Naming**: PascalCase (components), camelCase (vars/functions)
+- **Errors**: Use `@utils/rateLimitedLogger`, NOT `console.log` (ESLint error)
+- **Hooks**: `exhaustive-deps` enforced
+- **Git Workflow**: ALWAYS `pnpm run format` before commit (Husky pre-commit hooks auto-format)
 
 ## Project Structure
 
-### Database Layer
+### Key Directories
+- `src/database/` - Tables, queries, migrations (Novel, Chapter, Category, Repository)
+- `src/services/` - TTS, Backup (Local/Drive/Self-host), Trackers (AniList/MAL/MangaUpdates), Updates
+- `src/plugins/` - Dynamic plugin loading (pluginManager.ts, types/, helpers/)
+- `src/screens/reader/` - Reading interface, TTS controls, dialogs
+- `src/hooks/persisted/` - MMKV-backed settings (useSettings.ts, useTheme.ts, useDownload.ts, etc.)
+- `src/components/` - Reusable UI components
+- `src/navigators/` - React Navigation setup
 
-- **Tables**: `src/database/tables/` - Novel, Chapter, Category, Repository tables
-- **Queries**: `src/database/queries/` - Database operations for each entity
-- **Migrations**: `src/database/migrations/` - Schema evolution
+### TTS File Map
+```
+React Native Layer
+├── WebViewReader.tsx                  Main reader controller
+├── useTTSController.ts                State machine & actions
+├── useTTSUtilities.ts                 Utility functions
+├── useTTSConfirmationHandler.ts       Dialog handlers
+├── TTSAudioManager.ts                 Native module wrapper
+├── TTSState.ts                        State machine definition
+├── ttsBridge.ts                       RN↔WebView bridge
+└── ttsNotification.ts                 Media notification utils
 
-### Services
+WebView Layer
+└── core.js                            DOM parsing, highlighting, scroll
 
-- **TTS**: `src/services/TTSAudioManager.ts`, `src/services/TTSHighlight.ts`
-- **Backup**: `src/services/backup/` - Local, Drive, Self-host options
-- **Trackers**: `src/services/Trackers/` - AniList, MAL, MangaUpdates
-- **Updates**: `src/services/updates/` - Library update management
+Native Android Layer
+├── TTSHighlightModule.kt              System TTS engine wrapper
+├── TTSForegroundService.kt            Background playback service
+└── TTSPackage.java                    Module registration
 
-### Plugins System
+UI Components
+├── ReaderTTSTab.tsx                   TTS control panel
+├── TTSResumeDialog.tsx                Resume from saved progress
+├── TTSManualModeDialog.tsx            Manual mode activation
+├── TTSScrollSyncDialog.tsx            Position mismatch
+├── TTSChapterSelectionDialog.tsx      Chapter picker
+└── TTSExitDialog.tsx                  Exit confirmation
+```
 
-- **Manager**: `src/plugins/pluginManager.ts` - Dynamic plugin loading
-- **Types**: `src/plugins/types/` - TypeScript interfaces
-- **Helpers**: `src/plugins/helpers/` - Fetch, storage, constants
+## Path Aliases
+`@components`, `@database`, `@hooks`, `@screens`, `@strings`, `@theme`, `@utils`, `@plugins`, `@services`, `@navigators`, `@native`, `@api`, `@type`, `@specs`
 
-### UI Components
+## Upstream Status
+- **Fork**: https://github.com/bizzkoot/lnreader (190 commits ahead)
+- **Upstream**: https://github.com/lnreader/lnreader
+- **Last Analysis**: Dec 27, 2025 - All compatible PRs (2024-2025) adopted ✅
+- **Fork Advantages**: 
+  - Superior UI scaling (`useScaledDimensions`, `scaleDimension()` vs hardcoded values)
+  - Newer deps: RN 0.82.1 (vs 0.81.5), Reanimated 4.2.0 (vs 4.1.5), Worklets 0.7.1 (vs 0.6.1)
 
-- **Common**: `src/components/` - Reusable UI components
-- **Reader**: `src/screens/reader/` - Reading interface and TTS controls
-- **Navigation**: `src/navigators/` - React Navigation setup
+**Adopted PRs:** #1685 (Volume Button Offset), #1667 (Paper Components), #1664 (TTS Refactor), #1631 (Translations), #1612 (Reader Settings UI), #1621 (DB Migrations), #1613 (MangaUpdates), #1609 (onscrollend), #1604 (Plugin DX), #1603 (Local Backup)
 
-### State Management
+## WebView Communication
+- **WebView→RN**: `window.ReactNativeWebView.postMessage(JSON.stringify({type, data}))`
+- **RN→WebView**: `injectJavaScript()`
+- **WebView APIs**: `window.reader.highlightElement()`, `window.reader.scrollToElement()`, `window.tts.getTextNodes()`, `window.tts.getCurrentParagraphIndex()`
 
-- **Persisted Hooks**: `src/hooks/persisted/` - Settings and app state
-- **Common Hooks**: `src/hooks/common/` - Reusable logic
-
-Key persisted hooks:
-- `useSettings.ts` - General app settings
-- `useChapterGeneralSettings` / `useChapterReaderSettings` - TTS settings (synced between global and reader UI)
-
-## Key Implementation Patterns
-
-### WebView Communication
-
-- Uses `window.ReactNativeWebView.postMessage()` for WebView→RN
-- Uses `injectJavaScript()` for RN→WebView
-- Messages follow `{type: string, data?: any}` pattern
-
-### TTS Dialog System
-
+## TTS Dialogs
 - **Resume Dialog**: Chapter opening with saved progress
 - **Manual Mode Dialog**: Backward scroll while paused
 - **Scroll Sync Dialog**: Scroll position vs TTS position mismatch
 - **Sync Failure Dialog**: Critical wake-up synchronization failure
 
-### TTS Media Notification
+## Data Flows
 
-Native Android MediaStyle notification with 5-button controls:
-- **Previous Chapter** / **Next Chapter** - Always starts from paragraph 0, marks source chapter 100% complete after 5 paragraphs
-- **Rewind 5** / **Forward 5** - Skip paragraphs
-- **Play/Pause** - Saves progress immediately on pause
-- **Stop** - Stops playback and dismisses notification
-
-Actions debounced by 500ms (`MEDIA_ACTION_DEBOUNCE_MS`) to prevent queue corruption.
-
-### Settings Management
-
-- Uses MMKV for fast key-value storage
-- Database for structured data (novels, chapters, progress)
-- Real-time sync between different settings locations
-- **Progress Reconciliation**: On load, uses `Math.max(dbIndex, mmkvIndex, nativeIndex)` to find most advanced progress
-
-### Race Condition Protection
-
-Critical refs used to prevent race conditions:
-- `currentParagraphIndexRef` - Source of truth for active TTS position
-- `wakeTransitionInProgressRef` - Ignores events during app wake-up
-- `chapterTransitionTimeRef` - Ignores stale save events after chapter switch
-- `ttsLastStopTime` - 2-second grace period for scroll-based saves after TTS stops
-
-## Testing Strategy
-
-### TTS Testing
-
-- Refill simulator: `scripts/tts_refill_simulator.js`
-- Wake cycle test: `scripts/tts_wake_cycle_test.js`
-- Unit tests: `src/services/__tests__/VoiceMapper.test.ts`
-
-### Type Safety
-
-- Strict TypeScript configuration
-- ESLint with React Native rules
-- Prettier for code formatting
-- Pre-commit hooks: Husky with lint-staged (auto-formats and lints staged files)
-
-## Native Dependencies
-
-### Android-Specific
-
-- React Native 0.82.1 with New Architecture support
-- Expo modules for file system, speech, notifications
-- Custom native modules for TTS highlighting
-- React Compiler (RC.3) enabled via `babel-plugin-react-compiler`
-
-### Minimum Requirements
-
-- Node.js >= 20
-- Java SDK >= 17
-- Android SDK (API 24+ minimum, Android 7.0)
-
-## Development Notes
-
-- Package manager: pnpm (10.26.0)
-- Husky for pre-commit hooks with lint-staged
-- Flash List (`@legendapp/list`) for performant novel lists
-- WebView for chapter rendering with custom CSS injection
-- MMKV for high-performance key-value storage
-- **Important**: Always read files before editing - use Read tool to understand context
-
-## Upstream Repository Status
-
-### Repository Configuration
-- **Origin**: https://github.com/bizzkoot/lnreader (your fork)
-- **Upstream**: https://github.com/lnreader/lnreader
-- **Current Branch**: dev
-- **Divergence**: ~190 commits AHEAD of upstream/master
-
-### Recently Merged Upstream PRs (2024-2025) - Status: ✅ ALL ADOPTED
-
-| PR # | Title | Merge Date | Status in Fork |
-|------|-------|------------|----------------|
-| #1685 | Volume Button Offset Setting | Dec 2025 | ✅ Adopted (commit a19a0fa5f) |
-| #1667 | Replace React Native Paper Components | Nov 2025 | ✅ Dependencies adopted, custom UI preserved |
-| #1664 | TTS Reading Logic Refactor | Nov 2025 | ✅ Adopted (commit 9d5816172) |
-| #1631 | Update Translations | Nov 2025 | ✅ Adopted (commit 8d15e418e) |
-| #1612 | Revamp Reader Settings UI | Oct 2025 | ✅ Adopted (commit f1c825f82) |
-| #1621 | Structured Database Migration System | Oct 2025 | ✅ Adopted (commit 41ea7eb7b) |
-| #1613 | MangaUpdates Tracker | Oct 2025 | ✅ Adopted (commit c06d6f932) |
-| #1609 | Polyfill onscrollend | Oct 2025 | ✅ Adopted (commit 41ea7eb7b) |
-| #1604 | General Plugin DX Improvements | Oct 2025 | ✅ Adopted (commit 0dd9f2bd9) |
-| #1603 | Reimplement Local Backup | Oct 2025 | ✅ Adopted (commit 0dd9f2bd9) |
-
-### Fork-Specific Improvements
-
-**Superior UI Scaling Support:**
-- Custom `BottomTabBar` component uses `useScaledDimensions` hook for dynamic scaling
-- Custom `Menu` component uses `useAppSettings` uiScale + `scaleDimension()` function
-- Upstream PR #1667 uses hardcoded values (no scaling support)
-- **Your implementation is SUPERIOR** - maintains accessibility for different screen sizes/UI scales
-
-**Ahead on Dependencies:**
-- React Native: 0.82.1 (upstream PR had 0.81.5)
-- React Native Reanimated: 4.2.0 (upstream PR had 4.1.5)
-- React Native Worklets: 0.7.1 (upstream PR had 0.6.1)
-- @react-native/codegen: 0.82.1 (upstream PR had 0.81.5)
-
-### Recommendations for Future Merges
-
-1. **UI Component PRs**: Be cautious when merging UI component changes from upstream. Your fork has superior scaling support that should be preserved.
-
-2. **Dependency Updates**: Most upstream dependency updates are safe to adopt, but verify they don't conflict with TTS functionality.
-
-3. **Periodic Monitoring**: Check upstream every 1-2 months for new PRs using:
-   ```bash
-   gh pr list --repo lnreader/lnreader --state merged --limit 20
-   ```
-
-4. **TTS-Specific Changes**: The fork has significant TTS enhancements not present in upstream. Be careful when adopting changes that affect TTS behavior.
-
-### Last Analysis
-- **Date**: December 27, 2025
-- **Finding**: All compatible upstream PRs (2024-2025) have been adopted. No immediate action needed.
-
-## Path Aliases
-
-The project uses TypeScript path aliases (defined in `tsconfig.json`):
-- `@components/*` → `src/components/*`
-- `@database/*` → `src/database/*`
-- `@hooks/*` → `src/hooks/*`
-- `@screens/*` → `src/screens/*`
-- `@strings/*` → `strings/*`
-- `@theme/*` → `src/theme/*`
-- `@utils/*` → `src/utils/*`
-- `@plugins/*` → `src/plugins/*`
-- `@services/*` → `src/services/*`
-- `@navigators/*` → `src/navigators/*`
-- `@native/*` → `src/native/*`
-- `@api/*` → `src/api/*`
-- `@type/*` → `src/type/*`
-- `@specs/*` → `specs/*`
-
-## ESLint Rules
-
-Key linting rules enforced:
-- `no-console`: Error level (use rate-limited logger from `@utils/rateLimitedLogger` instead)
-- `@typescript-eslint/no-shadow`: Warn level
-- `react-hooks/exhaustive-deps`: Warn level
-- `prefer-const`: Error level
-- `no-duplicate-imports`: Error level
-
-## Code Map: Quick File Reference
-
-### TTS System Files
+### TTS Playback
 ```
-TTS Architecture (3-Layer Hybrid)
-├── React Native Layer
-│   ├── src/screens/reader/components/WebViewReader.tsx          Main reader controller (~2000 LOC)
-│   ├── src/screens/reader/hooks/useTTSController.ts            TTS state machine & actions
-│   ├── src/screens/reader/hooks/useTTSUtilities.ts             TTS utility functions
-│   ├── src/screens/reader/hooks/useTTSConfirmationHandler.ts   Dialog handlers
-│   ├── src/services/TTSAudioManager.ts                         Native module wrapper
-│   ├── src/services/TTSState.ts                                State machine definition
-│   ├── src/services/TTSHighlight.ts                            Highlight coordination
-│   ├── src/utils/ttsBridge.ts                                  RN↔WebView bridge
-│   └── src/utils/ttsNotification.ts                            Media notification utils
-│
-├── WebView Layer
-│   └── android/app/src/main/assets/js/core.js                  DOM parsing, highlighting, scroll
-│
-└── Native Android Layer
-    ├── android/app/src/main/java/com/rajarsheechatterjee/LNReader/TTSHighlightModule.kt
-    ├── android/app/src/main/java/com/rajarsheechatterjee/LNReader/TTSForegroundService.kt
-    └── android/app/src/main/java/com/rajarsheechatterjee/LNReader/TTSPackage.java
+User presses Play → STARTING state → load voice → build queue
+→ TTSAudioManager.speakBatch() → Native UtteranceProgressListener fires events
+→ core.js highlights paragraph (onRangeStart) → Queue depletes → REFILLING
+→ addToBatch() more paragraphs → Chapter ends → next chapter or stop
 ```
 
-### TTS UI Components
+### Progress Save
 ```
-Reader UI
-├── src/screens/reader/components/ReaderBottomSheet/ReaderTTSTab.tsx    TTS control panel
-├── src/screens/reader/components/ReaderFooter.tsx                      Footer with TTS controls
-└── src/screens/reader/components/WebViewReader.tsx                     Main reader integration
-
-Dialog Components
-├── src/screens/reader/components/TTSResumeDialog.tsx                   Resume from saved progress
-├── src/screens/reader/components/TTSManualModeDialog.tsx               Manual mode activation
-├── src/screens/reader/components/TTSScrollSyncDialog.tsx               Position mismatch
-├── src/screens/reader/components/TTSChapterSelectionDialog.tsx         Chapter picker
-└── src/screens/reader/components/TTSExitDialog.tsx                     Exit confirmation
-
-Settings Modals
-├── src/screens/settings/SettingsReaderScreen/Modals/VoicePickerModal.tsx
-└── src/screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal.tsx
+onSpeechDone(index) / onRangeStart(index, char)
+→ Check wakeTransitionInProgressRef (ignore if waking)
+→ Update currentParagraphIndexRef
+→ Save to Database (ChapterQueries) AND MMKV
+→ On load: Math.max(dbIndex, mmkvIndex, nativeIndex)
 ```
 
-### Plugin System
+### Plugin Loading
 ```
-Plugin Architecture
-├── src/plugins/pluginManager.ts                    Dynamic plugin loader
-├── src/plugins/types/index.ts                      Plugin interfaces
-├── src/plugins/helpers/
-│   ├── constants.ts                                Default constants
-│   ├── fetch.ts                                    HTTP helpers
-│   ├── storage.ts                                  Plugin storage
-│   └── isAbsoluteUrl.ts                            URL validation
-└── Repository sources (loaded dynamically)
-    ├── Official LNReader repository
-    └── User-added repositories
+App startup → pluginManager fetches repository manifest
+→ Download and cache plugin files → Dynamic import()
+→ Validate plugin interface → Register in available plugins list
 ```
 
-### Database Layer
-```
-Schema & Migrations
-├── src/database/db.ts                              Connection setup
-├── src/database/tables/
-│   ├── NovelTable.ts
-│   ├── ChapterTable.ts
-│   ├── CategoryTable.ts
-│   ├── RepositoryTable.ts
-│   └── NovelCategoryTable.ts
-├── src/database/queries/
-│   ├── NovelQueries.ts
-│   ├── ChapterQueries.ts                           Progress persistence
-│   ├── LibraryQueries.ts
-│   ├── HistoryQueries.ts
-│   ├── CategoryQueries.ts
-│   ├── RepositoryQueries.ts
-│   └── StatsQueries.ts
-└── src/database/migrations/
-    ├── 002_add_novel_counters.ts
-    └── 003_add_tts_state.ts
-```
+## Troubleshooting
 
-### Navigation Structure
-```
-Navigation Stack
-├── src/navigators/Main.tsx                         Root navigator
-├── src/navigators/BottomNavigator.tsx              Tab bar
-├── src/navigators/ReaderStack.tsx                  Reader screen stack
-├── src/navigators/MoreStack.tsx                    Settings stack
-└── src/navigators/types/index.ts                   Navigation types
-```
+| Symptom                | Likely Cause                        | Fix Location                            |
+| ---------------------- | ----------------------------------- | --------------------------------------- |
+| TTS stops after 1 para | Race condition in queue refill      | `useTTSController.ts:handleSpeechDone`  |
+| Highlight out of sync  | Missing wake cycle protection       | Check `wakeTransitionInProgressRef`     |
+| Settings not saving    | MMKV key mismatch                   | `useSettings.ts` key names              |
+| Plugin not loading     | Repository URL invalid              | `pluginManager.ts` fetch logic          |
+| Scroll position lost   | Progress not reconciled             | `Math.max()` logic in reader load       |
+| Console.log error      | Used instead of rate-limited logger | Replace with `@utils/rateLimitedLogger` |
+| Build fails            | TypeScript errors                   | Run `pnpm run type-check`               |
 
-### State Management (Persisted Hooks)
-```
-Settings Storage (MMKV)
-├── src/hooks/persisted/useSettings.ts              General + TTS settings ⭐
-├── src/hooks/persisted/useTheme.ts                 Theme preferences
-├── src/hooks/persisted/useDownload.ts              Download settings
-├── src/hooks/persisted/useHistory.ts               History settings
-├── src/hooks/persisted/useCategories.ts            Library categories
-├── src/hooks/persisted/usePlugins.ts               Plugin configurations
-├── src/hooks/persisted/useAutoBackup.ts            Backup settings
-└── src/hooks/persisted/useTracker.ts               AniList/MAL tracking
-```
-
-## Important Files to Understand
-
-**Top 7 files to read first:**
-1. `src/screens/reader/components/WebViewReader.tsx` - Main reader controller (~2000 LOC, manages TTS state, WebView communication)
-2. `src/screens/reader/hooks/useTTSController.ts` - TTS state machine and action handlers
-3. `src/services/TTSAudioManager.ts` - TTS queue and audio management wrapper for native module
-4. `src/services/TTSState.ts` - TTS state machine with transition validation
-5. `android/app/src/main/assets/js/core.js` - In-page reader logic (DOM parsing, highlighting, scroll)
-6. `src/plugins/pluginManager.ts` - Dynamic plugin loading system
-7. `src/hooks/persisted/useSettings.ts` - Settings management with MMKV persistence
-
-**Documentation:**
-- `docs/TTS/TTS_DESIGN.md` - Complete TTS implementation guide with diagrams
-
-## Quick Reference: Common Tasks
-
-### Adding a New TTS Feature
-1. Add state to `TTSState.ts` if new state needed
-2. Implement in `useTTSController.ts` for React Native logic
-3. Add WebView bridge code in `src/utils/ttsBridge.ts`
-4. Update native layer if needed (`.kt` files)
-5. Add UI controls in `ReaderTTSTab.tsx`
-6. Test with `pnpm run test:tts-refill`
-
-### Adding a New Novel Source Plugin
-1. Create plugin implementing `Plugin` interface from `src/plugins/types/`
-2. Add to repository or host as standalone
-3. Plugin manager loads it dynamically at runtime
-4. Required methods: `popularNovels()`, `parseNovel()`, `parseChapter()`
-
-### Debugging TTS Issues
-1. Check `TTSState.ts` for valid state transitions
-2. Review race condition protection refs in `useTTSController.ts`
-3. Use rate-limited logger from `@utils/rateLimitedLogger` (NOT console.log)
-4. Check native module events in `TTSHighlightModule.kt`
-5. WebView logs: `window.reader` and `window.tts` APIs in `core.js`
-
-### Tracing TTS Data Flow
-```
-User Action → useTTSController → TTSAudioManager → Native Module
-                                    ↓
-                              ttsBridge.ts → core.js (WebView)
-                                    ↓
-                            onSpeechDone/onRangeStart → useTTSController
-```
-
-### Adding a New Setting
-1. Add to `ChapterGeneralSettings` or `ChapterReaderSettings` in `useSettings.ts`
-2. Settings auto-sync between global and reader UI via MMKV
-3. Add UI controls in appropriate settings modal
-4. Type definitions in `src/screens/reader/types/tts.ts`
-
-## Data Flow Summaries
-
-### TTS Playback Flow
-```
-1. User presses Play
-   ↓
-2. useTTSController: STARTING state → load voice → build queue
-   ↓
-3. TTSAudioManager: speakBatch() with initial paragraphs
-   ↓
-4. Native Layer: UtteranceProgressListener fires events
-   ↓
-5. WebView: core.js highlights current paragraph (onRangeStart)
-   ↓
-6. Queue depletes → REFILLING state → addToBatch() more paragraphs
-   ↓
-7. Chapter ends → play next chapter or stop
-```
-
-### Progress Save Flow
-```
-1. onSpeechDone(index) or onRangeStart(index, char)
-   ↓
-2. wakeTransitionInProgressRef check (ignore if waking)
-   ↓
-3. Update currentParagraphIndexRef
-   ↓
-4. Save to Database (ChapterQueries) AND MMKV
-   ↓
-5. On chapter load: Math.max(dbIndex, mmkvIndex, nativeIndex)
-```
-
-### Plugin Loading Flow
-```
-1. App startup
-   ↓
-2. pluginManager: fetch repository manifest
-   ↓
-3. Download and cache plugin files
-   ↓
-4. Dynamic import() of plugin code
-   ↓
-5. Validate plugin implements required interface
-   ↓
-6. Register in available plugins list
-```
-
-## Troubleshooting Guide
-
-### Common Issues
-
-| Symptom | Likely Cause | Fix Location |
-|---------|--------------|--------------|
-| TTS stops after 1 paragraph | Race condition in queue refill | `useTTSController.ts:handleSpeechDone` |
-| Highlight out of sync | Missing wake cycle protection | Check `wakeTransitionInProgressRef` |
-| Settings not saving | MMKV key mismatch | `useSettings.ts` key names |
-| Plugin not loading | Repository URL invalid | `pluginManager.ts` fetch logic |
-| Scroll position lost | Progress not reconciled | `Math.max()` logic in reader load |
-| Console.log error | Used instead of rate-limited logger | Replace with `@utils/rateLimitedLogger` |
-| Build fails | TypeScript errors | Run `pnpm run type-check` |
-
-### Race Condition Hotspots
+**Race Condition Hotspots:**
 - `currentParagraphIndexRef` vs `currentIndex` state
 - Native `onSpeechDone` arriving before `onSpeechStart`
 - App wake-up triggering stale events
 - Chapter transition with pending saves
 - Queue refill timing (speechRate affects)
 
-### Native Bridge Debugging
-- Check `TTSHighlightModule.kt` for event emission
-- Verify `TTSForegroundService.kt` notification actions
-- WebView messages use `window.ReactNativeWebView.postMessage()`
-- RN→WebView uses `injectJavaScript()`
+## Quick Tasks
 
-## TTS Quick Reference
+### Adding TTS Feature
+1. Add state to `TTSState.ts` if needed
+2. Implement in `useTTSController.ts` (RN logic)
+3. Add WebView bridge code in `ttsBridge.ts`
+4. Update native layer (`.kt` files) if needed
+5. Add UI controls in `ReaderTTSTab.tsx`
+6. Test with `pnpm run test:tts-refill`
 
-### TTS State Transitions (Valid Paths)
-```
-IDLE → STARTING → PLAYING → REFILLING → PLAYING (loop)
-PLAYING → STOPPING → IDLE
-IDLE → PLAYING (direct resume)
-```
-See `TTSState.ts:isValidTransition()` for enforcement
+### Adding Novel Source Plugin
+1. Create plugin implementing `Plugin` interface from `src/plugins/types/`
+2. Required methods: `popularNovels()`, `parseNovel()`, `parseChapter()`
+3. Plugin manager loads dynamically at runtime
 
-### Key Constants
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| REFILL_THRESHOLD | 10 | Queue size triggers refill |
-| MIN_BATCH_SIZE | 20 | Minimum paragraphs per batch |
-| MEDIA_ACTION_DEBOUNCE_MS | 500 | Notification button debounce |
-| WAKE_SYNC_TIMEOUT_MS | 3000 | Max time to wait for wake sync |
+### Debugging TTS
+1. Check `TTSState.ts` for valid state transitions
+2. Review race condition protection refs in `useTTSController.ts`
+3. Use `@utils/rateLimitedLogger` (NOT console.log)
+4. Check native events in `TTSHighlightModule.kt`
+5. WebView logs: `window.reader` and `window.tts` APIs in `core.js`
 
-### TTS Actions by Method
-| Action | Method | File |
-|--------|--------|------|
-| Play/Pause | `playTTS()` / `pauseTTS()` | `useTTSController.ts` |
-| Stop | `stopTTS()` | `useTTSController.ts` |
-| Skip Forward | `handleForward()` | `useTTSController.ts` |
-| Skip Backward | `handleRewind()` | `useTTSController.ts` |
-| Next/Prev Chapter | `handleNextChapter()` / `handlePrevChapter()` | `useTTSController.ts` |
-| Queue Refill | `refillQueue()` | `useTTSController.ts` |
+### Adding Setting
+1. Add to `ChapterGeneralSettings` or `ChapterReaderSettings` in `useSettings.ts`
+2. Settings auto-sync between global and reader UI via MMKV
+3. Add UI controls in appropriate settings modal
+4. Type definitions in `src/screens/reader/types/tts.ts`
 
-### TTS Events (Native → RN)
-- `onSpeechStart(index)` - Paragraph started
-- `onSpeechDone(index)` - Paragraph completed
-- `onRangeStart(index, charOffset, charLength)` - For highlighting
+## TTS Reference
 
-### TTS Bridge APIs (RN ↔ WebView)
-```javascript
-// WebView exposed APIs (call via injectJavaScript)
-window.reader.highlightElement(selector)   // Highlight text
-window.reader.scrollToElement(selector)     // Scroll to paragraph
-window.tts.getTextNodes()                   // Get readable text
-window.tts.getCurrentParagraphIndex()       // Get position
+**State Transitions:** IDLE → STARTING → PLAYING → REFILLING → PLAYING (loop), PLAYING → STOPPING → IDLE, IDLE → PLAYING (direct resume)
 
-// WebView → RN messages
-window.ReactNativeWebView.postMessage(JSON.stringify({
-  type: 'ready' | 'error' | 'log',
-  data: {...}
-}))
-```
+**Constants:**
+- REFILL_THRESHOLD: 10 (queue size triggers refill)
+- MIN_BATCH_SIZE: 20 (minimum paragraphs per batch)
+- MEDIA_ACTION_DEBOUNCE_MS: 500 (notification button debounce)
+- WAKE_SYNC_TIMEOUT_MS: 3000 (max time to wait for wake sync)
 
-## Concept Index
+**Actions:** `playTTS()`, `pauseTTS()`, `stopTTS()`, `handleForward()`, `handleRewind()`, `handleNextChapter()`, `handlePrevChapter()`, `refillQueue()`
 
-| Concept | Location | Description |
-|---------|----------|-------------|
-| 3-Layer TTS | Architecture Overview | RN + WebView + Native layers |
-| Proactive Refill | `useTTSController.ts` | Queue before empty |
-| Wake Cycle Protection | `ttsWakeUtils.js` | Ignore events on app wake |
-| Progress Reconciliation | `WebViewReader.tsx` load | Math.max of all sources |
-| Manual Mode | `TTSManualModeDialog.tsx` | User controls playback manually |
-| Scroll Sync | `TTSScrollSyncDialog.tsx` | Detect position mismatch |
-| Background Playback | `TTSForegroundService.kt` | Continue when app hidden |
-| Dynamic Plugins | `pluginManager.ts` | Load sources at runtime |
-| MMKV Persistence | `useSettings.ts` | Fast key-value storage |
-| Media Notification | `ttsNotification.ts` | 5-button notification controls |
+**Events (Native→RN):** `onSpeechStart(index)`, `onSpeechDone(index)`, `onRangeStart(index, charOffset, charLength)`
+
+## Technical Stack
+- React Native 0.82.1 with New Architecture support
+- Expo modules (file system, speech, notifications)
+- React Compiler (RC.3) via `babel-plugin-react-compiler`
+- MMKV (high-performance key-value storage)
+- Flash List (`@legendapp/list`) for performant lists
+- WebView with custom CSS injection
+- Package manager: pnpm 10.26.0
+- Min requirements: Node 20+, Java 17+, Android API 24+
+
+## Notes
+- TTS position: Native SharedPreferences (`chapter_progress_{chapterId}`), DB, MMKV
+- Pre-commit: Husky + lint-staged auto-formats
+- ESLint rules: `no-console` (error), `exhaustive-deps` (warn), `prefer-const` (error), `no-duplicate-imports` (error)
+- Always read files before editing to understand context
