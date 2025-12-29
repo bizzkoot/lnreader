@@ -124,6 +124,9 @@ class TTSAudioManager {
   // Callback to enforce drift correction - restarts TTS from correct position
   private onDriftEnforceCallback?: (correctIndex: number) => void;
 
+  // Flag to cancel ongoing refill operations when stop() is called
+  private refillCancelled = false;
+
   // Tracks whether we've successfully queued any audio to native in the current session (logging-only flag, not state).
   private hasQueuedNativeThisSession = false;
   // Flag to track if we've logged session fallback once (logging-only flag, not state)
@@ -398,6 +401,8 @@ class TTSAudioManager {
     // New session -> allow one fallback log again.
     this.hasLoggedSessionFallback = false;
     this.hasQueuedNativeThisSession = false;
+    // Reset refill cancellation flag for new session
+    this.refillCancelled = false;
     // Transition to STARTING state
     this.transitionTo(TTSState.STARTING);
     while (attempts < maxAttempts) {
@@ -530,6 +535,12 @@ class TTSAudioManager {
     // This chains refill requests sequentially, avoiding race conditions where
     // multiple refills could pass the state check simultaneously
     const doRefill = async (): Promise<boolean> => {
+      // Check if refill was cancelled (e.g., stop() was called)
+      if (this.refillCancelled) {
+        logDebug('TTSAudioManager: Refill cancelled, skipping');
+        return false;
+      }
+
       if (this.currentIndex >= this.currentQueue.length) {
         // Only log once to reduce spam
         if (!this.hasLoggedNoMoreItems) {
@@ -554,6 +565,13 @@ class TTSAudioManager {
       logDebug('TTSAudioManager: Starting refill operation');
 
       try {
+        // Check cancellation again after state transition
+        if (this.refillCancelled) {
+          logDebug('TTSAudioManager: Refill cancelled during operation');
+          // Don't transition if already stopped - just return
+          return false;
+        }
+
         const queueSize = await TTSHighlight.getQueueSize();
 
         // Extra safety: if queue is low or near-empty, refill more aggressively.
@@ -605,6 +623,16 @@ class TTSAudioManager {
             }
 
             addSucceeded = true;
+
+            // Check if refill was cancelled after addToBatch completed
+            if (this.refillCancelled) {
+              logDebug(
+                'TTSAudioManager: Refill cancelled after addToBatch completed',
+              );
+              // Don't transition back to PLAYING - let stop() handle final state
+              return false;
+            }
+
             break;
           } catch (err) {
             addError = err;
@@ -757,6 +785,9 @@ class TTSAudioManager {
    */
   async stop(): Promise<boolean> {
     try {
+      // Set cancellation flag to stop ongoing refills
+      this.refillCancelled = true;
+
       this.transitionTo(TTSState.STOPPING);
 
       // CRITICAL: Remove all event listeners BEFORE stopping native TTS

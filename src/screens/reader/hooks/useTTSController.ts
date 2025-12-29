@@ -2177,9 +2177,10 @@ export function useTTSController(
         const autoStopAmount =
           chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
 
-        // If Auto-Stop is set to stop by chapters, we allow continuing until the limit is reached.
-        // Otherwise (off/minutes/paragraphs), default is to stop at end-of-chapter.
-        if (autoStopMode !== 'chapters') {
+        // If Auto-Stop is set to 'off' (continuous) or 'chapters', we allow continuing.
+        // For 'off', continue indefinitely. For 'chapters', continue until limit is reached.
+        // For 'minutes'/'paragraphs', stop at end-of-chapter.
+        if (autoStopMode !== 'off' && autoStopMode !== 'chapters') {
           ttsCtrlLog.debug(
             'queue-empty-stop-no-chapter-mode',
             `Queue empty - autoStopMode=${autoStopMode}, stopping at end of chapter`,
@@ -2189,25 +2190,35 @@ export function useTTSController(
           return;
         }
 
-        if (!Number.isFinite(autoStopAmount) || autoStopAmount <= 0) {
+        // For 'off' mode, skip validation and continue to next chapter indefinitely
+        if (autoStopMode === 'off') {
           ttsCtrlLog.debug(
-            'queue-empty-stop-invalid-limit',
-            `Queue empty - invalid autoStopAmount=${autoStopAmount}, stopping`,
+            'queue-empty-continuous-mode',
+            'Queue empty - continuous mode (off), proceeding to next chapter',
           );
-          isTTSReadingRef.current = false;
-          isTTSPlayingRef.current = false;
-          return;
-        }
+          // Continue to next chapter logic below
+        } else if (autoStopMode === 'chapters') {
+          // For 'chapters' mode, validate amount and check limit
+          if (!Number.isFinite(autoStopAmount) || autoStopAmount <= 0) {
+            ttsCtrlLog.debug(
+              'queue-empty-stop-invalid-limit',
+              `Queue empty - invalid autoStopAmount=${autoStopAmount}, stopping`,
+            );
+            isTTSReadingRef.current = false;
+            isTTSPlayingRef.current = false;
+            return;
+          }
 
-        if (chaptersAutoPlayedRef.current >= autoStopAmount) {
-          ttsCtrlLog.info(
-            'auto-stop-chapter-limit-reached',
-            `Auto-stop chapter limit (${autoStopAmount}) reached, stopping`,
-          );
-          chaptersAutoPlayedRef.current = 0;
-          isTTSReadingRef.current = false;
-          isTTSPlayingRef.current = false;
-          return;
+          if (chaptersAutoPlayedRef.current >= autoStopAmount) {
+            ttsCtrlLog.info(
+              'auto-stop-chapter-limit-reached',
+              `Auto-stop chapter limit (${autoStopAmount}) reached, stopping`,
+            );
+            chaptersAutoPlayedRef.current = 0;
+            isTTSReadingRef.current = false;
+            isTTSPlayingRef.current = false;
+            return;
+          }
         }
 
         if (nextChapterRef.current) {
