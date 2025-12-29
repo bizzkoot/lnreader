@@ -97,3 +97,6 @@ flake.lock
 
 # Backup files
 WebViewReader_Backup.tsx
+
+# MCP server cache (smart-coding-mcp)
+.smart-coding-cache/
