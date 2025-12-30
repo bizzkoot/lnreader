@@ -15,15 +15,18 @@ import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
-// MediaSession imports - kept for potential future use
-// import android.support.v4.media.MediaMetadataCompat
-// import android.support.v4.media.session.MediaSessionCompat
-// import android.support.v4.media.session.PlaybackStateCompat
+// MediaSession imports - re-enabled for Bluetooth headset support
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import android.content.SharedPreferences
 import android.graphics.BitmapFactory
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import java.util.Locale
 
 class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
@@ -32,8 +35,11 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var isTtsInitialized = false
     private val binder = TTSBinder()
     private var ttsListener: TTSListener? = null
-    // MediaSession disabled - causes regression (3 buttons instead of 5, missing text)
-    // private var mediaSession: MediaSessionCompat? = null
+    // MediaSession re-enabled for Bluetooth headset support (NOT attached to notification)
+    private var mediaSession: MediaSessionCompat? = null
+    // AudioFocus support for proper Bluetooth behavior
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     // Notification-driven state (set by RN)
     private var mediaNovelName: String = "LNReader"
@@ -91,8 +97,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     fun getChapterId(): Int? = mediaChapterId
     fun getParagraphIndex(): Int = mediaParagraphIndex
 
-    /* MediaSession disabled - causes regression (3 buttons instead of 5)
     // MediaSession callback for hardware buttons and lock screen controls
+    // Re-enabled for Bluetooth headset support
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
         override fun onPlay() {
             ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
@@ -122,7 +128,26 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             stopTTS()
         }
     }
-    */
+
+    // AudioFocus change listener for proper audio behavior
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                // Permanent loss - stop TTS
+                stopTTS()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                // Temporary loss - pause TTS
+                ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                // Regained focus - resume if was playing
+                if (mediaIsPlaying) {
+                    ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
+                }
+            }
+        }
+    }
 
 
     override fun onCreate() {
@@ -130,12 +155,31 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         createNotificationChannel()
         tts = TextToSpeech(this, this)
         
-        /* MediaSession disabled - causes regression
-        mediaSession = MediaSessionCompat(this, "TTSForegroundService").apply {
+        // Initialize AudioManager for AudioFocus
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        // Create MediaSession for Bluetooth headset support
+        // CRITICAL: We do NOT attach this to the notification to preserve custom 5-button layout
+        mediaSession = MediaSessionCompat(this, "LNReaderTTS").apply {
             setCallback(MediaSessionCallback())
             isActive = true
+            
+            // Set supported actions for Bluetooth controls
+            setPlaybackState(
+                PlaybackStateCompat.Builder()
+                    .setActions(
+                        PlaybackStateCompat.ACTION_PLAY or
+                        PlaybackStateCompat.ACTION_PAUSE or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                        PlaybackStateCompat.ACTION_FAST_FORWARD or
+                        PlaybackStateCompat.ACTION_REWIND or
+                        PlaybackStateCompat.ACTION_STOP
+                    )
+                    .setState(PlaybackStateCompat.STATE_NONE, 0, 1.0f)
+                    .build()
+            )
         }
-        */
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
@@ -275,6 +319,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             val params = android.os.Bundle()
             params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
             
+            // Request audio focus before speaking
+            requestAudioFocus()
+            
             val result = ttsInstance.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
             
             if (result == TextToSpeech.SUCCESS) {
@@ -303,6 +350,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             ttsInstance.setSpeechRate(rate)
             ttsInstance.setPitch(pitch)
             setVoiceWithFallback(ttsInstance, voiceId)
+
+            // Request audio focus before starting batch
+            requestAudioFocus()
 
             // Clear queue and start fresh
             synchronized(queuedUtteranceIds) {
@@ -378,6 +428,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             queuedUtteranceIds.clear()
         }
         currentBatchIndex = 0
+        // Abandon audio focus when stopping
+        abandonAudioFocus()
         stopForegroundService()
     }
 
@@ -388,7 +440,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         currentBatchIndex = 0
         mediaIsPlaying = false
-        // updatePlaybackState()  // MediaSession disabled
+        updatePlaybackState()  // MediaSession re-enabled
         updateNotification()
     }
 
@@ -468,6 +520,71 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             }
         } catch (e: Exception) {
             android.util.Log.w("TTSForegroundService", "Failed to re-acquire wake lock: ${e.message}")
+        }
+    }
+
+    /**
+     * Request audio focus for TTS playback
+     * Required for proper Bluetooth headset behavior
+     */
+    private fun requestAudioFocus() {
+        audioManager?.let { am ->
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    // Android 8.0+ - use AudioFocusRequest
+                    if (audioFocusRequest == null) {
+                        val audioAttributes = AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                        
+                        audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                            .setAudioAttributes(audioAttributes)
+                            .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                            .build()
+                    }
+                    
+                    audioFocusRequest?.let { request ->
+                        val result = am.requestAudioFocus(request)
+                        if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                            android.util.Log.w("TTSForegroundService", "Audio focus request denied")
+                        }
+                    }
+                } else {
+                    // Pre-Android 8.0
+                    @Suppress("DEPRECATION")
+                    val result = am.requestAudioFocus(
+                        audioFocusChangeListener,
+                        AudioManager.STREAM_MUSIC,
+                        AudioManager.AUDIOFOCUS_GAIN
+                    )
+                    if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                        android.util.Log.w("TTSForegroundService", "Audio focus request denied")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TTSForegroundService", "Failed to request audio focus: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Abandon audio focus when TTS stops
+     */
+    private fun abandonAudioFocus() {
+        audioManager?.let { am ->
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    audioFocusRequest?.let { request ->
+                        am.abandonAudioFocusRequest(request)
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    am.abandonAudioFocus(audioFocusChangeListener)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TTSForegroundService", "Failed to abandon audio focus: ${e.message}")
+            }
         }
     }
 
@@ -572,9 +689,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             .addAction(stopIcon, "Stop", stopPI)                          // #5 🗑
             // Apply MediaStyle for icon-based media control buttons
             // setShowActionsInCompactView specifies which action indices to show in compact view
-            // Note: MediaSession disabled - it causes regression (3 buttons instead of 5)
+            // CRITICAL: MediaSession is active for Bluetooth but NOT attached to notification
+            // to preserve custom 5-button layout
             .setStyle(MediaStyle()
-                // .setMediaSession(mediaSession?.sessionToken)  // Disabled - causes regression
+                // DO NOT use .setMediaSession() - it causes Android to take over and reduce to 3 buttons
                 .setShowActionsInCompactView(1, 2, 3)) // Show [⏪] [⏸/▶] [⏩] in compact view (most used)
             .build()
     }
@@ -587,17 +705,32 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         totalParagraphs: Int,
         isPlaying: Boolean
     ) {
+        // Track what changed to decide if notification needs redraw
+        val novelChanged = novelName != null && novelName != mediaNovelName
+        val chapterChanged = (chapterLabel != null && chapterLabel != mediaChapterLabel) || 
+                             (chapterId != null && chapterId != mediaChapterId)
+        val playStateChanged = isPlaying != mediaIsPlaying
+        val totalParagraphsChanged = totalParagraphs != mediaTotalParagraphs
+        
+        // Update state
         if (novelName != null) mediaNovelName = novelName
         if (chapterLabel != null) mediaChapterLabel = chapterLabel
-        mediaChapterId = chapterId
+        if (chapterId != null) mediaChapterId = chapterId
         mediaParagraphIndex = paragraphIndex
         mediaTotalParagraphs = totalParagraphs
         mediaIsPlaying = isPlaying
-        // updatePlaybackState()  // MediaSession disabled
-        updateNotification()
+        
+        // Always update MediaSession playback state for Bluetooth headsets
+        updatePlaybackState()
+        
+        // Only redraw notification if meaningful state changed (NOT just paragraph index)
+        if (novelChanged || chapterChanged || playStateChanged || totalParagraphsChanged) {
+            updateNotification()
+        }
+        // If only paragraphIndex changed, skip notification redraw to prevent flicker
     }
 
-    /* MediaSession disabled - causes regression (3 buttons instead of 5)
+    // MediaSession playback state sync for Bluetooth headsets
     private fun updatePlaybackState() {
         mediaSession?.let { session ->
             val state = if (mediaIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
@@ -634,7 +767,6 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             session.setMetadata(metadata)
         }
     }
-    */
 
     private fun updateNotification() {
         if (!isServiceForeground) return
@@ -649,8 +781,13 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         tts?.stop()
         tts?.shutdown()
-        // mediaSession?.release()  // MediaSession disabled
-        // mediaSession = null
+        
+        // Release MediaSession
+        mediaSession?.release()
+        mediaSession = null
+        
+        // Abandon audio focus
+        abandonAudioFocus()
         
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
