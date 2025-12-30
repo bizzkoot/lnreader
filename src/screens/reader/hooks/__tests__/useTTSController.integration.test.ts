@@ -1829,6 +1829,193 @@ describe('useTTSController - Integration Tests', () => {
         );
       });
     });
+
+    describe('Pause from Notification → Return to App', () => {
+      /**
+       * BUG FIX TEST: When user pauses TTS from notification panel and returns to app,
+       * the position should be restored (scroll + highlight) but NOT auto-resume.
+       *
+       * Root Cause: AppState 'active' handler only checked isTTSReadingRef.current,
+       * which is FALSE when paused. The wake sync logic was skipped entirely.
+       *
+       * Fix: Add else-if branch to handle paused state (isTTSPausedRef.current === true)
+       */
+      it('should restore position when returning to app after pausing from notification', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // STEP 1: Start TTS and advance to paragraph 3
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(
+          simulator,
+          queueFixtures.activeQueue.chapterId,
+          queueFixtures.activeQueue.startIndex,
+          queueFixtures.activeQueue.texts,
+        );
+
+        // Simulate advancing to paragraph 3
+        await act(async () => {
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_0`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_2`,
+          });
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_2`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_3`,
+          });
+        });
+
+        // STEP 2: Pause from notification panel (simulated via media action)
+        await act(async () => {
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
+        });
+
+        // Verify TTS is paused (not reading)
+        expect(TTSHighlight.pause).toHaveBeenCalled();
+
+        // STEP 3: Go to background
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('background');
+          }
+        });
+
+        // Clear mocks to track what happens on wake
+        (mockWebViewRef.current?.injectJavaScript as jest.Mock).mockClear();
+        (TTSHighlight.speakBatch as jest.Mock).mockClear();
+        (TTSHighlight.speak as jest.Mock).mockClear();
+
+        // STEP 4: Return to foreground (app becomes active)
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('active');
+          }
+          // Advance timers for wake sync delays
+          jest.advanceTimersByTime(1200);
+        });
+
+        // EXPECTED BEHAVIOR:
+        // 1. Should inject JS to scroll to saved position
+        // 2. Should inject JS to highlight the paragraph
+        // 3. Should NOT auto-resume TTS (respect user's pause action)
+
+        const injectCalls = (
+          mockWebViewRef.current?.injectJavaScript as jest.Mock
+        ).mock.calls;
+
+        // Should have injected scroll/highlight code
+        const hasScrollOrHighlightCode = injectCalls.some(
+          (call: string[]) =>
+            call[0].includes('scrollToElement') ||
+            call[0].includes('highlightElement') ||
+            call[0].includes('scrollIntoView'),
+        );
+        expect(hasScrollOrHighlightCode).toBe(true);
+
+        // Should NOT auto-resume TTS
+        expect(TTSHighlight.speakBatch).not.toHaveBeenCalled();
+        expect(TTSHighlight.speak).not.toHaveBeenCalled();
+      });
+
+      it('should NOT auto-resume TTS when returning after pause from notification', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // Start TTS
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(
+          simulator,
+          queueFixtures.activeQueue.chapterId,
+          queueFixtures.activeQueue.startIndex,
+          queueFixtures.activeQueue.texts,
+        );
+
+        // Pause from notification
+        await act(async () => {
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
+        });
+
+        // Go to background
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('background');
+          }
+        });
+
+        // Clear mocks
+        (TTSHighlight.speakBatch as jest.Mock).mockClear();
+        (TTSHighlight.speak as jest.Mock).mockClear();
+
+        // Return to foreground
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('active');
+          }
+          jest.advanceTimersByTime(2000);
+        });
+
+        // Should NOT auto-resume - user explicitly paused
+        expect(TTSHighlight.speakBatch).not.toHaveBeenCalled();
+        expect(TTSHighlight.speak).not.toHaveBeenCalled();
+      });
+
+      it('should save paused position to MMKV when pausing from notification', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // Start TTS
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(
+          simulator,
+          queueFixtures.activeQueue.chapterId,
+          queueFixtures.activeQueue.startIndex,
+          queueFixtures.activeQueue.texts,
+        );
+
+        // Advance to paragraph 2
+        await act(async () => {
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_0`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_2`,
+          });
+        });
+
+        // Clear saveProgress mock
+        mockSaveProgress.mockClear();
+
+        // Pause from notification
+        await act(async () => {
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
+        });
+
+        // Should save progress when pausing
+        expect(mockSaveProgress).toHaveBeenCalled();
+      });
+    });
   });
 
   // ==========================================================================

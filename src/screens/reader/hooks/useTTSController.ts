@@ -2716,6 +2716,66 @@ export function useTTSController(
                 }, TTS_CONSTANTS.WAKE_TRANSITION_DELAY_MS);
               }
             }, TTS_CONSTANTS.WAKE_TRANSITION_RETRY_MS);
+          } else if (
+            isTTSPausedRef.current &&
+            (latestParagraphIndexRef.current >= 0 ||
+              currentParagraphIndexRef.current >= 0)
+          ) {
+            // =====================================================================
+            // PAUSED STATE POSITION RESTORATION
+            // =====================================================================
+            // When user pauses TTS from notification panel and returns to app,
+            // we need to restore the visual position (scroll + highlight) but
+            // NOT auto-resume TTS (respect user's pause action).
+            //
+            // Root cause: The wake sync logic above only handles active reading
+            // (isTTSReadingRef.current === true). When paused from notification,
+            // isTTSReadingRef is FALSE, so no position restoration happened.
+
+            const pausedParagraphIndex = Math.max(
+              0,
+              latestParagraphIndexRef.current ?? 0,
+              currentParagraphIndexRef.current ?? 0,
+            );
+
+            ttsCtrlLog.info(
+              'paused-wake-restore',
+              `Restoring paused position: paragraph ${pausedParagraphIndex}`,
+            );
+
+            // Restore visual position in WebView (scroll + highlight)
+            if (webViewRef.current && isWebViewSyncedRef.current) {
+              webViewRef.current.injectJavaScript(`
+                try {
+                  const syncIndex = ${pausedParagraphIndex};
+                  const elements = document.querySelectorAll('[id^="paragraph-"], p[id]');
+                  
+                  if (elements && elements.length > syncIndex) {
+                    const targetElement = elements[syncIndex];
+                    
+                    // Scroll to element
+                    if (targetElement) {
+                      targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      
+                      // Highlight the paragraph
+                      if (window.reader && window.reader.highlightElement) {
+                        window.reader.highlightElement(syncIndex);
+                      } else if (window.tts && window.tts.highlightElement) {
+                        window.tts.highlightElement(syncIndex);
+                      }
+                      
+                      console.log('TTS: Restored paused position to paragraph ' + syncIndex);
+                    }
+                  }
+                } catch (e) {
+                  console.error('TTS: Failed to restore paused position', e);
+                }
+                true;
+              `);
+            }
+
+            // Update media notification to show paused state
+            updateTtsMediaNotificationState(false);
           }
         }
       },
