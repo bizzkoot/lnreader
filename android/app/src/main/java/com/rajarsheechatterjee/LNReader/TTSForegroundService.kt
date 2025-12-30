@@ -441,7 +441,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         currentBatchIndex = 0
         mediaIsPlaying = false
         updatePlaybackState()  // MediaSession re-enabled
-        updateNotification()
+        // NOTE: Do NOT call updateNotification() directly here!
+        // Notification updates should be controlled via updateMediaState() from React Native.
+        // Calling updateNotification() here causes flicker during pause/seek operations
+        // because RN will also call updateMediaState() shortly after.
     }
 
     fun getVoices(): List<Voice> {

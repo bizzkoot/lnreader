@@ -503,7 +503,11 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
       );
     });
 
-    it('should stop TTS before restarting', async () => {
+    it('should NOT call stop before speakBatch (uses QUEUE_FLUSH instead)', async () => {
+      // We intentionally don't call stop() before speakBatch() because:
+      // 1. speakBatch() uses QUEUE_FLUSH mode which clears the native queue
+      // 2. Calling stop() triggers stopForegroundService() which removes the notification
+      // 3. This causes visible flicker when we immediately recreate the notification
       const { result } = renderHook(() =>
         useTTSUtilities({
           novel: mockNovel,
@@ -519,7 +523,10 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
         await result.current.restartTtsFromParagraphIndex(1);
       });
 
-      expect(TTSHighlight.stop).toHaveBeenCalled();
+      // Verify stop was NOT called (the change we made to fix notification flicker)
+      expect(TTSHighlight.stop).not.toHaveBeenCalled();
+      // But speakBatch should still be called
+      expect(TTSHighlight.speakBatch).toHaveBeenCalled();
     });
 
     it('should update ttsQueueRef with remaining paragraphs', async () => {
