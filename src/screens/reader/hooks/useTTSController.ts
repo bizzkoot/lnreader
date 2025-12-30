@@ -1883,8 +1883,6 @@ export function useTTSController(
         lastMediaActionTimeRef.current = now;
 
         try {
-          updateTtsMediaNotificationState(isTTSReadingRef.current);
-
           if (action === TTS_MEDIA_ACTIONS.PLAY_PAUSE) {
             if (isTTSReadingRef.current) {
               const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);

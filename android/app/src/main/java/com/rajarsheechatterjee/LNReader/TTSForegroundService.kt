@@ -55,6 +55,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     
     // Track if service is already in foreground state to avoid Android 12+ background start restriction
     private var isServiceForeground = false
+    
+    // Notification update throttling to prevent flicker during rapid changes
+    private var lastNotificationUpdateTime = 0L
+    private val NOTIFICATION_UPDATE_THROTTLE_MS = 500L // Max 2 updates/second
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -439,7 +443,11 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             queuedUtteranceIds.clear()
         }
         currentBatchIndex = 0
-        mediaIsPlaying = false
+        // IMPORTANT: Do not mutate mediaIsPlaying here.
+        // React Native is the source of truth and will call updateMediaState(isPlaying=false)
+        // after a pause request succeeds. If we set mediaIsPlaying=false here, then
+        // updateMediaState() may not detect playStateChanged and will skip updating the
+        // notification, leaving the Play/Pause icon stuck.
         updatePlaybackState()  // MediaSession re-enabled
         // NOTE: Do NOT call updateNotification() directly here!
         // Notification updates should be controlled via updateMediaState() from React Native.
@@ -708,12 +716,13 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         totalParagraphs: Int,
         isPlaying: Boolean
     ) {
-        // Track what changed to decide if notification needs redraw
+        // Track what changed to decide if notification needs update
         val novelChanged = novelName != null && novelName != mediaNovelName
         val chapterChanged = (chapterLabel != null && chapterLabel != mediaChapterLabel) || 
                              (chapterId != null && chapterId != mediaChapterId)
         val playStateChanged = isPlaying != mediaIsPlaying
         val totalParagraphsChanged = totalParagraphs != mediaTotalParagraphs
+        val paragraphChanged = paragraphIndex != mediaParagraphIndex
         
         // Update state
         if (novelName != null) mediaNovelName = novelName
@@ -726,11 +735,23 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         // Always update MediaSession playback state for Bluetooth headsets
         updatePlaybackState()
         
-        // Only redraw notification if meaningful state changed (NOT just paragraph index)
-        if (novelChanged || chapterChanged || playStateChanged || totalParagraphsChanged) {
+        // Decide if notification should be updated
+        val highPriorityChange = novelChanged || chapterChanged || playStateChanged || totalParagraphsChanged
+        val lowPriorityChange = paragraphChanged && !highPriorityChange
+        
+        if (highPriorityChange) {
+            // Critical changes: update immediately (chapter change, play/pause)
             updateNotification()
+            lastNotificationUpdateTime = System.currentTimeMillis()
+        } else if (lowPriorityChange) {
+            // Paragraph progress: throttle to prevent flicker during rapid seeks
+            val now = System.currentTimeMillis()
+            if (now - lastNotificationUpdateTime >= NOTIFICATION_UPDATE_THROTTLE_MS) {
+                updateNotification()
+                lastNotificationUpdateTime = now
+            }
+            // If throttled, notification will update on next high-priority change
         }
-        // If only paragraphIndex changed, skip notification redraw to prevent flicker
     }
 
     // MediaSession playback state sync for Bluetooth headsets
