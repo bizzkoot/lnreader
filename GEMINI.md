@@ -26,10 +26,12 @@ pnpm run test:tts-wake-cycle
 ```
 
 ## Current Task
-TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
-- **Features**: Sleep timer (minutes/paragraphs/end of chapter), smart rewind (N paragraphs after pause)
-- **Files**: `useSettings.ts`, `SleepTimer.ts`, `useTTSController.ts`, `ReaderTTSTab.tsx`
-- **Status**: All 917 tests passing
+Bluetooth TTS Media Button Support (2026-01-01) - ✅ COMPLETED
+- **Feature**: Bluetooth headset play/pause controls TTS playback
+- **Root Cause**: TTS audio played by `com.google.android.tts`, not our app, so MediaSession was "orphaned"
+- **Fix**: Silent audio workaround with proper `AudioAttributes` (USAGE_MEDIA, CONTENT_TYPE_MUSIC)
+- **Files**: `TTSForegroundService.kt`, `res/raw/silence.mp3`
+- **Test**: `adb shell cmd media_session dispatch play-pause`
 
 ## TTS Architecture (3-Layer Hybrid)
 

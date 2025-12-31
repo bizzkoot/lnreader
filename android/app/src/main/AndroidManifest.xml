@@ -72,9 +72,9 @@
 		<!-- MediaButtonReceiver for Bluetooth/wired headset media button support -->
 		<!-- This receives android.intent.action.MEDIA_BUTTON intents and routes them to MediaSession -->
 		<receiver
-			android:name="androidx.media.session.MediaButtonReceiver"
+			android:name=".DebugMediaButtonReceiver"
 			android:exported="true">
-			<intent-filter>
+			<intent-filter android:priority="999999999">
 				<action android:name="android.intent.action.MEDIA_BUTTON" />
 			</intent-filter>
 		</receiver>
@@ -83,12 +83,7 @@
 			android:name=".TTSForegroundService"
 			android:enabled="true"
 			android:exported="false"
-			android:foregroundServiceType="mediaPlayback">
-			<!-- Intent filter allows system to route MEDIA_BUTTON events to this service -->
-			<intent-filter>
-				<action android:name="android.intent.action.MEDIA_BUTTON" />
-			</intent-filter>
-		</service>
+			android:foregroundServiceType="mediaPlayback" />
 
 	</application>
 </manifest>
