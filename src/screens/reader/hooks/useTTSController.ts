@@ -1521,9 +1521,9 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
+    // These are captured at mount time for cleanup/unmount only
     const saveProgressOnUnmount = saveProgressRef.current;
     const getProgressOnUnmount = () => progressRef.current ?? 0;
-    const saveProgressFromRef = saveProgressRef.current;
 
     // Set up drift enforcement callback to auto-restart TTS from correct position
     // when cache drift exceeds threshold
@@ -1624,7 +1624,9 @@ export function useTTSController(
               total > 0
                 ? Math.round(((nextIndex + 1) / total) * 100)
                 : (progressRef.current ?? 0);
-            saveProgressFromRef(percentage, nextIndex);
+            // FIX: Use ref.current directly to avoid stale closure
+            // saveProgressRef is kept in sync by useRefSync hook
+            saveProgressRef.current(percentage, nextIndex);
 
             // Check media navigation confirmation
             if (
