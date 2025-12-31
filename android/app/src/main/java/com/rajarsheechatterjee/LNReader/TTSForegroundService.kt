@@ -22,6 +22,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.media.app.NotificationCompat.MediaStyle
+import androidx.media.session.MediaButtonReceiver
 import android.content.SharedPreferences
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
@@ -169,18 +170,21 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
             isActive = true
             
             // Set supported actions for Bluetooth controls
+            // Use STATE_PAUSED (not STATE_NONE) so the session is considered "active"
+            // and can receive Bluetooth media button events
             setPlaybackState(
                 PlaybackStateCompat.Builder()
                     .setActions(
                         PlaybackStateCompat.ACTION_PLAY or
                         PlaybackStateCompat.ACTION_PAUSE or
+                        PlaybackStateCompat.ACTION_PLAY_PAUSE or
                         PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
                         PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
                         PlaybackStateCompat.ACTION_FAST_FORWARD or
                         PlaybackStateCompat.ACTION_REWIND or
                         PlaybackStateCompat.ACTION_STOP
                     )
-                    .setState(PlaybackStateCompat.STATE_NONE, 0, 1.0f)
+                    .setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f)
                     .build()
             )
         }
@@ -195,6 +199,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Handle media button intents from Bluetooth/wired headsets
+        // This routes MEDIA_BUTTON intents to the MediaSessionCallback
+        MediaButtonReceiver.handleIntent(mediaSession, intent)
+        
         when (intent?.action) {
             ACTION_STOP_TTS -> stopTTS()
             ACTION_MEDIA_PREV_CHAPTER,
@@ -769,6 +777,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                 .setActions(
                     PlaybackStateCompat.ACTION_PLAY or
                     PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE or
                     PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
                     PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
                     PlaybackStateCompat.ACTION_FAST_FORWARD or
