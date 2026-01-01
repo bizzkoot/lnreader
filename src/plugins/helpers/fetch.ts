@@ -1,6 +1,7 @@
 import { getUserAgent } from '@hooks/persisted/useUserAgent';
 import NativeFile from '@specs/NativeFile';
 import { parse as parseProto } from 'protobufjs';
+import { CookieManager } from '@services/network/CookieManager';
 
 type FetchInit = {
   headers?: Record<string, string> | Headers;
@@ -44,7 +45,58 @@ export const fetchApi = async (
   init?: FetchInit,
 ): Promise<Response> => {
   init = makeInit(init);
-  return await fetch(url, init);
+
+  // STEP 1: Inject cookies from CookieManager
+  try {
+    const storedCookies = await CookieManager.getCookies(url);
+    if (Object.keys(storedCookies).length > 0) {
+      const cookieString = Object.entries(storedCookies)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('; ');
+
+      if (init.headers instanceof Headers) {
+        init.headers.set('Cookie', cookieString);
+      } else {
+        init.headers = {
+          ...init.headers,
+          Cookie: cookieString,
+        };
+      }
+    }
+  } catch (error) {
+    // Silently fail cookie injection - don't block the request
+  }
+
+  // STEP 2: Make request
+  const response = await fetch(url, init);
+
+  // STEP 3: Save Set-Cookie headers
+  try {
+    const setCookieHeader = response.headers.get('set-cookie');
+    if (setCookieHeader) {
+      const cookies: Record<string, string> = {};
+
+      // Parse Set-Cookie header (can be comma-separated for multiple cookies)
+      // Note: This is a simplified parser. Complex cookies with commas in values may need more robust parsing
+      setCookieHeader.split(',').forEach(cookieStr => {
+        const [nameValue] = cookieStr.split(';');
+        if (nameValue) {
+          const [name, value] = nameValue.split('=');
+          if (name && value) {
+            cookies[name.trim()] = value.trim();
+          }
+        }
+      });
+
+      if (Object.keys(cookies).length > 0) {
+        await CookieManager.setCookies(url, cookies);
+      }
+    }
+  } catch (error) {
+    // Silently fail cookie saving - don't affect the response
+  }
+
+  return response;
 };
 
 const FILE_READER_PREFIX_LENGTH = 'data:application/octet-stream;base64,'
