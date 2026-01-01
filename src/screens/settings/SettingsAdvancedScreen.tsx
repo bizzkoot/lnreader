@@ -21,15 +21,22 @@ import { AdvancedSettingsScreenProps } from '@navigators/types';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { getUserAgentSync } from 'react-native-device-info';
 import CookieManager from '@react-native-cookies/cookies';
+import { CookieManager as CookieManagerService } from '@services/network/CookieManager';
 import { store } from '@plugins/helpers/storage';
 import { recreateDatabaseIndexes } from '@database/db';
 
 const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   const theme = useTheme();
-  const clearCookies = () => {
-    CookieManager.clearAll();
-    store.clearAll();
-    showToast(getString('webview.cookiesCleared'));
+  const clearCookies = async () => {
+    try {
+      await CookieManagerService.clearAllCookies();
+      CookieManager.clearAll(); // Also clear legacy WebView cookies
+      store.clearAll(); // Clear WebView storage
+      showToast(getString('webview.cookiesCleared'));
+      hideClearCookiesDialog();
+    } catch (error) {
+      showToast(getString('common.error'));
+    }
   };
 
   const { userAgent, setUserAgent } = useUserAgent();
@@ -91,6 +98,12 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     setFalse: hideRecreateDBIndexDialog,
   } = useBoolean();
 
+  const {
+    value: clearCookiesDialog,
+    setTrue: showClearCookiesDialog,
+    setFalse: hideClearCookiesDialog,
+  } = useBoolean();
+
   return (
     <SafeAreaView excludeTop>
       <Appbar
@@ -134,7 +147,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
           />
           <List.Item
             title={getString('webview.clearCookies')}
-            onPress={clearCookies}
+            onPress={showClearCookiesDialog}
             theme={theme}
           />
           <List.Item
@@ -185,6 +198,13 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
             hideClearUpdatesDialog();
           }}
           onDismiss={hideClearUpdatesDialog}
+          theme={theme}
+        />
+        <ConfirmationDialog
+          message={getString('advancedSettingsScreen.clearCookiesWarning')}
+          visible={clearCookiesDialog}
+          onSubmit={clearCookies}
+          onDismiss={hideClearCookiesDialog}
           theme={theme}
         />
 
