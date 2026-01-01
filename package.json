@@ -22,6 +22,7 @@
     "test:tts-refill": "node ./scripts/tts_refill_simulator.js",
     "test:tts-wake-cycle": "node ./scripts/tts_wake_cycle_test.js",
     "clean:full": "rm -rf node_modules/ ./android/build/ ./android/app/build/ ./android/app/.cxx && pnpm i && cd android/ && ./gradlew clean && cd .. && pnpm run dev:start -- --reset-cache",
+    "clean:android": "rm -rf android/app/build android/app/.cxx android/.gradle android/build",
     "prepare": "husky",
     "nix:shell": "nix develop --extra-experimental-features nix-command --extra-experimental-features flakes",
     "nix:emulator": "nix develop .#emulator --extra-experimental-features nix-command --extra-experimental-features flakes"

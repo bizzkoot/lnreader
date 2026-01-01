@@ -8,6 +8,7 @@ LNReader is a free and open source light novel reader for Android, built with Re
 # Development
 pnpm run dev:start && pnpm run dev:android
 pnpm run dev:clean-start
+pnpm run clean:android
 
 # Build & Release
 pnpm run build:release:android
