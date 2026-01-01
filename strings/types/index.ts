@@ -147,6 +147,12 @@ export interface StringMap {
   'backupScreen.repositoryRestoreFailed': 'string';
   'backupScreen.repositoryFileReadFailed': 'string';
   'backupScreen.repositoryFileWriteFailed': 'string';
+  'backupScreen.legacyBackup': 'string';
+  'backupScreen.legacyBackupDesc': 'string';
+  'backupScreen.legacyBackupInfo': 'string';
+  'backupScreen.preparingLegacyBackup': 'string';
+  'backupScreen.restoringLegacyBackup': 'string';
+  'backupScreen.legacyRestoreSummary': 'string';
   'browse': 'string';
   'browseScreen.addedToLibrary': 'string';
   'browseScreen.available': 'string';
@@ -467,6 +473,7 @@ export interface StringMap {
   'readerScreen.noPreviousChapter': 'string';
   'readerSettings.autoScrollInterval': 'string';
   'readerSettings.autoScrollOffset': 'string';
+  'readerSettings.volumeButtonsOffset': 'string';
   'readerSettings.backgroundColor': 'string';
   'readerSettings.backgroundColorModal': 'string';
   'readerSettings.clearCustomCSS': 'string';
@@ -560,6 +567,7 @@ export interface StringMap {
   'notifications.SELF_HOST_BACKUP': 'string';
   'notifications.SELF_HOST_RESTORE': 'string';
   'notifications.LOCAL_BACKUP': 'string';
+  'notifications.LOCAL_LEGACY_BACKUP': 'string';
   'notifications.LOCAL_RESTORE': 'string';
   'notifications.MIGRATE_NOVEL': 'string';
   'notifications.DOWNLOAD_CHAPTER': 'string';

@@ -135,9 +135,12 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
         'media control seek',
       );
 
-      // Pause/stop audio but keep foreground notification
-      // Note: speakBatch() will transition to STARTING state, preventing false onQueueEmpty
-      await TTSHighlight.pause();
+      // Note: We intentionally DO NOT call TTSHighlight.stop() here.
+      // speakBatch() uses QUEUE_FLUSH mode which clears the native queue,
+      // and it also clears JS state. Calling stop() would trigger
+      // stopForegroundService() which removes the notification, causing
+      // visible flicker when we immediately recreate it with speakBatch().
+      // See: TTSForegroundService.kt stopTTS() → stopForegroundService()
 
       const remaining = paragraphs.slice(clamped);
       const ids = remaining.map(

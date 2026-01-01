@@ -33,6 +33,7 @@ jest.mock('@services/TTSAudioManager', () => ({
     getState: jest.fn(() => ({ IDLE: 'IDLE' })),
     hasRemainingItems: jest.fn(() => false),
     hasQueuedNativeInCurrentSession: jest.fn(() => true),
+    setLastSpokenIndex: jest.fn(),
   },
 }));
 
@@ -71,6 +72,8 @@ jest.mock('@services/TTSHighlight', () => ({
     addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
     hasRemainingItems: jest.fn().mockReturnValue(false),
     hasQueuedNativeInCurrentSession: jest.fn().mockReturnValue(true),
+    setOnDriftEnforceCallback: jest.fn(),
+    setLastSpokenIndex: jest.fn(),
   },
 }));
 
@@ -1383,7 +1386,8 @@ describe('useTTSController - Integration Tests', () => {
         const params = createDefaultParams({
           chapterGeneralSettingsRef: {
             current: {
-              ttsContinueToNextChapter: 'continuous', // Enable continue to next chapter
+              ttsAutoStopMode: 'chapters',
+              ttsAutoStopAmount: 10, // Allow multiple chapter advances during test
             } as ChapterGeneralSettings,
           },
         });
@@ -1823,6 +1827,193 @@ describe('useTTSController - Integration Tests', () => {
           undefined,
           expect.stringContaining('paragraphIndex'),
         );
+      });
+    });
+
+    describe('Pause from Notification → Return to App', () => {
+      /**
+       * BUG FIX TEST: When user pauses TTS from notification panel and returns to app,
+       * the position should be restored (scroll + highlight) but NOT auto-resume.
+       *
+       * Root Cause: AppState 'active' handler only checked isTTSReadingRef.current,
+       * which is FALSE when paused. The wake sync logic was skipped entirely.
+       *
+       * Fix: Add else-if branch to handle paused state (isTTSPausedRef.current === true)
+       */
+      it('should restore position when returning to app after pausing from notification', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // STEP 1: Start TTS and advance to paragraph 3
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(
+          simulator,
+          queueFixtures.activeQueue.chapterId,
+          queueFixtures.activeQueue.startIndex,
+          queueFixtures.activeQueue.texts,
+        );
+
+        // Simulate advancing to paragraph 3
+        await act(async () => {
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_0`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_2`,
+          });
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_2`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_3`,
+          });
+        });
+
+        // STEP 2: Pause from notification panel (simulated via media action)
+        await act(async () => {
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
+        });
+
+        // Verify TTS is paused (not reading)
+        expect(TTSHighlight.pause).toHaveBeenCalled();
+
+        // STEP 3: Go to background
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('background');
+          }
+        });
+
+        // Clear mocks to track what happens on wake
+        (mockWebViewRef.current?.injectJavaScript as jest.Mock).mockClear();
+        (TTSHighlight.speakBatch as jest.Mock).mockClear();
+        (TTSHighlight.speak as jest.Mock).mockClear();
+
+        // STEP 4: Return to foreground (app becomes active)
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('active');
+          }
+          // Advance timers for wake sync delays
+          jest.advanceTimersByTime(1200);
+        });
+
+        // EXPECTED BEHAVIOR:
+        // 1. Should inject JS to scroll to saved position
+        // 2. Should inject JS to highlight the paragraph
+        // 3. Should NOT auto-resume TTS (respect user's pause action)
+
+        const injectCalls = (
+          mockWebViewRef.current?.injectJavaScript as jest.Mock
+        ).mock.calls;
+
+        // Should have injected scroll/highlight code
+        const hasScrollOrHighlightCode = injectCalls.some(
+          (call: string[]) =>
+            call[0].includes('scrollToElement') ||
+            call[0].includes('highlightElement') ||
+            call[0].includes('scrollIntoView'),
+        );
+        expect(hasScrollOrHighlightCode).toBe(true);
+
+        // Should NOT auto-resume TTS
+        expect(TTSHighlight.speakBatch).not.toHaveBeenCalled();
+        expect(TTSHighlight.speak).not.toHaveBeenCalled();
+      });
+
+      it('should NOT auto-resume TTS when returning after pause from notification', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // Start TTS
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(
+          simulator,
+          queueFixtures.activeQueue.chapterId,
+          queueFixtures.activeQueue.startIndex,
+          queueFixtures.activeQueue.texts,
+        );
+
+        // Pause from notification
+        await act(async () => {
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
+        });
+
+        // Go to background
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('background');
+          }
+        });
+
+        // Clear mocks
+        (TTSHighlight.speakBatch as jest.Mock).mockClear();
+        (TTSHighlight.speak as jest.Mock).mockClear();
+
+        // Return to foreground
+        await act(async () => {
+          if (appStateListener) {
+            appStateListener('active');
+          }
+          jest.advanceTimersByTime(2000);
+        });
+
+        // Should NOT auto-resume - user explicitly paused
+        expect(TTSHighlight.speakBatch).not.toHaveBeenCalled();
+        expect(TTSHighlight.speak).not.toHaveBeenCalled();
+      });
+
+      it('should save paused position to MMKV when pausing from notification', async () => {
+        const params = createDefaultParams();
+        const { result } = renderHook(() => useTTSController(params));
+
+        // Start TTS
+        const simulator = new WebViewMessageSimulator(result);
+        await simulateTTSStart(
+          simulator,
+          queueFixtures.activeQueue.chapterId,
+          queueFixtures.activeQueue.startIndex,
+          queueFixtures.activeQueue.texts,
+        );
+
+        // Advance to paragraph 2
+        await act(async () => {
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_0`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechDone', {
+            utteranceId: `chapter_100_utterance_1`,
+          });
+          triggerNativeEvent('onSpeechStart', {
+            utteranceId: `chapter_100_utterance_2`,
+          });
+        });
+
+        // Clear saveProgress mock
+        mockSaveProgress.mockClear();
+
+        // Pause from notification
+        await act(async () => {
+          triggerNativeEvent('onMediaAction', {
+            action: 'com.rajarsheechatterjee.LNReader.TTS.PLAY_PAUSE',
+          });
+        });
+
+        // Should save progress when pausing
+        expect(mockSaveProgress).toHaveBeenCalled();
       });
     });
   });
@@ -2425,6 +2616,221 @@ describe('useTTSController - Integration Tests', () => {
 
       // Should cleanup without errors
       expect(eventListeners.size).toBe(0);
+    });
+  });
+
+  // ============================================================================
+  // Bug Regression Tests (Session 2025-12-29)
+  // ============================================================================
+  describe('Bug Regression Tests', () => {
+    /**
+     * Bug 1: TTS didn't continue to next chapter when auto-stop mode is "off"
+     * Root Cause: queue-empty handler had invalid validation that treated
+     * autoStopAmount=0 (valid for 'off' mode) as an error condition
+     * Fix: Restructured logic in useTTSController.ts lines 2183-2221 to handle
+     * 'off' mode separately without validation
+     */
+    it('should continue to next chapter when auto-stop mode is "off"', async () => {
+      // Setup: autoStopMode = 'off', autoStopAmount = 0 (continuous playback)
+      const params = createDefaultParams({
+        chapterGeneralSettingsRef: {
+          current: {
+            ttsAutoStopMode: 'off',
+            ttsAutoStopAmount: 0, // This is valid for 'off' mode - should NOT block
+            ttsBackgroundPlayback: true,
+          } as ChapterGeneralSettings,
+        },
+      });
+      const { result } = renderHook(() => useTTSController(params));
+
+      // Start TTS to set isTTSReadingRef = true
+      const simulator = new WebViewMessageSimulator(result);
+      await simulateTTSStart(
+        simulator,
+        queueFixtures.singleParagraphQueue.chapterId,
+        queueFixtures.singleParagraphQueue.startIndex,
+        queueFixtures.singleParagraphQueue.texts,
+      );
+
+      // Mock the conditions for onQueueEmpty to proceed:
+      // 1. TTSAudioManager state is PLAYING (not STARTING or STOPPING)
+      const TTSAudioManager = require('@services/TTSAudioManager').default;
+      const { TTSState } = require('@services/TTSState');
+      (TTSAudioManager.getState as jest.Mock).mockReturnValue(TTSState.PLAYING);
+
+      // 2. No remaining items in queue
+      (TTSHighlight.hasRemainingItems as jest.Mock).mockReturnValue(false);
+
+      // 3. We did queue native audio in this session
+      (
+        TTSHighlight.hasQueuedNativeInCurrentSession as jest.Mock
+      ).mockReturnValue(true);
+
+      // Clear navigation mock to verify it gets called
+      mockNavigateChapter.mockClear();
+
+      // Trigger onQueueEmpty
+      await act(async () => {
+        triggerNativeEvent('onQueueEmpty');
+      });
+
+      // Advance timers to allow async operations
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+
+      // The fix ensures 'off' mode (with autoStopAmount=0) proceeds to next chapter
+      // instead of stopping due to invalid autoStopAmount validation
+      expect(mockNavigateChapter).toHaveBeenCalledWith('NEXT');
+    });
+
+    /**
+     * Bug 1b: TTS should stop at chapter end for 'minutes' and 'paragraphs' modes
+     * These modes should stop at chapter boundaries, not continue to next chapter
+     */
+    it('should stop at chapter end when auto-stop mode is "minutes"', async () => {
+      // Setup: autoStopMode = 'minutes' - should stop at chapter end
+      const params = createDefaultParams({
+        chapterGeneralSettingsRef: {
+          current: {
+            ttsAutoStopMode: 'minutes',
+            ttsAutoStopAmount: 30, // 30 minutes timer (not relevant for chapter end behavior)
+            ttsBackgroundPlayback: true,
+          } as ChapterGeneralSettings,
+        },
+      });
+      const { result } = renderHook(() => useTTSController(params));
+
+      // Start TTS
+      const simulator = new WebViewMessageSimulator(result);
+      await simulateTTSStart(
+        simulator,
+        queueFixtures.singleParagraphQueue.chapterId,
+        queueFixtures.singleParagraphQueue.startIndex,
+        queueFixtures.singleParagraphQueue.texts,
+      );
+
+      // Mock conditions for onQueueEmpty
+      const TTSAudioManager = require('@services/TTSAudioManager').default;
+      const { TTSState } = require('@services/TTSState');
+      (TTSAudioManager.getState as jest.Mock).mockReturnValue(TTSState.PLAYING);
+      (TTSHighlight.hasRemainingItems as jest.Mock).mockReturnValue(false);
+      (
+        TTSHighlight.hasQueuedNativeInCurrentSession as jest.Mock
+      ).mockReturnValue(true);
+
+      mockNavigateChapter.mockClear();
+
+      // Trigger onQueueEmpty
+      await act(async () => {
+        triggerNativeEvent('onQueueEmpty');
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+
+      // 'minutes' mode should NOT navigate to next chapter - it stops at chapter end
+      expect(mockNavigateChapter).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Bug 1c: TTS should validate and check limit for 'chapters' mode
+     * Should continue until the specified number of chapters have been read
+     */
+    it('should continue until chapter limit when auto-stop mode is "chapters"', async () => {
+      // Setup: autoStopMode = 'chapters', limit = 3 chapters
+      const params = createDefaultParams({
+        chapterGeneralSettingsRef: {
+          current: {
+            ttsAutoStopMode: 'chapters',
+            ttsAutoStopAmount: 3, // Stop after 3 chapters
+            ttsBackgroundPlayback: true,
+          } as ChapterGeneralSettings,
+        },
+      });
+      const { result } = renderHook(() => useTTSController(params));
+
+      // Start TTS
+      const simulator = new WebViewMessageSimulator(result);
+      await simulateTTSStart(
+        simulator,
+        queueFixtures.singleParagraphQueue.chapterId,
+        queueFixtures.singleParagraphQueue.startIndex,
+        queueFixtures.singleParagraphQueue.texts,
+      );
+
+      // Mock conditions for onQueueEmpty
+      const TTSAudioManager = require('@services/TTSAudioManager').default;
+      const { TTSState } = require('@services/TTSState');
+      (TTSAudioManager.getState as jest.Mock).mockReturnValue(TTSState.PLAYING);
+      (TTSHighlight.hasRemainingItems as jest.Mock).mockReturnValue(false);
+      (
+        TTSHighlight.hasQueuedNativeInCurrentSession as jest.Mock
+      ).mockReturnValue(true);
+
+      mockNavigateChapter.mockClear();
+
+      // First chapter end - should navigate (chaptersAutoPlayed=0 < limit=3)
+      await act(async () => {
+        triggerNativeEvent('onQueueEmpty');
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+
+      // Should navigate since we haven't reached the limit yet
+      expect(mockNavigateChapter).toHaveBeenCalledWith('NEXT');
+    });
+
+    /**
+     * Bug 1d: Verify 'paragraphs' mode also stops at chapter end
+     */
+    it('should stop at chapter end when auto-stop mode is "paragraphs"', async () => {
+      // Setup: autoStopMode = 'paragraphs' - should stop at chapter end
+      const params = createDefaultParams({
+        chapterGeneralSettingsRef: {
+          current: {
+            ttsAutoStopMode: 'paragraphs',
+            ttsAutoStopAmount: 50, // 50 paragraphs (not relevant for chapter end behavior)
+            ttsBackgroundPlayback: true,
+          } as ChapterGeneralSettings,
+        },
+      });
+      const { result } = renderHook(() => useTTSController(params));
+
+      // Start TTS
+      const simulator = new WebViewMessageSimulator(result);
+      await simulateTTSStart(
+        simulator,
+        queueFixtures.singleParagraphQueue.chapterId,
+        queueFixtures.singleParagraphQueue.startIndex,
+        queueFixtures.singleParagraphQueue.texts,
+      );
+
+      // Mock conditions for onQueueEmpty
+      const TTSAudioManager = require('@services/TTSAudioManager').default;
+      const { TTSState } = require('@services/TTSState');
+      (TTSAudioManager.getState as jest.Mock).mockReturnValue(TTSState.PLAYING);
+      (TTSHighlight.hasRemainingItems as jest.Mock).mockReturnValue(false);
+      (
+        TTSHighlight.hasQueuedNativeInCurrentSession as jest.Mock
+      ).mockReturnValue(true);
+
+      mockNavigateChapter.mockClear();
+
+      // Trigger onQueueEmpty
+      await act(async () => {
+        triggerNativeEvent('onQueueEmpty');
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+
+      // 'paragraphs' mode should NOT navigate to next chapter
+      expect(mockNavigateChapter).not.toHaveBeenCalled();
     });
   });
 });

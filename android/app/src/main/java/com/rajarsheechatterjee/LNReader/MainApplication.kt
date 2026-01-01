@@ -16,9 +16,11 @@ import com.facebook.soloader.SoLoader
 import com.rajarsheechatterjee.NativeFile.NativePackage
 import com.rajarsheechatterjee.NativeVolumeButtonListener.NativeVolumeButtonListenerPackage
 import com.rajarsheechatterjee.NativeZipArchive.NativeZipArchivePackage
+import com.rajarsheechatterjee.ScreenStateListener.ScreenStateListenerPackage
 import expo.modules.ApplicationLifecycleDispatcher
 
 class MainApplication : Application(), ReactApplication {
+    @Suppress("DEPRECATION")
     override val reactNativeHost: ReactNativeHost =
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
@@ -26,6 +28,7 @@ class MainApplication : Application(), ReactApplication {
                     add(NativePackage())
                     add(NativeVolumeButtonListenerPackage())
                     add(NativeZipArchivePackage())
+                    add(ScreenStateListenerPackage())
                     add(TTSPackage())
                 }
 

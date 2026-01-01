@@ -36,6 +36,7 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import { getString } from '@strings/translations';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 import { ignoreError } from '@utils/error';
+import { autoStopService } from '@services/tts/AutoStopService';
 
 // Phase 1 Extracted Hooks
 import { useDialogState } from './useDialogState';
@@ -665,7 +666,10 @@ export function useTTSController(
   const scrollSyncHandlers = useScrollSyncHandlers({
     webViewRef,
     refs: { ttsScrollPromptDataRef },
-    callbacks: { hideScrollSyncDialog },
+    callbacks: {
+      hideScrollSyncDialog,
+      restartTtsFromParagraphIndex, // FIX: Pass restart callback for non-stitched sync
+    },
   });
 
   const { handleTTSScrollSyncConfirm, handleTTSScrollSyncCancel } =
@@ -841,6 +845,27 @@ export function useTTSController(
               ttsCtrlLog.info(
                 'start-batch',
                 `index=${paragraphIdx} chapter=${chapterId}`,
+              );
+
+              // Initialize auto-stop service when manually starting TTS
+              const autoStopMode =
+                chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+              const autoStopAmount =
+                chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
+
+              autoStopService.start(
+                { mode: autoStopMode, amount: autoStopAmount },
+                reason => {
+                  TTSHighlight.stop();
+
+                  // Show toast notification
+                  const messages = {
+                    minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+                    paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+                    chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+                  };
+                  showToastMessage(messages[reason]);
+                },
               );
 
               const remaining = paragraphs.slice(paragraphIdx);
@@ -1103,6 +1128,7 @@ export function useTTSController(
       handleRequestTTSConfirmation,
       showScrollSyncDialog,
       showManualModeDialog,
+      showToastMessage,
     ],
   );
 
@@ -1407,6 +1433,30 @@ export function useTTSController(
       const startFromZero = forceStartFromParagraphZeroRef.current;
       forceStartFromParagraphZeroRef.current = false;
 
+      const autoStopMode =
+        chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+      const autoStopAmount =
+        chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
+
+      autoStopService.start(
+        { mode: autoStopMode, amount: autoStopAmount },
+        reason => {
+          TTSHighlight.stop();
+
+          // Show toast notification
+          const messages = {
+            minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+            paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+            chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+          };
+          showToastMessage(messages[reason]);
+        },
+      );
+
+      if (startFromZero) {
+        autoStopService.resetCounters();
+      }
+
       setTimeout(() => {
         if (startFromZero) {
           webViewRef.current?.injectJavaScript(`
@@ -1449,7 +1499,9 @@ export function useTTSController(
     getChapter,
     webViewRef,
     readerSettingsRef,
+    chapterGeneralSettingsRef,
     updateTtsMediaNotificationState,
+    showToastMessage,
   ]);
 
   // ===========================================================================
@@ -1469,9 +1521,27 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
+    // These are captured at mount time for cleanup/unmount only
     const saveProgressOnUnmount = saveProgressRef.current;
     const getProgressOnUnmount = () => progressRef.current ?? 0;
-    const saveProgressFromRef = saveProgressRef.current;
+
+    // Set up drift enforcement callback to auto-restart TTS from correct position
+    // when cache drift exceeds threshold
+    TTSHighlight.setOnDriftEnforceCallback((correctIndex: number) => {
+      ttsCtrlLog.info(
+        'drift-enforce-callback',
+        `Restarting TTS from correct index ${correctIndex} due to cache drift`,
+      );
+
+      // Use the same restart logic as media controls
+      restartTtsFromParagraphIndex(correctIndex).catch(err => {
+        ttsCtrlLog.error(
+          'drift-enforce-failed',
+          'Failed to restart TTS after drift enforcement',
+          err,
+        );
+      });
+    });
 
     // onSpeechDone - Handle paragraph completion
     const onSpeechDoneSubscription = TTSHighlight.addListener(
@@ -1534,6 +1604,13 @@ export function useTTSController(
             }
             currentParagraphIndexRef.current = nextIndex;
 
+            // CRITICAL: Update lastSpokenIndex in TTSAudioManager
+            // This ensures drift enforcement uses correct paragraph position
+            // We use currentIdx (just finished) as the last spoken index
+            TTSAudioManager.setLastSpokenIndex(currentIdx);
+
+            autoStopService.onParagraphSpoken();
+
             if (ttsStateRef.current) {
               ttsStateRef.current = {
                 ...ttsStateRef.current,
@@ -1547,7 +1624,9 @@ export function useTTSController(
               total > 0
                 ? Math.round(((nextIndex + 1) / total) * 100)
                 : (progressRef.current ?? 0);
-            saveProgressFromRef(percentage, nextIndex);
+            // FIX: Use ref.current directly to avoid stale closure
+            // saveProgressRef is kept in sync by useRefSync hook
+            saveProgressRef.current(percentage, nextIndex);
 
             // Check media navigation confirmation
             if (
@@ -1806,8 +1885,6 @@ export function useTTSController(
         lastMediaActionTimeRef.current = now;
 
         try {
-          updateTtsMediaNotificationState(isTTSReadingRef.current);
-
           if (action === TTS_MEDIA_ACTIONS.PLAY_PAUSE) {
             if (isTTSReadingRef.current) {
               const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
@@ -1841,6 +1918,7 @@ export function useTTSController(
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               isTTSPausedRef.current = true;
+              autoStopService.stop();
               await TTSHighlight.pause();
               updateTtsMediaNotificationState(false);
               return;
@@ -1853,6 +1931,7 @@ export function useTTSController(
             );
 
             await restartTtsFromParagraphIndex(idx);
+            autoStopService.resetCounters();
             return;
           }
 
@@ -1862,6 +1941,7 @@ export function useTTSController(
             const last = total > 0 ? total - 1 : idx;
             const target = Math.min(last, idx + 5);
             await restartTtsFromParagraphIndex(target);
+            autoStopService.resetCounters();
             return;
           }
 
@@ -1875,6 +1955,7 @@ export function useTTSController(
 
             try {
               await restartTtsFromParagraphIndex(target);
+              autoStopService.resetCounters();
             } catch (err) {
               ttsCtrlLog.error(
                 'seek-back-failed',
@@ -1887,6 +1968,7 @@ export function useTTSController(
                   setTimeout(r, TTS_CONSTANTS.SEEK_BACK_FALLBACK_DELAY_MS),
                 );
                 await restartTtsFromParagraphIndex(target);
+                autoStopService.resetCounters();
               } catch (err2) {
                 ttsCtrlLog.error(
                   'seek-back-fallback-failed',
@@ -2087,29 +2169,50 @@ export function useTTSController(
           return;
         }
 
-        const continueMode =
-          chapterGeneralSettingsRef.current.ttsContinueToNextChapter || 'none';
-        ttsCtrlLog.debug(
-          'queue-empty-continue-mode',
-          `Queue empty - continueMode: ${continueMode}`,
-        );
+        // Mark current chapter as finished for Auto-Stop (chapters mode)
+        autoStopService.onChapterFinished();
 
-        if (continueMode === 'none') {
+        const autoStopMode =
+          chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+        const autoStopAmount =
+          chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
+
+        // If Auto-Stop is set to 'off' (continuous) or 'chapters', we allow continuing.
+        // For 'off', continue indefinitely. For 'chapters', continue until limit is reached.
+        // For 'minutes'/'paragraphs', stop at end-of-chapter.
+        if (autoStopMode !== 'off' && autoStopMode !== 'chapters') {
           ttsCtrlLog.debug(
-            'queue-empty-stop-none',
-            'ttsContinueToNextChapter is "none", stopping',
+            'queue-empty-stop-no-chapter-mode',
+            `Queue empty - autoStopMode=${autoStopMode}, stopping at end of chapter`,
           );
           isTTSReadingRef.current = false;
           isTTSPlayingRef.current = false;
           return;
         }
 
-        if (continueMode !== 'continuous') {
-          const limit = parseInt(continueMode, 10);
-          if (chaptersAutoPlayedRef.current >= limit) {
+        // For 'off' mode, skip validation and continue to next chapter indefinitely
+        if (autoStopMode === 'off') {
+          ttsCtrlLog.debug(
+            'queue-empty-continuous-mode',
+            'Queue empty - continuous mode (off), proceeding to next chapter',
+          );
+          // Continue to next chapter logic below
+        } else if (autoStopMode === 'chapters') {
+          // For 'chapters' mode, validate amount and check limit
+          if (!Number.isFinite(autoStopAmount) || autoStopAmount <= 0) {
+            ttsCtrlLog.debug(
+              'queue-empty-stop-invalid-limit',
+              `Queue empty - invalid autoStopAmount=${autoStopAmount}, stopping`,
+            );
+            isTTSReadingRef.current = false;
+            isTTSPlayingRef.current = false;
+            return;
+          }
+
+          if (chaptersAutoPlayedRef.current >= autoStopAmount) {
             ttsCtrlLog.info(
-              'chapter-limit-reached',
-              `Chapter limit (${limit}) reached, stopping`,
+              'auto-stop-chapter-limit-reached',
+              `Auto-stop chapter limit (${autoStopAmount}) reached, stopping`,
             );
             chaptersAutoPlayedRef.current = 0;
             isTTSReadingRef.current = false;
@@ -2198,6 +2301,7 @@ export function useTTSController(
           forceStartFromParagraphZeroRef.current = true;
           currentParagraphIndexRef.current = 0;
           latestParagraphIndexRef.current = 0;
+          autoStopService.resetCounters();
           chaptersAutoPlayedRef.current += 1;
           nextChapterScreenVisibleRef.current = true;
           navigateChapterRef.current('NEXT');
@@ -2546,6 +2650,29 @@ export function useTTSController(
                             texts: remaining,
                           };
 
+                          // Restart auto-stop service for wake resume
+                          const autoStopMode =
+                            chapterGeneralSettingsRef.current.ttsAutoStopMode ??
+                            'off';
+                          const autoStopAmount =
+                            chapterGeneralSettingsRef.current
+                              .ttsAutoStopAmount ?? 0;
+
+                          autoStopService.start(
+                            { mode: autoStopMode, amount: autoStopAmount },
+                            reason => {
+                              TTSHighlight.stop();
+
+                              // Show toast notification
+                              const messages = {
+                                minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+                                paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+                                chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+                              };
+                              showToastMessage(messages[reason]);
+                            },
+                          );
+
                           // Start batch playback from the resolved index
                           TTSHighlight.speakBatch(remaining, ids, {
                             voice:
@@ -2589,6 +2716,66 @@ export function useTTSController(
                 }, TTS_CONSTANTS.WAKE_TRANSITION_DELAY_MS);
               }
             }, TTS_CONSTANTS.WAKE_TRANSITION_RETRY_MS);
+          } else if (
+            isTTSPausedRef.current &&
+            (latestParagraphIndexRef.current >= 0 ||
+              currentParagraphIndexRef.current >= 0)
+          ) {
+            // =====================================================================
+            // PAUSED STATE POSITION RESTORATION
+            // =====================================================================
+            // When user pauses TTS from notification panel and returns to app,
+            // we need to restore the visual position (scroll + highlight) but
+            // NOT auto-resume TTS (respect user's pause action).
+            //
+            // Root cause: The wake sync logic above only handles active reading
+            // (isTTSReadingRef.current === true). When paused from notification,
+            // isTTSReadingRef is FALSE, so no position restoration happened.
+
+            const pausedParagraphIndex = Math.max(
+              0,
+              latestParagraphIndexRef.current ?? 0,
+              currentParagraphIndexRef.current ?? 0,
+            );
+
+            ttsCtrlLog.info(
+              'paused-wake-restore',
+              `Restoring paused position: paragraph ${pausedParagraphIndex}`,
+            );
+
+            // Restore visual position in WebView (scroll + highlight)
+            if (webViewRef.current && isWebViewSyncedRef.current) {
+              webViewRef.current.injectJavaScript(`
+                try {
+                  const syncIndex = ${pausedParagraphIndex};
+                  const elements = document.querySelectorAll('[id^="paragraph-"], p[id]');
+                  
+                  if (elements && elements.length > syncIndex) {
+                    const targetElement = elements[syncIndex];
+                    
+                    // Scroll to element
+                    if (targetElement) {
+                      targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      
+                      // Highlight the paragraph
+                      if (window.reader && window.reader.highlightElement) {
+                        window.reader.highlightElement(syncIndex);
+                      } else if (window.tts && window.tts.highlightElement) {
+                        window.tts.highlightElement(syncIndex);
+                      }
+                      
+                      console.log('TTS: Restored paused position to paragraph ' + syncIndex);
+                    }
+                  }
+                } catch (e) {
+                  console.error('TTS: Failed to restore paused position', e);
+                }
+                true;
+              `);
+            }
+
+            // Update media notification to show paused state
+            updateTtsMediaNotificationState(false);
           }
         }
       },
@@ -2660,6 +2847,10 @@ export function useTTSController(
           e,
         );
       }
+
+      // Clear drift enforcement callback
+      TTSHighlight.setOnDriftEnforceCallback(undefined);
+
       try {
         TTSHighlight.stop();
       } catch (e) {

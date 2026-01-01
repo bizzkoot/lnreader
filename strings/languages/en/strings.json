@@ -167,7 +167,13 @@
     "repositoryRestoreFailed": "Failed to restore repository: %{url} - %{error}",
     "repositoryFileReadFailed": "Failed to read repository file: %{error}",
     "repositoryFileWriteFailed": "Failed to write repository file: %{error}",
-    "autoBackupLimitNote": "This limit applies independently to both auto and manual backups."
+    "autoBackupLimitNote": "This limit applies independently to both auto and manual backups.",
+    "legacyBackup": "Legacy Backup",
+    "legacyBackupDesc": "Compatible with original LNReader app",
+    "legacyBackupInfo": "Creates a backup that can be restored on the original LNReader app. Some features like TTS progress won't be included.",
+    "preparingLegacyBackup": "Preparing Legacy Backup",
+    "restoringLegacyBackup": "Restoring from legacy backup...",
+    "legacyRestoreSummary": "Legacy restore: %{summary}"
   },
   "browse": "Browse",
   "browseScreen": {
@@ -671,6 +677,7 @@
     "SELF_HOST_BACKUP": "Self-Host Backup",
     "SELF_HOST_RESTORE": "Self-Host Restore",
     "LOCAL_BACKUP": "Local Backup",
+    "LOCAL_LEGACY_BACKUP": "Legacy Backup",
     "LOCAL_RESTORE": "Local Restore",
     "MIGRATE_NOVEL": "Migrating Novel",
     "DOWNLOAD_CHAPTER": "Downloading Chapter"

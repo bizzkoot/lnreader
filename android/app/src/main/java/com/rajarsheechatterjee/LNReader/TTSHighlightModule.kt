@@ -143,10 +143,12 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun pause(promise: Promise) {
+        android.util.Log.d("TTS_DEBUG", "TTSHighlightModule.pause called")
         if (isBound && ttsService != null) {
             ttsService?.stopAudioKeepService()
             promise.resolve(true)
         } else {
+            android.util.Log.e("TTS_DEBUG", "TTSHighlightModule.pause failed: Not bound")
             promise.reject("TTS_NOT_READY", "TTS Service is not bound")
         }
     }
@@ -260,19 +262,30 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun onMediaAction(action: String) {
+        android.util.Log.d("TTS_DEBUG", "TTSHighlightModule.onMediaAction received: $action")
         val params = Arguments.createMap()
         params.putString("action", action)
         sendEvent("onMediaAction", params)
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {
+        android.util.Log.d("TTS_DEBUG", "TTSHighlightModule.sendEvent event=$eventName active=${reactContext.hasActiveCatalystInstance()}")
+        @Suppress("DEPRECATION")
         if (reactContext.hasActiveCatalystInstance()) {
-            reactContext
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                .emit(eventName, params)
+            try {
+                reactContext
+                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                    .emit(eventName, params)
+                android.util.Log.d("TTS_DEBUG", "TTSHighlightModule.sendEvent EMITTED")
+            } catch (e: Exception) {
+                android.util.Log.e("TTS_DEBUG", "TTSHighlightModule.sendEvent FAILED: ${e.message}")
+            }
+        } else {
+             android.util.Log.w("TTS_DEBUG", "TTSHighlightModule.sendEvent SKIPPED (no active catalyst)")
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onCatalystInstanceDestroy() {
         if (isBound) {
             reactContext.unbindService(connection)

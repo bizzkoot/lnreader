@@ -8,6 +8,7 @@ describe('useScrollSyncHandlers', () => {
 
   // Mocks
   let mockHideScrollSyncDialog: jest.Mock;
+  let mockRestartTtsFromParagraphIndex: jest.Mock;
   let mockInjectJavaScript: jest.Mock;
 
   beforeEach(() => {
@@ -16,6 +17,7 @@ describe('useScrollSyncHandlers', () => {
     // Initialize mocks
     mockInjectJavaScript = jest.fn();
     mockHideScrollSyncDialog = jest.fn();
+    mockRestartTtsFromParagraphIndex = jest.fn().mockResolvedValue(undefined);
 
     // Initialize refs
     mockWebViewRef = {
@@ -35,6 +37,7 @@ describe('useScrollSyncHandlers', () => {
         },
         callbacks: {
           hideScrollSyncDialog: mockHideScrollSyncDialog,
+          restartTtsFromParagraphIndex: mockRestartTtsFromParagraphIndex,
         },
       }),
     );
@@ -74,26 +77,11 @@ describe('useScrollSyncHandlers', () => {
       expect(injectedCode).toContain('window.tts.changeParagraphPosition(25)');
     });
 
-    it('should inject resume call if isResume is true', () => {
-      ttsScrollPromptDataRef.current = {
-        visibleIndex: 30,
-        isResume: true,
-      };
-
-      const { result } = renderTestHook();
-
-      act(() => {
-        result.current.handleTTSScrollSyncConfirm();
-      });
-
-      const injectedCode = mockInjectJavaScript.mock.calls[0][0];
-      expect(injectedCode).toContain('window.tts.resume(true)');
-    });
-
-    it('should NOT inject resume call if isResume is false', () => {
+    it('should call restartTtsFromParagraphIndex with visible index (non-stitched mode)', () => {
       ttsScrollPromptDataRef.current = {
         visibleIndex: 30,
         isResume: false,
+        isStitched: false,
       };
 
       const { result } = renderTestHook();
@@ -102,8 +90,8 @@ describe('useScrollSyncHandlers', () => {
         result.current.handleTTSScrollSyncConfirm();
       });
 
-      const injectedCode = mockInjectJavaScript.mock.calls[0][0];
-      expect(injectedCode).not.toContain('window.tts.resume');
+      expect(mockRestartTtsFromParagraphIndex).toHaveBeenCalledTimes(1);
+      expect(mockRestartTtsFromParagraphIndex).toHaveBeenCalledWith(30);
     });
 
     it('should clear ttsScrollPromptDataRef after confirm', () => {
@@ -146,6 +134,7 @@ describe('useScrollSyncHandlers', () => {
       });
 
       expect(mockInjectJavaScript).not.toHaveBeenCalled();
+      expect(mockRestartTtsFromParagraphIndex).not.toHaveBeenCalled();
       expect(mockHideScrollSyncDialog).toHaveBeenCalledTimes(1); // Still hides dialog
     });
 

@@ -27,6 +27,13 @@ import { showToast } from '@utils/showToast';
 import { getString } from '@strings/translations';
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import {
+  stripForkChapterFields,
+  ensureForkChapterFields,
+  restoreTracker,
+  BackupSourceType,
+  detectBackupSource,
+} from './compatibility';
 
 const backupLog = createRateLimitedLogger('Backup', { windowMs: 1500 });
 
@@ -408,7 +415,27 @@ const restoreMMKVData = (data: Record<string, unknown>) => {
   }
 };
 
-export const prepareBackupData = async (cacheDirPath: string) => {
+/**
+ * Options for backup preparation
+ */
+export interface PrepareBackupOptions {
+  /**
+   * When true, creates a legacy/upstream-compatible backup by:
+   * - Stripping fork-specific fields (ttsState, etc.)
+   * - Omitting fork-specific files (Repository.json, manifest.json, sections.json)
+   * - Using legacy MMKV format (raw values instead of typed entries)
+   *
+   * Use this for backups intended to be restored on upstream LNReader builds.
+   */
+  legacyMode?: boolean;
+}
+
+export const prepareBackupData = async (
+  cacheDirPath: string,
+  options?: PrepareBackupOptions,
+) => {
+  const { legacyMode = false } = options || {};
+
   const appSettings =
     getMMKVObject<AppSettings>(APP_SETTINGS) || ({} as AppSettings);
   const include = appSettings.backupIncludeOptions || {
@@ -426,7 +453,7 @@ export const prepareBackupData = async (cacheDirPath: string) => {
 
   NativeFile.mkdir(novelDirPath); // this also creates cacheDirPath
 
-  // Create v2 backup manifest
+  // Create v2 backup manifest (only for non-legacy mode)
   const manifest: BackupManifest = {
     backupVersion: BACKUP_SCHEMA_VERSION,
     appVersion: version,
@@ -461,10 +488,16 @@ export const prepareBackupData = async (cacheDirPath: string) => {
       for (const novel of novels) {
         try {
           const chapters = await getNovelChapters(novel.id);
+
+          // In legacy mode, strip fork-specific fields from chapters
+          const processedChapters = legacyMode
+            ? chapters.map(ch => stripForkChapterFields(ch))
+            : chapters;
+
           NativeFile.writeFile(
             novelDirPath + '/' + novel.id + '.json',
             JSON.stringify({
-              chapters: chapters,
+              chapters: processedChapters,
               ...novel,
               cover: novel.cover?.replace(APP_STORAGE_URI, ''),
             }),
@@ -515,11 +548,13 @@ export const prepareBackupData = async (cacheDirPath: string) => {
   // settings
   if (include.settings) {
     try {
-      // Create v2 typed MMKV backup
-      const mmkvEntries = backupMMKVDataTyped();
-      sections.mmkv = { entries: mmkvEntries };
+      if (!legacyMode) {
+        // Create v2 typed MMKV backup
+        const mmkvEntries = backupMMKVDataTyped();
+        sections.mmkv = { entries: mmkvEntries };
+      }
 
-      // Also write legacy format for backward compatibility
+      // Write legacy format (always, for compatibility)
       NativeFile.writeFile(
         cacheDirPath + '/' + BackupEntryName.SETTING,
         JSON.stringify(backupMMKVData()),
@@ -535,8 +570,8 @@ export const prepareBackupData = async (cacheDirPath: string) => {
     }
   }
 
-  // repositories
-  if (include.repositories) {
+  // repositories (skip in legacy mode - not supported by upstream)
+  if (include.repositories && !legacyMode) {
     try {
       const repositories = getRepositoriesFromDb();
       NativeFile.writeFile(
@@ -554,50 +589,78 @@ export const prepareBackupData = async (cacheDirPath: string) => {
     }
   }
 
-  // Write v2 manifest file
-  try {
-    NativeFile.writeFile(
-      cacheDirPath + '/manifest.json',
-      JSON.stringify(manifest, null, 2),
-    );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    showToast(
-      getString('backupScreen.manifestFileWriteFailed', {
-        error: errorMessage,
-      }),
-    );
-    throw error;
-  }
+  // Write v2 manifest file (skip in legacy mode)
+  if (!legacyMode) {
+    try {
+      NativeFile.writeFile(
+        cacheDirPath + '/manifest.json',
+        JSON.stringify(manifest, null, 2),
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      showToast(
+        getString('backupScreen.manifestFileWriteFailed', {
+          error: errorMessage,
+        }),
+      );
+      throw error;
+    }
 
-  // Write v2 sections file (contains typed MMKV data)
-  try {
-    NativeFile.writeFile(
-      cacheDirPath + '/sections.json',
-      JSON.stringify(sections, null, 2),
-    );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    showToast(
-      getString('backupScreen.sectionsFileWriteFailed', {
-        error: errorMessage,
-      }),
-    );
-    throw error;
+    // Write v2 sections file (contains typed MMKV data)
+    try {
+      NativeFile.writeFile(
+        cacheDirPath + '/sections.json',
+        JSON.stringify(sections, null, 2),
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      showToast(
+        getString('backupScreen.sectionsFileWriteFailed', {
+          error: errorMessage,
+        }),
+      );
+      throw error;
+    }
   }
 };
 
 export const restoreData = async (cacheDirPath: string) => {
   const novelDirPath = cacheDirPath + '/' + BackupEntryName.NOVEL_AND_CHAPTERS;
 
+  // Reset restore tracker for this operation
+  restoreTracker.reset();
+
   // Detect backup version and load manifest/sections if v2
   let backupVersion = 1;
   let sections: BackupSections | null = null;
+  let backupSource: BackupSourceType = 'upstream';
 
   const manifestPath = cacheDirPath + '/manifest.json';
   const sectionsPath = cacheDirPath + '/sections.json';
+  const repositoryPath = cacheDirPath + '/' + BackupEntryName.REPOSITORY;
 
-  if (NativeFile.exists(manifestPath) && NativeFile.exists(sectionsPath)) {
+  const hasManifest = NativeFile.exists(manifestPath);
+  const hasSections = NativeFile.exists(sectionsPath);
+  const hasRepository = NativeFile.exists(repositoryPath);
+
+  // Detect backup source type
+  backupSource = detectBackupSource(
+    hasManifest || hasSections || hasRepository,
+    hasManifest,
+  );
+
+  // Show legacy backup notification if restoring from upstream
+  if (backupSource === 'upstream') {
+    showToast(getString('backupScreen.restoringLegacyBackup'));
+    backupLog.info(
+      'legacy-restore',
+      'Restoring from upstream/legacy backup - applying safe defaults',
+    );
+  }
+
+  if (hasManifest && hasSections) {
     try {
       const manifestContent = NativeFile.readFile(manifestPath);
       const manifest = JSON.parse(manifestContent) as BackupManifest;
@@ -633,6 +696,18 @@ export const restoreData = async (cacheDirPath: string) => {
 
             if (!backupNovel.cover?.startsWith('http')) {
               backupNovel.cover = APP_STORAGE_URI + backupNovel.cover;
+            }
+
+            // If restoring from upstream, ensure fork-specific fields have safe defaults
+            if (backupSource === 'upstream' && backupNovel.chapters) {
+              backupNovel.chapters = backupNovel.chapters.map(ch => {
+                const ensured = ensureForkChapterFields(ch);
+                // Track if we applied defaults
+                if (!('ttsState' in ch) || ch.ttsState === undefined) {
+                  restoreTracker.applyDefault('ttsState');
+                }
+                return ensured;
+              });
             }
 
             await _restoreNovelAndChapters(backupNovel);
@@ -763,17 +838,24 @@ export const restoreData = async (cacheDirPath: string) => {
   }
 
   // repositories
-  const repositoryFilePath = cacheDirPath + '/' + BackupEntryName.REPOSITORY;
   let repositoryCount = 0;
   let failedRepositoryCount = 0;
 
-  if (!NativeFile.exists(repositoryFilePath)) {
+  if (!hasRepository) {
     // Backwards compatibility: old backups don't have Repository.json
     // Backups may also omit repositories based on user selection
+    // If upstream backup, note that repositories were skipped
+    if (backupSource === 'upstream') {
+      restoreTracker.skipItem(
+        'file',
+        'Repository.json',
+        'Not present in legacy backup',
+      );
+    }
   } else {
     showToast(getString('backupScreen.restoringRepositories'));
     try {
-      const fileContent = NativeFile.readFile(repositoryFilePath);
+      const fileContent = NativeFile.readFile(repositoryPath);
       const repositories: Repository[] = JSON.parse(fileContent);
 
       for (const repository of repositories) {
@@ -818,6 +900,14 @@ export const restoreData = async (cacheDirPath: string) => {
           error: errorMessage,
         }),
       );
+    }
+  }
+
+  // Show summary for legacy restore
+  if (backupSource === 'upstream') {
+    const summary = restoreTracker.getSummaryMessage();
+    if (summary) {
+      showToast(getString('backupScreen.legacyRestoreSummary', { summary }));
     }
   }
 };

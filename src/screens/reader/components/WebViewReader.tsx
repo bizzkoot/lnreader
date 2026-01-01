@@ -70,6 +70,7 @@ import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 // Import the TTS hook
 import { useTTSController } from '../hooks/useTTSController';
 import { WebViewPostEvent, TTS_CONSTANTS } from '../types/tts';
+import { autoStopService } from '@services/tts/AutoStopService';
 
 type WebViewReaderProps = {
   onPress(): void;
@@ -435,6 +436,51 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             'MMKV listener fired for CHAPTER_GENERAL_SETTINGS',
             newSettings,
           );
+
+          if (newSettings) {
+            const parsedSettings = JSON.parse(newSettings);
+            const defaults = initialChapterGeneralSettings;
+            const merged = { ...defaults, ...parsedSettings };
+
+            if (merged.showParagraphHighlight === undefined) {
+              merged.showParagraphHighlight =
+                defaults.showParagraphHighlight ?? true;
+            }
+
+            chapterGeneralSettingsRef.current = merged;
+
+            readerLog.debug(
+              'mmkv-general-settings-ref-updated',
+              'Updated chapterGeneralSettingsRef from MMKV listener',
+              {
+                ttsAutoStopMode: merged.ttsAutoStopMode,
+                ttsAutoStopAmount: merged.ttsAutoStopAmount,
+              },
+            );
+
+            const autoStopMode = merged.ttsAutoStopMode ?? 'off';
+            const autoStopAmount = merged.ttsAutoStopAmount ?? 0;
+
+            autoStopService.start(
+              { mode: autoStopMode, amount: autoStopAmount },
+              reason => {
+                TTSHighlight.stop();
+                const messages = {
+                  minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
+                  paragraphs: `Auto-stop: ${autoStopAmount} paragraph${autoStopAmount !== 1 ? 's' : ''} read`,
+                  chapters: `Auto-stop: ${autoStopAmount} chapter${autoStopAmount !== 1 ? 's' : ''} complete`,
+                };
+                showToastMessage(messages[reason]);
+              },
+            );
+
+            readerLog.debug(
+              'mmkv-general-settings-autostop-restarted',
+              'Restarted auto-stop service with new settings',
+              { mode: autoStopMode, amount: autoStopAmount },
+            );
+          }
+
           webViewRef.current?.injectJavaScript(
             `if (window.reader && window.reader.generalSettings) {
                window.reader.generalSettings.val = ${newSettings};
@@ -483,7 +529,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       subscription.remove();
       mmkvListener.remove();
     };
-  }, [webViewRef]);
+  }, [webViewRef, showToastMessage]);
 
   // ============================================================================
   // HTML Generation
@@ -685,25 +731,28 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           break;
         case 'next':
           if (event.autoStartTTS) {
-            const continueMode =
-              chapterGeneralSettingsRef.current.ttsContinueToNextChapter ||
-              'none';
+            const autoStopMode =
+              chapterGeneralSettingsRef.current.ttsAutoStopMode ?? 'off';
+            const autoStopAmount =
+              chapterGeneralSettingsRef.current.ttsAutoStopAmount ?? 0;
 
-            if (continueMode === 'none') {
-              tts.autoStartTTSRef.current = false;
-              tts.chaptersAutoPlayedRef.current = 0;
-            } else if (continueMode === 'continuous') {
+            if (autoStopMode === 'off') {
               tts.autoStartTTSRef.current = true;
-              tts.chaptersAutoPlayedRef.current += 1;
-            } else {
-              const limit = parseInt(continueMode, 10);
-              if (tts.chaptersAutoPlayedRef.current < limit) {
+              tts.chaptersAutoPlayedRef.current = 0;
+            } else if (autoStopMode === 'chapters') {
+              if (!Number.isFinite(autoStopAmount) || autoStopAmount <= 0) {
+                tts.autoStartTTSRef.current = false;
+                tts.chaptersAutoPlayedRef.current = 0;
+              } else if (tts.chaptersAutoPlayedRef.current < autoStopAmount) {
                 tts.autoStartTTSRef.current = true;
                 tts.chaptersAutoPlayedRef.current += 1;
               } else {
                 tts.autoStartTTSRef.current = false;
                 tts.chaptersAutoPlayedRef.current = 0;
               }
+            } else {
+              tts.autoStartTTSRef.current = false;
+              tts.chaptersAutoPlayedRef.current = 0;
             }
           }
           navigateChapter('NEXT');

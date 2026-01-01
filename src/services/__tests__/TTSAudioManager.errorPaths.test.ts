@@ -47,6 +47,7 @@ afterEach(() => {
   (TTSAudioManager as any).currentUtteranceIds = [];
   (TTSAudioManager as any).currentIndex = 0;
   (TTSAudioManager as any).state = TTSState.IDLE;
+  (TTSAudioManager as any).refillCancelled = false;
 });
 
 describe('TTSAudioManager Error Paths', () => {

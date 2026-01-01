@@ -123,6 +123,7 @@ export interface ChapterGeneralSettings {
   swipeGestures: boolean;
   showScrollPercentage: boolean;
   useVolumeButtons: boolean;
+  volumeButtonsOffset: number | null;
   showBatteryAndTime: boolean;
   autoScroll: boolean;
   autoScrollInterval: number;
@@ -138,13 +139,18 @@ export interface ChapterGeneralSettings {
   ttsScrollBehavior: 'continue' | 'pause-on-scroll';
   ttsBackgroundPlayback: boolean;
   /**
-   * Continue to next chapter when TTS finishes current chapter.
-   * - 'none': Stop at end of chapter (default)
-   * - '5': Auto-continue up to 5 additional chapters
-   * - '10': Auto-continue up to 10 additional chapters
-   * - 'continuous': Keep auto-advancing until stopped or content ends
+   * Auto-stop playback after a limit.
+   * - 'off': no limit
+   * - 'minutes': stop after N minutes from start
+   * - 'chapters': stop after N chapters finish
+   * - 'paragraphs': stop after N paragraphs are spoken
    */
-  ttsContinueToNextChapter: 'none' | '5' | '10' | 'continuous';
+  ttsAutoStopMode: 'off' | 'paragraphs' | 'chapters' | 'minutes';
+  /**
+   * Limit value for the selected auto-stop mode.
+   * Meaning depends on mode: minutes | chapters | paragraphs.
+   */
+  ttsAutoStopAmount: number;
   /**
    * TTS-specific auto-download setting.
    * When TTS is playing and remaining downloaded chapters fall below threshold,
@@ -329,6 +335,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   swipeGestures: false,
   showScrollPercentage: true,
   useVolumeButtons: false,
+  volumeButtonsOffset: null,
   showBatteryAndTime: false,
   autoScroll: false,
   autoScrollInterval: 10,
@@ -343,7 +350,8 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   ttsScrollPrompt: 'always-ask',
   ttsScrollBehavior: 'continue',
   ttsBackgroundPlayback: true,
-  ttsContinueToNextChapter: 'none',
+  ttsAutoStopMode: 'off',
+  ttsAutoStopAmount: 0,
   ttsAutoDownload: 'disabled',
   ttsAutoDownloadAmount: '10',
   ttsForwardChapterReset: 'none',

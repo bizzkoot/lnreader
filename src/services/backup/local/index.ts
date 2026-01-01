@@ -5,7 +5,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { Share } from 'react-native';
 
-import { CACHE_DIR_PATH, prepareBackupData, restoreData } from '../utils';
+import {
+  CACHE_DIR_PATH,
+  prepareBackupData,
+  restoreData,
+  PrepareBackupOptions,
+} from '../utils';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import { ROOT_STORAGE } from '@utils/Storages';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
@@ -26,14 +31,27 @@ const shareBackupFile = async (filePath: string) => {
   });
 };
 
+export interface CreateBackupOptions {
+  /** Whether this is an automatic backup (affects naming) */
+  isAuto?: boolean;
+  /**
+   * Create a legacy/upstream-compatible backup.
+   * Strips fork-specific fields and files for compatibility
+   * with the original LNReader repository.
+   */
+  legacyMode?: boolean;
+}
+
 export const createBackup = async (
   setMeta?: (
     transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
   ) => void,
-  opts?: { isAuto?: boolean },
+  opts?: CreateBackupOptions,
 ) => {
   try {
     const isAuto = !!opts?.isAuto;
+    const legacyMode = !!opts?.legacyMode;
+
     const appSettings =
       getMMKVObject<AppSettings>(APP_SETTINGS) || ({} as AppSettings);
     const include = appSettings.backupIncludeOptions || {
@@ -48,10 +66,14 @@ export const createBackup = async (
       ...meta,
       isRunning: true,
       progress: 0 / 4,
-      progressText: getString('backupScreen.preparingData'),
+      progressText: legacyMode
+        ? getString('backupScreen.preparingLegacyBackup')
+        : getString('backupScreen.preparingData'),
     }));
 
-    await prepareBackupData(CACHE_DIR_PATH);
+    // Pass legacy mode option to prepareBackupData
+    const backupOptions: PrepareBackupOptions = { legacyMode };
+    await prepareBackupData(CACHE_DIR_PATH, backupOptions);
 
     if (include.downloads) {
       setMeta?.(meta => ({
@@ -106,9 +128,15 @@ export const createBackup = async (
           .replace(/[:.]/g, '-')
           .slice(0, -5);
 
-        const prefix = isAuto
-          ? 'lnreader_auto_backup_'
-          : 'lnreader_manual_backup_';
+        // Determine file prefix based on backup type
+        let prefix: string;
+        if (legacyMode) {
+          prefix = 'lnreader_legacy_backup_';
+        } else if (isAuto) {
+          prefix = 'lnreader_auto_backup_';
+        } else {
+          prefix = 'lnreader_manual_backup_';
+        }
         const fileName = `${prefix}${timestamp}.zip`;
 
         const destUri = await StorageAccessFramework.createFileAsync(

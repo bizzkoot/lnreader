@@ -60,7 +60,8 @@ jest.mock('@hooks/persisted', () => ({
     readerSettings: {},
     chapterGeneralSettings: {
       ttsBackgroundPlayback: false,
-      ttsContinueToNextChapter: 'none',
+      ttsAutoStopMode: 'off',
+      ttsAutoStopAmount: 0,
     },
   })),
 }));
@@ -82,7 +83,8 @@ jest.mock('@utils/mmkv/mmkv', () => ({
     if (key === 'CHAPTER_GENERAL_SETTINGS') {
       return {
         ttsBackgroundPlayback: false,
-        ttsContinueToNextChapter: 'none',
+        ttsAutoStopMode: 'off',
+        ttsAutoStopAmount: 0,
       };
     }
     if (key === 'CHAPTER_READER_SETTINGS') {
@@ -135,6 +137,13 @@ jest.mock('@services/TTSHighlight', () => ({
   hasRemainingItems: jest.fn(() => false),
   pause: jest.fn(),
   getSavedTTSPosition: jest.fn().mockResolvedValue(-1),
+  setOnDriftEnforceCallback: jest.fn(),
+  setLastSpokenIndex: jest.fn(),
+}));
+
+jest.mock('@utils/ScreenStateListener', () => ({
+  isActive: jest.fn().mockResolvedValue(true),
+  addListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 const mockChapter = { id: 10, name: 'Chapter 10', progress: 0 };

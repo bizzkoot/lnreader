@@ -57,8 +57,13 @@ export default function useChapter(
   const [[nextChapter, prevChapter], setAdjacentChapter] = useState<
     ChapterInfo[] | undefined[]
   >([]);
-  const { autoScroll, autoScrollInterval, autoScrollOffset, useVolumeButtons } =
-    useChapterGeneralSettings();
+  const {
+    autoScroll,
+    autoScrollInterval,
+    autoScrollOffset,
+    useVolumeButtons,
+    volumeButtonsOffset,
+  } = useChapterGeneralSettings();
   const { incognitoMode } = useLibrarySettings();
   const [error, setError] = useState<string>();
   const { tracker } = useTracker();
@@ -69,21 +74,21 @@ export default function useChapter(
   const { checkAutoDownload } = useAutoDownload({ novel, isTTSPlaying: false });
 
   const connectVolumeButton = useCallback(() => {
+    const offset = defaultTo(
+      volumeButtonsOffset,
+      Math.round(Dimensions.get('window').height * 0.75),
+    );
     emmiter.addListener('VolumeUp', () => {
       webViewRef.current?.injectJavaScript(`(()=>{
-          window.scrollBy({top: -${
-            Dimensions.get('window').height * 0.75
-          }, behavior: 'smooth'})
-        })()`);
+        window.scrollBy({top: -${offset}, behavior: 'smooth'})
+      })()`);
     });
     emmiter.addListener('VolumeDown', () => {
       webViewRef.current?.injectJavaScript(`(()=>{
-          window.scrollBy({top: ${
-            Dimensions.get('window').height * 0.75
-          }, behavior: 'smooth'})
-        })()`);
+        window.scrollBy({top: ${offset}, behavior: 'smooth'})
+      })()`);
     });
-  }, [webViewRef]);
+  }, [webViewRef, volumeButtonsOffset]);
 
   useEffect(() => {
     if (useVolumeButtons) {

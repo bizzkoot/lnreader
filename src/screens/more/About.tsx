@@ -156,6 +156,12 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
             onPress={isCheckingUpdate ? undefined : checkForUpdates}
             theme={theme}
           />
+          <List.Item
+            title="Features in This Fork"
+            description="Explore the exclusive features added in this custom build"
+            onPress={() => navigation.navigate('Features')}
+            theme={theme}
+          />
           <List.Divider theme={theme} />
           <List.Item
             title={getString('aboutScreen.website')}

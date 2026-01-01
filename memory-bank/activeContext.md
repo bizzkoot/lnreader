@@ -2,47 +2,62 @@
 
 ## Current Goals
 
-- MEDIUM-7 Test Coverage Improvement - Phase 1 (Partial Complete)
-- **Current Status:**
-- - Tasks 1.1 & 1.2 complete (40 tests added)
-- - Coverage: 38.45% (target: 45% for Phase 1)
-- - Next: Task 1.3 (TTS state transition tests)
-- **Session Summary:** .agents/SESSION_SUMMARY_2025-12-25.md
-- **Action Plan:** specs/code-quality/action-tracker/CODE_REVIEW_ACTION_PLAN.md (MEDIUM-7)
-- **Last Commit:** 24018eacc - "test(code-quality): P2 MEDIUM-7 Phase 1 - Add TTS error paths & WebView security tests"
+- Bluetooth TTS Media Button Support (2026-01-01) - ✅ COMPLETED
+- **Status:** Full implementation and verification complete
+- **Solution:** Silent audio workaround with proper AudioAttributes
+- **Test Method:** `adb shell cmd media_session dispatch play-pause`
 
 ## Key Files Modified (This Session)
 
-### TTS Per-Novel Settings Toggle Fix
-- `src/screens/reader/ReaderScreen.tsx`: Pass `novel` prop to ReaderBottomSheetV2
-- `src/screens/reader/components/ReaderBottomSheet/ReaderBottomSheet.tsx`: Accept `novel` prop, pass to ReaderTTSTab
-- `src/screens/reader/components/ReaderBottomSheet/ReaderTTSTab.tsx`: Accept `novel` as prop instead of context (Portal breaks context chain)
+### Bluetooth Media Button Support
+- `android/app/src/main/java/com/rajarsheechatterjee/LNReader/TTSForegroundService.kt`: Added silent MediaPlayer with AudioAttributes
+- `android/app/src/main/res/raw/silence.mp3`: 0.5s silent audio file (NEW)
+- `GEMINI.md`: Updated Current Task section
+- `specs/bluetooth-headset-support/DEBUGGING_LOG.md`: Complete solution documentation
+- `memory-bank/decisionLog.md`: Added decision entry
 
-### Chapter Title Detection Fix
-- `android/app/src/main/assets/js/core.js`: Fixed `enhanceChapterTitles()` to use inline style check instead of getComputedStyle (which fails in detached DOM)
+## Root Cause Fixed
 
-## Root Causes Fixed
+**Problem:** TTS audio played by `com.google.android.tts` (system service), not our app → MediaSession "orphaned" from audio stack → `Media button session is null`
 
-1. **Portal Context Issue**: `@gorhom/bottom-sheet` uses React Portal which renders content outside normal React tree, breaking context from `ChapterContextProvider`. Solution: Pass `novel` as props through component chain.
-
-2. **Detached DOM Visibility**: Temp div had `visibility:hidden`, and `getComputedStyle()` inherits this. All elements appeared hidden, skipping pattern matching. Solution: Don't append temp div to document, check only inline styles for explicit hiding.
+**Solution:** Play silent looping audio with `MediaPlayer` using `AudioAttributes` (USAGE_MEDIA, CONTENT_TYPE_MUSIC) → Our app becomes audio focus owner → Media button events route to our `MediaSession` → `Media button session is com.rajarsheechatterjee.LNReader.debug/LNReaderTTS` ✅
 
 ## Test Commands
 
 ```bash
-# Run all tests
-pnpm test
+# Correct test (simulates real Bluetooth):
+adb shell cmd media_session dispatch play-pause
 
-# Type check
-pnpm run type-check
+# Verify MediaSession registration:
+adb shell dumpsys media_session | grep "Media button"
 
-# Lint
-pnpm run lint
+# Development
+pnpm run dev:android
 
-# Android release build
-pnpm run build:release:android
+# Format before commit
+pnpm run format
 ```
+
+## Implementation Details
+
+**Silent Audio Functions:**
+- `startSilentAudioForMediaSession()` - Creates MediaPlayer with AudioAttributes, loops silence
+- `stopSilentAudio()` - Stops and releases MediaPlayer
+- Called in: `speakBatch()`, `stopTTS()`, `onDestroy()`
+
+**Why AudioAttributes Matter:**
+```kotlin
+AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_MEDIA)
+    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+```
+These signal to Android that our app is the active media player.
 
 ## Current Blockers
 
 - None (Ready for git commit)
+
+## Next Steps
+
+- Test with real Bluetooth headphones on physical device
+- Consider removing debug logs in production build
