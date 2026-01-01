@@ -19,6 +19,7 @@ export interface StringMap {
   'advancedSettingsScreen.clearUpdatesMessage': 'string';
   'advancedSettingsScreen.clearUpdatesTab': 'string';
   'advancedSettingsScreen.clearUpdatesWarning': 'string';
+  'advancedSettingsScreen.clearCookiesWarning': 'string';
   'advancedSettingsScreen.clearupdatesTabDesc': 'string';
   'advancedSettingsScreen.dataManagement': 'string';
   'advancedSettingsScreen.deleteReadChapters': 'string';
