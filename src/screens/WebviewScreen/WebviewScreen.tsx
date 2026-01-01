@@ -14,6 +14,7 @@ import {
   WEBVIEW_SESSION_STORAGE,
   store,
 } from '@plugins/helpers/storage';
+import { CookieManager } from '@services/network/CookieManager';
 import Appbar from './components/Appbar';
 import Menu from './components/Menu';
 
@@ -75,7 +76,7 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
   });
 
   const injectJavaScriptCode =
-    'try { window.ReactNativeWebView.postMessage(JSON.stringify({ localStorage, sessionStorage })); } catch (e) { /* Intentionally empty: Security sandbox */ }';
+    'try { window.ReactNativeWebView.postMessage(JSON.stringify({ localStorage, sessionStorage, cookies: document.cookie })); } catch (e) { /* Intentionally empty: Security sandbox */ }';
 
   return (
     <>
@@ -106,18 +107,33 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
         injectedJavaScript={injectJavaScriptCode}
         onNavigationStateChange={handleNavigation}
         onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
-        onMessage={({ nativeEvent }) => {
+        onMessage={async ({ nativeEvent }) => {
           try {
             const parsed = JSON.parse(nativeEvent.data);
-            if (
-              parsed &&
-              typeof parsed === 'object' &&
-              (!('localStorage' in parsed) ||
-                typeof parsed.localStorage === 'object') &&
-              (!('sessionStorage' in parsed) ||
-                typeof parsed.sessionStorage === 'object')
-            ) {
-              setTempData(parsed);
+            if (parsed && typeof parsed === 'object') {
+              // Existing localStorage/sessionStorage handling
+              if (
+                (!('localStorage' in parsed) ||
+                  typeof parsed.localStorage === 'object') &&
+                (!('sessionStorage' in parsed) ||
+                  typeof parsed.sessionStorage === 'object')
+              ) {
+                setTempData(parsed);
+              }
+
+              // NEW: Cookie handling
+              if (parsed.cookies && typeof parsed.cookies === 'string') {
+                const cookies: Record<string, string> = {};
+                parsed.cookies.split(';').forEach((cookieStr: string) => {
+                  const [name, value] = cookieStr.trim().split('=');
+                  if (name && value) {
+                    cookies[name] = value;
+                  }
+                });
+                if (Object.keys(cookies).length > 0) {
+                  await CookieManager.setCookies(currentUrl, cookies);
+                }
+              }
             }
           } catch (e) {
             // Ignore invalid payloads
