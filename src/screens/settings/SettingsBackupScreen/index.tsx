@@ -174,6 +174,21 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
             theme={theme}
           />
           <List.Item
+            title={getString('backupScreen.legacyBackup')}
+            description={getString('backupScreen.legacyBackupDesc')}
+            onPress={() => {
+              ServiceManager.manager.addTask({
+                name: 'LOCAL_BACKUP',
+                data: { legacyMode: true },
+              });
+            }}
+            theme={theme}
+          />
+          <List.InfoItem
+            title={getString('backupScreen.legacyBackupInfo')}
+            theme={theme}
+          />
+          <List.Item
             title={getString(
               'backupScreen.backupIncludeOptions' as keyof StringMap,
             )}
