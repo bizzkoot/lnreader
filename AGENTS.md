@@ -66,6 +66,15 @@ TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
 
 ## Recent Fixes
 
+### Phase 3: DNS-over-HTTPS (DoH) Implementation (2026-01-02)
+- **Feature**: DoH provider selection in Settings → Advanced (Android-only)
+- **Providers**: Cloudflare, Google, AdGuard (extensible architecture)
+- **Native Module**: `DoHManagerModule.kt` with bootstrap IPs, singleton pattern
+- **TypeScript Wrapper**: `DoHManager.ts` with platform detection, error handling
+- **UI**: Provider picker modal with RadioButtons, restart confirmation dialog
+- **Integration**: OkHttp 4.12.0 with `okhttp-dnsoverhttps` dependency
+- **Status**: All 1072 tests passing, Sessions 1-4 complete
+
 ### MainActivity Startup Crash (2025-12-27)
 - **Cause**: `window.insetsController` accessed before `super.onCreate()` → NPE when DecorView null
 - **Fix**: Move `super.onCreate()` first in `MainActivity.kt`
@@ -109,6 +118,28 @@ TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
 - `src/hooks/persisted/` - MMKV-backed settings (useSettings.ts, useTheme.ts, useDownload.ts, etc.)
 - `src/components/` - Reusable UI components
 - `src/navigators/` - React Navigation setup
+
+### DoH (DNS-over-HTTPS) Architecture
+
+**Layers:**
+1. **Native Android**: `DoHManagerModule.kt` (singleton pattern, OkHttp 4.12.0 integration)
+2. **TypeScript Service**: `DoHManager.ts` (platform-safe wrapper, enum exports)
+3. **UI Layer**: `SettingsAdvancedScreen.tsx` (provider picker, restart confirmation)
+
+**Providers:**
+- Cloudflare: `https://cloudflare-dns.com/dns-query` (Bootstrap: 1.1.1.1)
+- Google: `https://dns.google/dns-query` (Bootstrap: 8.8.8.8)
+- AdGuard: `https://dns-unfiltered.adguard.com/dns-query` (Bootstrap: 94.140.14.140)
+
+**Key Concepts:**
+- **Bootstrap IPs**: Hardcoded IPs prevent circular DNS dependency
+- **Singleton Pattern**: Static `getDnsInstance()` accessible to OkHttpClient
+- **Platform Detection**: Android-only, iOS falls back gracefully
+- **App Restart Required**: OkHttpClient singleton requires restart (by design)
+- **Persistence**: Provider ID stored in native SharedPreferences
+
+**Settings Location:**
+- Global: More → Settings → Advanced → DoH Provider
 
 ### TTS File Map
 ```

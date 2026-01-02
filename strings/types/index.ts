@@ -24,6 +24,13 @@ export interface StringMap {
   'advancedSettingsScreen.dataManagement': 'string';
   'advancedSettingsScreen.deleteReadChapters': 'string';
   'advancedSettingsScreen.deleteReadChaptersDialogTitle': 'string';
+  'advancedSettingsScreen.dnsOverHttps': 'string';
+  'advancedSettingsScreen.dohProvider': 'string';
+  'advancedSettingsScreen.selectDohProvider': 'string';
+  'advancedSettingsScreen.dohRestartWarning': 'string';
+  'advancedSettingsScreen.dohProviderChanged': 'string';
+  'advancedSettingsScreen.dohProviderError': 'string';
+  'advancedSettingsScreen.dohAndroidOnly': 'string';
   'advancedSettingsScreen.importEpub': 'string';
   'advancedSettingsScreen.importNovel': 'string';
   'advancedSettingsScreen.importStaticFiles': 'string';
@@ -86,6 +93,13 @@ export interface StringMap {
   'backupScreen.categoryFileWriteFailed': 'string';
   'backupScreen.createBackup': 'string';
   'backupScreen.createBackupDesc': 'string';
+  'backupScreen.backupIncludeOptions': 'string';
+  'backupScreen.backupIncludeOptionsDesc': 'string';
+  'backupScreen.include.settings': 'string';
+  'backupScreen.include.novelsAndChapters': 'string';
+  'backupScreen.include.categories': 'string';
+  'backupScreen.include.repositories': 'string';
+  'backupScreen.include.downloads': 'string';
   'backupScreen.createBackupWarning': 'string';
   'backupScreen.downloadingData': 'string';
   'backupScreen.downloadingDownloadedFiles': 'string';
@@ -148,6 +162,7 @@ export interface StringMap {
   'backupScreen.repositoryRestoreFailed': 'string';
   'backupScreen.repositoryFileReadFailed': 'string';
   'backupScreen.repositoryFileWriteFailed': 'string';
+  'backupScreen.autoBackupLimitNote': 'string';
   'backupScreen.legacyBackup': 'string';
   'backupScreen.legacyBackupDesc': 'string';
   'backupScreen.legacyBackupInfo': 'string';
@@ -461,9 +476,9 @@ export interface StringMap {
   'readerScreen.bottomSheet.tts.disabled': 'string';
   'readerScreen.bottomSheet.tts.chapters5': 'string';
   'readerScreen.bottomSheet.tts.chapters10': 'string';
-  'readerScreen.tts.downloadingNextChapter': 'string';
-  'readerScreen.tts.downloadComplete': 'string';
-  'readerScreen.tts.downloadTimeout': 'string';
+  'readerScreen.bottomSheet.tts.downloadingNextChapter': 'string';
+  'readerScreen.bottomSheet.tts.downloadComplete': 'string';
+  'readerScreen.bottomSheet.tts.downloadTimeout': 'string';
   'readerScreen.drawer.scrollToBottom': 'string';
   'readerScreen.drawer.scrollToCurrentChapter': 'string';
   'readerScreen.drawer.scrollToTop': 'string';
@@ -474,7 +489,6 @@ export interface StringMap {
   'readerScreen.noPreviousChapter': 'string';
   'readerSettings.autoScrollInterval': 'string';
   'readerSettings.autoScrollOffset': 'string';
-  'readerSettings.volumeButtonsOffset': 'string';
   'readerSettings.backgroundColor': 'string';
   'readerSettings.backgroundColorModal': 'string';
   'readerSettings.clearCustomCSS': 'string';
