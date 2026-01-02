@@ -258,7 +258,12 @@ window.reader = new (function () {
   };
 
   // DOM Stitching: Receive and append chapter content from React Native
-  this.receiveChapterContent = function (chapterId, chapterName, chapterHtml) {
+  this.receiveChapterContent = function (
+    chapterId,
+    chapterName,
+    chapterHtml,
+    chapterData,
+  ) {
     this.pendingChapterFetch = false;
 
     if (!chapterHtml) {
@@ -304,10 +309,10 @@ window.reader = new (function () {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'stitched-chapter-content';
 
-    // INVESTIGATION: Debug stitched chapter enhancement
+    // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
+    // Use the full chapter object (chapterData) for consistency with main chapter loading (line 4091-4100)
     if (DEBUG) {
       console.log('[STITCHED] Method called!');
-      console.log('[STITCHED] chapterData type:', typeof chapterData);
       console.log('[STITCHED] chapterData:', chapterData);
       console.log(
         '[STITCHED] enhanceChapterTitles exists:',
@@ -315,40 +320,39 @@ window.reader = new (function () {
       );
     }
 
-    // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
-    // Check if chapter has a title in chapterData, enhance if needed
-    if (DEBUG) {
-      console.log(
-        '[ENHANCE] Stitched chapter enhancement - checking data:',
-        typeof chapterData,
-      );
-    }
-
-    let chapterTitle = '';
-    if (typeof chapterData === 'object' && chapterData.name) {
-      chapterTitle = chapterData.name;
-    } else if (typeof chapterData === 'string') {
-      chapterTitle = chapterData;
+    // Extract chapter title using the same pattern as main chapter loading
+    // Fallback to individual parameters if chapterData is not provided (backward compatibility)
+    let chapterTitle;
+    if (chapterData && typeof chapterData === 'object') {
+      chapterTitle =
+        chapterData.name || `Chapter ${chapterData.id || 'Unknown'}`;
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Stitched chapter - using title from chapterData:',
+          chapterTitle,
+        );
+      }
     } else {
-      chapterTitle = `Chapter ${chapterData.id || 'Unknown'}`;
+      chapterTitle = chapterName || `Chapter ${chapterId}`;
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Stitched chapter - using fallback title:',
+          chapterTitle,
+        );
+      }
     }
 
-    if (DEBUG) {
-      console.log('[ENHANCE] Stitched chapter - using title:', chapterTitle);
-    }
     if (chapterTitle) {
       chapterHtml = this.enhanceChapterTitles(chapterHtml, chapterTitle);
       if (DEBUG) {
         console.log(
-          '[STITCHED] Stitched enhancement completed. New HTML length:',
+          '[STITCHED] Enhancement completed. New HTML length:',
           chapterHtml.length,
         );
       }
     } else {
       if (DEBUG) {
-        console.log(
-          '[ENHANCE] Stitched chapter - no title available, skipping enhancement',
-        );
+        console.log('[ENHANCE] No title available, skipping enhancement');
       }
     }
 
@@ -712,16 +716,16 @@ window.reader = new (function () {
 
       // Wait for DOM to stabilize after clear
       setTimeout(() => {
-        const readableElements = this.getReadableElements();
+        const restartElements = this.getReadableElements();
         if (DEBUG) {
           console.log(
-            `Reader: Auto-restart executing - ${readableElements.length} paragraphs available`,
+            `Reader: Auto-restart executing - ${restartElements.length} paragraphs available`,
           );
         }
 
         if (
           targetParagraphInChapter >= 0 &&
-          targetParagraphInChapter < readableElements.length
+          targetParagraphInChapter < restartElements.length
         ) {
           // Update TTS position to the target paragraph
           if (window.tts && window.tts.changeParagraphPosition) {
@@ -745,7 +749,7 @@ window.reader = new (function () {
           }
         } else {
           console.error(
-            `Reader: Invalid restart paragraph ${targetParagraphInChapter} (total: ${readableElements.length})`,
+            `Reader: Invalid restart paragraph ${targetParagraphInChapter} (total: ${restartElements.length})`,
           );
         }
       }, 200);
@@ -888,7 +892,7 @@ window.reader = new (function () {
 
     // SCROLL POSITION PRESERVATION: Find a reference element that will remain after trim
     // We use the first visible paragraph in the CURRENT chapter (the one that stays)
-    const readableElements = this.getReadableElements();
+    const trimElements = this.getReadableElements();
     let referenceElement = null;
     let referenceOffsetFromTop = 0;
 
@@ -900,10 +904,10 @@ window.reader = new (function () {
     ) {
       for (
         let i = secondChapterBoundary.startIndex;
-        i < readableElements.length && i <= secondChapterBoundary.endIndex;
+        i < trimElements.length && i <= secondChapterBoundary.endIndex;
         i++
       ) {
-        const el = readableElements[i];
+        const el = trimElements[i];
         if (!el) continue;
         const rect = el.getBoundingClientRect();
         if (rect.top < window.innerHeight && rect.bottom > 0) {
@@ -1018,9 +1022,8 @@ window.reader = new (function () {
       referenceElement.isConnected &&
       newCurrentBoundary
     ) {
-      const readableElements = this.getReadableElements();
-      const globalIndex =
-        Array.from(readableElements).indexOf(referenceElement);
+      const currentElements = this.getReadableElements();
+      const globalIndex = Array.from(currentElements).indexOf(referenceElement);
       if (globalIndex >= 0) {
         // Convert global index to local index within the new chapter
         currentLocalParagraphIndex =
@@ -3477,10 +3480,10 @@ function calculatePages() {
         }
 
         // CRITICAL FIX: Skip recovery scroll if stitched mode (multiple chapters loaded)
-        const isStitchedMode =
+        const isStitchedModeRecovery =
           reader.loadedChapters && reader.loadedChapters.length > 1;
 
-        if (isStitchedMode) {
+        if (isStitchedModeRecovery) {
           if (DEBUG) {
             console.log(
               '[calculatePages] Skipping paragraph recovery - stitched mode active (paragraph belongs to different chapter)',
@@ -3546,10 +3549,10 @@ function calculatePages() {
       }
     } else if (!reader.hasPerformedInitialScroll) {
       // CRITICAL FIX: Skip if stitched mode (multiple chapters loaded)
-      const isStitchedMode =
+      const isStitchedModeInitial =
         reader.loadedChapters && reader.loadedChapters.length > 1;
 
-      if (isStitchedMode) {
+      if (isStitchedModeInitial) {
         if (DEBUG) {
           console.log(
             '[calculatePages] Skipping initial scroll - stitched mode active (multiple chapters loaded)',

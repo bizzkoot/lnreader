@@ -957,7 +957,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     window.reader.receiveChapterContent(
                       ${targetChapter.id},
                       ${JSON.stringify(targetChapter.name)},
-                      ${JSON.stringify(chapterHtml)}
+                      ${JSON.stringify(chapterHtml)},
+                      ${JSON.stringify(targetChapter)}
                     );
                   }
                   true;
