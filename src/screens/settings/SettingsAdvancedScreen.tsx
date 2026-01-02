@@ -59,7 +59,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
       showToast(getString('webview.cookiesCleared'));
       hideClearCookiesDialog();
     } catch (error) {
-      showToast(getString('common.error'));
+      showToast('Error');
     }
   };
 

@@ -206,7 +206,7 @@ describe('WebView Cookie Sync', () => {
       const currentUrl = 'https://example.com/path';
 
       // Non-string cookie value should be ignored
-      const parsed = { cookies: 123 };
+      const parsed: { cookies?: unknown } = { cookies: 123 };
 
       // Simulate onMessage logic
       if (parsed.cookies && typeof parsed.cookies === 'string') {
@@ -229,13 +229,14 @@ describe('WebView Cookie Sync', () => {
       const currentUrl = 'https://example.com/path';
 
       // Non-object payload should be ignored
-      const parsed = 'not an object';
+      const parsed: unknown = 'not an object';
 
       // Simulate onMessage logic
       if (parsed && typeof parsed === 'object') {
-        if (parsed.cookies && typeof parsed.cookies === 'string') {
+        const typedParsed = parsed as { cookies?: string };
+        if (typedParsed.cookies && typeof typedParsed.cookies === 'string') {
           const cookies: Record<string, string> = {};
-          parsed.cookies.split(';').forEach((cookieStr: string) => {
+          typedParsed.cookies.split(';').forEach((cookieStr: string) => {
             const [name, value] = cookieStr.trim().split('=');
             if (name && value) {
               cookies[name] = value;
@@ -253,13 +254,14 @@ describe('WebView Cookie Sync', () => {
     it('should handle null payload gracefully', async () => {
       const currentUrl = 'https://example.com/path';
 
-      const parsed = null;
+      const parsed: { cookies?: string } | null = null;
 
       // Simulate onMessage logic
       if (parsed && typeof parsed === 'object') {
-        if (parsed.cookies && typeof parsed.cookies === 'string') {
+        const typedParsed = parsed as { cookies?: string };
+        if (typedParsed.cookies && typeof typedParsed.cookies === 'string') {
           const cookies: Record<string, string> = {};
-          parsed.cookies.split(';').forEach((cookieStr: string) => {
+          typedParsed.cookies.split(';').forEach((cookieStr: string) => {
             const [name, value] = cookieStr.trim().split('=');
             if (name && value) {
               cookies[name] = value;
@@ -277,7 +279,11 @@ describe('WebView Cookie Sync', () => {
     it('should handle undefined cookies field', async () => {
       const currentUrl = 'https://example.com/path';
 
-      const parsed = { localStorage: {}, sessionStorage: {} };
+      const parsed: {
+        localStorage?: unknown;
+        sessionStorage?: unknown;
+        cookies?: string;
+      } = { localStorage: {}, sessionStorage: {} };
 
       // Simulate onMessage logic
       if (parsed && typeof parsed === 'object') {
@@ -474,7 +480,11 @@ describe('WebView Cookie Sync', () => {
     it('should not break when cookies field is missing', async () => {
       const currentUrl = 'https://example.com/path';
 
-      const parsed = {
+      const parsed: {
+        localStorage?: unknown;
+        sessionStorage?: unknown;
+        cookies?: string;
+      } = {
         localStorage: { key: 'value' },
         sessionStorage: {},
       };

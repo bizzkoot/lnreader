@@ -39,6 +39,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@navigators/types';
 
 type NovelScreenListProps = {
+  chapters: ChapterInfo[];
   headerOpacity: SharedValue<number>;
   listRef: React.RefObject<LegendListRef | null>;
   navigation: StackNavigationProp<RootStackParamList>;
@@ -56,6 +57,7 @@ type NovelScreenListProps = {
 const ListEmptyComponent = () => <ChapterListSkeleton />;
 
 const NovelScreenList = ({
+  chapters,
   headerOpacity,
   listRef,
   navigation,
@@ -65,7 +67,6 @@ const NovelScreenList = ({
   getNextChapterBatch,
 }: NovelScreenListProps) => {
   const {
-    chapters,
     deleteChapter,
     fetching,
     getNovel,

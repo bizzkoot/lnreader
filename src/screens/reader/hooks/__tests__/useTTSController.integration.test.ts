@@ -300,6 +300,7 @@ describe('useTTSController - Integration Tests', () => {
   let mockReaderSettingsRef: RefObject<ChapterReaderSettings>;
   let mockChapterGeneralSettingsRef: RefObject<ChapterGeneralSettings>;
   let mockSaveProgress: jest.Mock;
+  let mockRefreshChaptersFromContext: jest.Mock;
   let mockNavigateChapter: jest.Mock;
   let mockGetChapter: jest.Mock;
   let mockShowToastMessage: jest.Mock;
@@ -324,6 +325,7 @@ describe('useTTSController - Integration Tests', () => {
     html: '<p id="0">First paragraph</p><p id="1">Second paragraph</p><p id="2">Third paragraph</p>',
     webViewRef: mockWebViewRef,
     saveProgress: mockSaveProgress,
+    refreshChaptersFromContext: mockRefreshChaptersFromContext,
     navigateChapter: mockNavigateChapter,
     getChapter: mockGetChapter,
     nextChapter: mockNextChapter,
@@ -788,6 +790,7 @@ describe('useTTSController - Integration Tests', () => {
 
     // Setup mocks
     mockSaveProgress = jest.fn();
+    mockRefreshChaptersFromContext = jest.fn();
     mockNavigateChapter = jest.fn();
     mockGetChapter = jest.fn();
     mockShowToastMessage = jest.fn();

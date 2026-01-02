@@ -285,6 +285,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
         <SafeAreaView excludeTop>
           <Suspense fallback={<NovelScreenLoading theme={theme} />}>
             <NovelScreenList
+              chapters={chapters}
               headerOpacity={headerOpacity}
               listRef={chapterListRef}
               navigation={navigation as StackNavigationProp<RootStackParamList>}

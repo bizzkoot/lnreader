@@ -135,6 +135,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     chapterText: html,
     navigateChapter,
     saveProgress,
+    refreshChaptersFromContext,
     nextChapter,
     prevChapter,
     webViewRef,
@@ -338,6 +339,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     html,
     webViewRef,
     saveProgress,
+    refreshChaptersFromContext,
     navigateChapter,
     getChapter,
     nextChapter,
@@ -1241,6 +1243,23 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       getChapter,
     ],
   );
+
+  // ============================================================================
+  // Unmount: Sync Chapter List
+  // ============================================================================
+
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount: ensure latest progress synced to chapter list
+      if (refreshChaptersFromContext) {
+        refreshChaptersFromContext();
+        readerLog.debug(
+          'unmount-sync',
+          'Refreshed chapter list on Reader unmount',
+        );
+      }
+    };
+  }, [refreshChaptersFromContext]);
 
   // ============================================================================
   // Render

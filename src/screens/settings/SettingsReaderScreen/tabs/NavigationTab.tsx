@@ -121,7 +121,7 @@ const NavigationTab: React.FC = () => {
         {useVolumeButtons && (
           <View style={styles.inputContainer}>
             <TextInput
-              label={getString('readerSettings.volumeButtonsOffset')}
+              label="Scroll offset (px)"
               mode="outlined"
               keyboardType="numeric"
               defaultValue={defaultTo(

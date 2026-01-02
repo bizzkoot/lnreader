@@ -76,18 +76,21 @@ Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
 
 ## Recent Fixes
 
-### TTS Progress & Wake Scroll Fixes (2026-01-03) - ✅ COMPLETED
-- **Bug #1 - Chapter List Sync**: Chapter list now syncs progress after TTS reading
-  - **Root Cause**: TTS called `updateChapterProgressDb()` (DB-only) instead of `saveProgress()` (DB + UI)
-  - **Fix**: Replace DB-only calls with `saveProgressRef.current()` at media nav confirmation points
-  - **Impact**: Chapter list UI now updates correctly after TTS updates progress
-  - **Files**: useTTSController.ts (lines 2053, 2204)
-- **Bug #2 - Wake Scroll Restoration**: App return from background now scrolls to correct TTS paragraph
+### TTS Progress & Wake Scroll Fixes (2026-01-03)
+- **Bug #1 - Chapter List Sync**: 🔴 PARTIAL FIX - Still broken for regular playback
+  - **Root Cause (Revised)**: Media nav buttons fixed ✅, but regular TTS playback (para-by-para) still calls `updateChapterProgressDb()` (DB-only) at line 1464
+  - **Partial Fix**: Lines 2053/2204 now use `saveProgressRef.current()` for PREV/NEXT chapter media buttons
+  - **Still Broken**: `handleSaveProgress()` callback (line 1464) updates DB but not UI during ongoing playback
+  - **Symptom**: Progress updates only on initial TTS start/resume, NOT during continuous playback
+  - **Impact**: User reads Ch 6087 from 7% → 16%, exits → Chapter list shows 0% (unread)
+  - **Next Fix**: Line 1464 must call `updateChapterProgress()` (hook function with `mutateChapters()`) instead of DB-only function
+  - **Detailed Report**: [specs/tts-chapter-progress-sync/bug-report.md](specs/tts-chapter-progress-sync/bug-report.md)
+- **Bug #2 - Wake Scroll Restoration**: ✅ COMPLETED - Working correctly
   - **Root Cause**: Wake resume block only resumed playback, missing scroll restoration
   - **Fix**: Inject `window.tts.scrollToElement()` before `speakBatch()` in wake resume
   - **Impact**: User returns to app → reader scrolls to last TTS paragraph (not top of chapter)
   - **Files**: useTTSController.ts (line 1305 - 26 new lines)
-- **Status**: All 1072 tests passing, committed 69d78b863, pushed
+- **Commits**: 69d78b863 (partial fix), 8f46c7ee2 (docs), bug report created 2026-01-03
 
 ### Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
 - **Goal**: Upgrade from Gradle 8.14.3 → 9.2.0

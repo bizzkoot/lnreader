@@ -98,6 +98,8 @@ export interface UseTTSControllerParams {
     paragraphIndex?: number,
     ttsState?: string,
   ) => void;
+  /** Refresh chapter list after progress save */
+  refreshChaptersFromContext: () => void;
   /** Navigate to next/prev chapter */
   navigateChapter: (direction: 'NEXT' | 'PREV') => void;
   /** Get a specific chapter */
@@ -289,6 +291,7 @@ export function useTTSController(
     html,
     webViewRef,
     saveProgress,
+    refreshChaptersFromContext,
     navigateChapter,
     getChapter,
     nextChapter,
@@ -685,6 +688,7 @@ export function useTTSController(
   const manualModeHandlers = useManualModeHandlers({
     webViewRef,
     showToastMessage,
+    refreshChaptersFromContext,
     refs: { isTTSReadingRef, isTTSPlayingRef, hasUserScrolledRef },
     callbacks: { hideManualModeDialog },
   });
@@ -1469,6 +1473,11 @@ export function useTTSController(
         reason => {
           TTSHighlight.stop();
 
+          // ✅ NEW: Sync chapter list after auto-stop
+          setTimeout(() => {
+            refreshChaptersFromContext();
+          }, 100);
+
           // Show toast notification
           const messages = {
             minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
@@ -1528,6 +1537,7 @@ export function useTTSController(
     chapterGeneralSettingsRef,
     updateTtsMediaNotificationState,
     showToastMessage,
+    refreshChaptersFromContext,
   ]);
 
   // ===========================================================================
@@ -2397,13 +2407,13 @@ export function useTTSController(
               'Next chapter not downloaded, waiting...',
             );
             showToastMessage(
-              getString('readerScreen.tts.downloadingNextChapter'),
+              getString('readerScreen.bottomSheet.tts.downloadingNextChapter'),
             );
 
             // Update notification to show downloading status
             TTSHighlight.updateMediaState({
               novelName,
-              chapterLabel: `${getString('readerScreen.tts.downloadingNextChapter')}`,
+              chapterLabel: `${getString('readerScreen.bottomSheet.tts.downloadingNextChapter')}`,
               chapterId,
               paragraphIndex: totalParagraphsRef.current - 1,
               totalParagraphs: totalParagraphsRef.current,
@@ -2429,7 +2439,9 @@ export function useTTSController(
                 'download-timeout',
                 'Download timeout for next chapter',
               );
-              showToastMessage(getString('readerScreen.tts.downloadTimeout'));
+              showToastMessage(
+                getString('readerScreen.bottomSheet.tts.downloadTimeout'),
+              );
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               TTSHighlight.updateMediaState({
@@ -2449,7 +2461,9 @@ export function useTTSController(
                 'Next chapter download complete',
               );
             }
-            showToastMessage(getString('readerScreen.tts.downloadComplete'));
+            showToastMessage(
+              getString('readerScreen.bottomSheet.tts.downloadComplete'),
+            );
           }
 
           ttsCtrlLog.debug(
@@ -2548,6 +2562,11 @@ export function useTTSController(
             );
             TTSHighlight.stop();
             isTTSReadingRef.current = false;
+
+            // ✅ NEW: Sync chapter list after background TTS stop
+            setTimeout(() => {
+              refreshChaptersFromContext();
+            }, 100);
           }
         } else if (nextAppState === 'active') {
           // =====================================================================
@@ -3057,6 +3076,7 @@ export function useTTSController(
     chapterGeneralSettingsRef,
     readerSettingsRef,
     webViewRef,
+    refreshChaptersFromContext,
   ]);
 
   // ===========================================================================
