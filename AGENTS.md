@@ -27,10 +27,20 @@ pnpm run test:tts-wake-cycle
 ```
 
 ## Current Task
-TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
-- **Features**: Sleep timer (minutes/paragraphs/end of chapter), smart rewind (N paragraphs after pause)
-- **Files**: `useSettings.ts`, `SleepTimer.ts`, `useTTSController.ts`, `ReaderTTSTab.tsx`
-- **Status**: All 917 tests passing
+Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
+- **Goal**: Upgrade from Gradle 8.14.3 → 9.2.0 for performance, security, future-proofing
+- **Compatibility**: AGP 8.12.0 ✅, Kotlin 2.1.20 ✅, Java 17 ✅
+- **Issues Fixed**: 
+  - ✅ Patched `@react-native-cookies/cookies` (jcenter → mavenCentral)
+  - ✅ Fixed `force = true` breaking change → `resolutionStrategy.force()`
+- **Status**: Code fixed, build validation pending
+- **Docs**: [specs/upgrade-gradle-v9/implementation-log.md](specs/upgrade-gradle-v9/implementation-log.md)
+
+### Previous Completed Tasks
+- TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
+  - **Features**: Sleep timer (minutes/paragraphs/end of chapter), smart rewind (N paragraphs after pause)
+  - **Files**: `useSettings.ts`, `SleepTimer.ts`, `useTTSController.ts`, `ReaderTTSTab.tsx`
+  - **Status**: All 917 tests passing
 
 ## TTS Architecture (3-Layer Hybrid)
 
@@ -65,6 +75,17 @@ TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
 7. `src/plugins/pluginManager.ts` - Dynamic plugin loading
 
 ## Recent Fixes
+
+### Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
+- **Goal**: Upgrade from Gradle 8.14.3 → 9.2.0
+- **Breaking Changes Fixed**:
+  1. **jcenter() Removal**: Patched `@react-native-cookies/cookies@8.0.1` via pnpm patch (4 instances jcenter → mavenCentral)
+  2. **Dependency Force Syntax**: Migrated from `force = true` to `configurations.all { resolutionStrategy.force() }` in `android/app/build.gradle`
+- **Compatibility**: AGP 8.12.0, Kotlin 2.1.20, Java 17 all compatible
+- **Non-Blocking Warnings**: Expo module deprecations (upstream), multi-string notation (React Native internal)
+- **Files Modified**: `gradle-wrapper.properties`, `android/app/build.gradle`, `patches/@react-native-cookies__cookies@8.0.1.patch`
+- **Status**: Code complete, awaiting build validation (next session)
+- **Docs**: [specs/upgrade-gradle-v9/implementation-log.md](specs/upgrade-gradle-v9/implementation-log.md)
 
 ### Phase 3: DNS-over-HTTPS (DoH) Implementation (2026-01-02)
 - **Feature**: DoH provider selection in Settings → Advanced (Android-only)

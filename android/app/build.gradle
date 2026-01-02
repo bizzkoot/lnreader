@@ -134,18 +134,22 @@ dependencies {
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
 
     // OkHttp 4.12.0 for DoH support (Phase 3)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0") {
-        force = true
-    }
-    implementation("com.squareup.okhttp3:okhttp-urlconnection:4.12.0") {
-        force = true
-    }
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-urlconnection:4.12.0")
     // DNS over HTTPS support
     implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
     // Updated Okio dependency
-    implementation("com.squareup.okio:okio:3.6.0") {
-        force = true
+    implementation("com.squareup.okio:okio:3.6.0")
+}
+
+// Force OkHttp/Okio versions for DoH support (Gradle 9.x compatible)
+configurations.all {
+    resolutionStrategy {
+        force 'com.squareup.okhttp3:okhttp:4.12.0'
+        force 'com.squareup.okhttp3:okhttp-urlconnection:4.12.0'
+        force 'com.squareup.okio:okio:3.6.0'
     }
+}
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
