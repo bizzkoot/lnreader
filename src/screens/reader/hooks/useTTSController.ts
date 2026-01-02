@@ -865,6 +865,11 @@ export function useTTSController(
                 reason => {
                   TTSHighlight.stop();
 
+                  // ✅ NEW: Sync chapter list after auto-stop
+                  setTimeout(() => {
+                    refreshChaptersFromContext();
+                  }, 100);
+
                   // Show toast notification
                   const messages = {
                     minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
@@ -1136,6 +1141,7 @@ export function useTTSController(
       showScrollSyncDialog,
       showManualModeDialog,
       showToastMessage,
+      refreshChaptersFromContext,
     ],
   );
 
@@ -2090,6 +2096,11 @@ export function useTTSController(
               } catch (e) {
                 ignoreError(e, 'markChapterUnread (source in-progress)');
               }
+
+              // ✅ NEW: Sync chapter list immediately
+              setTimeout(() => {
+                refreshChaptersFromContext();
+              }, 100);
             } catch (e) {
               ttsCtrlLog.warn(
                 'mark-source-in-progress-failed',
@@ -2242,6 +2253,11 @@ export function useTTSController(
               } catch (e) {
                 ignoreError(e, 'markChapterRead (source read)');
               }
+
+              // ✅ NEW: Sync chapter list immediately
+              setTimeout(() => {
+                refreshChaptersFromContext();
+              }, 100);
             } catch (e) {
               ttsCtrlLog.warn(
                 'mark-source-read-failed',
@@ -2473,6 +2489,11 @@ export function useTTSController(
 
           saveProgressRef.current(100);
 
+          // ✅ NEW: Sync chapter list after completing chapter
+          setTimeout(() => {
+            refreshChaptersFromContext();
+          }, 100);
+
           autoStartTTSRef.current = true;
           backgroundTTSPendingRef.current = true;
           forceStartFromParagraphZeroRef.current = true;
@@ -2489,6 +2510,12 @@ export function useTTSController(
           );
           isTTSReadingRef.current = false;
           isTTSPlayingRef.current = false;
+
+          // ✅ NEW: Sync chapter list after completing novel
+          setTimeout(() => {
+            refreshChaptersFromContext();
+          }, 100);
+
           showToastMessage('Novel reading complete!');
         }
       },
@@ -2844,6 +2871,11 @@ export function useTTSController(
                             { mode: autoStopMode, amount: autoStopAmount },
                             reason => {
                               TTSHighlight.stop();
+
+                              // ✅ NEW: Sync chapter list after auto-stop
+                              setTimeout(() => {
+                                refreshChaptersFromContext();
+                              }, 100);
 
                               // Show toast notification
                               const messages = {
