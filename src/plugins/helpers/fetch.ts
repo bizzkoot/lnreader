@@ -2,6 +2,8 @@ import { getUserAgent } from '@hooks/persisted/useUserAgent';
 import NativeFile from '@specs/NativeFile';
 import { parse as parseProto } from 'protobufjs';
 import { CookieManager } from '@services/network/CookieManager';
+import { CloudflareDetector } from '@services/network/CloudflareDetector';
+import { CloudflareBypass } from '@services/network/CloudflareBypass';
 
 type FetchInit = {
   headers?: Record<string, string> | Headers;
@@ -70,7 +72,34 @@ export const fetchApi = async (
   // STEP 2: Make request
   const response = await fetch(url, init);
 
-  // STEP 3: Save Set-Cookie headers
+  // STEP 3: Check for Cloudflare challenge
+  if (CloudflareDetector.isChallenge(response)) {
+    try {
+      // Attempt automatic bypass
+      const bypassResult = await CloudflareBypass.solve({
+        url,
+        timeout: 30000,
+        hidden: true, // Try hidden mode first
+        userAgent:
+          init.headers instanceof Headers
+            ? init.headers.get('User-Agent') || undefined
+            : init.headers?.['User-Agent'],
+      });
+
+      if (bypassResult.success) {
+        // Retry request with new cookies (auto-injected by STEP 1)
+        return fetchApi(url, init);
+      }
+    } catch (error) {
+      // Bypass error - fall through to return original response
+    }
+
+    // Bypass failed or error - return original response
+    // UI layer can detect Cloudflare challenge and offer manual bypass
+    return response;
+  }
+
+  // STEP 4: Save Set-Cookie headers
   try {
     const setCookieHeader = response.headers.get('set-cookie');
     if (setCookieHeader) {
