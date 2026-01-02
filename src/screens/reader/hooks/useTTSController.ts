@@ -92,7 +92,7 @@ export interface UseTTSControllerParams {
   webViewRef: RefObject<WebView | null>;
 
   // === Context Functions ===
-  /** Save reading progress */
+  /** Save reading progress (calls hook's updateChapterProgress for DB + UI update) */
   saveProgress: (
     progress: number,
     paragraphIndex?: number,
@@ -1302,6 +1302,29 @@ export function useTTSController(
 
           const paragraphs = extractParagraphs(html);
           if (paragraphs && paragraphs.length > savedWakeParagraphIdx) {
+            // CRITICAL FIX (Bug #2): Inject scroll restoration BEFORE resuming playback
+            // This ensures WebView scrolls to the correct paragraph when user returns from background
+            webViewRef.current?.injectJavaScript(`
+              try {
+                if (window.tts) {
+                  const readableElements = reader.getReadableElements();
+                  if (readableElements && readableElements[${savedWakeParagraphIdx}]) {
+                    window.tts.currentElement = readableElements[${savedWakeParagraphIdx}];
+                    window.tts.scrollToElement(window.tts.currentElement);
+                    window.tts.highlightParagraph(${savedWakeParagraphIdx}, ${chapterId});
+                    console.log('TTS: Wake resume - scrolled to paragraph ${savedWakeParagraphIdx}');
+                  } else {
+                    console.warn('TTS: Wake resume - paragraph ${savedWakeParagraphIdx} not found in readableElements');
+                  }
+                } else {
+                  console.warn('TTS: Wake resume - window.tts not available');
+                }
+              } catch (e) {
+                console.error('TTS: Wake resume scroll failed', e);
+              }
+              true;
+            `);
+
             const remaining = paragraphs.slice(savedWakeParagraphIdx);
             const ids = remaining.map(
               (_, i) =>
@@ -2050,7 +2073,8 @@ export function useTTSController(
             }, 60000); // 60 seconds
 
             try {
-              await updateChapterProgressDb(chapterId, 1);
+              // Use saveProgressRef to update DB + trigger UI refresh for current chapter
+              saveProgressRef.current(1, undefined);
               try {
                 await markChapterUnread(chapterId);
               } catch (e) {
@@ -2201,7 +2225,8 @@ export function useTTSController(
             }, 60000); // 60 seconds
 
             try {
-              await updateChapterProgressDb(chapterId, 100);
+              // Use saveProgressRef to update DB + trigger UI refresh for current chapter
+              saveProgressRef.current(100, undefined);
               try {
                 await markChapterRead(chapterId);
               } catch (e) {
