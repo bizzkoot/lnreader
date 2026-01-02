@@ -8,6 +8,9 @@ patchedDependencies:
   '@react-native-cookies/cookies':
     hash: ec064f4a202698a202758abc5b5d8deafb70ffb31585c78608d257295d731b9a
     path: patches/@react-native-cookies__cookies.patch
+  react-native-sha256:
+    hash: 81a343f4b066ea0b1be1daeed7084fc631c6048385fe0f0b30ff188a832b40cc
+    path: patches/react-native-sha256.patch
 
 importers:
 
@@ -189,7 +192,7 @@ importers:
         version: 4.18.0(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1)
       react-native-sha256:
         specifier: ^1.4.10
-        version: 1.4.10
+        version: 1.4.10(patch_hash=81a343f4b066ea0b1be1daeed7084fc631c6048385fe0f0b30ff188a832b40cc)
       react-native-shimmer-placeholder:
         specifier: ^2.0.9
         version: 2.0.9(prop-types@15.8.1)(react-native-linear-gradient@2.8.3(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1))
@@ -11634,7 +11637,7 @@ snapshots:
       react-native: 0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1)
       warn-once: 0.1.1
 
-  react-native-sha256@1.4.10: {}
+  react-native-sha256@1.4.10(patch_hash=81a343f4b066ea0b1be1daeed7084fc631c6048385fe0f0b30ff188a832b40cc): {}
 
   react-native-shimmer-placeholder@2.0.9(prop-types@15.8.1)(react-native-linear-gradient@2.8.3(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1)):
     dependencies:
