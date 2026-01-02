@@ -133,6 +133,20 @@ dependencies {
     implementation 'androidx.media:media:1.7.0'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
 
+    // OkHttp 4.12.0 for DoH support (Phase 3)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0") {
+        force = true
+    }
+    implementation("com.squareup.okhttp3:okhttp-urlconnection:4.12.0") {
+        force = true
+    }
+    // DNS over HTTPS support
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
+    // Updated Okio dependency
+    implementation("com.squareup.okio:okio:3.6.0") {
+        force = true
+    }
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
