@@ -89,18 +89,10 @@ export function useChapterTransition(params: ChapterTransitionParams): void {
         `WebView marked as synced for chapter ${chapterId}`,
       );
 
-      // Clear media navigation tracking after successful transition
-      if (refs.mediaNavSourceChapterIdRef.current) {
-        transitionLog.debug(
-          'clear-media-nav',
-          `Clearing media nav tracking (source: ${refs.mediaNavSourceChapterIdRef.current})`,
-        );
-        // Small delay before clearing to allow confirmation logic to run
-        setTimeout(() => {
-          refs.mediaNavSourceChapterIdRef.current = null;
-          refs.mediaNavDirectionRef.current = null;
-        }, 2000);
-      }
+      // FIX: Do NOT clear media navigation tracking here.
+      // Refs must persist until paragraph 5 confirmation in onSpeechDone handler.
+      // Clearing after 2.3s causes race condition with slow speech rates.
+      // Cleanup is now handled in useTTSController after successful confirmation.
     }, 300);
 
     return () => clearTimeout(syncTimer);

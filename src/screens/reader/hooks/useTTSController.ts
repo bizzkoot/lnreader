@@ -26,6 +26,7 @@ import {
   markChapterRead,
 } from '@database/queries/ChapterQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
+import { db } from '@database/db';
 import {
   ChapterGeneralSettings,
   ChapterReaderSettings,
@@ -350,6 +351,8 @@ export function useTTSController(
   const mediaNavSourceChapterIdRef = useRef<number | null>(null);
   const mediaNavDirectionRef = useRef<MediaNavDirection>(null);
   const prevChapterIdRef = useRef<number>(chapter.id);
+  // Safety timeout to clear media nav refs if paragraph 5 never reached (e.g., user stops TTS early)
+  const mediaNavSafetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync/retry
   const syncRetryCountRef = useRef<number>(0);
@@ -1635,6 +1638,13 @@ export function useTTSController(
             ) {
               const sourceChapterId = mediaNavSourceChapterIdRef.current;
               const direction = mediaNavDirectionRef.current;
+
+              // FIX: Enhanced logging for debugging race condition
+              ttsCtrlLog.info(
+                'media-nav-confirm',
+                `✅ Confirmation checkpoint reached - Source: Ch${sourceChapterId}, Direction: ${direction}, Target paragraph: ${nextIndex}`,
+              );
+
               if (direction === 'NEXT') {
                 ttsCtrlLog.debug(
                   'media-nav-next',
@@ -1658,8 +1668,27 @@ export function useTTSController(
               } else {
                 updateChapterProgressDb(sourceChapterId, 100);
               }
+
+              // FIX: Clear refs AFTER confirmation (moved from useChapterTransition)
+              // This fixes race condition where refs were cleared after 2.3s but confirmation
+              // might take 10-15s+ with slow speech rates.
               mediaNavSourceChapterIdRef.current = null;
               mediaNavDirectionRef.current = null;
+
+              // Clear safety timeout since confirmation succeeded
+              if (mediaNavSafetyTimeoutRef.current) {
+                clearTimeout(mediaNavSafetyTimeoutRef.current);
+                mediaNavSafetyTimeoutRef.current = null;
+                ttsCtrlLog.debug(
+                  'media-nav-safety-cleared',
+                  'Safety timeout cleared after successful confirmation',
+                );
+              }
+
+              ttsCtrlLog.info(
+                'media-nav-cleanup',
+                '✅ Media nav refs cleared after confirmation',
+              );
             }
 
             updateTtsMediaNotificationState(isTTSReadingRef.current);
@@ -1997,6 +2026,29 @@ export function useTTSController(
             mediaNavSourceChapterIdRef.current = chapterId;
             mediaNavDirectionRef.current = 'PREV';
 
+            // FIX: Enhanced logging for debugging
+            ttsCtrlLog.info(
+              'media-nav-start-prev',
+              `🔙 PREV_CHAPTER initiated - Source: Ch${chapterId} → Target: Ch${prevChapter.id}`,
+            );
+
+            // FIX: Start safety timeout (60s) to clear refs if confirmation never runs
+            // (e.g., user stops TTS before reaching paragraph 5)
+            if (mediaNavSafetyTimeoutRef.current) {
+              clearTimeout(mediaNavSafetyTimeoutRef.current);
+            }
+            mediaNavSafetyTimeoutRef.current = setTimeout(() => {
+              if (mediaNavSourceChapterIdRef.current) {
+                ttsCtrlLog.warn(
+                  'media-nav-safety-timeout',
+                  `⏱️ Safety timeout (60s) - Clearing stale refs. Source: Ch${mediaNavSourceChapterIdRef.current} never confirmed.`,
+                );
+                mediaNavSourceChapterIdRef.current = null;
+                mediaNavDirectionRef.current = null;
+                mediaNavSafetyTimeoutRef.current = null;
+              }
+            }, 60000); // 60 seconds
+
             try {
               await updateChapterProgressDb(chapterId, 1);
               try {
@@ -2032,6 +2084,70 @@ export function useTTSController(
               );
             }
 
+            // FIX: Reset all skipped chapters between target and source
+            // When navigating backwards (e.g., Ch10 → Ch7), chapters 8-9 should be reset to 0%
+            // because user is backtracking and hasn't actually read them on this path.
+            try {
+              const currentChapterInfo = await getChapterFromDb(chapterId);
+              if (
+                currentChapterInfo &&
+                typeof prevChapter.position === 'number' &&
+                typeof currentChapterInfo.position === 'number'
+              ) {
+                // Query chapters between target (prevChapter) and source (currentChapter)
+                // For same page: position > targetPos AND position < sourcePos
+                const skippedChapters = await db.getAllAsync<ChapterInfo>(
+                  `SELECT * FROM Chapter 
+                   WHERE novelId = ? AND page = ? 
+                   AND position > ? AND position < ?
+                   ORDER BY position ASC`,
+                  novelId,
+                  currentChapterInfo.page,
+                  prevChapter.position,
+                  currentChapterInfo.position,
+                );
+
+                if (skippedChapters && skippedChapters.length > 0) {
+                  ttsCtrlLog.info(
+                    'reset-skipped-chapters',
+                    `🔄 Resetting ${skippedChapters.length} skipped chapters (Ch${prevChapter.position + 1} to Ch${currentChapterInfo.position - 1})`,
+                  );
+
+                  // Reset each skipped chapter
+                  for (const skippedChapter of skippedChapters) {
+                    try {
+                      await updateChapterProgressDb(skippedChapter.id, 0);
+                      await markChapterUnread(skippedChapter.id);
+                      MMKVStorage.delete(
+                        `chapter_progress_${skippedChapter.id}`,
+                      );
+                      ttsCtrlLog.debug(
+                        'reset-skipped',
+                        `Reset Ch${skippedChapter.position} (ID: ${skippedChapter.id})`,
+                      );
+                    } catch (e) {
+                      ttsCtrlLog.warn(
+                        'reset-skipped-failed',
+                        `Failed to reset chapter ${skippedChapter.id}`,
+                        e,
+                      );
+                    }
+                  }
+                } else {
+                  ttsCtrlLog.debug(
+                    'no-skipped-chapters',
+                    'No skipped chapters to reset (adjacent chapters)',
+                  );
+                }
+              }
+            } catch (e) {
+              ttsCtrlLog.warn(
+                'reset-skipped-chapters-error',
+                'Failed to query/reset skipped chapters',
+                e,
+              );
+            }
+
             isTTSReadingRef.current = true;
             isTTSPausedRef.current = false;
             autoStartTTSRef.current = true;
@@ -2061,6 +2177,28 @@ export function useTTSController(
 
             mediaNavSourceChapterIdRef.current = chapterId;
             mediaNavDirectionRef.current = 'NEXT';
+
+            // FIX: Enhanced logging for debugging
+            ttsCtrlLog.info(
+              'media-nav-start-next',
+              `⏭️ NEXT_CHAPTER initiated - Source: Ch${chapterId} → Target: Ch${nextChapter.id}`,
+            );
+
+            // FIX: Start safety timeout (60s) to clear refs if confirmation never runs
+            if (mediaNavSafetyTimeoutRef.current) {
+              clearTimeout(mediaNavSafetyTimeoutRef.current);
+            }
+            mediaNavSafetyTimeoutRef.current = setTimeout(() => {
+              if (mediaNavSourceChapterIdRef.current) {
+                ttsCtrlLog.warn(
+                  'media-nav-safety-timeout',
+                  `⏱️ Safety timeout (60s) - Clearing stale refs. Source: Ch${mediaNavSourceChapterIdRef.current} never confirmed.`,
+                );
+                mediaNavSourceChapterIdRef.current = null;
+                mediaNavDirectionRef.current = null;
+                mediaNavSafetyTimeoutRef.current = null;
+              }
+            }, 60000); // 60 seconds
 
             try {
               await updateChapterProgressDb(chapterId, 100);
@@ -2783,6 +2921,12 @@ export function useTTSController(
 
     // Cleanup
     return () => {
+      // FIX: Clear media nav safety timeout on unmount
+      if (mediaNavSafetyTimeoutRef.current) {
+        clearTimeout(mediaNavSafetyTimeoutRef.current);
+        mediaNavSafetyTimeoutRef.current = null;
+      }
+
       // Remove all subscriptions with error handling to ensure complete cleanup
       try {
         onSpeechDoneSubscription.remove();
