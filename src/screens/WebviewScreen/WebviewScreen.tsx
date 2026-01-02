@@ -125,9 +125,9 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
               if (parsed.cookies && typeof parsed.cookies === 'string') {
                 const cookies: Record<string, string> = {};
                 parsed.cookies.split(';').forEach((cookieStr: string) => {
-                  const [name, value] = cookieStr.trim().split('=');
-                  if (name && value) {
-                    cookies[name] = value;
+                  const [cookieName, cookieValue] = cookieStr.trim().split('=');
+                  if (cookieName && cookieValue) {
+                    cookies[cookieName] = cookieValue;
                   }
                 });
                 if (Object.keys(cookies).length > 0) {
