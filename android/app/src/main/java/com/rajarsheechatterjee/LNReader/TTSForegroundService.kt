@@ -453,7 +453,26 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         return false
     }
-    
+
+    /**
+     * Adds utterances to the existing TTS queue without flushing.
+     *
+     * **IMPORTANT: Voice Inheritance Behavior**
+     *
+     * This method does NOT call setVoiceWithFallback(). The Android TextToSpeech
+     * engine retains voice settings across all utterances in the same queue session.
+     * Voice is set once during speakBatch() and persists for all subsequent
+     * addToBatch() calls until stop() or a new speakBatch() is called.
+     *
+     * This design is intentional and provides:
+     * - Performance: Avoids repeated voice lookups
+     * - Consistency: Guarantees same voice throughout batch session
+     * - Simplicity: Refill path doesn't need to re-specify voice
+     *
+     * @param texts Array of text strings to speak
+     * @param utteranceIds Array of unique utterance identifiers
+     * @return true if all utterances were added successfully, false otherwise
+     */
     fun addToBatch(
         texts: List<String>,
         utteranceIds: List<String>
