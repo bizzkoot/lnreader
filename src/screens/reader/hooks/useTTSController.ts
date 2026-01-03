@@ -941,8 +941,37 @@ export function useTTSController(
           return true;
 
         case 'stop-speak':
+          // FIX: Save progress before stopping to prevent data loss
+          if (currentParagraphIndexRef.current >= 0) {
+            const idx = currentParagraphIndexRef.current;
+            const total = totalParagraphsRef.current;
+            if (idx >= 0 && total > 0) {
+              const percentage = Math.round(((idx + 1) / total) * 100);
+              saveProgressRef.current(percentage, idx);
+              if (__DEV__) {
+                ttsCtrlLog.info(
+                  'stop-save-progress',
+                  `idx=${idx} total=${total} pct=${percentage}`,
+                );
+              }
+            }
+          }
+
           TTSHighlight.fullStop();
+
+          // FIX: Reset state to clean slate to prevent persistent corruption
+          // This ensures that any drift accumulated during the session doesn't persist
+          currentParagraphIndexRef.current = -1;
+          latestParagraphIndexRef.current = -1;
           isTTSReadingRef.current = false;
+          isTTSPlayingRef.current = false;
+          isTTSPausedRef.current = false;
+          ttsQueueRef.current = null;
+
+          ttsCtrlLog.debug(
+            'tts-stopped-state-reset',
+            'TTS stopped, state reset to clean slate',
+          );
           return true;
 
         case 'tts-state':
@@ -1598,7 +1627,7 @@ export function useTTSController(
     // onSpeechDone - Handle paragraph completion
     const onSpeechDoneSubscription = TTSHighlight.addListener(
       'onSpeechDone',
-      () => {
+      event => {
         if (wakeTransitionInProgressRef.current) {
           ttsCtrlLog.debug(
             'speech-done-wake-transition',
@@ -1616,8 +1645,58 @@ export function useTTSController(
           return;
         }
 
+        // FIX: Parse utterance ID to verify the paragraph index before incrementing
+        // This prevents drift from stale events during pause/resume/stop cycles
+        const utteranceId = event?.utteranceId || '';
+        let doneParagraphIndex = -1;
+
+        if (typeof utteranceId === 'string') {
+          const chapterMatch = utteranceId.match(
+            /chapter_(\d+)_utterance_(\d+)/,
+          );
+          if (chapterMatch) {
+            const eventChapterId = Number(chapterMatch[1]);
+            const currentChapterId = Number(prevChapterIdRef.current);
+
+            // Verify chapter ID matches before extracting paragraph index
+            if (eventChapterId === currentChapterId) {
+              doneParagraphIndex = Number(chapterMatch[2]);
+            } else {
+              // Chapter mismatch - stale event from previous chapter
+              if (
+                Date.now() - lastStaleLogTimeRef.current >
+                TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
+              ) {
+                ttsCtrlLog.debug(
+                  'speech-done-chapter-mismatch',
+                  `[STALE] onSpeechDone chapter ${eventChapterId} != ${currentChapterId}, ignoring`,
+                );
+                lastStaleLogTimeRef.current = Date.now();
+              }
+              return;
+            }
+          }
+        }
+
         if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
           const currentIdx = currentParagraphIndexRef.current;
+
+          // FIX: Verify the utterance ID matches our current position before incrementing
+          // This prevents stale events from corrupting the index during pause/resume cycles
+          if (doneParagraphIndex >= 0 && doneParagraphIndex !== currentIdx) {
+            if (
+              Date.now() - lastStaleLogTimeRef.current >
+              TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
+            ) {
+              ttsCtrlLog.warn(
+                'speech-done-index-mismatch',
+                `Utterance ID index ${doneParagraphIndex} != ref ${currentIdx}, ignoring stale event`,
+              );
+              lastStaleLogTimeRef.current = Date.now();
+            }
+            return;
+          }
+
           const queueStartIndex = ttsQueueRef.current.startIndex;
           const queueEndIndex =
             queueStartIndex + ttsQueueRef.current.texts.length;
