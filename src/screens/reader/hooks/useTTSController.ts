@@ -377,6 +377,11 @@ export function useTTSController(
   const navigateChapterRef = useRef(navigateChapter);
   const saveProgressRef = useRef(saveProgress);
   const progressRef = useRef<number>(chapter.progress ?? 0);
+  const refreshChaptersFromContextRef = useRef(refreshChaptersFromContext); // FIX: Keep refresh in sync for playback UI updates
+
+  // Chapter list refresh timing (debounced to avoid excessive DB reloads during rapid paragraph updates)
+  const lastChapterListRefreshTimeRef = useRef<number>(0);
+  const CHAPTER_LIST_REFRESH_DEBOUNCE_MS = 500;
 
   // User interaction tracking
   const hasUserScrolledRef = useRef<boolean>(false);
@@ -436,6 +441,11 @@ export function useTTSController(
   useEffect(() => {
     manualModeDialogVisibleRef.current = dialogState.manualModeDialogVisible;
   }, [dialogState.manualModeDialogVisible]);
+
+  // FIX: Keep refreshChaptersFromContext ref synced for real-time chapter list updates during TTS playback
+  useEffect(() => {
+    refreshChaptersFromContextRef.current = refreshChaptersFromContext;
+  }, [refreshChaptersFromContext]);
 
   // ===========================================================================
   // Utility Functions (Phase 1: Extracted)
@@ -1669,6 +1679,20 @@ export function useTTSController(
             // FIX: Use ref.current directly to avoid stale closure
             // saveProgressRef is kept in sync by useRefSync hook
             saveProgressRef.current(percentage, nextIndex);
+
+            // FIX: Debounce chapter list refresh during playback to sync UI in real-time
+            // This ensures the Chapter List shows updated progress without excessive DB reloads
+            const now = Date.now();
+            if (
+              now - lastChapterListRefreshTimeRef.current >=
+              CHAPTER_LIST_REFRESH_DEBOUNCE_MS
+            ) {
+              lastChapterListRefreshTimeRef.current = now;
+              // Schedule refresh on next tick to avoid blocking TTS playback
+              setTimeout(() => {
+                refreshChaptersFromContextRef.current?.();
+              }, 0);
+            }
 
             // Check media navigation confirmation
             if (
