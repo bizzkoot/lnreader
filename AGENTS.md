@@ -30,15 +30,20 @@ pnpm run test:tts-wake-cycle
 
 ## Current Task
 
-Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
+TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
 
-- **Goal**: Upgrade from Gradle 8.14.3 → 9.2.0 for performance, security, future-proofing
-- **Compatibility**: AGP 8.12.0 ✅, Kotlin 2.1.20 ✅, Java 17 ✅
-- **Issues Fixed**:
-  - ✅ Patched `@react-native-cookies/cookies` (jcenter → mavenCentral)
-  - ✅ Fixed `force = true` breaking change → `resolutionStrategy.force()`
-- **Status**: Code fixed, build validation pending
-- **Docs**: [specs/upgrade-gradle-v9/implementation-log.md](specs/upgrade-gradle-v9/implementation-log.md)
+- **Bug**: Chapter List showed stale progress during active TTS playback (only updated on stop/complete events)
+- **Root Cause**: Regular paragraph progress saves called `saveProgress()` which updated DB but didn't trigger UI mutation
+- **Solution**: Added debounced `refreshChaptersFromContext()` call during every paragraph progress save
+- **Implementation**:
+  - `useTTSController.ts` (+24 lines)
+  - Added refs: `refreshChaptersFromContextRef`, `lastChapterListRefreshTimeRef`
+  - Debounce at 500ms prevents excessive DB reloads (~10/sec → ~2/sec)
+  - Uses `setTimeout(..., 0)` to avoid blocking TTS playback
+- **Impact**: Chapter List now syncs progress in real-time during TTS playback
+- **Tests**: 1071/1072 passing (pre-existing failure unrelated)
+- **Commit**: 18faebd83
+- **Docs**: Memory created (ID: 30) and linked to related TTS fixes
 
 ### Previous Completed Tasks
 
@@ -85,16 +90,28 @@ Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
 
 ## Recent Fixes
 
+### TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
+
+- **Bug**: Chapter List showed stale progress during active TTS playback (only updated on stop/complete events)
+- **Root Cause**: Regular paragraph progress saves called `saveProgress()` which updated DB but didn't trigger UI mutation
+- **Solution**: Added debounced `refreshChaptersFromContext()` call during every paragraph progress save
+- **Implementation**:
+  - `useTTSController.ts` (+24 lines)
+  - Added refs: `refreshChaptersFromContextRef`, `lastChapterListRefreshTimeRef`
+  - Debounce at 500ms prevents excessive DB reloads (~10/sec → ~2/sec)
+  - Uses `setTimeout(..., 0)` to avoid blocking TTS playback
+- **Impact**: Chapter List now syncs progress in real-time during TTS playback
+- **Tests**: 1071/1072 passing (pre-existing failure unrelated)
+- **Commit**: 18faebd83
+- **Docs**: Memory created (ID: 30) and linked to related TTS fixes
+
 ### TTS Progress & Wake Scroll Fixes (2026-01-03)
 
-- **Bug #1 - Chapter List Sync**: 🔴 PARTIAL FIX - Still broken for regular playback
-  - **Root Cause (Revised)**: Media nav buttons fixed ✅, but regular TTS playback (para-by-para) still calls `updateChapterProgressDb()` (DB-only) at line 1464
-  - **Partial Fix**: Lines 2053/2204 now use `saveProgressRef.current()` for PREV/NEXT chapter media buttons
-  - **Still Broken**: `handleSaveProgress()` callback (line 1464) updates DB but not UI during ongoing playback
-  - **Symptom**: Progress updates only on initial TTS start/resume, NOT during continuous playback
-  - **Impact**: User reads Ch 6087 from 7% → 16%, exits → Chapter list shows 0% (unread)
-  - **Next Fix**: Line 1464 must call `updateChapterProgress()` (hook function with `mutateChapters()`) instead of DB-only function
-  - **Detailed Report**: [specs/tts-chapter-progress-sync/bug-report.md](specs/tts-chapter-progress-sync/bug-report.md)
+- **Bug #1 - Chapter List Sync**: ✅ FULL FIX - Now works for regular playback
+  - **Original Issue**: Media nav buttons fixed ✅, but regular TTS playback (para-by-para) still called `updateChapterProgressDb()` (DB-only) at line 1464
+  - **Final Fix**: Added debounced `refreshChaptersFromContext()` call during every paragraph progress save
+  - **Symptom Fixed**: Progress updates in real-time during playback, not just on initial TTS start/resume
+  - **Impact**: User reads Ch 6087 from 7% → 16%, exits → Chapter list shows 16% (live)
 - **Bug #2 - Wake Scroll Restoration**: ✅ COMPLETED - Working correctly
   - **Root Cause**: Wake resume block only resumed playback, missing scroll restoration
   - **Fix**: Inject `window.tts.scrollToElement()` before `speakBatch()` in wake resume

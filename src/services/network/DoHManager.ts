@@ -152,6 +152,31 @@ class DoHManagerService {
   getProviderDescription(provider: DoHProvider): string {
     return DoHProviderDescriptions[provider] || '';
   }
+
+  /**
+   * Force close the app (Android-only)
+   */
+  exitApp(): void {
+    if (Platform.OS !== 'android') {
+      rateLimitedLogger.warn('exitApp', 'exitApp is Android-only');
+      return;
+    }
+
+    if (!NativeDoHManager) {
+      rateLimitedLogger.error(
+        'exitApp',
+        'DoHManager native module not available',
+      );
+      return;
+    }
+
+    try {
+      NativeDoHManager.exitApp();
+      rateLimitedLogger.info('exitApp', 'Exiting app');
+    } catch (error) {
+      rateLimitedLogger.error('exitApp', 'Failed to exit app:', error);
+    }
+  }
 }
 
 export const DoHManager = new DoHManagerService();

@@ -108,6 +108,16 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    @ReactMethod
+    fun exitApp() {
+        try {
+            System.exit(0)
+        } catch (e: Exception) {
+            // Fallback to finish() if System.exit() fails
+            currentActivity?.finish()
+        }
+    }
+
     private fun buildDnsOverHttps(providerId: Int): DnsOverHttps? {
         if (providerId == DOH_DISABLED) {
             return null

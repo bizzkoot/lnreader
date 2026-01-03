@@ -154,13 +154,17 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     if (success) {
       setAppSettings({ doHProvider: selectedDoHProvider });
       showToast(getString('advancedSettingsScreen.dohProviderChanged'));
+
+      // Force close the app to apply DoH changes
+      setTimeout(() => {
+        DoHManager.exitApp();
+      }, 500); // Small delay to allow toast to show
     } else {
       showToast(getString('advancedSettingsScreen.dohProviderError'));
       // Revert selection on failure
       setSelectedDoHProvider(doHProvider);
+      hideDohRestartDialog();
     }
-
-    hideDohRestartDialog();
   };
 
   const cancelDoHProviderChange = () => {
