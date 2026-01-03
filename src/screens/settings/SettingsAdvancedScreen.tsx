@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Portal, TextInput } from 'react-native-paper';
 import AppText from '@components/AppText';
@@ -34,22 +34,21 @@ import {
 
 const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   const theme = useTheme();
+  const {
+    uiScale = 1.0,
+    doHProvider = DoHProvider.DISABLED,
+    setAppSettings,
+  } = useAppSettings();
 
   // DoH provider state
-  const [currentDoHProvider, setCurrentDoHProvider] = useState<DoHProvider>(
-    DoHProvider.DISABLED,
-  );
-  const [selectedDoHProvider, setSelectedDoHProvider] = useState<DoHProvider>(
-    DoHProvider.DISABLED,
-  );
+  const [selectedDoHProvider, setSelectedDoHProvider] =
+    useState<DoHProvider>(doHProvider);
 
-  // Load current DoH provider on mount
-  React.useEffect(() => {
-    DoHManager.getProvider().then(provider => {
-      setCurrentDoHProvider(provider);
-      setSelectedDoHProvider(provider);
-    });
-  }, []);
+  // Sync native module with MMKV value on mount
+  useEffect(() => {
+    DoHManager.setProvider(doHProvider);
+    setSelectedDoHProvider(doHProvider);
+  }, [doHProvider]);
 
   const clearCookies = async () => {
     try {
@@ -64,7 +63,6 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   };
 
   const { userAgent, setUserAgent } = useUserAgent();
-  const { uiScale = 1.0 } = useAppSettings();
   const [userAgentInput, setUserAgentInput] = useState(userAgent);
 
   const styles = React.useMemo(
@@ -145,7 +143,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     hideDohProviderModal();
 
     // Show restart warning if provider is changing
-    if (provider !== currentDoHProvider) {
+    if (provider !== doHProvider) {
       showDohRestartDialog();
     }
   };
@@ -154,12 +152,12 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     const success = await DoHManager.setProvider(selectedDoHProvider);
 
     if (success) {
-      setCurrentDoHProvider(selectedDoHProvider);
+      setAppSettings({ doHProvider: selectedDoHProvider });
       showToast(getString('advancedSettingsScreen.dohProviderChanged'));
     } else {
       showToast(getString('advancedSettingsScreen.dohProviderError'));
       // Revert selection on failure
-      setSelectedDoHProvider(currentDoHProvider);
+      setSelectedDoHProvider(doHProvider);
     }
 
     hideDohRestartDialog();
@@ -167,7 +165,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
 
   const cancelDoHProviderChange = () => {
     // Revert to current provider
-    setSelectedDoHProvider(currentDoHProvider);
+    setSelectedDoHProvider(doHProvider);
     hideDohRestartDialog();
   };
 
@@ -187,7 +185,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
             title={getString('advancedSettingsScreen.dohProvider')}
             description={
               Platform.OS === 'android'
-                ? DoHProviderNames[currentDoHProvider]
+                ? DoHProviderNames[doHProvider]
                 : getString('advancedSettingsScreen.dohAndroidOnly')
             }
             onPress={

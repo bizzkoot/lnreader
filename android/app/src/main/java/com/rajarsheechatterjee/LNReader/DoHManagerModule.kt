@@ -5,6 +5,8 @@ import okhttp3.OkHttpClient
 import okhttp3.dnsoverhttps.DnsOverHttps
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.net.InetAddress
+import android.content.Context
+import android.content.SharedPreferences
 
 class DoHManagerModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -14,6 +16,8 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
         const val DOH_CLOUDFLARE = 1
         const val DOH_GOOGLE = 2
         const val DOH_ADGUARD = 3
+        const val PREFS_NAME = "DoHManagerPrefs"
+        const val KEY_PROVIDER = "current_provider"
 
         @Volatile
         private var currentProvider: Int = DOH_DISABLED
@@ -21,16 +25,46 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
         @Volatile
         private var dohInstance: DnsOverHttps? = null
 
+        @Volatile
+        private var isInitialized: Boolean = false
+
         /**
          * Get current DoH DNS instance for OkHttpClient configuration
          * This is called by network layer to apply DoH if enabled
          */
         fun getDnsInstance(): DnsOverHttps? = dohInstance
-        
+
         /**
          * Get current provider ID
          */
         fun getCurrentProvider(): Int = currentProvider
+    }
+
+    private var prefs: SharedPreferences? = null
+
+    // Initialize SharedPreferences on first access
+    private fun initPrefs() {
+        if (prefs == null) {
+            prefs = reactApplicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }
+    }
+
+    // Save provider to SharedPreferences
+    private fun saveProvider(providerId: Int) {
+        initPrefs()
+        prefs?.edit()?.putInt(KEY_PROVIDER, providerId)?.apply()
+    }
+
+    // Load provider from SharedPreferences
+    private fun loadProvider(): Int {
+        initPrefs()
+        return prefs?.getInt(KEY_PROVIDER, DOH_DISABLED) ?: DOH_DISABLED
+    }
+
+    // Clear SharedPreferences
+    private fun clearPrefs() {
+        initPrefs()
+        prefs?.edit()?.clear()?.apply()
     }
 
     override fun getName(): String = "DoHManager"
@@ -40,6 +74,7 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
         try {
             currentProvider = providerId
             dohInstance = buildDnsOverHttps(providerId)
+            saveProvider(providerId)
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("DOH_ERROR", "Failed to set DoH provider: ${e.message}", e)
@@ -49,6 +84,12 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun getProvider(promise: Promise) {
         try {
+            // Initialize from SharedPreferences on first call
+            if (!isInitialized) {
+                currentProvider = loadProvider()
+                dohInstance = buildDnsOverHttps(currentProvider)
+                isInitialized = true
+            }
             promise.resolve(currentProvider)
         } catch (e: Exception) {
             promise.reject("DOH_ERROR", "Failed to get DoH provider: ${e.message}", e)
@@ -60,6 +101,7 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
         try {
             currentProvider = DOH_DISABLED
             dohInstance = null
+            clearPrefs()
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("DOH_ERROR", "Failed to clear DoH provider: ${e.message}", e)
