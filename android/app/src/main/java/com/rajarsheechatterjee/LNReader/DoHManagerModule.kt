@@ -114,7 +114,7 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
             System.exit(0)
         } catch (e: Exception) {
             // Fallback to finish() if System.exit() fails
-            currentActivity?.finish()
+            reactApplicationContext.currentActivity?.finish()
         }
     }
 
