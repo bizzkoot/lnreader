@@ -261,6 +261,8 @@ export interface UseTTSControllerReturn {
   restartTtsFromParagraphIndex: (targetIndex: number) => Promise<void>;
   /** Update TTS media notification state */
   updateTtsMediaNotificationState: (nextIsPlaying: boolean) => void;
+  /** Cleanup all TTS state (MMKV + refs) for media navigation */
+  cleanupAllTTSState: (chapterIds: number[]) => Promise<void>;
 }
 
 // ============================================================================
@@ -329,6 +331,66 @@ export function useTTSController(
   const ttsStateRef = useRef<TTSPersistenceState | null>(null);
   // Reserved for full wake handling - will be used in background TTS effect
   const ttsSessionRef = useRef<number>(0);
+
+  /**
+   * Cleanup All TTS State
+   *
+   * Clears ALL TTS-related state from MMKV and in-memory refs.
+   * Called when user navigates via media notification to prevent
+   * stale "resume" dialog confusion.
+   *
+   * @param chapterIds - Array of chapter IDs to clear progress for
+   */
+  const cleanupAllTTSState = useCallback(async (chapterIds: number[] = []) => {
+    ttsCtrlLog.info(
+      'tts-state-cleanup',
+      `🧹 Cleaning up TTS state for ${chapterIds.length} chapters`,
+    );
+
+    try {
+      // Clear MMKV flags
+      MMKVStorage.delete('pendingTTSResumeChapterId');
+      MMKVStorage.delete('lastTTSChapterId');
+      MMKVStorage.delete('tts_button_position');
+
+      ttsCtrlLog.debug(
+        'tts-state-cleanup-mmkv',
+        'Cleared MMKV flags: pendingTTSResumeChapterId, lastTTSChapterId, tts_button_position',
+      );
+
+      // Clear progress for specified chapters
+      for (const id of chapterIds) {
+        if (typeof id === 'number' && id > 0) {
+          MMKVStorage.delete(`chapter_progress_${id}`);
+          ttsCtrlLog.debug(
+            'tts-state-cleanup-chapter',
+            `Cleared progress for chapter ${id}`,
+          );
+        }
+      }
+
+      // Clear in-memory state
+      ttsStateRef.current = null;
+      currentParagraphIndexRef.current = -1;
+      latestParagraphIndexRef.current = -1;
+
+      ttsCtrlLog.debug(
+        'tts-state-cleanup-refs',
+        'Cleared in-memory refs: ttsStateRef, currentParagraphIndexRef, latestParagraphIndexRef',
+      );
+
+      ttsCtrlLog.info(
+        'tts-state-cleanup-complete',
+        '✅ TTS state cleanup complete',
+      );
+    } catch (e) {
+      ttsCtrlLog.warn(
+        'tts-state-cleanup-failed',
+        'Failed to cleanup TTS state',
+        e,
+      );
+    }
+  }, []);
 
   // Auto-start flags
   const autoStartTTSRef = useRef<boolean>(false);
@@ -2267,6 +2329,7 @@ export function useTTSController(
             // FIX: Reset all skipped chapters between target and source
             // When navigating backwards (e.g., Ch10 → Ch7), chapters 8-9 should be reset to 0%
             // because user is backtracking and hasn't actually read them on this path.
+            let skippedChapters: ChapterInfo[] = [];
             try {
               const currentChapterInfo = await getChapterFromDb(chapterId);
               if (
@@ -2276,9 +2339,9 @@ export function useTTSController(
               ) {
                 // Query chapters between target (prevChapter) and source (currentChapter)
                 // For same page: position > targetPos AND position < sourcePos
-                const skippedChapters = await db.getAllAsync<ChapterInfo>(
-                  `SELECT * FROM Chapter 
-                   WHERE novelId = ? AND page = ? 
+                skippedChapters = await db.getAllAsync<ChapterInfo>(
+                  `SELECT * FROM Chapter
+                   WHERE novelId = ? AND page = ?
                    AND position > ? AND position < ?
                    ORDER BY position ASC`,
                   novelId,
@@ -2324,6 +2387,23 @@ export function useTTSController(
               ttsCtrlLog.warn(
                 'reset-skipped-chapters-error',
                 'Failed to query/reset skipped chapters',
+                e,
+              );
+            }
+
+            // ✅ CLEANUP ALL TTS STATE
+            // Clear all TTS state to prevent stale "resume" dialog when user returns
+            try {
+              const chapterIdsToClean = [
+                chapterId, // Source chapter
+                prevChapter.id, // Target chapter
+                ...skippedChapters.map(sc => sc.id), // Skipped chapters
+              ];
+              await cleanupAllTTSState(chapterIdsToClean);
+            } catch (e) {
+              ttsCtrlLog.warn(
+                'tts-state-cleanup-failed',
+                'Failed to cleanup TTS state during PREV_CHAPTER navigation',
                 e,
               );
             }
@@ -2415,6 +2495,18 @@ export function useTTSController(
               ttsCtrlLog.warn(
                 'reset-next-chapter-failed',
                 'Failed to reset next chapter progress',
+                e,
+              );
+            }
+
+            // ✅ CLEANUP ALL TTS STATE
+            // Clear all TTS state to prevent stale "resume" dialog
+            try {
+              await cleanupAllTTSState([chapterId, nextChapter.id]);
+            } catch (e) {
+              ttsCtrlLog.warn(
+                'tts-state-cleanup-failed',
+                'Failed to cleanup TTS state during NEXT_CHAPTER navigation',
                 e,
               );
             }
@@ -3235,6 +3327,7 @@ export function useTTSController(
     webViewRef,
     refreshChaptersFromContext,
     syncChapterList,
+    cleanupAllTTSState,
   ]);
 
   // ===========================================================================
@@ -3323,6 +3416,7 @@ export function useTTSController(
     updateLastTTSChapter,
     restartTtsFromParagraphIndex,
     updateTtsMediaNotificationState,
+    cleanupAllTTSState,
   };
 }
 

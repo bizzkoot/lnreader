@@ -841,6 +841,8 @@ describe('useTTSController - Integration Tests', () => {
     // Mock MMKV
     (MMKVStorage.getNumber as jest.Mock).mockReturnValue(null);
     (MMKVStorage.set as jest.Mock).mockReturnValue(undefined);
+    (MMKVStorage.getString as jest.Mock).mockReturnValue(null);
+    (MMKVStorage.delete as jest.Mock).mockReturnValue(undefined);
 
     // Mock database
     (getChapterFromDb as jest.Mock).mockResolvedValue(mockChapter);
@@ -2834,6 +2836,81 @@ describe('useTTSController - Integration Tests', () => {
 
       // 'paragraphs' mode should NOT navigate to next chapter
       expect(mockNavigateChapter).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================================
+  // TTS State Cleanup - Integration Test (Task 4)
+  // ============================================================================
+  describe('TTS State Cleanup - Integration Test', () => {
+    it('should prevent stale resume dialog after media navigation', async () => {
+      // Scenario: User reads Ch100, navigates back to Ch99, exits app, returns
+
+      // Track which keys have been deleted
+      const deletedKeys = new Set<string>();
+      (MMKVStorage.delete as jest.Mock).mockImplementation((key: string) => {
+        deletedKeys.add(key);
+        return undefined;
+      });
+
+      // Step 1: User reads Ch100 to paragraph 50
+      (MMKVStorage.getNumber as jest.Mock).mockImplementation(key => {
+        // Mock MMKV get calls - return values for keys that haven't been deleted
+        if (deletedKeys.has(key)) return null;
+        if (key === 'pendingTTSResumeChapterId') return 100;
+        if (key === 'lastTTSChapterId') return 100;
+        if (key === 'chapter_progress_100') return 50;
+        return null;
+      });
+
+      MMKVStorage.set('pendingTTSResumeChapterId', 100);
+      MMKVStorage.set('lastTTSChapterId', 100);
+      MMKVStorage.set('chapter_progress_100', 50);
+
+      // Step 2: User navigates Ch100 -> Ch99 via media notification
+      const params = createDefaultParams({
+        chapter: mockChapter, // Current chapter (Ch100 equivalent)
+      });
+      const { result } = renderHook(() => useTTSController(params));
+
+      // Start TTS first so media actions work
+      const simulator = new WebViewMessageSimulator(result);
+      await simulateTTSStart(
+        simulator,
+        queueFixtures.activeQueue.chapterId,
+        queueFixtures.activeQueue.startIndex,
+        queueFixtures.activeQueue.texts,
+      );
+
+      await act(async () => {
+        triggerNativeEvent('onMediaAction', {
+          action: 'com.rajarsheechatterjee.LNReader.TTS.PREV_CHAPTER',
+        });
+      });
+
+      // Step 3: Simulate app exit and return
+      // (In real app, this would trigger resume dialog check)
+
+      // Step 4: Check for pending resume flag
+      const pendingResumeId = MMKVStorage.getNumber(
+        'pendingTTSResumeChapterId',
+      );
+
+      // ✅ ASSERTION: No stale resume flag (was deleted)
+      expect(pendingResumeId).toBeNull();
+      expect(deletedKeys.has('pendingTTSResumeChapterId')).toBe(true);
+
+      // ✅ ASSERTION: Ch100 progress cleared (was deleted)
+      expect(MMKVStorage.getNumber('chapter_progress_100')).toBeNull();
+      expect(deletedKeys.has('chapter_progress_100')).toBe(true);
+
+      // ✅ ASSERTION: ttsStateRef cleared
+      expect(result.current.ttsStateRef.current).toBeNull();
+
+      // ✅ ASSERTION: lastTTSChapterId cleared
+      expect(deletedKeys.has('lastTTSChapterId')).toBe(true);
+
+      // ✅ RESULT: Resume dialog will NOT show stale data
     });
   });
 });
