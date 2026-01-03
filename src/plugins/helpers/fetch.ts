@@ -105,17 +105,45 @@ export const fetchApi = async (
     if (setCookieHeader) {
       const cookies: Record<string, string> = {};
 
-      // Parse Set-Cookie header (can be comma-separated for multiple cookies)
-      // Note: This is a simplified parser. Complex cookies with commas in values may need more robust parsing
-      setCookieHeader.split(',').forEach(cookieStr => {
-        const [nameValue] = cookieStr.split(';');
-        if (nameValue) {
-          const [name, value] = nameValue.split('=');
-          if (name && value) {
-            cookies[name.trim()] = value.trim();
+      // Multiple Set-Cookie headers can be:
+      // 1. Newline-separated (standard HTTP/1.1): "cookie1=val1\ncookie2=val2"
+      // 2. Comma-separated (legacy): "cookie1=val1, cookie2=val2"
+      // We need to split smartly to avoid breaking dates in Expires attribute
+
+      // Split by newlines first (standard format)
+      const cookieLines = setCookieHeader.split(/\r?\n/);
+
+      for (const cookieLine of cookieLines) {
+        if (!cookieLine.trim()) continue;
+
+        // For comma-separated cookies in the same line, split carefully
+        // A comma followed by a space and a word (not Path/Domain/etc) likely indicates a new cookie
+        const cookieParts = cookieLine.split(/,\s*(?=[a-z_\d]+\s*=)/i);
+
+        for (const cookiePart of cookieParts) {
+          const trimmedPart = cookiePart.trim();
+          if (!trimmedPart) continue;
+
+          // Extract name=value (before first semicolon)
+          const [nameValue] = trimmedPart.split(';');
+
+          // Use indexOf to handle values with '=' (e.g., JWT tokens, base64)
+          const firstEqIndex = nameValue.indexOf('=');
+          if (firstEqIndex === -1) continue;
+
+          const name = nameValue.slice(0, firstEqIndex).trim();
+          const value = nameValue.slice(firstEqIndex + 1).trim();
+
+          if (name && value !== undefined) {
+            try {
+              cookies[name] = decodeURIComponent(value);
+            } catch (e) {
+              // If decoding fails, use raw value
+              cookies[name] = value;
+            }
           }
         }
-      });
+      }
 
       if (Object.keys(cookies).length > 0) {
         await CookieManager.setCookies(url, cookies);

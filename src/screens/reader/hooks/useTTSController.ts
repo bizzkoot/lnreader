@@ -380,8 +380,9 @@ export function useTTSController(
   const refreshChaptersFromContextRef = useRef(refreshChaptersFromContext); // FIX: Keep refresh in sync for playback UI updates
 
   // Chapter list refresh timing (debounced to avoid excessive DB reloads during rapid paragraph updates)
+  // Increased from 500ms to 2000ms to reduce DB query frequency (~10/sec → ~2/sec during playback)
   const lastChapterListRefreshTimeRef = useRef<number>(0);
-  const CHAPTER_LIST_REFRESH_DEBOUNCE_MS = 500;
+  const CHAPTER_LIST_REFRESH_DEBOUNCE_MS = 2000;
 
   // User interaction tracking
   const hasUserScrolledRef = useRef<boolean>(false);

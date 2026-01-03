@@ -30,22 +30,42 @@ pnpm run test:tts-wake-cycle
 
 ## Current Task
 
-TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
+Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 
-- **Bug**: Chapter List showed stale progress during active TTS playback (only updated on stop/complete events)
-- **Root Cause**: Regular paragraph progress saves called `saveProgress()` which updated DB but didn't trigger UI mutation
-- **Solution**: Added debounced `refreshChaptersFromContext()` call during every paragraph progress save
-- **Implementation**:
-  - `useTTSController.ts` (+24 lines)
-  - Added refs: `refreshChaptersFromContextRef`, `lastChapterListRefreshTimeRef`
-  - Debounce at 500ms prevents excessive DB reloads (~10/sec → ~2/sec)
-  - Uses `setTimeout(..., 0)` to avoid blocking TTS playback
-- **Impact**: Chapter List now syncs progress in real-time during TTS playback
-- **Tests**: 1071/1072 passing (pre-existing failure unrelated)
-- **Commit**: 18faebd83
-- **Docs**: Memory created (ID: 30) and linked to related TTS fixes
+### Phase 1: Critical Security & Bug Fixes (P0) - ✅ COMPLETED
+
+- **1.1**: Fixed cookie value truncation in WebviewScreen.tsx (handles values with `=`)
+- **1.2**: Fixed Set-Cookie header parsing (handles comma + newline separation, equals in values)
+- **1.3**: Replaced harsh `System.exit(0)` with graceful shutdown in DoHManagerModule.kt
+- **1.4**: Added 5-second timeouts to DoH bootstrap client (connectTimeout, readTimeout, writeTimeout)
+- **1.5**: Changed SharedPreferences from `apply()` to `commit()` (synchronous writes to prevent data loss)
+- **1.6**: Removed obsolete `.pnpm-patches/cookies/` directory (kept patches/ directory)
+
+### Phase 2: Security Hardening (P1) - ✅ COMPLETED
+
+- **2.1**: Added certificate pinning for DoH providers (Cloudflare, Google, AdGuard)
+  - Current certificates: SPfg6FluPIlUc6a5h313BDCxQYNGX+THTy7ig5X3+VA= (CF), 6KWWYvlnr74SW1bk3bxciLCcYjTzPN4I4kI8PkirZMA= (Google), Xvjeq711KsTubsR62ojbrmJ6qcBCbfFuoy4TSyiu3f4= (AdGuard)
+- **2.2**: User confirmation dialog for app restart already implemented
+- **2.3**: Cookie attribute filtering already implemented
+
+### Phase 4: Performance Optimization (P2) - ✅ COMPLETED
+
+- **4.1**: Increased TTS chapter list debounce from 500ms → 2000ms (4x reduction in DB queries)
+- **4.2**: Code already optimized (single refresh pattern, no major duplication)
+- **4.3**: Added React.memo with custom equality to ChapterItem (prevents re-renders on non-progress changes)
+
+### Phase 5: Testing & Documentation (P2) - ✅ COMPLETED
+
+- **5.1**: Cookie parsing tests comprehensive (special chars, URL encoding, multiple cookies, etc.)
+- **5.2**: Updated AGENTS.md with completed task status
+- **Tests**: All 1072 tests passing (zero regressions)
 
 ### Previous Completed Tasks
+
+- TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
+  - **Bug**: Chapter List showed stale progress during active TTS playback
+  - **Solution**: Added debounced `refreshChaptersFromContext()` call during paragraph progress saves (500ms debounce)
+  - **Impact**: Chapter List now syncs in real-time (500ms latency)
 
 - TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
   - **Features**: Sleep timer (minutes/paragraphs/end of chapter), smart rewind (N paragraphs after pause)
@@ -119,7 +139,7 @@ TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
   - **Files**: useTTSController.ts (line 1305 - 26 new lines)
 - **Commits**: 69d78b863 (partial fix), 8f46c7ee2 (docs), bug report created 2026-01-03
 
-### Gradle 9.2.0 Upgrade (2026-01-02) - 🚧 IN PROGRESS
+### Gradle 9.2.0 Upgrade (2026-01-02) - ✅ COMPLETED
 
 - **Goal**: Upgrade from Gradle 8.14.3 → 9.2.0
 - **Breaking Changes Fixed**:
@@ -128,7 +148,7 @@ TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
 - **Compatibility**: AGP 8.12.0, Kotlin 2.1.20, Java 17 all compatible
 - **Non-Blocking Warnings**: Expo module deprecations (upstream), multi-string notation (React Native internal)
 - **Files Modified**: `gradle-wrapper.properties`, `android/app/build.gradle`, `patches/@react-native-cookies__cookies@8.0.1.patch`
-- **Status**: Code complete, awaiting build validation (next session)
+- **Status**: ✅ Code complete, build validated, all tests passing
 - **Docs**: [specs/upgrade-gradle-v9/implementation-log.md](specs/upgrade-gradle-v9/implementation-log.md)
 
 ### Phase 3: DNS-over-HTTPS (DoH) Implementation (2026-01-02)

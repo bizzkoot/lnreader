@@ -124,10 +124,39 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
               // NEW: Cookie handling
               if (parsed.cookies && typeof parsed.cookies === 'string') {
                 const cookies: Record<string, string> = {};
+                const COOKIE_ATTRIBUTES = [
+                  'path',
+                  'domain',
+                  'expires',
+                  'max-age',
+                  'secure',
+                  'httponly',
+                  'samesite',
+                ];
+
                 parsed.cookies.split(';').forEach((cookieStr: string) => {
-                  const [cookieName, cookieValue] = cookieStr.trim().split('=');
-                  if (cookieName && cookieValue) {
-                    cookies[cookieName] = cookieValue;
+                  const trimmed = cookieStr.trim();
+                  const firstEqIndex = trimmed.indexOf('=');
+                  if (firstEqIndex === -1) return; // Skip malformed
+
+                  const cookieName = trimmed.slice(0, firstEqIndex).trim();
+                  const rawValue = trimmed.slice(firstEqIndex + 1).trim();
+
+                  // Skip cookie attributes (Path, Domain, Secure, etc.)
+                  if (COOKIE_ATTRIBUTES.includes(cookieName.toLowerCase())) {
+                    return;
+                  }
+
+                  try {
+                    const cookieValue = decodeURIComponent(rawValue); // URL decode
+                    if (cookieName && cookieValue) {
+                      cookies[cookieName] = cookieValue;
+                    }
+                  } catch (e) {
+                    // If decoding fails, use raw value
+                    if (cookieName && rawValue) {
+                      cookies[cookieName] = rawValue;
+                    }
                   }
                 });
                 if (Object.keys(cookies).length > 0) {
