@@ -480,6 +480,25 @@ export function useTTSController(
   } = utilities;
 
   // ===========================================================================
+  // Chapter List Sync Helper
+  // ===========================================================================
+
+  /**
+   * Synchronize chapter list with current TTS progress
+   * Wraps refreshChaptersFromContext with error handling and timing control
+   * @param delayMs - Delay before syncing (default 100ms)
+   */
+  const syncChapterList = useCallback((delayMs: number = 100) => {
+    setTimeout(() => {
+      try {
+        refreshChaptersFromContextRef.current?.();
+      } catch (e) {
+        ttsCtrlLog.warn('chapter-list-sync-failed', '', e);
+      }
+    }, delayMs);
+  }, []);
+
+  // ===========================================================================
   // Chapter Change Effect - Phase 2 Step 1: Extracted to useChapterTransition
   // ===========================================================================
 
@@ -877,9 +896,7 @@ export function useTTSController(
                   TTSHighlight.stop();
 
                   // ✅ NEW: Sync chapter list after auto-stop
-                  setTimeout(() => {
-                    refreshChaptersFromContext();
-                  }, 100);
+                  syncChapterList(100);
 
                   // Show toast notification
                   const messages = {
@@ -1181,7 +1198,7 @@ export function useTTSController(
       showScrollSyncDialog,
       showManualModeDialog,
       showToastMessage,
-      refreshChaptersFromContext,
+      syncChapterList,
     ],
   );
 
@@ -1520,9 +1537,7 @@ export function useTTSController(
           TTSHighlight.stop();
 
           // ✅ NEW: Sync chapter list after auto-stop
-          setTimeout(() => {
-            refreshChaptersFromContext();
-          }, 100);
+          syncChapterList(100);
 
           // Show toast notification
           const messages = {
@@ -1559,18 +1574,18 @@ export function useTTSController(
           `);
         } else {
           webViewRef.current?.injectJavaScript(`
-            (function() {
-              if (window.tts && reader.generalSettings.val.TTSEnable) {
-                setTimeout(() => {
-                  tts.start();
-                  const controller = document.getElementById('TTS-Controller');
-                  if (controller && controller.firstElementChild) {
-                    controller.firstElementChild.innerHTML = pauseIcon;
-                  }
-                }, 500);
-              }
-            })();
-          `);
+             (function() {
+               if (window.tts && reader.generalSettings.val.TTSEnable) {
+                 setTimeout(() => {
+                   tts.start();
+                   const controller = document.getElementById('TTS-Controller');
+                   if (controller && controller.firstElementChild) {
+                     controller.firstElementChild.innerHTML = pauseIcon;
+                   }
+                 }, 500);
+               }
+             })();
+           `);
         }
       }, TTS_CONSTANTS.CHAPTER_TRANSITION_DELAY_MS);
     }
@@ -1583,7 +1598,7 @@ export function useTTSController(
     chapterGeneralSettingsRef,
     updateTtsMediaNotificationState,
     showToastMessage,
-    refreshChaptersFromContext,
+    syncChapterList,
   ]);
 
   // ===========================================================================
@@ -1659,9 +1674,29 @@ export function useTTSController(
             const eventChapterId = Number(chapterMatch[1]);
             const currentChapterId = Number(prevChapterIdRef.current);
 
+            // Guard against NaN from invalid parsing
+            if (
+              !Number.isFinite(eventChapterId) ||
+              !Number.isFinite(currentChapterId)
+            ) {
+              ttsCtrlLog.warn(
+                'speech-done-invalid-id',
+                `Invalid chapter ID: event=${eventChapterId}, current=${currentChapterId}`,
+              );
+              return;
+            }
+
             // Verify chapter ID matches before extracting paragraph index
             if (eventChapterId === currentChapterId) {
               doneParagraphIndex = Number(chapterMatch[2]);
+              // Guard against NaN from paragraph index parsing
+              if (!Number.isFinite(doneParagraphIndex)) {
+                ttsCtrlLog.warn(
+                  'speech-done-invalid-id',
+                  `Invalid paragraph index: ${doneParagraphIndex}`,
+                );
+                return;
+              }
             } else {
               // Chapter mismatch - stale event from previous chapter
               if (
@@ -1769,9 +1804,7 @@ export function useTTSController(
             ) {
               lastChapterListRefreshTimeRef.current = now;
               // Schedule refresh on next tick to avoid blocking TTS playback
-              setTimeout(() => {
-                refreshChaptersFromContextRef.current?.();
-              }, 0);
+              syncChapterList(0);
             }
 
             // Check media navigation confirmation
@@ -2202,9 +2235,7 @@ export function useTTSController(
               }
 
               // ✅ NEW: Sync chapter list immediately
-              setTimeout(() => {
-                refreshChaptersFromContext();
-              }, 100);
+              syncChapterList(100);
             } catch (e) {
               ttsCtrlLog.warn(
                 'mark-source-in-progress-failed',
@@ -2359,9 +2390,7 @@ export function useTTSController(
               }
 
               // ✅ NEW: Sync chapter list immediately
-              setTimeout(() => {
-                refreshChaptersFromContext();
-              }, 100);
+              syncChapterList(100);
             } catch (e) {
               ttsCtrlLog.warn(
                 'mark-source-read-failed',
@@ -2594,9 +2623,7 @@ export function useTTSController(
           saveProgressRef.current(100);
 
           // ✅ NEW: Sync chapter list after completing chapter
-          setTimeout(() => {
-            refreshChaptersFromContext();
-          }, 100);
+          syncChapterList(100);
 
           autoStartTTSRef.current = true;
           backgroundTTSPendingRef.current = true;
@@ -2616,9 +2643,7 @@ export function useTTSController(
           isTTSPlayingRef.current = false;
 
           // ✅ NEW: Sync chapter list after completing novel
-          setTimeout(() => {
-            refreshChaptersFromContext();
-          }, 100);
+          syncChapterList(100);
 
           showToastMessage('Novel reading complete!');
         }
@@ -2695,9 +2720,7 @@ export function useTTSController(
             isTTSReadingRef.current = false;
 
             // ✅ NEW: Sync chapter list after background TTS stop
-            setTimeout(() => {
-              refreshChaptersFromContext();
-            }, 100);
+            syncChapterList(100);
           }
         } else if (nextAppState === 'active') {
           // =====================================================================
@@ -2977,9 +3000,7 @@ export function useTTSController(
                               TTSHighlight.stop();
 
                               // ✅ NEW: Sync chapter list after auto-stop
-                              setTimeout(() => {
-                                refreshChaptersFromContext();
-                              }, 100);
+                              syncChapterList(100);
 
                               // Show toast notification
                               const messages = {
@@ -3213,6 +3234,7 @@ export function useTTSController(
     readerSettingsRef,
     webViewRef,
     refreshChaptersFromContext,
+    syncChapterList,
   ]);
 
   // ===========================================================================

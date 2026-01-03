@@ -125,7 +125,7 @@ Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 - **Commit**: 18faebd83
 - **Docs**: Memory created (ID: 30) and linked to related TTS fixes
 
-### TTS Progress & Wake Scroll Fixes (2026-01-03)
+### TTS Progress & Wake Scroll Fixes (2026-01-02)
 
 - **Bug #1 - Chapter List Sync**: ✅ FULL FIX - Now works for regular playback
   - **Original Issue**: Media nav buttons fixed ✅, but regular TTS playback (para-by-para) still called `updateChapterProgressDb()` (DB-only) at line 1464
