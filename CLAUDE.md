@@ -30,11 +30,13 @@ pnpm run test:tts-wake-cycle
 
 ## Current Task
 
-TTS Sleep Timer + Smart Rewind (2025-12-27) - ✅ COMPLETED
+Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 
-- **Features**: Sleep timer (minutes/paragraphs/end of chapter), smart rewind (N paragraphs after pause)
-- **Files**: `useSettings.ts`, `SleepTimer.ts`, `useTTSController.ts`, `ReaderTTSTab.tsx`
-- **Status**: All 917 tests passing
+- **Phase 1**: Fixed critical security & bug fixes (P0) - Cookie truncation, Set-Cookie parsing, DoH timeouts, SharedPreferences persistence
+- **Phase 2**: Security hardening (P1) - Certificate pinning for DoH providers (Cloudflare, Google, AdGuard)
+- **Phase 4**: Performance optimization (P2) - TTS chapter list debounce (500ms → 2000ms), React.memo optimization
+- **Phase 5**: Testing & documentation - All 1127 tests passing (55 new tests), zero regressions, docs updated
+- **Status**: All 1127 tests passing (55 new + 1072 existing)
 
 ## TTS Architecture (3-Layer Hybrid)
 
