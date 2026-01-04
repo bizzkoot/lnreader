@@ -1843,16 +1843,24 @@ export function useTTSController(
         if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
           const currentIdx = currentParagraphIndexRef.current;
 
-          // FIX: Verify the utterance ID matches our current position before incrementing
-          // This prevents stale events from corrupting the index during pause/resume cycles
-          if (doneParagraphIndex >= 0 && doneParagraphIndex !== currentIdx) {
+          // FIX: With the new semantic where currentParagraphIndexRef = "last completed",
+          // the utterance that just finished should be currentIdx + 1 (next to play finished).
+          // But we also accept exact match for first paragraph (when ref was set during batch start).
+          // We should NOT ignore if doneParagraphIndex is currentIdx+1 - that's the EXPECTED case!
+          const expectedNextToFinish = currentIdx + 1;
+          const isExpectedEvent =
+            doneParagraphIndex === currentIdx || // Exact match (first paragraph or edge case)
+            doneParagraphIndex === expectedNextToFinish; // Expected: next after last completed
+
+          if (doneParagraphIndex >= 0 && !isExpectedEvent) {
+            // Only reject if significantly off (stale event from old chapter/queue)
             if (
               Date.now() - lastStaleLogTimeRef.current >
               TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
             ) {
               ttsCtrlLog.warn(
                 'speech-done-index-mismatch',
-                `Utterance ID index ${doneParagraphIndex} != ref ${currentIdx}, ignoring stale event`,
+                `Utterance ID index ${doneParagraphIndex} != expected ${currentIdx} or ${expectedNextToFinish}, ignoring stale event`,
               );
               lastStaleLogTimeRef.current = Date.now();
             }
@@ -1895,21 +1903,26 @@ export function useTTSController(
                 `Index not advancing! next=${nextIndex}, current=${currentParagraphIndexRef.current}`,
               );
             }
-            // FIX: Save the COMPLETED paragraph (currentIdx), not the next one (nextIndex)
-            // This represents "last paragraph that finished speaking" which is definitive
-            // During chapter transitions when onSpeechStart is skipped, this prevents +1 offset
-            currentParagraphIndexRef.current = currentIdx;
+            // FIX: Save the COMPLETED paragraph, which is the one that just finished.
+            // Use doneParagraphIndex if we parsed it from utterance ID, otherwise fallback to currentIdx.
+            // This represents "last paragraph that finished speaking" which is definitive.
+            const finishedParagraph =
+              doneParagraphIndex >= 0 ? doneParagraphIndex : currentIdx;
+            currentParagraphIndexRef.current = finishedParagraph;
 
             // FIX: Save to MMKV immediately to ensure it stays in sync with ref
             // This prevents off-by-one errors during background resume, especially during
             // chapter transitions when WebView is not synced and normal save messages are skipped
             try {
               // Save COMPLETED paragraph to MMKV
-              MMKVStorage.set(`chapter_progress_${chapterId}`, currentIdx);
+              MMKVStorage.set(
+                `chapter_progress_${chapterId}`,
+                finishedParagraph,
+              );
               if (__DEV__) {
                 ttsCtrlLog.debug(
                   'mmkv-save-on-speech-done',
-                  `Saved COMPLETED paragraph to MMKV: chapter ${chapterId}, paragraph ${currentIdx}`,
+                  `Saved COMPLETED paragraph to MMKV: chapter ${chapterId}, paragraph ${finishedParagraph}`,
                 );
               }
             } catch (err) {
@@ -1922,28 +1935,28 @@ export function useTTSController(
 
             // CRITICAL: Update lastSpokenIndex in TTSAudioManager
             // This ensures drift enforcement uses correct paragraph position
-            // We use currentIdx (just finished) as the last spoken index
-            TTSAudioManager.setLastSpokenIndex(currentIdx);
+            // We use finishedParagraph (just finished) as the last spoken index
+            TTSAudioManager.setLastSpokenIndex(finishedParagraph);
 
             autoStopService.onParagraphSpoken();
 
             if (ttsStateRef.current) {
               ttsStateRef.current = {
                 ...ttsStateRef.current,
-                paragraphIndex: currentIdx,
+                paragraphIndex: finishedParagraph,
                 timestamp: Date.now(),
               };
             }
 
             const total = totalParagraphsRef.current;
-            // Calculate percentage based on COMPLETED paragraph (currentIdx)
+            // Calculate percentage based on COMPLETED paragraph (finishedParagraph)
             const percentage =
               total > 0
-                ? Math.round(((currentIdx + 1) / total) * 100)
+                ? Math.round(((finishedParagraph + 1) / total) * 100)
                 : (progressRef.current ?? 0);
             // FIX: Use ref.current directly to avoid stale closure
             // saveProgressRef is kept in sync by useRefSync hook
-            saveProgressRef.current(percentage, currentIdx);
+            saveProgressRef.current(percentage, finishedParagraph);
 
             // FIX: Debounce chapter list refresh during playback to sync UI in real-time
             // This ensures the Chapter List shows updated progress without excessive DB reloads
