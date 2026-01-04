@@ -897,18 +897,18 @@ describe('useTTSController - Integration Tests', () => {
           'after TTS start',
         );
 
-        // Simulate onSpeechDone - should advance from 0 to 1
+        // Simulate onSpeechDone - paragraph 0 finished, saves index 0 (completed)
         await act(async () => {
           triggerNativeEvent('onSpeechDone');
         });
 
-        // Verify progress saved with next index (observable behavior)
-        assertProgressSaved(mockSaveProgress, 1);
+        // FIX: After semantic change, onSpeechDone saves COMPLETED paragraph (0), not next (1)
+        assertProgressSaved(mockSaveProgress, 0);
 
-        // Verify paragraph index advanced (observable behavior)
+        // Verify paragraph index now points to completed paragraph (observable behavior)
         assertParagraphIndex(
           result.current.currentParagraphIndex,
-          1,
+          0,
           'after onSpeechDone',
         );
       });
