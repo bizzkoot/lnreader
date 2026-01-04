@@ -272,11 +272,17 @@ describe('WebViewReader Event Handlers', () => {
       // Wait for WebView sync effect (300ms timeout + buffer)
       await new Promise(resolve => setTimeout(resolve, 350));
 
-      const handler = listeners['onSpeechStart'];
-      expect(handler).toBeDefined();
+      const doneHandler = listeners['onSpeechDone'];
+      const startHandler = listeners['onSpeechStart'];
+      expect(startHandler).toBeDefined();
+      expect(doneHandler).toBeDefined();
+
+      // Simulate completion of paragraph 4 before starting paragraph 5
+      // This is required for the completion guard to allow the update
+      doneHandler({ utteranceId: 'chapter_10_utterance_4' });
 
       // Trigger start event for paragraph 5
-      handler({ utteranceId: 'chapter_10_utterance_5' });
+      startHandler({ utteranceId: 'chapter_10_utterance_5' });
 
       // Verify JS injection via ref
       const spy = getInjectSpy();
@@ -309,9 +315,13 @@ describe('WebViewReader Event Handlers', () => {
       // Wait for WebView sync effect (300ms timeout + buffer)
       await new Promise(resolve => setTimeout(resolve, 350));
 
-      const handler = listeners['onSpeechStart'];
+      const doneHandler = listeners['onSpeechDone'];
+      const startHandler = listeners['onSpeechStart'];
 
-      handler({ utteranceId: 'utterance_3' });
+      // Simulate completion of paragraph 2 before starting paragraph 3
+      doneHandler({ utteranceId: 'utterance_2' });
+
+      startHandler({ utteranceId: 'utterance_3' });
 
       const spy = getInjectSpy();
       expect(spy).toHaveBeenCalled();

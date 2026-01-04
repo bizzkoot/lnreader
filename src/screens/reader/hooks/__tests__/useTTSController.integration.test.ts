@@ -1154,6 +1154,7 @@ describe('useTTSController - Integration Tests', () => {
         // Clear previous WebView calls
         (mockWebViewRef.current?.injectJavaScript as jest.Mock).mockClear();
 
+        // Starting from paragraph 0 (first paragraph, no guard needed)
         await act(async () => {
           triggerNativeEvent('onSpeechStart', {
             utteranceId: 'chapter_100_utterance_0',

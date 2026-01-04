@@ -324,6 +324,10 @@ export function useTTSController(
   const isTTSPausedRef = useRef<boolean>(false);
   const currentParagraphIndexRef = useRef<number>(-1);
   const latestParagraphIndexRef = useRef<number>(savedParagraphIndex ?? -1);
+
+  // FIX: Track last completed paragraph to prevent premature highlight updates
+  // This guards against Android TTS firing onStart(N+1) before onDone(N)
+  const lastCompletedParagraphRef = useRef<number>(-1);
   const totalParagraphsRef = useRef<number>(0);
 
   // Queue management
@@ -1112,9 +1116,12 @@ export function useTTSController(
           isTTSPausedRef.current = false;
           ttsQueueRef.current = null;
 
+          // Reset completion tracking when TTS stops
+          lastCompletedParagraphRef.current = -1;
+
           ttsCtrlLog.debug(
             'tts-stopped-state-reset',
-            'TTS stopped, state reset to clean slate',
+            'TTS stopped, state reset to clean slate (completion tracking reset)',
           );
           return true;
 
@@ -1840,6 +1847,17 @@ export function useTTSController(
           }
         }
 
+        // Track completion even if no queue (for tests and edge cases)
+        if (doneParagraphIndex >= 0) {
+          lastCompletedParagraphRef.current = doneParagraphIndex;
+          if (__DEV__) {
+            ttsCtrlLog.debug(
+              'completion-tracked-no-queue',
+              `Tracked completion for paragraph ${doneParagraphIndex} (no active queue)`,
+            );
+          }
+        }
+
         if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
           const currentIdx = currentParagraphIndexRef.current;
 
@@ -1892,6 +1910,15 @@ export function useTTSController(
 
           if (nextIndex >= queueStartIndex && nextIndex < queueEndIndex) {
             const text = ttsQueueRef.current.texts[nextIndex - queueStartIndex];
+
+            // Get first 50 chars of finished paragraph for logging
+            const finishedText =
+              ttsQueueRef.current.texts[currentIdx - queueStartIndex] || '';
+            const finishedPreview = finishedText
+              .substring(0, 50)
+              .replace(/\s+/g, ' ')
+              .trim();
+
             ttsCtrlLog.debug(
               'playing-from-queue',
               `Playing from queue. Index: ${nextIndex} (queue: ${queueStartIndex}-${queueEndIndex - 1})`,
@@ -1909,6 +1936,16 @@ export function useTTSController(
             const finishedParagraph =
               doneParagraphIndex >= 0 ? doneParagraphIndex : currentIdx;
             currentParagraphIndexRef.current = finishedParagraph;
+
+            // FIX: Track completed paragraph for onSpeechStart guard
+            // This prevents premature highlight updates when queued paragraphs fire onStart early
+            lastCompletedParagraphRef.current = finishedParagraph;
+
+            // Log TTS completion with text preview
+            ttsCtrlLog.debug(
+              'tts-paragraph-completed',
+              `✓ TTS finished para ${finishedParagraph}: "${finishedPreview}${finishedText.length > 50 ? '...' : ''}"`,
+            );
 
             // FIX: Save to MMKV immediately to ensure it stays in sync with ref
             // This prevents off-by-one errors during background resume, especially during
@@ -2191,31 +2228,97 @@ export function useTTSController(
             return;
           }
 
+          // FIX: Guard against premature onSpeechStart events
+          // Android TTS fires onStart for queued paragraphs BEFORE previous paragraph completes
+          // This causes highlight to jump +1 ahead of actual TTS playback
           if (paragraphIndex >= 0) {
-            currentParagraphIndexRef.current = paragraphIndex;
-            isTTSPlayingRef.current = true;
-            hasUserScrolledRef.current = false;
+            const expectedPrevious = paragraphIndex - 1;
+            const lastCompleted = lastCompletedParagraphRef.current;
+
+            // Reset completion tracking if:
+            // 1. This is first paragraph (expectedPrevious < 0)
+            // 2. Starting from a new position (gap > 1 means TTS restarted elsewhere)
+            // 3. No completion tracking yet (lastCompleted < 0) - allow first event
+            const isFirstParagraph = expectedPrevious < 0;
+            const isNewBatch =
+              lastCompleted >= 0 && paragraphIndex - lastCompleted > 1;
+            const noTrackingYet = lastCompleted < 0;
+
+            if (isFirstParagraph || isNewBatch || noTrackingYet) {
+              // Starting fresh - allow this paragraph and reset tracking
+              lastCompletedParagraphRef.current = expectedPrevious;
+              if (__DEV__) {
+                ttsCtrlLog.debug(
+                  'completion-tracking-reset',
+                  `Reset completion tracking to ${expectedPrevious} (starting at ${paragraphIndex}, was ${lastCompleted})`,
+                );
+              }
+            }
+
+            // Only update highlight if previous paragraph has completed
+            if (
+              expectedPrevious < 0 ||
+              lastCompletedParagraphRef.current >= expectedPrevious
+            ) {
+              currentParagraphIndexRef.current = paragraphIndex;
+              isTTSPlayingRef.current = true;
+              hasUserScrolledRef.current = false;
+
+              // Get text preview from queue for logging
+              let textPreview = '';
+              if (ttsQueueRef.current) {
+                const queueStartIndex = ttsQueueRef.current.startIndex;
+                const queueEndIndex =
+                  queueStartIndex + ttsQueueRef.current.texts.length;
+                if (
+                  paragraphIndex >= queueStartIndex &&
+                  paragraphIndex < queueEndIndex
+                ) {
+                  const text =
+                    ttsQueueRef.current.texts[
+                      paragraphIndex - queueStartIndex
+                    ] || '';
+                  textPreview = text
+                    .substring(0, 50)
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                  if (text.length > 50) textPreview += '...';
+                }
+              }
+
+              // Log TTS vs Highlight for debugging
+              if (__DEV__) {
+                ttsCtrlLog.debug(
+                  'tts-highlight-sync',
+                  `▶ TTS starting para ${paragraphIndex}: "${textPreview}" (highlight→${paragraphIndex}, lastCompleted=${lastCompletedParagraphRef.current})`,
+                );
+              }
+
+              // Update highlight only after validation
+              if (webViewRef.current && isWebViewSyncedRef.current) {
+                const currentChapterId = prevChapterIdRef.current;
+
+                webViewRef.current.injectJavaScript(`
+                  try {
+                    if (window.tts) {
+                      window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
+                      window.tts.updateState(${paragraphIndex}, ${currentChapterId});
+                    }
+                  } catch (e) { console.error('TTS: start inject failed', e); }
+                  true;
+                `);
+              }
+            } else {
+              // Premature onStart event - previous paragraph not yet completed
+              ttsCtrlLog.debug(
+                'premature-speech-start',
+                `Ignoring premature onStart(${paragraphIndex}) - previous paragraph ${expectedPrevious} not completed (last=${lastCompletedParagraphRef.current})`,
+              );
+              return;
+            }
           }
 
           updateTtsMediaNotificationState(isTTSReadingRef.current);
-
-          if (
-            webViewRef.current &&
-            paragraphIndex >= 0 &&
-            isWebViewSyncedRef.current
-          ) {
-            const currentChapterId = prevChapterIdRef.current;
-
-            webViewRef.current.injectJavaScript(`
-              try {
-                if (window.tts) {
-                  window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
-                  window.tts.updateState(${paragraphIndex}, ${currentChapterId});
-                }
-              } catch (e) { console.error('TTS: start inject failed', e); }
-              true;
-            `);
-          }
 
           if (!isWebViewSyncedRef.current && paragraphIndex % 10 === 0) {
             ttsCtrlLog.debug(
