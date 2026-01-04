@@ -90,3 +90,8 @@ flake.lock
 .pnpm-store
 
 .cursor/
+
+.roo/
+.roomodes
+.serena/
+.smart-coding-cache/
