@@ -1902,8 +1902,11 @@ window.reader = new (function () {
 })();
 
 window.tts = new (function () {
+  // SYNC: These tags must match BLOCK_TAGS in src/utils/htmlParagraphExtractor.ts
+  // to ensure TTS paragraph count matches WebView highlight elements
   this.readableNodeNames = [
     '#text',
+    // Inline formatting
     'B',
     'I',
     'SPAN',
@@ -1911,6 +1914,7 @@ window.tts = new (function () {
     'BR',
     'STRONG',
     'A',
+    // Block elements (must match extractParagraphs BLOCK_TAGS)
     'P',
     'DIV',
     'H1',
@@ -1919,6 +1923,39 @@ window.tts = new (function () {
     'H4',
     'H5',
     'H6',
+    // List items
+    'LI',
+    'UL',
+    'OL',
+    'DL',
+    'DT',
+    'DD',
+    // Quote and code blocks
+    'BLOCKQUOTE',
+    'PRE',
+    // Tables
+    'TABLE',
+    'TFOOT',
+    // Figures
+    'FIGURE',
+    'FIGCAPTION',
+    // Semantic sections
+    'SECTION',
+    'ARTICLE',
+    'ASIDE',
+    'NAV',
+    'HEADER',
+    'FOOTER',
+    'MAIN',
+    // Forms
+    'FORM',
+    'FIELDSET',
+    'ADDRESS',
+    // Other block elements
+    'HR',
+    'NOSCRIPT',
+    'CANVAS',
+    'VIDEO',
   ];
   this.blockNodeNames = [
     'P',
@@ -1934,6 +1971,28 @@ window.tts = new (function () {
     'MAIN',
     'HEADER',
     'FOOTER',
+    // Additional block tags to match extractParagraphs
+    'LI',
+    'UL',
+    'OL',
+    'DL',
+    'DT',
+    'DD',
+    'BLOCKQUOTE',
+    'PRE',
+    'TABLE',
+    'TFOOT',
+    'FIGURE',
+    'FIGCAPTION',
+    'ASIDE',
+    'NAV',
+    'FORM',
+    'FIELDSET',
+    'ADDRESS',
+    'HR',
+    'NOSCRIPT',
+    'CANVAS',
+    'VIDEO',
   ];
   this.prevElement = null;
   this.currentElement = reader.chapterElement;
