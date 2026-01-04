@@ -1833,6 +1833,25 @@ export function useTTSController(
             }
             currentParagraphIndexRef.current = nextIndex;
 
+            // FIX: Save to MMKV immediately to ensure it stays in sync with ref
+            // This prevents off-by-one errors during background resume, especially during
+            // chapter transitions when WebView is not synced and normal save messages are skipped
+            try {
+              MMKVStorage.set(`chapter_progress_${chapterId}`, nextIndex);
+              if (__DEV__) {
+                ttsCtrlLog.debug(
+                  'mmkv-save-on-speech-done',
+                  `Saved progress to MMKV: chapter ${chapterId}, paragraph ${nextIndex}`,
+                );
+              }
+            } catch (err) {
+              ttsCtrlLog.warn(
+                'mmkv-save-failed',
+                'Failed to save progress to MMKV in onSpeechDone',
+                err,
+              );
+            }
+
             // CRITICAL: Update lastSpokenIndex in TTSAudioManager
             // This ensures drift enforcement uses correct paragraph position
             // We use currentIdx (just finished) as the last spoken index
