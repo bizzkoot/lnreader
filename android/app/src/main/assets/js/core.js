@@ -2114,15 +2114,21 @@ window.tts = new (function () {
         window.tts.currentElement,
       );
 
-      // User scrolled to an earlier paragraph
+      // SEMANTIC FIX: With "last completed" semantic, currentElement = currently speaking
+      // For manual scroll comparison, we want to know if user scrolled before the last COMPLETED paragraph
+      // So we use currentTTSIndex - 1 as the "last completed" position
+      const lastCompletedIndex =
+        currentTTSIndex >= 0 ? currentTTSIndex - 1 : -1;
+
+      // User scrolled to an earlier paragraph (compare against last completed)
       if (
         visibleParagraphIndex !== -1 &&
-        visibleParagraphIndex < currentTTSIndex - 2
+        visibleParagraphIndex < lastCompletedIndex - 1
       ) {
-        // At least 2 paragraphs back
+        // At least 1 paragraph back from last completed (more generous than before)
 
         console.log(
-          `TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}`,
+          `TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}, Last completed: ${lastCompletedIndex}`,
         );
 
         // Check user preference

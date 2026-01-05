@@ -100,3 +100,6 @@ WebViewReader_Backup.tsx
 
 # MCP server cache (smart-coding-mcp)
 .smart-coding-cache/
+
+# Sample Novel files
+docs/TTS/*.txt

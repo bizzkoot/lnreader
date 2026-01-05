@@ -84,14 +84,27 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
         const novelName = novel?.name ?? 'LNReader';
         const chapterLabel = chapter.name || `Chapter ${chapter.id}`;
 
-        const paragraphIndex = Math.max(0, currentParagraphIndexRef.current);
+        // SEMANTIC FIX: currentParagraphIndexRef contains "last completed" paragraph
+        // For media notification UX, show "currently speaking" when TTS is active
+        // This provides better user feedback during playback
+        const lastCompletedIndex = Math.max(
+          0,
+          currentParagraphIndexRef.current,
+        );
+        const displayIndex = isTTSReadingRef.current
+          ? Math.min(
+              lastCompletedIndex + 1,
+              Math.max(0, totalParagraphsRef.current - 1),
+            )
+          : lastCompletedIndex;
+
         const totalParagraphs = Math.max(0, totalParagraphsRef.current);
 
         TTSHighlight.updateMediaState({
           novelName,
           chapterLabel,
           chapterId: chapter.id,
-          paragraphIndex,
+          paragraphIndex: displayIndex,
           totalParagraphs,
           isPlaying: nextIsPlaying,
         }).catch(() => {
@@ -107,6 +120,7 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
       novel?.name,
       currentParagraphIndexRef,
       totalParagraphsRef,
+      isTTSReadingRef,
     ],
   );
 

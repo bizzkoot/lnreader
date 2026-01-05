@@ -2192,7 +2192,9 @@ export function useTTSController(
           }
 
           if (paragraphIndex >= 0) {
-            currentParagraphIndexRef.current = paragraphIndex;
+            // SEMANTIC FIX: Do NOT update currentParagraphIndexRef here
+            // The ref maintains "last completed" semantic (updated by onSpeechDone)
+            // This prevents drift during wake sync when ref is used to calculate highlight position
             isTTSPlayingRef.current = true;
             hasUserScrolledRef.current = false;
           }
@@ -3114,11 +3116,16 @@ export function useTTSController(
                       // Update TTS internal state for proper continuation
                       const readableElements = reader.getReadableElements();
                       if (readableElements && readableElements[${syncIndex}]) {
-                        // FIX: Since currentParagraphIndexRef now represents "last completed",
-                        // we need to highlight the NEXT paragraph (syncIndex + 1), not syncIndex itself
+                        // SEMANTIC CONSISTENCY: currentParagraphIndexRef contains "last completed" paragraph
+                        // (not "currently speaking"). This is maintained by onSpeechDone, NOT onSpeechStart.
+                        // Therefore, we highlight syncIndex + 1 to show the paragraph being spoken.
                         const nextParagraphToPlay = ${syncIndex} + 1;
-                        
-                        window.tts.currentElement = readableElements[nextParagraphToPlay] || readableElements[${syncIndex}];
+
+                        // SAFETY: Ensure nextParagraphToPlay is within bounds (handle end of chapter)
+                        const totalParagraphs = readableElements.length;
+                        const safeNextParagraph = Math.min(nextParagraphToPlay, totalParagraphs - 1);
+
+                        window.tts.currentElement = readableElements[safeNextParagraph];
                         window.tts.prevElement = readableElements[${syncIndex}];
                         
                         // Force scroll to current TTS position (next to play)
@@ -3126,11 +3133,11 @@ export function useTTSController(
                         
                         // Reset scroll lock to allow immediate taps after sync
                         setTimeout(() => { window.tts.resetScrollLock(); }, ${TTS_CONSTANTS.SCROLL_LOCK_RESET_MS});
-                        
+
                         // Highlight NEXT paragraph to play (currentParagraphIndexRef + 1)
-                        window.tts.highlightParagraph(nextParagraphToPlay, ${prevChapterId});
-                        
-                        console.log('TTS: Screen wake sync complete - scrolled to paragraph ' + nextParagraphToPlay + ' (next after completed ' + ${syncIndex} + ')');
+                        window.tts.highlightParagraph(safeNextParagraph, ${prevChapterId});
+
+                        console.log('TTS: Screen wake sync complete - scrolled to paragraph ' + safeNextParagraph + ' (next after completed ' + ${syncIndex} + ')');
                       } else {
                         console.warn('TTS: Screen wake - paragraph ${syncIndex} not found');
                       }
