@@ -169,6 +169,14 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
             minWidth: scaleDimension(32, uiScale),
             textAlign: 'center',
           },
+          offsetHelperText: {
+            fontSize: scaleDimension(12, uiScale),
+            lineHeight: scaleDimension(16, uiScale),
+            paddingHorizontal: scaleDimension(16, uiScale),
+            paddingTop: scaleDimension(4, uiScale),
+            paddingBottom: scaleDimension(8, uiScale),
+            opacity: 0.7,
+          },
         }),
       [uiScale],
     );
@@ -391,70 +399,6 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                   postTTSSettingsToWebView({ enabled: newValue });
                 }}
               />
-            </View>
-
-            {/* Paragraph Highlight Offset Controls */}
-            <View style={styles.offsetControlContainer}>
-              <AppText style={[styles.switchLabel, { color: theme.onSurface }]}>
-                Highlight offset
-              </AppText>
-              <View style={styles.offsetButtons}>
-                <IconButtonV2
-                  name="minus"
-                  size={scaleDimension(20, uiScale)}
-                  color={theme.onSurface}
-                  onPress={() => {
-                    if (adjustHighlightOffset) {
-                      adjustHighlightOffset(-1);
-                    } else {
-                      readerTTSTabLog.error(
-                        'offset-error',
-                        'adjustHighlightOffset is undefined',
-                      );
-                    }
-                  }}
-                  theme={theme}
-                  style={styles.offsetButton}
-                />
-                <AppText style={[styles.offsetValue, { color: theme.primary }]}>
-                  {(paragraphHighlightOffset ?? 0) > 0 ? '+' : ''}
-                  {paragraphHighlightOffset ?? 0}
-                </AppText>
-                <IconButtonV2
-                  name="plus"
-                  size={scaleDimension(20, uiScale)}
-                  color={theme.onSurface}
-                  onPress={() => {
-                    if (adjustHighlightOffset) {
-                      adjustHighlightOffset(+1);
-                    } else {
-                      readerTTSTabLog.error(
-                        'offset-error',
-                        'adjustHighlightOffset is undefined',
-                      );
-                    }
-                  }}
-                  theme={theme}
-                  style={styles.offsetButton}
-                />
-                <IconButtonV2
-                  name="refresh"
-                  size={scaleDimension(18, uiScale)}
-                  color={theme.onSurfaceVariant}
-                  onPress={() => {
-                    if (resetHighlightOffset) {
-                      resetHighlightOffset();
-                    } else {
-                      readerTTSTabLog.error(
-                        'offset-error',
-                        'resetHighlightOffset is undefined',
-                      );
-                    }
-                  }}
-                  theme={theme}
-                  style={styles.offsetResetButton}
-                />
-              </View>
             </View>
           </View>
 
@@ -694,6 +638,84 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                     }}
                   />
                 </View>
+
+                {/* Paragraph Highlight Offset Controls */}
+                <View style={styles.offsetControlContainer}>
+                  <AppText
+                    style={[styles.switchLabel, { color: theme.onSurface }]}
+                  >
+                    Highlight offset
+                  </AppText>
+                  <View style={styles.offsetButtons}>
+                    <IconButtonV2
+                      name="minus"
+                      size={scaleDimension(20, uiScale)}
+                      color={theme.onSurface}
+                      onPress={() => {
+                        if (adjustHighlightOffset) {
+                          adjustHighlightOffset(-1);
+                        } else {
+                          readerTTSTabLog.error(
+                            'offset-error',
+                            'adjustHighlightOffset is undefined',
+                          );
+                        }
+                      }}
+                      theme={theme}
+                      style={styles.offsetButton}
+                    />
+                    <AppText
+                      style={[styles.offsetValue, { color: theme.primary }]}
+                    >
+                      {(paragraphHighlightOffset ?? 0) > 0 ? '+' : ''}
+                      {paragraphHighlightOffset ?? 0}
+                    </AppText>
+                    <IconButtonV2
+                      name="plus"
+                      size={scaleDimension(20, uiScale)}
+                      color={theme.onSurface}
+                      onPress={() => {
+                        if (adjustHighlightOffset) {
+                          adjustHighlightOffset(+1);
+                        } else {
+                          readerTTSTabLog.error(
+                            'offset-error',
+                            'adjustHighlightOffset is undefined',
+                          );
+                        }
+                      }}
+                      theme={theme}
+                      style={styles.offsetButton}
+                    />
+                    <IconButtonV2
+                      name="refresh"
+                      size={scaleDimension(18, uiScale)}
+                      color={theme.onSurfaceVariant}
+                      onPress={() => {
+                        if (resetHighlightOffset) {
+                          resetHighlightOffset();
+                        } else {
+                          readerTTSTabLog.error(
+                            'offset-error',
+                            'resetHighlightOffset is undefined',
+                          );
+                        }
+                      }}
+                      theme={theme}
+                      style={styles.offsetResetButton}
+                    />
+                  </View>
+                </View>
+                <AppText
+                  style={[
+                    styles.offsetHelperText,
+                    { color: theme.onSurfaceVariant },
+                  ]}
+                >
+                  Shifts TTS highlight position if misaligned. Takes effect from
+                  next paragraph.
+                </AppText>
+
                 <View style={styles.switchItem}>
                   <AppText
                     style={[styles.switchLabel, { color: theme.onSurface }]}
