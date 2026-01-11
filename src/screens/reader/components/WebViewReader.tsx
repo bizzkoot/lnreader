@@ -142,6 +142,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     savedParagraphIndex,
     getChapter,
     setAdjacentChapter,
+    paragraphHighlightOffsetRef,
   } = useChapterContext();
   const theme = useTheme();
 
@@ -338,6 +339,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     novel,
     html,
     webViewRef,
+    paragraphHighlightOffsetRef,
     saveProgress,
     refreshChaptersFromContext,
     navigateChapter,

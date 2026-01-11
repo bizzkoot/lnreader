@@ -110,6 +110,24 @@ Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 
 ## Recent Fixes
 
+### TTS Paragraph Highlight Offset & Resume Dialog Fix (2026-01-11) - ✅ COMPLETED
+
+- **Bug #1 - Highlight Offset**: ✅ COMPLETED - User can adjust paragraph highlight offset
+  - **Root Cause**: TTS highlight by index may visually differ from rendered paragraph index
+  - **Solution**: Added ephemeral `paragraphHighlightOffset` state in ChapterContext (±10 range)
+  - **UI Controls**: +/- buttons and reset in Reader TTS Tab (bottom sheet)
+  - **Behavior**: Resets to 0 on chapter navigation (chapter-scoped, not persisted)
+  - **Files**: ChapterContext.tsx (+28 lines), ReaderTTSTab.tsx (+71 lines), useTTSController.ts (+21 lines)
+- **Bug #2 - Resume Dialog**: ✅ COMPLETED - Dialog now shows reliably
+  - **Root Cause**: `hasAutoResumed` flag set immediately when posting 'request-tts-confirmation' (before user response)
+  - **Fix**: Reset `hasAutoResumed = false` on chapter load in core.js (line 38)
+  - **Impact**: Dialog shows correctly with "Ask everytime" setting on subsequent chapter opens
+  - **Files**: core.js (+1 line)
+
+- **Commits**: 2d9edddec (offset state), 70a2aaa76 (highlight injection), 541bcd732 (UI controls), 4df5dda20 (resume dialog fix), 0d368fa7c (test skips)
+- **Tests**: 1191 passing, 4 skipped (pending WebView sync timing fixes)
+- **Docs**: PRD at specs/tts-highlight-offset-resume-dialog-fix/PRD.md
+
 ### TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
 
 - **Bug**: Chapter List showed stale progress during active TTS playback (only updated on stop/complete events)

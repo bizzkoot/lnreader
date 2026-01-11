@@ -90,6 +90,8 @@ export interface UseTTSControllerParams {
   // === Refs ===
   /** WebView reference for JS injection */
   webViewRef: RefObject<WebView | null>;
+  /** Paragraph highlight offset ref (from ChapterContext, ephemeral) */
+  paragraphHighlightOffsetRef: RefObject<number>;
 
   // === Context Functions ===
   /** Save reading progress (calls hook's updateChapterProgress for DB + UI update) */
@@ -263,6 +265,9 @@ export interface UseTTSControllerReturn {
   updateTtsMediaNotificationState: (nextIsPlaying: boolean) => void;
   /** Cleanup all TTS state (MMKV + refs) for media navigation */
   cleanupAllTTSState: (chapterIds: number[]) => Promise<void>;
+
+  // NOTE: Paragraph highlight offset controls moved to ChapterContext
+  // (paragraphHighlightOffset, adjustHighlightOffset, resetHighlightOffset)
 }
 
 // ============================================================================
@@ -292,6 +297,7 @@ export function useTTSController(
     novel,
     html,
     webViewRef,
+    paragraphHighlightOffsetRef,
     saveProgress,
     refreshChaptersFromContext,
     navigateChapter,
@@ -373,6 +379,7 @@ export function useTTSController(
       ttsStateRef.current = null;
       currentParagraphIndexRef.current = -1;
       latestParagraphIndexRef.current = -1;
+      // NOTE: paragraphHighlightOffset reset is handled in ChapterContext
 
       ttsCtrlLog.debug(
         'tts-state-cleanup-refs',
@@ -391,6 +398,9 @@ export function useTTSController(
       );
     }
   }, []);
+
+  // Paragraph highlight offset (passed from ChapterContext, ephemeral)
+  // const paragraphHighlightOffsetRef = useRef<number>(0); // REMOVED: Now passed as param
 
   // Auto-start flags
   const autoStartTTSRef = useRef<boolean>(false);
@@ -712,6 +722,7 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
+    // NOTE: paragraphHighlightOffset reset is handled in ChapterContext
     const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
     if (pendingResumeId === chapterId) {
       ttsCtrlLog.debug(
@@ -2211,8 +2222,9 @@ export function useTTSController(
             webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts) {
-                  window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
-                  window.tts.updateState(${paragraphIndex}, ${currentChapterId});
+                  const adjustedIndex = ${paragraphIndex} + ${paragraphHighlightOffsetRef.current};
+                  window.tts.highlightParagraph(adjustedIndex, ${currentChapterId});
+                  window.tts.updateState(adjustedIndex, ${currentChapterId});
                 }
               } catch (e) { console.error('TTS: start inject failed', e); }
               true;
@@ -3440,7 +3452,11 @@ export function useTTSController(
     refreshChaptersFromContext,
     syncChapterList,
     cleanupAllTTSState,
+    paragraphHighlightOffsetRef,
   ]);
+
+  // NOTE: Paragraph highlight offset handlers moved to ChapterContext
+  // to avoid duplication and ensure consistency between useTTSController and UI
 
   // ===========================================================================
   // Return Value
@@ -3529,6 +3545,8 @@ export function useTTSController(
     restartTtsFromParagraphIndex,
     updateTtsMediaNotificationState,
     cleanupAllTTSState,
+
+    // NOTE: Paragraph highlight offset controls moved to ChapterContext
   };
 }
 

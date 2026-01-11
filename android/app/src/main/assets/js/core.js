@@ -35,6 +35,7 @@ window.reader = new (function () {
 
   this.novel = novel;
   this.chapter = chapter;
+  this.hasAutoResumed = false; // Reset flag to allow dialog to show again
   this.nextChapter = nextChapter;
   this.prevChapter = prevChapter;
   this.strings = strings;

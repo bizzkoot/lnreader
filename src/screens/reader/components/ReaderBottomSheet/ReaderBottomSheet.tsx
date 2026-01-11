@@ -131,6 +131,9 @@ const GeneralTab: React.FC = React.memo(() => {
 interface ReaderBottomSheetV2Props {
   bottomSheetRef: RefObject<BottomSheetModalMethods | null>;
   novel: NovelInfo;
+  paragraphHighlightOffset?: number;
+  adjustHighlightOffset?: (delta: number) => void;
+  resetHighlightOffset?: () => void;
 }
 
 const routes = [
@@ -142,6 +145,9 @@ const routes = [
 const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   bottomSheetRef,
   novel,
+  paragraphHighlightOffset,
+  adjustHighlightOffset,
+  resetHighlightOffset,
 }) => {
   const theme = useTheme();
   const { bottom, left, right } = useSafeAreaInsets();
@@ -159,12 +165,25 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
         case 'generalTab':
           return <GeneralTab />;
         case 'ttsTab':
-          return <ReaderTTSTab novel={novel} />;
+          return (
+            <ReaderTTSTab
+              novel={novel}
+              paragraphHighlightOffset={paragraphHighlightOffset}
+              adjustHighlightOffset={adjustHighlightOffset}
+              resetHighlightOffset={resetHighlightOffset}
+            />
+          );
         default:
           return null;
       }
     },
-    [uiScale, novel],
+    [
+      uiScale,
+      novel,
+      paragraphHighlightOffset,
+      adjustHighlightOffset,
+      resetHighlightOffset,
+    ],
   );
 
   const [index, setIndex] = useState(0);
