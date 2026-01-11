@@ -88,7 +88,7 @@ const StatsScreen = () => {
   }
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       {Header}
       <ScrollView
         style={styles.screenCtn}

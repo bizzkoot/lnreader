@@ -127,7 +127,7 @@ const BackupSettings = ({ navigation }: BackupSettingsScreenProps) => {
   );
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <Appbar
         title={getString('common.backup')}
         handleGoBack={() => navigation.goBack()}

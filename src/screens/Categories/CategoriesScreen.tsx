@@ -78,7 +78,7 @@ const CategoriesScreen = () => {
   );
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <Appbar
         title={getString('categories.header')}
         handleGoBack={goBack}

@@ -174,7 +174,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   };
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <Appbar
         title={getString('advancedSettings')}
         handleGoBack={() => navigation.goBack()}

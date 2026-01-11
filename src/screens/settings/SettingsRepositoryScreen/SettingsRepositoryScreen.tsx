@@ -84,7 +84,7 @@ const SettingsBrowseScreen = ({
   });
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <Appbar
         title={'Repositories'}
         handleGoBack={() => {
