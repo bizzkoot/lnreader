@@ -3452,6 +3452,7 @@ export function useTTSController(
     refreshChaptersFromContext,
     syncChapterList,
     cleanupAllTTSState,
+    paragraphHighlightOffsetRef,
   ]);
 
   // NOTE: Paragraph highlight offset handlers moved to ChapterContext
