@@ -50,6 +50,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
 
 - **Advanced TTS System**: Bluetooth headset controls, multi-chapter background playback, smart auto-stop, queue management, and live settings updates
 - **Continuous Reading Experience**: Seamless chapter transitions with invisible stitching and auto-mark short chapters
+- **Network & Security**: Cookie management for authenticated sources, DNS-over-HTTPS for privacy, and Cloudflare bypass for protected sources
 - **System-Wide UI Scaling**: Adjustable layout scaling for better accessibility and consistent experience across devices
 - **Enhanced Backup System**: Versioned schema with migration pipeline, multi-location support (Local, Google Drive, Self-Hosted)
 - **Improved App Updates**: In-app download with automatic backup before update
@@ -67,6 +68,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
       - [Key TTS Features Showcase](#key-tts-features-showcase)
     - [Enhanced TTS Media Notification (Android)](#enhanced-tts-media-notification-android)
   - [Reader Experience](#reader-experience)
+  - [Network \& Security](#network--security)
   - [UI \& Accessibility](#ui--accessibility)
   - [Backup \& Sync](#backup--sync)
 - [What's New](#whats-new)
@@ -179,6 +181,23 @@ Enhanced features for smoother, more immersive reading.
 
 ---
 
+### Network & Security
+
+Privacy-focused networking features for enhanced access and security.
+
+<div align="center">
+
+| Feature                          | Description                                                                            |
+| :------------------------------- | :------------------------------------------------------------------------------------- |
+| 🍪 **Cookie Management**          | Automatic cookie persistence for authentication-required sources with manual clearing  |
+| 🔒 **DNS-over-HTTPS (DoH)**       | Encrypted DNS queries via Cloudflare, Google, or AdGuard for enhanced privacy         |
+| 🛡️ **Cloudflare Bypass**          | Automated challenge solving for accessing Cloudflare-protected novel sources           |
+| 🌐 **Enhanced Network Resilience** | Retry logic with backoff, connection pooling, and graceful timeout handling            |
+
+</div>
+
+---
+
 ### UI & Accessibility
 
 System-wide improvements for better usability across devices.
@@ -219,7 +238,17 @@ Robust backup system with multiple options and versioned schema.
 
 ## What's New
 
+### Network & Security Enhancements
 
+- **Cookie Management**: Automatic persistence for authentication-required sources with WebView sync
+- **DNS-over-HTTPS**: Encrypted DNS queries via Cloudflare, Google, or AdGuard (Settings → Advanced)
+- **Cloudflare Bypass**: Automated challenge solving for protected novel sources
+- **Enhanced Network Resilience**: Infinite loop prevention (max 2 retry attempts), connection pooling, graceful timeout handling
+
+### UI & Accessibility
+
+- **Header Positioning Fix**: Resolved header overlap with Android status bar icons across all Settings and More screens
+- **SafeAreaView Enhancement**: Proper inset handling following React Native best practices
 
 ### Stability & Performance
 
@@ -235,6 +264,7 @@ Robust backup system with multiple options and versioned schema.
 - **EPUB Improvements**: Adopted upstream PRs for better EPUB rendering and summaries
 - **Android SDK 35+ Support**: Resolved all Gradle deprecation warnings and API compatibility issues
 - **Modern Tooling**: Upgraded React Native to 0.82.1, Reanimated to 4.2.0
+- **Build System**: Gradle 9.2.0 upgrade with OkHttp 4.12.0 for DoH support
 
 View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
 
@@ -368,6 +398,57 @@ flowchart LR
 ```
 
 </div>
+
+### Network & Security Infrastructure
+
+The network stack has been enhanced to address three common challenges when accessing novel sources: authentication requirements, privacy concerns, and regional blocks.
+
+#### 1. Cookie Management System
+**Problem**: Many novel sources require authentication (login) but lose session data on app restart.  
+**Solution**: Automatic cookie persistence using a three-tier approach:
+- **CookieManager Service** (`src/services/network/CookieManager.ts`): Wraps `@react-native-cookies/cookies` for centralized cookie storage
+- **fetchApi Integration**: Auto-injects cookies before requests and saves `Set-Cookie` headers after responses
+- **WebView Sync**: Extracts `document.cookie` when WebView-based authentication is used (OAuth flows, login pages)
+
+**Use Case**: Source requires login → User authenticates in WebView → Cookies automatically persist → Subsequent requests work without re-login.
+
+#### 2. DNS-over-HTTPS (DoH)
+**Problem**: ISP-level DNS queries can leak browsing data and be censored by network administrators.  
+**Solution**: Encrypted DNS resolution through trusted providers.
+
+<div align="center">
+
+| Provider | Endpoint | Bootstrap IP | Privacy Policy |
+|----------|----------|--------------|----------------|
+| Cloudflare | `https://cloudflare-dns.com/dns-query` | 1.1.1.1 | [Link](https://www.cloudflare.com/privacypolicy/) |
+| Google | `https://dns.google/dns-query` | 8.8.8.8 | [Link](https://developers.google.com/speed/public-dns/privacy) |
+| AdGuard | `https://dns-unfiltered.adguard.com/dns-query` | 94.140.14.140 | [Link](https://adguard.com/en/privacy.html) |
+
+</div>
+
+**Implementation**:
+- Native Android module (`DoHManagerModule.kt`) using OkHttp 4.12.0 + `okhttp-dnsoverhttps`
+- Bootstrap IPs prevent circular DNS dependency (can't resolve DoH provider domain without DNS!)
+- Dual-layer persistence (MMKV + SharedPreferences) survives app restarts
+- **Security Note**: No certificate pinning per OWASP 2025 guidance (prevents outages when providers rotate certs)
+
+**Location**: Settings → Advanced → DoH Provider (Android only)
+
+#### 3. Cloudflare Bypass System
+**Problem**: Many novel sources use Cloudflare protection (403/503 "Checking your browser..." challenges).  
+**Solution**: Automated WebView-based challenge solver.
+
+**Architecture**:
+- **CloudflareDetector** (`src/services/network/CloudflareDetector.ts`): Identifies Cloudflare challenges (status codes, `cf-ray` header, body signatures)
+- **CloudflareBypass** (`src/services/network/CloudflareBypass.ts`): Loads challenge page in hidden WebView, extracts `cf_clearance` cookie
+- **fetchApi Integration**: Auto-detects challenges and attempts bypass (max 2 retries to prevent infinite loops)
+
+**Challenge Types Handled**:
+- ✅ **JS Challenge**: 5-second JavaScript execution check (fully automated)
+- 🔶 **Interactive Challenge**: "Verify you are human" checkbox (requires user tap)
+- ❌ **CAPTCHA Challenge**: hCaptcha/reCAPTCHA (requires manual solve)
+
+**Cookie Lifetime**: `cf_clearance` typically valid for 15 min - 24 hours. After expiration, bypass re-triggers automatically.
 
 ---
 
