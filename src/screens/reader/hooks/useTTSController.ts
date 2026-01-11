@@ -263,6 +263,14 @@ export interface UseTTSControllerReturn {
   updateTtsMediaNotificationState: (nextIsPlaying: boolean) => void;
   /** Cleanup all TTS state (MMKV + refs) for media navigation */
   cleanupAllTTSState: (chapterIds: number[]) => Promise<void>;
+
+  // === Paragraph Highlight Offset Controls ===
+  /** Current paragraph highlight offset (ephemeral, chapter-scoped) */
+  paragraphHighlightOffset: number;
+  /** Adjust highlight offset by delta (clamped to [-10, +10]) */
+  adjustHighlightOffset: (delta: number) => void;
+  /** Reset highlight offset to 0 */
+  resetHighlightOffset: () => void;
 }
 
 // ============================================================================
@@ -373,10 +381,11 @@ export function useTTSController(
       ttsStateRef.current = null;
       currentParagraphIndexRef.current = -1;
       latestParagraphIndexRef.current = -1;
+      paragraphHighlightOffsetRef.current = 0;
 
       ttsCtrlLog.debug(
         'tts-state-cleanup-refs',
-        'Cleared in-memory refs: ttsStateRef, currentParagraphIndexRef, latestParagraphIndexRef',
+        'Cleared in-memory refs: ttsStateRef, currentParagraphIndexRef, latestParagraphIndexRef, paragraphHighlightOffsetRef',
       );
 
       ttsCtrlLog.info(
@@ -391,6 +400,9 @@ export function useTTSController(
       );
     }
   }, []);
+
+  // Paragraph highlight offset (ephemeral, resets on chapter change)
+  const paragraphHighlightOffsetRef = useRef<number>(0);
 
   // Auto-start flags
   const autoStartTTSRef = useRef<boolean>(false);
@@ -712,6 +724,9 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
+    // Reset highlight offset when chapter changes (ephemeral state)
+    paragraphHighlightOffsetRef.current = 0;
+
     const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
     if (pendingResumeId === chapterId) {
       ttsCtrlLog.debug(
@@ -3443,6 +3458,23 @@ export function useTTSController(
   ]);
 
   // ===========================================================================
+  // Paragraph Highlight Offset Handlers
+  // ===========================================================================
+
+  const adjustHighlightOffset = useCallback((delta: number) => {
+    paragraphHighlightOffsetRef.current += delta;
+    // Clamp to reasonable range (-10 to +10)
+    paragraphHighlightOffsetRef.current = Math.max(
+      -10,
+      Math.min(10, paragraphHighlightOffsetRef.current),
+    );
+  }, []);
+
+  const resetHighlightOffset = useCallback(() => {
+    paragraphHighlightOffsetRef.current = 0;
+  }, []);
+
+  // ===========================================================================
   // Return Value
   // ===========================================================================
 
@@ -3529,6 +3561,11 @@ export function useTTSController(
     restartTtsFromParagraphIndex,
     updateTtsMediaNotificationState,
     cleanupAllTTSState,
+
+    // Paragraph Highlight Offset Controls
+    paragraphHighlightOffset: paragraphHighlightOffsetRef.current,
+    adjustHighlightOffset,
+    resetHighlightOffset,
   };
 }
 
