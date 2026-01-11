@@ -43,8 +43,11 @@ Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 
 ### Phase 2: Security Hardening (P1) - ✅ COMPLETED
 
-- **2.1**: Added certificate pinning for DoH providers (Cloudflare, Google, AdGuard)
-  - Current certificates: SPfg6FluPIlUc6a5h313BDCxQYNGX+THTy7ig5X3+VA= (CF), 6KWWYvlnr74SW1bk3bxciLCcYjTzPN4I4kI8PkirZMA= (Google), Xvjeq711KsTubsR62ojbrmJ6qcBCbfFuoy4TSyiu3f4= (AdGuard)
+- **2.1**: ~~Added certificate pinning for DoH providers~~ → **REMOVED** (2026-01-11)
+  - Certificate pinning removed per OWASP 2025 guidance
+  - Reason: Third-party DoH providers rotate certs unpredictably, causing app outages
+  - Android's platform trust store + Certificate Transparency provides sufficient security
+  - See: OWASP Pinning Cheat Sheet - "don't pin if you don't control both sides"
 - **2.2**: User confirmation dialog for app restart already implemented
 - **2.3**: Cookie attribute filtering already implemented
 

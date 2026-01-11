@@ -4,7 +4,6 @@ import com.facebook.react.bridge.*
 import okhttp3.OkHttpClient
 import okhttp3.dnsoverhttps.DnsOverHttps
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.CertificatePinner
 import java.net.InetAddress
 import android.content.Context
 import android.content.SharedPreferences
@@ -132,20 +131,15 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
             return null
         }
 
-        // Certificate pinner for MITM protection
-        // Pins are public key SHA256 hashes extracted from current certificates
-        val certificatePinner = CertificatePinner.Builder()
-            .add("cloudflare-dns.com", "sha256/SPfg6FluPIlUc6a5h313BDCxQYNGX+THTy7ig5X3+VA=")
-            .add("dns.google", "sha256/6KWWYvlnr74SW1bk3bxciLCcYjTzPN4I4kI8PkirZMA=")
-            .add("dns-unfiltered.adguard.com", "sha256/Xvjeq711KsTubsR62ojbrmJ6qcBCbfFuoy4TSyiu3f4=")
-            .build()
-
         // Bootstrap client uses system DNS to resolve DoH endpoints
+        // Note: Certificate pinning removed to prevent outages when DoH providers 
+        // rotate certificates. Android's platform trust store + Certificate 
+        // Transparency provides sufficient security for third-party DoH services.
+        // See: OWASP Pinning Cheat Sheet (2025) - pinning discouraged for external services
         val bootstrapClient = OkHttpClient.Builder()
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
             .writeTimeout(5, TimeUnit.SECONDS)
-            .certificatePinner(certificatePinner)
             .build()
 
         return when (providerId) {
