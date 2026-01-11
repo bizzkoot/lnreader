@@ -395,19 +395,37 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
                 name="minus"
                 size={scaleDimension(20, uiScale)}
                 color={theme.onSurface}
-                onPress={() => adjustHighlightOffset(-1)}
+                onPress={() => {
+                  if (adjustHighlightOffset) {
+                    adjustHighlightOffset(-1);
+                  } else {
+                    readerTTSTabLog.error(
+                      'offset-error',
+                      'adjustHighlightOffset is undefined',
+                    );
+                  }
+                }}
                 theme={theme}
                 style={styles.offsetButton}
               />
               <AppText style={[styles.offsetValue, { color: theme.primary }]}>
-                {paragraphHighlightOffset > 0 ? '+' : ''}
-                {paragraphHighlightOffset}
+                {(paragraphHighlightOffset ?? 0) > 0 ? '+' : ''}
+                {paragraphHighlightOffset ?? 0}
               </AppText>
               <IconButtonV2
                 name="plus"
                 size={scaleDimension(20, uiScale)}
                 color={theme.onSurface}
-                onPress={() => adjustHighlightOffset(+1)}
+                onPress={() => {
+                  if (adjustHighlightOffset) {
+                    adjustHighlightOffset(+1);
+                  } else {
+                    readerTTSTabLog.error(
+                      'offset-error',
+                      'adjustHighlightOffset is undefined',
+                    );
+                  }
+                }}
                 theme={theme}
                 style={styles.offsetButton}
               />
@@ -415,7 +433,16 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
                 name="refresh"
                 size={scaleDimension(18, uiScale)}
                 color={theme.onSurfaceVariant}
-                onPress={resetHighlightOffset}
+                onPress={() => {
+                  if (resetHighlightOffset) {
+                    resetHighlightOffset();
+                  } else {
+                    readerTTSTabLog.error(
+                      'offset-error',
+                      'resetHighlightOffset is undefined',
+                    );
+                  }
+                }}
                 theme={theme}
                 style={styles.offsetResetButton}
               />
