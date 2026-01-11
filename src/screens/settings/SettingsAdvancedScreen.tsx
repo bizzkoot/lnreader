@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Portal, TextInput } from 'react-native-paper';
 import AppText from '@components/AppText';
@@ -17,23 +17,52 @@ import {
 import { scaleDimension } from '@theme/scaling';
 
 import { Appbar, Button, List, Modal, SafeAreaView } from '@components';
+import { RadioButton, RadioButtonGroup } from '@components/RadioButton';
 import { AdvancedSettingsScreenProps } from '@navigators/types';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, Platform } from 'react-native';
 import { getUserAgentSync } from 'react-native-device-info';
 import CookieManager from '@react-native-cookies/cookies';
+import { CookieManager as CookieManagerService } from '@services/network/CookieManager';
 import { store } from '@plugins/helpers/storage';
 import { recreateDatabaseIndexes } from '@database/db';
+import {
+  DoHProvider,
+  DoHProviderNames,
+  DoHProviderDescriptions,
+  DoHManager,
+} from '@services/network/DoHManager';
 
 const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   const theme = useTheme();
-  const clearCookies = () => {
-    CookieManager.clearAll();
-    store.clearAll();
-    showToast(getString('webview.cookiesCleared'));
+  const {
+    uiScale = 1.0,
+    doHProvider = DoHProvider.DISABLED,
+    setAppSettings,
+  } = useAppSettings();
+
+  // DoH provider state
+  const [selectedDoHProvider, setSelectedDoHProvider] =
+    useState<DoHProvider>(doHProvider);
+
+  // Sync native module with MMKV value on mount
+  useEffect(() => {
+    DoHManager.setProvider(doHProvider);
+    setSelectedDoHProvider(doHProvider);
+  }, [doHProvider]);
+
+  const clearCookies = async () => {
+    try {
+      await CookieManagerService.clearAllCookies();
+      CookieManager.clearAll(); // Also clear legacy WebView cookies
+      store.clearAll(); // Clear WebView storage
+      showToast(getString('webview.cookiesCleared'));
+      hideClearCookiesDialog();
+    } catch (error) {
+      showToast('Error');
+    }
   };
 
   const { userAgent, setUserAgent } = useUserAgent();
-  const { uiScale = 1.0 } = useAppSettings();
   const [userAgentInput, setUserAgentInput] = useState(userAgent);
 
   const styles = React.useMemo(
@@ -91,14 +120,85 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     setFalse: hideRecreateDBIndexDialog,
   } = useBoolean();
 
+  const {
+    value: clearCookiesDialog,
+    setTrue: showClearCookiesDialog,
+    setFalse: hideClearCookiesDialog,
+  } = useBoolean();
+
+  const {
+    value: dohProviderModal,
+    setTrue: showDohProviderModal,
+    setFalse: hideDohProviderModal,
+  } = useBoolean();
+
+  const {
+    value: dohRestartDialog,
+    setTrue: showDohRestartDialog,
+    setFalse: hideDohRestartDialog,
+  } = useBoolean();
+
+  const handleDoHProviderChange = async (provider: DoHProvider) => {
+    setSelectedDoHProvider(provider);
+    hideDohProviderModal();
+
+    // Show restart warning if provider is changing
+    if (provider !== doHProvider) {
+      showDohRestartDialog();
+    }
+  };
+
+  const confirmDoHProviderChange = async () => {
+    const success = await DoHManager.setProvider(selectedDoHProvider);
+
+    if (success) {
+      setAppSettings({ doHProvider: selectedDoHProvider });
+      showToast(getString('advancedSettingsScreen.dohProviderChanged'));
+
+      // Force close the app to apply DoH changes
+      setTimeout(() => {
+        DoHManager.exitApp();
+      }, 500); // Small delay to allow toast to show
+    } else {
+      showToast(getString('advancedSettingsScreen.dohProviderError'));
+      // Revert selection on failure
+      setSelectedDoHProvider(doHProvider);
+      hideDohRestartDialog();
+    }
+  };
+
+  const cancelDoHProviderChange = () => {
+    // Revert to current provider
+    setSelectedDoHProvider(doHProvider);
+    hideDohRestartDialog();
+  };
+
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <Appbar
         title={getString('advancedSettings')}
         handleGoBack={() => navigation.goBack()}
         theme={theme}
       />
       <ScrollView>
+        <List.Section>
+          <List.SubHeader theme={theme}>
+            {getString('advancedSettingsScreen.dnsOverHttps')}
+          </List.SubHeader>
+          <List.Item
+            title={getString('advancedSettingsScreen.dohProvider')}
+            description={
+              Platform.OS === 'android'
+                ? DoHProviderNames[doHProvider]
+                : getString('advancedSettingsScreen.dohAndroidOnly')
+            }
+            onPress={
+              Platform.OS === 'android' ? showDohProviderModal : undefined
+            }
+            disabled={Platform.OS !== 'android'}
+            theme={theme}
+          />
+        </List.Section>
         <List.Section>
           <List.SubHeader theme={theme}>
             {getString('advancedSettingsScreen.dataManagement')}
@@ -134,7 +234,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
           />
           <List.Item
             title={getString('webview.clearCookies')}
-            onPress={clearCookies}
+            onPress={showClearCookiesDialog}
             theme={theme}
           />
           <List.Item
@@ -187,6 +287,13 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
           onDismiss={hideClearUpdatesDialog}
           theme={theme}
         />
+        <ConfirmationDialog
+          message={getString('advancedSettingsScreen.clearCookiesWarning')}
+          visible={clearCookiesDialog}
+          onSubmit={clearCookies}
+          onDismiss={hideClearCookiesDialog}
+          theme={theme}
+        />
 
         <Modal visible={userAgentModalVisible} onDismiss={hideUserAgentModal}>
           <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
@@ -225,6 +332,55 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
             />
           </View>
         </Modal>
+
+        {/* DoH Provider Picker Modal */}
+        <Modal visible={dohProviderModal} onDismiss={hideDohProviderModal}>
+          <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
+            {getString('advancedSettingsScreen.selectDohProvider')}
+          </AppText>
+          <RadioButtonGroup
+            value={selectedDoHProvider}
+            onValueChange={value =>
+              handleDoHProviderChange(Number(value) as DoHProvider)
+            }
+          >
+            {Object.entries(DoHProviderNames).map(([key, name]) => {
+              const providerId = Number(key) as DoHProvider;
+              return (
+                <View key={key}>
+                  <RadioButton value={providerId} label={name} theme={theme} />
+                  <AppText
+                    style={{
+                      color: theme.onSurfaceVariant,
+                      fontSize: scaleDimension(12, uiScale),
+                      marginLeft: scaleDimension(48, uiScale),
+                      marginTop: scaleDimension(-4, uiScale),
+                      marginBottom: scaleDimension(8, uiScale),
+                    }}
+                  >
+                    {DoHProviderDescriptions[providerId]}
+                  </AppText>
+                </View>
+              );
+            })}
+          </RadioButtonGroup>
+          <View style={styles.buttonGroup}>
+            <Button
+              onPress={hideDohProviderModal}
+              style={styles.button}
+              title={getString('common.cancel')}
+            />
+          </View>
+        </Modal>
+
+        {/* DoH Restart Confirmation Dialog */}
+        <ConfirmationDialog
+          message={getString('advancedSettingsScreen.dohRestartWarning')}
+          visible={dohRestartDialog}
+          onSubmit={confirmDoHProviderChange}
+          onDismiss={cancelDoHProviderChange}
+          theme={theme}
+        />
       </Portal>
     </SafeAreaView>
   );

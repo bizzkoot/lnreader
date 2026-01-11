@@ -26,6 +26,7 @@ import {
   markChapterRead,
 } from '@database/queries/ChapterQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
+import { db } from '@database/db';
 import {
   ChapterGeneralSettings,
   ChapterReaderSettings,
@@ -89,14 +90,18 @@ export interface UseTTSControllerParams {
   // === Refs ===
   /** WebView reference for JS injection */
   webViewRef: RefObject<WebView | null>;
+  /** Paragraph highlight offset ref (from ChapterContext, ephemeral) */
+  paragraphHighlightOffsetRef: RefObject<number>;
 
   // === Context Functions ===
-  /** Save reading progress */
+  /** Save reading progress (calls hook's updateChapterProgress for DB + UI update) */
   saveProgress: (
     progress: number,
     paragraphIndex?: number,
     ttsState?: string,
   ) => void;
+  /** Refresh chapter list after progress save */
+  refreshChaptersFromContext: () => void;
   /** Navigate to next/prev chapter */
   navigateChapter: (direction: 'NEXT' | 'PREV') => void;
   /** Get a specific chapter */
@@ -258,6 +263,11 @@ export interface UseTTSControllerReturn {
   restartTtsFromParagraphIndex: (targetIndex: number) => Promise<void>;
   /** Update TTS media notification state */
   updateTtsMediaNotificationState: (nextIsPlaying: boolean) => void;
+  /** Cleanup all TTS state (MMKV + refs) for media navigation */
+  cleanupAllTTSState: (chapterIds: number[]) => Promise<void>;
+
+  // NOTE: Paragraph highlight offset controls moved to ChapterContext
+  // (paragraphHighlightOffset, adjustHighlightOffset, resetHighlightOffset)
 }
 
 // ============================================================================
@@ -287,7 +297,9 @@ export function useTTSController(
     novel,
     html,
     webViewRef,
+    paragraphHighlightOffsetRef,
     saveProgress,
+    refreshChaptersFromContext,
     navigateChapter,
     getChapter,
     nextChapter,
@@ -326,6 +338,70 @@ export function useTTSController(
   // Reserved for full wake handling - will be used in background TTS effect
   const ttsSessionRef = useRef<number>(0);
 
+  /**
+   * Cleanup All TTS State
+   *
+   * Clears ALL TTS-related state from MMKV and in-memory refs.
+   * Called when user navigates via media notification to prevent
+   * stale "resume" dialog confusion.
+   *
+   * @param chapterIds - Array of chapter IDs to clear progress for
+   */
+  const cleanupAllTTSState = useCallback(async (chapterIds: number[] = []) => {
+    ttsCtrlLog.info(
+      'tts-state-cleanup',
+      `🧹 Cleaning up TTS state for ${chapterIds.length} chapters`,
+    );
+
+    try {
+      // Clear MMKV flags
+      MMKVStorage.delete('pendingTTSResumeChapterId');
+      MMKVStorage.delete('lastTTSChapterId');
+      MMKVStorage.delete('tts_button_position');
+
+      ttsCtrlLog.debug(
+        'tts-state-cleanup-mmkv',
+        'Cleared MMKV flags: pendingTTSResumeChapterId, lastTTSChapterId, tts_button_position',
+      );
+
+      // Clear progress for specified chapters
+      for (const id of chapterIds) {
+        if (typeof id === 'number' && id > 0) {
+          MMKVStorage.delete(`chapter_progress_${id}`);
+          ttsCtrlLog.debug(
+            'tts-state-cleanup-chapter',
+            `Cleared progress for chapter ${id}`,
+          );
+        }
+      }
+
+      // Clear in-memory state
+      ttsStateRef.current = null;
+      currentParagraphIndexRef.current = -1;
+      latestParagraphIndexRef.current = -1;
+      // NOTE: paragraphHighlightOffset reset is handled in ChapterContext
+
+      ttsCtrlLog.debug(
+        'tts-state-cleanup-refs',
+        'Cleared in-memory refs: ttsStateRef, currentParagraphIndexRef, latestParagraphIndexRef',
+      );
+
+      ttsCtrlLog.info(
+        'tts-state-cleanup-complete',
+        '✅ TTS state cleanup complete',
+      );
+    } catch (e) {
+      ttsCtrlLog.warn(
+        'tts-state-cleanup-failed',
+        'Failed to cleanup TTS state',
+        e,
+      );
+    }
+  }, []);
+
+  // Paragraph highlight offset (passed from ChapterContext, ephemeral)
+  // const paragraphHighlightOffsetRef = useRef<number>(0); // REMOVED: Now passed as param
+
   // Auto-start flags
   const autoStartTTSRef = useRef<boolean>(false);
   const forceStartFromParagraphZeroRef = useRef<boolean>(false);
@@ -350,6 +426,8 @@ export function useTTSController(
   const mediaNavSourceChapterIdRef = useRef<number | null>(null);
   const mediaNavDirectionRef = useRef<MediaNavDirection>(null);
   const prevChapterIdRef = useRef<number>(chapter.id);
+  // Safety timeout to clear media nav refs if paragraph 5 never reached (e.g., user stops TTS early)
+  const mediaNavSafetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync/retry
   const syncRetryCountRef = useRef<number>(0);
@@ -371,6 +449,12 @@ export function useTTSController(
   const navigateChapterRef = useRef(navigateChapter);
   const saveProgressRef = useRef(saveProgress);
   const progressRef = useRef<number>(chapter.progress ?? 0);
+  const refreshChaptersFromContextRef = useRef(refreshChaptersFromContext); // FIX: Keep refresh in sync for playback UI updates
+
+  // Chapter list refresh timing (debounced to avoid excessive DB reloads during rapid paragraph updates)
+  // Increased from 500ms to 2000ms to reduce DB query frequency (~10/sec → ~2/sec during playback)
+  const lastChapterListRefreshTimeRef = useRef<number>(0);
+  const CHAPTER_LIST_REFRESH_DEBOUNCE_MS = 2000;
 
   // User interaction tracking
   const hasUserScrolledRef = useRef<boolean>(false);
@@ -431,6 +515,11 @@ export function useTTSController(
     manualModeDialogVisibleRef.current = dialogState.manualModeDialogVisible;
   }, [dialogState.manualModeDialogVisible]);
 
+  // FIX: Keep refreshChaptersFromContext ref synced for real-time chapter list updates during TTS playback
+  useEffect(() => {
+    refreshChaptersFromContextRef.current = refreshChaptersFromContext;
+  }, [refreshChaptersFromContext]);
+
   // ===========================================================================
   // Utility Functions (Phase 1: Extracted)
   // ===========================================================================
@@ -461,6 +550,25 @@ export function useTTSController(
     restartTtsFromParagraphIndex,
     resumeTTS,
   } = utilities;
+
+  // ===========================================================================
+  // Chapter List Sync Helper
+  // ===========================================================================
+
+  /**
+   * Synchronize chapter list with current TTS progress
+   * Wraps refreshChaptersFromContext with error handling and timing control
+   * @param delayMs - Delay before syncing (default 100ms)
+   */
+  const syncChapterList = useCallback((delayMs: number = 100) => {
+    setTimeout(() => {
+      try {
+        refreshChaptersFromContextRef.current?.();
+      } catch (e) {
+        ttsCtrlLog.warn('chapter-list-sync-failed', '', e);
+      }
+    }, delayMs);
+  }, []);
 
   // ===========================================================================
   // Chapter Change Effect - Phase 2 Step 1: Extracted to useChapterTransition
@@ -614,6 +722,7 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
+    // NOTE: paragraphHighlightOffset reset is handled in ChapterContext
     const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
     if (pendingResumeId === chapterId) {
       ttsCtrlLog.debug(
@@ -635,7 +744,71 @@ export function useTTSController(
         }, 100);
       }
     }
-  }, [chapterId]);
+
+    // FIX: VALIDATION - Detect and correct off-by-one errors in saved TTS progress
+    // This handles cases where previous buggy code saved nextIndex instead of currentIdx
+    // Validation: Ensure saved MMKV index is within chapter bounds
+    if (html) {
+      const savedMMKVIndex =
+        MMKVStorage.getNumber(`chapter_progress_${chapterId}`) ?? -1;
+
+      if (savedMMKVIndex >= 0) {
+        const paragraphs = extractParagraphs(html);
+        const totalParagraphs = paragraphs?.length || 0;
+
+        // If saved index is beyond chapter bounds, it's likely an off-by-one error
+        if (savedMMKVIndex >= totalParagraphs && totalParagraphs > 0) {
+          const correctedIndex = totalParagraphs - 1;
+          ttsCtrlLog.warn(
+            'tts-index-validation-corrected',
+            `Detected invalid TTS index ${savedMMKVIndex} (>= ${totalParagraphs}). ` +
+              `Correcting to ${correctedIndex} (last paragraph).`,
+          );
+
+          // Correct MMKV
+          try {
+            MMKVStorage.set(`chapter_progress_${chapterId}`, correctedIndex);
+          } catch (err) {
+            ttsCtrlLog.error(
+              'tts-index-correction-failed',
+              'Failed to correct MMKV index',
+              err,
+            );
+          }
+
+          // Correct DB
+          try {
+            const correctedPercentage = Math.round(
+              ((correctedIndex + 1) / totalParagraphs) * 100,
+            );
+            updateChapterProgressDb(chapterId, correctedPercentage).catch(
+              err => {
+                ttsCtrlLog.error(
+                  'tts-db-correction-failed',
+                  'Failed to correct DB progress',
+                  err,
+                );
+              },
+            );
+          } catch (err) {
+            ttsCtrlLog.error(
+              'tts-db-correction-failed',
+              'Failed to correct DB progress (sync)',
+              err,
+            );
+          }
+        } else if (savedMMKVIndex >= 0 && totalParagraphs > 0) {
+          // Valid index - just log for debugging
+          if (__DEV__) {
+            ttsCtrlLog.debug(
+              'tts-index-validation-ok',
+              `TTS index ${savedMMKVIndex} is valid (chapter has ${totalParagraphs} paragraphs)`,
+            );
+          }
+        }
+      }
+    }
+  }, [chapterId, html]);
 
   // ===========================================================================
   // Utility Functions
@@ -682,6 +855,7 @@ export function useTTSController(
   const manualModeHandlers = useManualModeHandlers({
     webViewRef,
     showToastMessage,
+    refreshChaptersFromContext,
     refs: { isTTSReadingRef, isTTSPlayingRef, hasUserScrolledRef },
     callbacks: { hideManualModeDialog },
   });
@@ -858,6 +1032,9 @@ export function useTTSController(
                 reason => {
                   TTSHighlight.stop();
 
+                  // ✅ NEW: Sync chapter list after auto-stop
+                  syncChapterList(100);
+
                   // Show toast notification
                   const messages = {
                     minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
@@ -919,8 +1096,37 @@ export function useTTSController(
           return true;
 
         case 'stop-speak':
+          // FIX: Save progress before stopping to prevent data loss
+          if (currentParagraphIndexRef.current >= 0) {
+            const idx = currentParagraphIndexRef.current;
+            const total = totalParagraphsRef.current;
+            if (idx >= 0 && total > 0) {
+              const percentage = Math.round(((idx + 1) / total) * 100);
+              saveProgressRef.current(percentage, idx);
+              if (__DEV__) {
+                ttsCtrlLog.info(
+                  'stop-save-progress',
+                  `idx=${idx} total=${total} pct=${percentage}`,
+                );
+              }
+            }
+          }
+
           TTSHighlight.fullStop();
+
+          // FIX: Reset state to clean slate to prevent persistent corruption
+          // This ensures that any drift accumulated during the session doesn't persist
+          currentParagraphIndexRef.current = -1;
+          latestParagraphIndexRef.current = -1;
           isTTSReadingRef.current = false;
+          isTTSPlayingRef.current = false;
+          isTTSPausedRef.current = false;
+          ttsQueueRef.current = null;
+
+          ttsCtrlLog.debug(
+            'tts-stopped-state-reset',
+            'TTS stopped, state reset to clean slate',
+          );
           return true;
 
         case 'tts-state':
@@ -1129,6 +1335,7 @@ export function useTTSController(
       showScrollSyncDialog,
       showManualModeDialog,
       showToastMessage,
+      syncChapterList,
     ],
   );
 
@@ -1299,6 +1506,29 @@ export function useTTSController(
 
           const paragraphs = extractParagraphs(html);
           if (paragraphs && paragraphs.length > savedWakeParagraphIdx) {
+            // CRITICAL FIX (Bug #2): Inject scroll restoration BEFORE resuming playback
+            // This ensures WebView scrolls to the correct paragraph when user returns from background
+            webViewRef.current?.injectJavaScript(`
+              try {
+                if (window.tts) {
+                  const readableElements = reader.getReadableElements();
+                  if (readableElements && readableElements[${savedWakeParagraphIdx}]) {
+                    window.tts.currentElement = readableElements[${savedWakeParagraphIdx}];
+                    window.tts.scrollToElement(window.tts.currentElement);
+                    window.tts.highlightParagraph(${savedWakeParagraphIdx}, ${chapterId});
+                    console.log('TTS: Wake resume - scrolled to paragraph ${savedWakeParagraphIdx}');
+                  } else {
+                    console.warn('TTS: Wake resume - paragraph ${savedWakeParagraphIdx} not found in readableElements');
+                  }
+                } else {
+                  console.warn('TTS: Wake resume - window.tts not available');
+                }
+              } catch (e) {
+                console.error('TTS: Wake resume scroll failed', e);
+              }
+              true;
+            `);
+
             const remaining = paragraphs.slice(savedWakeParagraphIdx);
             const ids = remaining.map(
               (_, i) =>
@@ -1443,6 +1673,9 @@ export function useTTSController(
         reason => {
           TTSHighlight.stop();
 
+          // ✅ NEW: Sync chapter list after auto-stop
+          syncChapterList(100);
+
           // Show toast notification
           const messages = {
             minutes: `Auto-stop: ${autoStopAmount} minute${autoStopAmount !== 1 ? 's' : ''} elapsed`,
@@ -1478,18 +1711,18 @@ export function useTTSController(
           `);
         } else {
           webViewRef.current?.injectJavaScript(`
-            (function() {
-              if (window.tts && reader.generalSettings.val.TTSEnable) {
-                setTimeout(() => {
-                  tts.start();
-                  const controller = document.getElementById('TTS-Controller');
-                  if (controller && controller.firstElementChild) {
-                    controller.firstElementChild.innerHTML = pauseIcon;
-                  }
-                }, 500);
-              }
-            })();
-          `);
+             (function() {
+               if (window.tts && reader.generalSettings.val.TTSEnable) {
+                 setTimeout(() => {
+                   tts.start();
+                   const controller = document.getElementById('TTS-Controller');
+                   if (controller && controller.firstElementChild) {
+                     controller.firstElementChild.innerHTML = pauseIcon;
+                   }
+                 }, 500);
+               }
+             })();
+           `);
         }
       }, TTS_CONSTANTS.CHAPTER_TRANSITION_DELAY_MS);
     }
@@ -1502,6 +1735,7 @@ export function useTTSController(
     chapterGeneralSettingsRef,
     updateTtsMediaNotificationState,
     showToastMessage,
+    syncChapterList,
   ]);
 
   // ===========================================================================
@@ -1546,7 +1780,7 @@ export function useTTSController(
     // onSpeechDone - Handle paragraph completion
     const onSpeechDoneSubscription = TTSHighlight.addListener(
       'onSpeechDone',
-      () => {
+      event => {
         if (wakeTransitionInProgressRef.current) {
           ttsCtrlLog.debug(
             'speech-done-wake-transition',
@@ -1564,8 +1798,86 @@ export function useTTSController(
           return;
         }
 
+        // FIX: Parse utterance ID to verify the paragraph index before incrementing
+        // This prevents drift from stale events during pause/resume/stop cycles
+        const utteranceId = event?.utteranceId || '';
+        let doneParagraphIndex = -1;
+
+        if (typeof utteranceId === 'string') {
+          const chapterMatch = utteranceId.match(
+            /chapter_(\d+)_utterance_(\d+)/,
+          );
+          if (chapterMatch) {
+            const eventChapterId = Number(chapterMatch[1]);
+            const currentChapterId = Number(prevChapterIdRef.current);
+
+            // Guard against NaN from invalid parsing
+            if (
+              !Number.isFinite(eventChapterId) ||
+              !Number.isFinite(currentChapterId)
+            ) {
+              ttsCtrlLog.warn(
+                'speech-done-invalid-id',
+                `Invalid chapter ID: event=${eventChapterId}, current=${currentChapterId}`,
+              );
+              return;
+            }
+
+            // Verify chapter ID matches before extracting paragraph index
+            if (eventChapterId === currentChapterId) {
+              doneParagraphIndex = Number(chapterMatch[2]);
+              // Guard against NaN from paragraph index parsing
+              if (!Number.isFinite(doneParagraphIndex)) {
+                ttsCtrlLog.warn(
+                  'speech-done-invalid-id',
+                  `Invalid paragraph index: ${doneParagraphIndex}`,
+                );
+                return;
+              }
+            } else {
+              // Chapter mismatch - stale event from previous chapter
+              if (
+                Date.now() - lastStaleLogTimeRef.current >
+                TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
+              ) {
+                ttsCtrlLog.debug(
+                  'speech-done-chapter-mismatch',
+                  `[STALE] onSpeechDone chapter ${eventChapterId} != ${currentChapterId}, ignoring`,
+                );
+                lastStaleLogTimeRef.current = Date.now();
+              }
+              return;
+            }
+          }
+        }
+
         if (ttsQueueRef.current && currentParagraphIndexRef.current >= 0) {
           const currentIdx = currentParagraphIndexRef.current;
+
+          // FIX: With the new semantic where currentParagraphIndexRef = "last completed",
+          // the utterance that just finished should be currentIdx + 1 (next to play finished).
+          // But we also accept exact match for first paragraph (when ref was set during batch start).
+          // We should NOT ignore if doneParagraphIndex is currentIdx+1 - that's the EXPECTED case!
+          const expectedNextToFinish = currentIdx + 1;
+          const isExpectedEvent =
+            doneParagraphIndex === currentIdx || // Exact match (first paragraph or edge case)
+            doneParagraphIndex === expectedNextToFinish; // Expected: next after last completed
+
+          if (doneParagraphIndex >= 0 && !isExpectedEvent) {
+            // Only reject if significantly off (stale event from old chapter/queue)
+            if (
+              Date.now() - lastStaleLogTimeRef.current >
+              TTS_CONSTANTS.STALE_LOG_DEBOUNCE_MS
+            ) {
+              ttsCtrlLog.warn(
+                'speech-done-index-mismatch',
+                `Utterance ID index ${doneParagraphIndex} != expected ${currentIdx} or ${expectedNextToFinish}, ignoring stale event`,
+              );
+              lastStaleLogTimeRef.current = Date.now();
+            }
+            return;
+          }
+
           const queueStartIndex = ttsQueueRef.current.startIndex;
           const queueEndIndex =
             queueStartIndex + ttsQueueRef.current.texts.length;
@@ -1602,31 +1914,72 @@ export function useTTSController(
                 `Index not advancing! next=${nextIndex}, current=${currentParagraphIndexRef.current}`,
               );
             }
-            currentParagraphIndexRef.current = nextIndex;
+            // FIX: Save the COMPLETED paragraph, which is the one that just finished.
+            // Use doneParagraphIndex if we parsed it from utterance ID, otherwise fallback to currentIdx.
+            // This represents "last paragraph that finished speaking" which is definitive.
+            const finishedParagraph =
+              doneParagraphIndex >= 0 ? doneParagraphIndex : currentIdx;
+            currentParagraphIndexRef.current = finishedParagraph;
+
+            // FIX: Save to MMKV immediately to ensure it stays in sync with ref
+            // This prevents off-by-one errors during background resume, especially during
+            // chapter transitions when WebView is not synced and normal save messages are skipped
+            try {
+              // Save COMPLETED paragraph to MMKV
+              MMKVStorage.set(
+                `chapter_progress_${chapterId}`,
+                finishedParagraph,
+              );
+              if (__DEV__) {
+                ttsCtrlLog.debug(
+                  'mmkv-save-on-speech-done',
+                  `Saved COMPLETED paragraph to MMKV: chapter ${chapterId}, paragraph ${finishedParagraph}`,
+                );
+              }
+            } catch (err) {
+              ttsCtrlLog.warn(
+                'mmkv-save-failed',
+                'Failed to save progress to MMKV in onSpeechDone',
+                err,
+              );
+            }
 
             // CRITICAL: Update lastSpokenIndex in TTSAudioManager
             // This ensures drift enforcement uses correct paragraph position
-            // We use currentIdx (just finished) as the last spoken index
-            TTSAudioManager.setLastSpokenIndex(currentIdx);
+            // We use finishedParagraph (just finished) as the last spoken index
+            TTSAudioManager.setLastSpokenIndex(finishedParagraph);
 
             autoStopService.onParagraphSpoken();
 
             if (ttsStateRef.current) {
               ttsStateRef.current = {
                 ...ttsStateRef.current,
-                paragraphIndex: nextIndex,
+                paragraphIndex: finishedParagraph,
                 timestamp: Date.now(),
               };
             }
 
             const total = totalParagraphsRef.current;
+            // Calculate percentage based on COMPLETED paragraph (finishedParagraph)
             const percentage =
               total > 0
-                ? Math.round(((nextIndex + 1) / total) * 100)
+                ? Math.round(((finishedParagraph + 1) / total) * 100)
                 : (progressRef.current ?? 0);
             // FIX: Use ref.current directly to avoid stale closure
             // saveProgressRef is kept in sync by useRefSync hook
-            saveProgressRef.current(percentage, nextIndex);
+            saveProgressRef.current(percentage, finishedParagraph);
+
+            // FIX: Debounce chapter list refresh during playback to sync UI in real-time
+            // This ensures the Chapter List shows updated progress without excessive DB reloads
+            const now = Date.now();
+            if (
+              now - lastChapterListRefreshTimeRef.current >=
+              CHAPTER_LIST_REFRESH_DEBOUNCE_MS
+            ) {
+              lastChapterListRefreshTimeRef.current = now;
+              // Schedule refresh on next tick to avoid blocking TTS playback
+              syncChapterList(0);
+            }
 
             // Check media navigation confirmation
             if (
@@ -1635,6 +1988,13 @@ export function useTTSController(
             ) {
               const sourceChapterId = mediaNavSourceChapterIdRef.current;
               const direction = mediaNavDirectionRef.current;
+
+              // FIX: Enhanced logging for debugging race condition
+              ttsCtrlLog.info(
+                'media-nav-confirm',
+                `✅ Confirmation checkpoint reached - Source: Ch${sourceChapterId}, Direction: ${direction}, Target paragraph: ${nextIndex}`,
+              );
+
               if (direction === 'NEXT') {
                 ttsCtrlLog.debug(
                   'media-nav-next',
@@ -1658,8 +2018,27 @@ export function useTTSController(
               } else {
                 updateChapterProgressDb(sourceChapterId, 100);
               }
+
+              // FIX: Clear refs AFTER confirmation (moved from useChapterTransition)
+              // This fixes race condition where refs were cleared after 2.3s but confirmation
+              // might take 10-15s+ with slow speech rates.
               mediaNavSourceChapterIdRef.current = null;
               mediaNavDirectionRef.current = null;
+
+              // Clear safety timeout since confirmation succeeded
+              if (mediaNavSafetyTimeoutRef.current) {
+                clearTimeout(mediaNavSafetyTimeoutRef.current);
+                mediaNavSafetyTimeoutRef.current = null;
+                ttsCtrlLog.debug(
+                  'media-nav-safety-cleared',
+                  'Safety timeout cleared after successful confirmation',
+                );
+              }
+
+              ttsCtrlLog.info(
+                'media-nav-cleanup',
+                '✅ Media nav refs cleared after confirmation',
+              );
             }
 
             updateTtsMediaNotificationState(isTTSReadingRef.current);
@@ -1824,7 +2203,9 @@ export function useTTSController(
           }
 
           if (paragraphIndex >= 0) {
-            currentParagraphIndexRef.current = paragraphIndex;
+            // SEMANTIC FIX: Do NOT update currentParagraphIndexRef here
+            // The ref maintains "last completed" semantic (updated by onSpeechDone)
+            // This prevents drift during wake sync when ref is used to calculate highlight position
             isTTSPlayingRef.current = true;
             hasUserScrolledRef.current = false;
           }
@@ -1841,8 +2222,9 @@ export function useTTSController(
             webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts) {
-                  window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
-                  window.tts.updateState(${paragraphIndex}, ${currentChapterId});
+                  const adjustedIndex = ${paragraphIndex} + ${paragraphHighlightOffsetRef.current};
+                  window.tts.highlightParagraph(adjustedIndex, ${currentChapterId});
+                  window.tts.updateState(adjustedIndex, ${currentChapterId});
                 }
               } catch (e) { console.error('TTS: start inject failed', e); }
               true;
@@ -1997,13 +2379,40 @@ export function useTTSController(
             mediaNavSourceChapterIdRef.current = chapterId;
             mediaNavDirectionRef.current = 'PREV';
 
+            // FIX: Enhanced logging for debugging
+            ttsCtrlLog.info(
+              'media-nav-start-prev',
+              `🔙 PREV_CHAPTER initiated - Source: Ch${chapterId} → Target: Ch${prevChapter.id}`,
+            );
+
+            // FIX: Start safety timeout (60s) to clear refs if confirmation never runs
+            // (e.g., user stops TTS before reaching paragraph 5)
+            if (mediaNavSafetyTimeoutRef.current) {
+              clearTimeout(mediaNavSafetyTimeoutRef.current);
+            }
+            mediaNavSafetyTimeoutRef.current = setTimeout(() => {
+              if (mediaNavSourceChapterIdRef.current) {
+                ttsCtrlLog.warn(
+                  'media-nav-safety-timeout',
+                  `⏱️ Safety timeout (60s) - Clearing stale refs. Source: Ch${mediaNavSourceChapterIdRef.current} never confirmed.`,
+                );
+                mediaNavSourceChapterIdRef.current = null;
+                mediaNavDirectionRef.current = null;
+                mediaNavSafetyTimeoutRef.current = null;
+              }
+            }, 60000); // 60 seconds
+
             try {
-              await updateChapterProgressDb(chapterId, 1);
+              // Use saveProgressRef to update DB + trigger UI refresh for current chapter
+              saveProgressRef.current(1, undefined);
               try {
                 await markChapterUnread(chapterId);
               } catch (e) {
                 ignoreError(e, 'markChapterUnread (source in-progress)');
               }
+
+              // ✅ NEW: Sync chapter list immediately
+              syncChapterList(100);
             } catch (e) {
               ttsCtrlLog.warn(
                 'mark-source-in-progress-failed',
@@ -2028,6 +2437,88 @@ export function useTTSController(
               ttsCtrlLog.warn(
                 'reset-prev-chapter-failed',
                 'Failed to reset prev chapter progress',
+                e,
+              );
+            }
+
+            // FIX: Reset all skipped chapters between target and source
+            // When navigating backwards (e.g., Ch10 → Ch7), chapters 8-9 should be reset to 0%
+            // because user is backtracking and hasn't actually read them on this path.
+            let skippedChapters: ChapterInfo[] = [];
+            try {
+              const currentChapterInfo = await getChapterFromDb(chapterId);
+              if (
+                currentChapterInfo &&
+                typeof prevChapter.position === 'number' &&
+                typeof currentChapterInfo.position === 'number'
+              ) {
+                // Query chapters between target (prevChapter) and source (currentChapter)
+                // For same page: position > targetPos AND position < sourcePos
+                skippedChapters = await db.getAllAsync<ChapterInfo>(
+                  `SELECT * FROM Chapter
+                   WHERE novelId = ? AND page = ?
+                   AND position > ? AND position < ?
+                   ORDER BY position ASC`,
+                  novelId,
+                  currentChapterInfo.page,
+                  prevChapter.position,
+                  currentChapterInfo.position,
+                );
+
+                if (skippedChapters && skippedChapters.length > 0) {
+                  ttsCtrlLog.info(
+                    'reset-skipped-chapters',
+                    `🔄 Resetting ${skippedChapters.length} skipped chapters (Ch${prevChapter.position + 1} to Ch${currentChapterInfo.position - 1})`,
+                  );
+
+                  // Reset each skipped chapter
+                  for (const skippedChapter of skippedChapters) {
+                    try {
+                      await updateChapterProgressDb(skippedChapter.id, 0);
+                      await markChapterUnread(skippedChapter.id);
+                      MMKVStorage.delete(
+                        `chapter_progress_${skippedChapter.id}`,
+                      );
+                      ttsCtrlLog.debug(
+                        'reset-skipped',
+                        `Reset Ch${skippedChapter.position} (ID: ${skippedChapter.id})`,
+                      );
+                    } catch (e) {
+                      ttsCtrlLog.warn(
+                        'reset-skipped-failed',
+                        `Failed to reset chapter ${skippedChapter.id}`,
+                        e,
+                      );
+                    }
+                  }
+                } else {
+                  ttsCtrlLog.debug(
+                    'no-skipped-chapters',
+                    'No skipped chapters to reset (adjacent chapters)',
+                  );
+                }
+              }
+            } catch (e) {
+              ttsCtrlLog.warn(
+                'reset-skipped-chapters-error',
+                'Failed to query/reset skipped chapters',
+                e,
+              );
+            }
+
+            // ✅ CLEANUP ALL TTS STATE
+            // Clear all TTS state to prevent stale "resume" dialog when user returns
+            try {
+              const chapterIdsToClean = [
+                chapterId, // Source chapter
+                prevChapter.id, // Target chapter
+                ...skippedChapters.map(sc => sc.id), // Skipped chapters
+              ];
+              await cleanupAllTTSState(chapterIdsToClean);
+            } catch (e) {
+              ttsCtrlLog.warn(
+                'tts-state-cleanup-failed',
+                'Failed to cleanup TTS state during PREV_CHAPTER navigation',
                 e,
               );
             }
@@ -2062,13 +2553,39 @@ export function useTTSController(
             mediaNavSourceChapterIdRef.current = chapterId;
             mediaNavDirectionRef.current = 'NEXT';
 
+            // FIX: Enhanced logging for debugging
+            ttsCtrlLog.info(
+              'media-nav-start-next',
+              `⏭️ NEXT_CHAPTER initiated - Source: Ch${chapterId} → Target: Ch${nextChapter.id}`,
+            );
+
+            // FIX: Start safety timeout (60s) to clear refs if confirmation never runs
+            if (mediaNavSafetyTimeoutRef.current) {
+              clearTimeout(mediaNavSafetyTimeoutRef.current);
+            }
+            mediaNavSafetyTimeoutRef.current = setTimeout(() => {
+              if (mediaNavSourceChapterIdRef.current) {
+                ttsCtrlLog.warn(
+                  'media-nav-safety-timeout',
+                  `⏱️ Safety timeout (60s) - Clearing stale refs. Source: Ch${mediaNavSourceChapterIdRef.current} never confirmed.`,
+                );
+                mediaNavSourceChapterIdRef.current = null;
+                mediaNavDirectionRef.current = null;
+                mediaNavSafetyTimeoutRef.current = null;
+              }
+            }, 60000); // 60 seconds
+
             try {
-              await updateChapterProgressDb(chapterId, 100);
+              // Use saveProgressRef to update DB + trigger UI refresh for current chapter
+              saveProgressRef.current(100, undefined);
               try {
                 await markChapterRead(chapterId);
               } catch (e) {
                 ignoreError(e, 'markChapterRead (source read)');
               }
+
+              // ✅ NEW: Sync chapter list immediately
+              syncChapterList(100);
             } catch (e) {
               ttsCtrlLog.warn(
                 'mark-source-read-failed',
@@ -2093,6 +2610,18 @@ export function useTTSController(
               ttsCtrlLog.warn(
                 'reset-next-chapter-failed',
                 'Failed to reset next chapter progress',
+                e,
+              );
+            }
+
+            // ✅ CLEANUP ALL TTS STATE
+            // Clear all TTS state to prevent stale "resume" dialog
+            try {
+              await cleanupAllTTSState([chapterId, nextChapter.id]);
+            } catch (e) {
+              ttsCtrlLog.warn(
+                'tts-state-cleanup-failed',
+                'Failed to cleanup TTS state during NEXT_CHAPTER navigation',
                 e,
               );
             }
@@ -2234,13 +2763,13 @@ export function useTTSController(
               'Next chapter not downloaded, waiting...',
             );
             showToastMessage(
-              getString('readerScreen.tts.downloadingNextChapter'),
+              getString('readerScreen.bottomSheet.tts.downloadingNextChapter'),
             );
 
             // Update notification to show downloading status
             TTSHighlight.updateMediaState({
               novelName,
-              chapterLabel: `${getString('readerScreen.tts.downloadingNextChapter')}`,
+              chapterLabel: `${getString('readerScreen.bottomSheet.tts.downloadingNextChapter')}`,
               chapterId,
               paragraphIndex: totalParagraphsRef.current - 1,
               totalParagraphs: totalParagraphsRef.current,
@@ -2266,7 +2795,9 @@ export function useTTSController(
                 'download-timeout',
                 'Download timeout for next chapter',
               );
-              showToastMessage(getString('readerScreen.tts.downloadTimeout'));
+              showToastMessage(
+                getString('readerScreen.bottomSheet.tts.downloadTimeout'),
+              );
               isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               TTSHighlight.updateMediaState({
@@ -2286,7 +2817,9 @@ export function useTTSController(
                 'Next chapter download complete',
               );
             }
-            showToastMessage(getString('readerScreen.tts.downloadComplete'));
+            showToastMessage(
+              getString('readerScreen.bottomSheet.tts.downloadComplete'),
+            );
           }
 
           ttsCtrlLog.debug(
@@ -2295,6 +2828,9 @@ export function useTTSController(
           );
 
           saveProgressRef.current(100);
+
+          // ✅ NEW: Sync chapter list after completing chapter
+          syncChapterList(100);
 
           autoStartTTSRef.current = true;
           backgroundTTSPendingRef.current = true;
@@ -2312,6 +2848,10 @@ export function useTTSController(
           );
           isTTSReadingRef.current = false;
           isTTSPlayingRef.current = false;
+
+          // ✅ NEW: Sync chapter list after completing novel
+          syncChapterList(100);
+
           showToastMessage('Novel reading complete!');
         }
       },
@@ -2385,6 +2925,9 @@ export function useTTSController(
             );
             TTSHighlight.stop();
             isTTSReadingRef.current = false;
+
+            // ✅ NEW: Sync chapter list after background TTS stop
+            syncChapterList(100);
           }
         } else if (nextAppState === 'active') {
           // =====================================================================
@@ -2585,19 +3128,28 @@ export function useTTSController(
                       // Update TTS internal state for proper continuation
                       const readableElements = reader.getReadableElements();
                       if (readableElements && readableElements[${syncIndex}]) {
-                        window.tts.currentElement = readableElements[${syncIndex}];
-                        window.tts.prevElement = ${syncIndex} > 0 ? readableElements[${syncIndex} - 1] : null;
+                        // SEMANTIC CONSISTENCY: currentParagraphIndexRef contains "last completed" paragraph
+                        // (not "currently speaking"). This is maintained by onSpeechDone, NOT onSpeechStart.
+                        // Therefore, we highlight syncIndex + 1 to show the paragraph being spoken.
+                        const nextParagraphToPlay = ${syncIndex} + 1;
+
+                        // SAFETY: Ensure nextParagraphToPlay is within bounds (handle end of chapter)
+                        const totalParagraphs = readableElements.length;
+                        const safeNextParagraph = Math.min(nextParagraphToPlay, totalParagraphs - 1);
+
+                        window.tts.currentElement = readableElements[safeNextParagraph];
+                        window.tts.prevElement = readableElements[${syncIndex}];
                         
-                        // Force scroll to current TTS position
+                        // Force scroll to current TTS position (next to play)
                         window.tts.scrollToElement(window.tts.currentElement);
                         
                         // Reset scroll lock to allow immediate taps after sync
                         setTimeout(() => { window.tts.resetScrollLock(); }, ${TTS_CONSTANTS.SCROLL_LOCK_RESET_MS});
-                        
-                        // Highlight current paragraph with chapter validation
-                        window.tts.highlightParagraph(${syncIndex}, ${prevChapterId});
-                        
-                        console.log('TTS: Screen wake sync complete - scrolled to paragraph ${syncIndex}');
+
+                        // Highlight NEXT paragraph to play (currentParagraphIndexRef + 1)
+                        window.tts.highlightParagraph(safeNextParagraph, ${prevChapterId});
+
+                        console.log('TTS: Screen wake sync complete - scrolled to paragraph ' + safeNextParagraph + ' (next after completed ' + ${syncIndex} + ')');
                       } else {
                         console.warn('TTS: Screen wake - paragraph ${syncIndex} not found');
                       }
@@ -2662,6 +3214,9 @@ export function useTTSController(
                             { mode: autoStopMode, amount: autoStopAmount },
                             reason => {
                               TTSHighlight.stop();
+
+                              // ✅ NEW: Sync chapter list after auto-stop
+                              syncChapterList(100);
 
                               // Show toast notification
                               const messages = {
@@ -2783,6 +3338,12 @@ export function useTTSController(
 
     // Cleanup
     return () => {
+      // FIX: Clear media nav safety timeout on unmount
+      if (mediaNavSafetyTimeoutRef.current) {
+        clearTimeout(mediaNavSafetyTimeoutRef.current);
+        mediaNavSafetyTimeoutRef.current = null;
+      }
+
       // Remove all subscriptions with error handling to ensure complete cleanup
       try {
         onSpeechDoneSubscription.remove();
@@ -2888,7 +3449,14 @@ export function useTTSController(
     chapterGeneralSettingsRef,
     readerSettingsRef,
     webViewRef,
+    refreshChaptersFromContext,
+    syncChapterList,
+    cleanupAllTTSState,
+    paragraphHighlightOffsetRef,
   ]);
+
+  // NOTE: Paragraph highlight offset handlers moved to ChapterContext
+  // to avoid duplication and ensure consistency between useTTSController and UI
 
   // ===========================================================================
   // Return Value
@@ -2976,6 +3544,9 @@ export function useTTSController(
     updateLastTTSChapter,
     restartTtsFromParagraphIndex,
     updateTtsMediaNotificationState,
+    cleanupAllTTSState,
+
+    // NOTE: Paragraph highlight offset controls moved to ChapterContext
   };
 }
 

@@ -128,7 +128,7 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <Appbar
         title={getString('generalSettings')}
         // @ts-ignore

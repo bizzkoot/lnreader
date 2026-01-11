@@ -18,6 +18,13 @@ describe('TTSResumeDialog', () => {
         jest.doMock('react-native', () => ({
           StyleSheet: { create: jest.fn(s => s) },
           View: 'View',
+          NativeModules: {
+            DoHManager: {
+              setProvider: jest.fn(),
+              getProvider: jest.fn(),
+              clearProvider: jest.fn(),
+            },
+          },
         }));
         jest.doMock('react-native-paper', () => ({
           Dialog: { Title: 'Dialog.Title', Content: 'Dialog.Content' },
@@ -38,6 +45,13 @@ describe('TTSResumeDialog', () => {
         jest.doMock('react-native', () => ({
           StyleSheet: { create: jest.fn(s => s) },
           View: 'View',
+          NativeModules: {
+            DoHManager: {
+              setProvider: jest.fn(),
+              getProvider: jest.fn(),
+              clearProvider: jest.fn(),
+            },
+          },
         }));
         jest.doMock('react-native-paper', () => ({
           Dialog: { Title: 'Dialog.Title', Content: 'Dialog.Content' },
@@ -60,6 +74,13 @@ describe('TTSResumeDialog', () => {
         jest.doMock('react-native', () => ({
           StyleSheet: { create: jest.fn(s => s) },
           View: 'View',
+          NativeModules: {
+            DoHManager: {
+              setProvider: jest.fn(),
+              getProvider: jest.fn(),
+              clearProvider: jest.fn(),
+            },
+          },
         }));
         jest.doMock('react-native-paper', () => ({
           Dialog: { Title: 'Dialog.Title', Content: 'Dialog.Content' },

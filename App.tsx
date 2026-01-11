@@ -31,6 +31,7 @@ import { getScaledFonts } from '@theme/fonts';
 
 import Main from './src/navigators/Main';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import CloudflareWebView from '@components/CloudflareWebView';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => {
@@ -117,6 +118,7 @@ const App = () => {
           <ThemedPaperProvider>
             <BottomSheetModalProvider>
               <StatusBar translucent={true} backgroundColor="transparent" />
+              <CloudflareWebView enabled={true} />
               <Main />
             </BottomSheetModalProvider>
           </ThemedPaperProvider>

@@ -15,6 +15,13 @@ describe('TTSChapterSelectionDialog', () => {
           StyleSheet: { create: jest.fn(s => s) },
           View: 'View',
           ScrollView: 'ScrollView',
+          NativeModules: {
+            DoHManager: {
+              setProvider: jest.fn(),
+              getProvider: jest.fn(),
+              clearProvider: jest.fn(),
+            },
+          },
         }));
         jest.doMock('react-native-paper', () => ({
           Dialog: {

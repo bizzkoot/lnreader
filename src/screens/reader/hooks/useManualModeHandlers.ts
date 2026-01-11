@@ -17,6 +17,7 @@ import TTSHighlight from '@services/TTSHighlight';
 export interface ManualModeHandlersParams {
   webViewRef: RefObject<WebView | null>;
   showToastMessage: (message: string) => void;
+  refreshChaptersFromContext: () => void;
   refs: {
     isTTSReadingRef: RefObject<boolean>;
     isTTSPlayingRef: RefObject<boolean>;
@@ -47,6 +48,7 @@ export function useManualModeHandlers(
   const {
     webViewRef,
     showToastMessage,
+    refreshChaptersFromContext,
     refs: { isTTSReadingRef, isTTSPlayingRef, hasUserScrolledRef },
     callbacks: { hideManualModeDialog },
   } = params;
@@ -65,11 +67,18 @@ export function useManualModeHandlers(
     isTTSPlayingRef.current = false;
     hasUserScrolledRef.current = false;
     TTSHighlight.stop();
+
+    // ✅ NEW: Sync chapter list immediately on TTS stop
+    setTimeout(() => {
+      refreshChaptersFromContext();
+    }, 100);
+
     showToastMessage('Switched to manual reading mode');
     hideManualModeDialog();
   }, [
     webViewRef,
     showToastMessage,
+    refreshChaptersFromContext,
     hideManualModeDialog,
     isTTSReadingRef,
     isTTSPlayingRef,

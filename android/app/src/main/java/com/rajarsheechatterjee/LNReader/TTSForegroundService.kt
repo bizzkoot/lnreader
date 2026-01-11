@@ -161,8 +161,10 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
-                // Permanent loss - stop TTS
-                stopTTS()
+                // Permanent loss - pause TTS but keep notification visible
+                // This allows users to resume playback from the notification
+                // after another app finishes playing audio
+                pauseTTSKeepService()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 // Temporary loss - pause TTS
@@ -451,7 +453,26 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
         return false
     }
-    
+
+    /**
+     * Adds utterances to the existing TTS queue without flushing.
+     *
+     * **IMPORTANT: Voice Inheritance Behavior**
+     *
+     * This method does NOT call setVoiceWithFallback(). The Android TextToSpeech
+     * engine retains voice settings across all utterances in the same queue session.
+     * Voice is set once during speakBatch() and persists for all subsequent
+     * addToBatch() calls until stop() or a new speakBatch() is called.
+     *
+     * This design is intentional and provides:
+     * - Performance: Avoids repeated voice lookups
+     * - Consistency: Guarantees same voice throughout batch session
+     * - Simplicity: Refill path doesn't need to re-specify voice
+     *
+     * @param texts Array of text strings to speak
+     * @param utteranceIds Array of unique utterance identifiers
+     * @return true if all utterances were added successfully, false otherwise
+     */
     fun addToBatch(
         texts: List<String>,
         utteranceIds: List<String>
@@ -519,6 +540,39 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         // Notification updates should be controlled via updateMediaState() from React Native.
         // Calling updateNotification() here causes flicker during pause/seek operations
         // because RN will also call updateMediaState() shortly after.
+    }
+
+    /**
+     * Pause TTS audio but keep the foreground service and notification visible.
+     * This is used when audio focus is lost (e.g., another app plays audio),
+     * allowing users to resume playback from the notification after the interruption.
+     * 
+     * Unlike stopTTS(), this does NOT call stopForegroundService(), so the notification
+     * remains visible with a "Paused" state.
+     * 
+     * IMPORTANT: We notify the React Native layer to handle the pause through its
+     * state machine, rather than directly mutating mediaIsPlaying. This ensures
+     * the RN and native layers stay synchronized.
+     */
+    fun pauseTTSKeepService() {
+        android.util.Log.d("TTS_DEBUG", "TTSForegroundService.pauseTTSKeepService called")
+        
+        // Stop TTS audio playback
+        tts?.stop()
+        synchronized(queuedUtteranceIds) {
+            queuedUtteranceIds.clear()
+        }
+        currentBatchIndex = 0
+        
+        // Stop silent audio and abandon audio focus (we're not playing anymore)
+        stopSilentAudio()
+        abandonAudioFocus()
+        
+        // Notify React Native layer to handle pause through its state machine
+        // This ensures RN state stays in sync with native state
+        // RN will then call updateMediaState(isPlaying=false), which will update
+        // the notification and MediaSession properly
+        ttsListener?.onMediaAction(ACTION_MEDIA_PLAY_PAUSE)
     }
 
     fun getVoices(): List<Voice> {

@@ -24,6 +24,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
   // Mock refs and callbacks
   let mockWebViewRef: any;
   let mockShowToastMessage: jest.Mock;
+  let mockRefreshChaptersFromContext: jest.Mock;
   let mockHideManualModeDialog: jest.Mock;
   let mockRefs: any;
 
@@ -39,6 +40,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
 
     // Setup callbacks
     mockShowToastMessage = jest.fn();
+    mockRefreshChaptersFromContext = jest.fn();
     mockHideManualModeDialog = jest.fn();
 
     // Setup refs
@@ -58,6 +60,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -74,6 +77,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -95,6 +99,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -121,6 +126,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -142,6 +148,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -163,6 +170,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -182,6 +190,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -201,6 +210,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -222,6 +232,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -243,6 +254,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -280,6 +292,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -305,6 +318,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -329,6 +343,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -352,6 +367,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -374,6 +390,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -393,6 +410,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -414,6 +432,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -442,6 +461,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,
@@ -470,6 +490,7 @@ describe('useManualModeHandlers (Phase 1 - Step 3)', () => {
         useManualModeHandlers({
           webViewRef: mockWebViewRef,
           showToastMessage: mockShowToastMessage,
+          refreshChaptersFromContext: mockRefreshChaptersFromContext,
           refs: mockRefs,
           callbacks: {
             hideManualModeDialog: mockHideManualModeDialog,

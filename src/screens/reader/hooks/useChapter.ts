@@ -48,6 +48,7 @@ export default function useChapter(
     markChapterRead,
     updateChapterProgress,
     chapterTextCache,
+    refreshChapters: refreshChaptersFromContext,
   } = useNovelContext();
   const [hidden, setHidden] = useState(true);
   const [chapter, setChapter] = useState(initialChapter);
@@ -318,6 +319,7 @@ export default function useChapter(
       chapterText,
       setHidden,
       saveProgress,
+      refreshChaptersFromContext,
       hideHeader,
       navigateChapter,
       refetch,
@@ -339,6 +341,7 @@ export default function useChapter(
       chapterText,
       setHidden,
       saveProgress,
+      refreshChaptersFromContext,
       hideHeader,
       navigateChapter,
       refetch,

@@ -1,6 +1,18 @@
-# Progress (Updated: 2025-12-25)
+# Progress (Updated: 2026-01-03)
 
-## Done
+## Done (Latest)
+
+- **TTS Chapter List Progress Sync - Real-Time Fix** (2026-01-03)
+  - Fixed bug where Chapter List showed stale progress during active TTS playback
+  - Added debounced refreshChaptersFromContext() call during every paragraph progress save
+  - Debounce at 500ms balances responsiveness with performance
+  - Implementation: useTTSController.ts (+24 lines)
+  - Tests: 1071/1072 passing (pre-existing failure unrelated)
+  - Commit: 18faebd83
+  - Memory created and linked to related TTS fixes
+  - Quality gates: type-check ✅ lint ✅ format ✅ tests ✅
+
+## Done (Previous)
 
 - Phase 1 Task 1.1: TTS error path tests (12 tests added)
 - Phase 1 Task 1.2: WebView security tests (28 tests added)
@@ -12,13 +24,10 @@
 
 ## Doing
 
-- Phase 1 Task 1.3: TTS state transition tests (not started, paused for next session)
+- No active tasks
 
 ## Next
 
-- Resume Phase 1 Task 1.3: Add TTS state transition tests
-- Test assertValidTransition() with invalid transitions
-- Add TTSHighlight error path tests (currently 71% covered)
-- Add reader hook edge case tests
-- Verify Phase 1 completion (45% coverage target)
-- Continue to Phase 2 after Phase 1 complete
+- Monitor user testing of real-time chapter list progress sync
+- Consider optimizing debounce interval based on device performance
+- Future: Reduce full DB reload to single-chapter update if performance is acceptable

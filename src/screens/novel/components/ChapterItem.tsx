@@ -223,4 +223,18 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
   );
 };
 
-export default memo(ChapterItem);
+export default memo(ChapterItem, (prevProps, nextProps) => {
+  // Return true if props are equal (skip re-render)
+  // Return false if props changed (re-render)
+  return (
+    prevProps.chapter.id === nextProps.chapter.id &&
+    prevProps.chapter.progress === nextProps.chapter.progress &&
+    prevProps.chapter.unread === nextProps.chapter.unread &&
+    prevProps.chapter.bookmark === nextProps.chapter.bookmark &&
+    prevProps.chapter.isDownloaded === nextProps.chapter.isDownloaded &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isDownloading === nextProps.isDownloading &&
+    prevProps.isBookmarked === nextProps.isBookmarked &&
+    prevProps.showChapterTitles === nextProps.showChapterTitles
+  );
+});

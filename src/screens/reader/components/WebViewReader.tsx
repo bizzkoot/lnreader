@@ -135,12 +135,14 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     chapterText: html,
     navigateChapter,
     saveProgress,
+    refreshChaptersFromContext,
     nextChapter,
     prevChapter,
     webViewRef,
     savedParagraphIndex,
     getChapter,
     setAdjacentChapter,
+    paragraphHighlightOffsetRef,
   } = useChapterContext();
   const theme = useTheme();
 
@@ -337,7 +339,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     novel,
     html,
     webViewRef,
+    paragraphHighlightOffsetRef,
     saveProgress,
+    refreshChaptersFromContext,
     navigateChapter,
     getChapter,
     nextChapter,
@@ -957,7 +961,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                     window.reader.receiveChapterContent(
                       ${targetChapter.id},
                       ${JSON.stringify(targetChapter.name)},
-                      ${JSON.stringify(chapterHtml)}
+                      ${JSON.stringify(chapterHtml)},
+                      ${JSON.stringify(targetChapter)}
                     );
                   }
                   true;
@@ -1240,6 +1245,23 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       getChapter,
     ],
   );
+
+  // ============================================================================
+  // Unmount: Sync Chapter List
+  // ============================================================================
+
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount: ensure latest progress synced to chapter list
+      if (refreshChaptersFromContext) {
+        refreshChaptersFromContext();
+        readerLog.debug(
+          'unmount-sync',
+          'Refreshed chapter list on Reader unmount',
+        );
+      }
+    };
+  }, [refreshChaptersFromContext]);
 
   // ============================================================================
   // Render

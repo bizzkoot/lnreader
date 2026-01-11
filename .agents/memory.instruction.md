@@ -48,6 +48,17 @@ applyTo: '**'
 - Added Settings UI for auto-trim threshold: Created `TransitionThresholdModal.tsx` component (cloned from ChapterBoundaryModal pattern) with options 5%, 10%, 15%, 20%. Updated `NavigationTab.tsx` to display threshold selector when continuous scrolling is enabled.
 - **Performance Pattern**: When checking DOM element visibility in scroll handlers, always use early exit strategy - find first visible element and stop. Avoid nested loops with `getBoundingClientRect()` calls (expensive at scale with 400+ paragraphs).
 - **Modal Pattern**: For new settings modals, clone existing modal components (ChapterBoundaryModal.tsx, ContinuousScrollingModal.tsx) which include Portal, RadioButton, theme support, and UI scaling.
+
+# 2026-01-02: Phase 3 DNS-over-HTTPS (DoH) Implementation
+
+- **Native Module Pattern**: Created `DoHManagerModule.kt` with singleton pattern - static `getDnsInstance()` method allows OkHttpClient integration without direct NativeModule dependency. Bootstrap IPs prevent circular DNS lookups.
+- **TypeScript Service Wrapper**: `DoHManager.ts` provides platform detection (Android-only), error handling with `createRateLimitedLogger`, and enum exports (`DoHProvider`, `DoHProviderNames`, `DoHProviderDescriptions`).
+- **Settings UI Pattern**: Added DoH section to `SettingsAdvancedScreen.tsx` following existing patterns - List.Section with List.Item, RadioButton modal for provider selection, ConfirmationDialog for restart warning. Platform detection disables UI on iOS with "Android-only" notice.
+- **OkHttp Upgrade**: Upgraded OkHttp 4.9.2 → 4.12.0 with `okhttp-dnsoverhttps:4.12.0` dependency. Added ProGuard rules for DoH classes. Force dependencies in build.gradle to prevent version conflicts.
+- **Translation System**: Added 7 strings to `advancedSettingsScreen` section in `strings/languages/en/strings.json`, regenerated types via `pnpm run generate:string-types`. Pattern: add JSON strings first, then regenerate types (auto-generated file).
+- **Provider Management**: 4 providers (Disabled, Cloudflare, Google, AdGuard) with DoHProvider enum (-1, 1, 2, 3). Settings persist in native SharedPreferences. App restart required for changes (OkHttpClient singleton pattern, matches yokai).
+- **Quality Gates**: Always run `pnpm run format && pnpm run lint && pnpm run type-check && pnpm run test` before committing network layer changes. Expect 18 pre-existing type errors in WebviewScreen.cookies.test.ts (unrelated to DoH).
+
 - **Boundary Initialization Pattern**: Initialize chapter boundaries after DOM is stable (after initial scroll completes) with check `if (chapterBoundaries.length === 0)` to prevent duplicate initialization.
 
 Files modified in this set:

@@ -170,6 +170,16 @@ jest.mock('@utils/ScreenStateListener', () => ({
   addListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
+// Mock useChapterTransition to prevent it from setting isWebViewSyncedRef = false
+jest.mock('../../hooks/useChapterTransition', () => ({
+  useChapterTransition: jest.fn((params: any) => {
+    // Override the ref to ensure it stays true (WebView is always "synced" in tests)
+    if (params?.refs?.isWebViewSyncedRef) {
+      params.refs.isWebViewSyncedRef.current = true;
+    }
+  }),
+}));
+
 const mockChapter = { id: 10, name: 'Chapter 1', progress: 0 };
 
 jest.mock('../../ChapterContext', () => ({
@@ -179,9 +189,11 @@ jest.mock('../../ChapterContext', () => ({
     chapterText: '<p>P1</p><p>P2</p>',
     navigateChapter: jest.fn(),
     saveProgress: jest.fn(),
+    refreshChaptersFromContext: jest.fn(),
     nextChapter: { id: 11, name: 'Chapter 2' },
     prevChapter: null,
     webViewRef: { current: { injectJavaScript: jest.fn() } },
+    paragraphHighlightOffsetRef: { current: 0 }, // Ephemeral offset (default 0)
     savedParagraphIndex: 0,
     getChapter: jest.fn(),
   })),
@@ -244,9 +256,11 @@ describe('WebViewReader Event Handlers', () => {
       chapterText: '<p>Content</p>',
       navigateChapter: mockNavigateChapter,
       saveProgress: mockSaveProgress,
+      refreshChaptersFromContext: jest.fn(),
       nextChapter: { id: 11, name: 'Chapter 2' },
       prevChapter: null,
       webViewRef: webViewRefObject,
+      paragraphHighlightOffsetRef: { current: 0 }, // Ephemeral offset (default 0)
       savedParagraphIndex: 0,
       getChapter: jest.fn(),
     });
@@ -267,8 +281,11 @@ describe('WebViewReader Event Handlers', () => {
     it('should inject highlightParagraph JS into WebView', async () => {
       renderComponent();
 
-      // Wait for WebView sync effect (300ms timeout + buffer)
-      await new Promise(resolve => setTimeout(resolve, 350));
+      // Clear previous WebView calls (including battery level injection)
+      const spy = getInjectSpy();
+      if (spy) {
+        spy.mockClear();
+      }
 
       const handler = listeners['onSpeechStart'];
       expect(handler).toBeDefined();
@@ -276,12 +293,12 @@ describe('WebViewReader Event Handlers', () => {
       // Trigger start event for paragraph 5
       handler({ utteranceId: 'chapter_10_utterance_5' });
 
-      // Verify JS injection via ref
-      const spy = getInjectSpy();
+      // Verify JS injection via ref (using adjustedIndex pattern)
       expect(spy).toBeDefined();
       expect(spy).toHaveBeenCalledTimes(1);
       const js = spy.mock.calls[0][0];
-      expect(js).toContain('window.tts.highlightParagraph(5, 10)');
+      expect(js).toContain('adjustedIndex = 5 + 0');
+      expect(js).toContain('window.tts.highlightParagraph(adjustedIndex, 10)');
     });
 
     it('should ignore stale events from different chapters', () => {
@@ -304,17 +321,20 @@ describe('WebViewReader Event Handlers', () => {
     it('should handle legacy utterance IDs (backwards compatibility)', async () => {
       renderComponent();
 
-      // Wait for WebView sync effect (300ms timeout + buffer)
-      await new Promise(resolve => setTimeout(resolve, 350));
+      // Clear previous WebView calls (including battery level injection)
+      const spy = getInjectSpy();
+      if (spy) {
+        spy.mockClear();
+      }
 
       const handler = listeners['onSpeechStart'];
 
       handler({ utteranceId: 'utterance_3' });
 
-      const spy = getInjectSpy();
       expect(spy).toHaveBeenCalled();
       const js = spy.mock.calls[0][0];
-      expect(js).toContain('window.tts.highlightParagraph(3, 10)');
+      expect(js).toContain('adjustedIndex = 3 + 0');
+      expect(js).toContain('window.tts.highlightParagraph(adjustedIndex, 10)');
     });
   });
 
@@ -322,8 +342,22 @@ describe('WebViewReader Event Handlers', () => {
     it('should defer to WebView logic when queue is empty/missing', async () => {
       renderComponent();
 
+      // Simulate onLoadEnd event to set isWebViewSyncedRef to true
+      const webViewProps = webViewRefObject.current?.props;
+      if (webViewProps?.onLoadEnd) {
+        await act(async () => {
+          webViewProps.onLoadEnd({ nativeEvent: {} });
+        });
+      }
+
       // Wait for WebView sync effect (300ms timeout + buffer)
       await new Promise(resolve => setTimeout(resolve, 350));
+
+      // Clear previous WebView calls (including battery level injection)
+      const spy = getInjectSpy();
+      if (spy) {
+        spy.mockClear();
+      }
 
       const handler = listeners['onSpeechDone'];
       expect(handler).toBeDefined();
@@ -331,7 +365,6 @@ describe('WebViewReader Event Handlers', () => {
       handler({});
 
       // Should call tts.next() in WebView
-      const spy = getInjectSpy();
       expect(spy).toHaveBeenCalled();
       expect(spy.mock.calls[0][0]).toContain('tts.next?.()');
     });
@@ -364,6 +397,7 @@ describe('WebViewReader Event Handlers', () => {
         nextChapter: null, // No next chapter
         navigateChapter: mockNavigateChapter,
         saveProgress: mockSaveProgress,
+        refreshChaptersFromContext: jest.fn(),
         webViewRef: webViewRefObject, // Use the shared ref object
         savedParagraphIndex: 0,
         getChapter: jest.fn(),
@@ -442,6 +476,7 @@ describe('WebViewReader Event Handlers', () => {
         chapterText: '<p>Content</p>',
         navigateChapter: jest.fn(),
         saveProgress: jest.fn(),
+        refreshChaptersFromContext: jest.fn(),
         nextChapter: { id: 11, name: 'Chapter 11' },
         prevChapter: { id: 9, name: 'Chapter 9' },
         webViewRef: webViewRefObject,
@@ -473,6 +508,7 @@ describe('WebViewReader Event Handlers', () => {
         chapterText: '<p>Content</p>',
         navigateChapter: jest.fn(),
         saveProgress: jest.fn(),
+        refreshChaptersFromContext: jest.fn(),
         nextChapter: { id: 11, name: 'Chapter 11' },
         prevChapter: { id: 9, name: 'Chapter 9' },
         webViewRef: webViewRefObject,
@@ -507,6 +543,7 @@ describe('WebViewReader Event Handlers', () => {
         chapterText: '<p>Content</p>',
         navigateChapter: jest.fn(),
         saveProgress: saveProgressMock,
+        refreshChaptersFromContext: jest.fn(),
         nextChapter: { id: 11, name: 'Chapter 11' },
         prevChapter: { id: 9, name: 'Chapter 9' },
         webViewRef: webViewRefObject,
@@ -724,6 +761,7 @@ describe('WebViewReader Event Handlers', () => {
         chapterText: '<p>Content</p>',
         navigateChapter: mockNavigateChapter,
         saveProgress: mockSaveProgress,
+        refreshChaptersFromContext: jest.fn(),
         nextChapter: { id: 11, name: 'Chapter 11' },
         prevChapter: { id: 9, name: 'Chapter 9' },
         webViewRef: webViewRefObject,
@@ -763,6 +801,7 @@ describe('WebViewReader Event Handlers', () => {
         chapterText: '<p>Content</p>',
         navigateChapter: mockNavigateChapter,
         saveProgress: mockSaveProgress,
+        refreshChaptersFromContext: jest.fn(),
         nextChapter: { id: 11, name: 'Chapter 11' },
         prevChapter: null,
         webViewRef: webViewRefObject,

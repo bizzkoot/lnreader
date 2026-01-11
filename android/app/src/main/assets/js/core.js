@@ -35,6 +35,7 @@ window.reader = new (function () {
 
   this.novel = novel;
   this.chapter = chapter;
+  this.hasAutoResumed = false; // Reset flag to allow dialog to show again
   this.nextChapter = nextChapter;
   this.prevChapter = prevChapter;
   this.strings = strings;
@@ -258,7 +259,12 @@ window.reader = new (function () {
   };
 
   // DOM Stitching: Receive and append chapter content from React Native
-  this.receiveChapterContent = function (chapterId, chapterName, chapterHtml) {
+  this.receiveChapterContent = function (
+    chapterId,
+    chapterName,
+    chapterHtml,
+    chapterData,
+  ) {
     this.pendingChapterFetch = false;
 
     if (!chapterHtml) {
@@ -304,10 +310,10 @@ window.reader = new (function () {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'stitched-chapter-content';
 
-    // INVESTIGATION: Debug stitched chapter enhancement
+    // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
+    // Use the full chapter object (chapterData) for consistency with main chapter loading (line 4091-4100)
     if (DEBUG) {
       console.log('[STITCHED] Method called!');
-      console.log('[STITCHED] chapterData type:', typeof chapterData);
       console.log('[STITCHED] chapterData:', chapterData);
       console.log(
         '[STITCHED] enhanceChapterTitles exists:',
@@ -315,40 +321,39 @@ window.reader = new (function () {
       );
     }
 
-    // FIX: Enhance chapter titles for stitched chapters to prevent TTS desynchronization
-    // Check if chapter has a title in chapterData, enhance if needed
-    if (DEBUG) {
-      console.log(
-        '[ENHANCE] Stitched chapter enhancement - checking data:',
-        typeof chapterData,
-      );
-    }
-
-    let chapterTitle = '';
-    if (typeof chapterData === 'object' && chapterData.name) {
-      chapterTitle = chapterData.name;
-    } else if (typeof chapterData === 'string') {
-      chapterTitle = chapterData;
+    // Extract chapter title using the same pattern as main chapter loading
+    // Fallback to individual parameters if chapterData is not provided (backward compatibility)
+    let chapterTitle;
+    if (chapterData && typeof chapterData === 'object') {
+      chapterTitle =
+        chapterData.name || `Chapter ${chapterData.id || 'Unknown'}`;
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Stitched chapter - using title from chapterData:',
+          chapterTitle,
+        );
+      }
     } else {
-      chapterTitle = `Chapter ${chapterData.id || 'Unknown'}`;
+      chapterTitle = chapterName || `Chapter ${chapterId}`;
+      if (DEBUG) {
+        console.log(
+          '[ENHANCE] Stitched chapter - using fallback title:',
+          chapterTitle,
+        );
+      }
     }
 
-    if (DEBUG) {
-      console.log('[ENHANCE] Stitched chapter - using title:', chapterTitle);
-    }
     if (chapterTitle) {
       chapterHtml = this.enhanceChapterTitles(chapterHtml, chapterTitle);
       if (DEBUG) {
         console.log(
-          '[STITCHED] Stitched enhancement completed. New HTML length:',
+          '[STITCHED] Enhancement completed. New HTML length:',
           chapterHtml.length,
         );
       }
     } else {
       if (DEBUG) {
-        console.log(
-          '[ENHANCE] Stitched chapter - no title available, skipping enhancement',
-        );
+        console.log('[ENHANCE] No title available, skipping enhancement');
       }
     }
 
@@ -712,16 +717,16 @@ window.reader = new (function () {
 
       // Wait for DOM to stabilize after clear
       setTimeout(() => {
-        const readableElements = this.getReadableElements();
+        const restartElements = this.getReadableElements();
         if (DEBUG) {
           console.log(
-            `Reader: Auto-restart executing - ${readableElements.length} paragraphs available`,
+            `Reader: Auto-restart executing - ${restartElements.length} paragraphs available`,
           );
         }
 
         if (
           targetParagraphInChapter >= 0 &&
-          targetParagraphInChapter < readableElements.length
+          targetParagraphInChapter < restartElements.length
         ) {
           // Update TTS position to the target paragraph
           if (window.tts && window.tts.changeParagraphPosition) {
@@ -745,7 +750,7 @@ window.reader = new (function () {
           }
         } else {
           console.error(
-            `Reader: Invalid restart paragraph ${targetParagraphInChapter} (total: ${readableElements.length})`,
+            `Reader: Invalid restart paragraph ${targetParagraphInChapter} (total: ${restartElements.length})`,
           );
         }
       }, 200);
@@ -888,7 +893,7 @@ window.reader = new (function () {
 
     // SCROLL POSITION PRESERVATION: Find a reference element that will remain after trim
     // We use the first visible paragraph in the CURRENT chapter (the one that stays)
-    const readableElements = this.getReadableElements();
+    const trimElements = this.getReadableElements();
     let referenceElement = null;
     let referenceOffsetFromTop = 0;
 
@@ -900,10 +905,10 @@ window.reader = new (function () {
     ) {
       for (
         let i = secondChapterBoundary.startIndex;
-        i < readableElements.length && i <= secondChapterBoundary.endIndex;
+        i < trimElements.length && i <= secondChapterBoundary.endIndex;
         i++
       ) {
-        const el = readableElements[i];
+        const el = trimElements[i];
         if (!el) continue;
         const rect = el.getBoundingClientRect();
         if (rect.top < window.innerHeight && rect.bottom > 0) {
@@ -1018,9 +1023,8 @@ window.reader = new (function () {
       referenceElement.isConnected &&
       newCurrentBoundary
     ) {
-      const readableElements = this.getReadableElements();
-      const globalIndex =
-        Array.from(readableElements).indexOf(referenceElement);
+      const currentElements = this.getReadableElements();
+      const globalIndex = Array.from(currentElements).indexOf(referenceElement);
       if (globalIndex >= 0) {
         // Convert global index to local index within the new chapter
         currentLocalParagraphIndex =
@@ -1899,8 +1903,11 @@ window.reader = new (function () {
 })();
 
 window.tts = new (function () {
+  // SYNC: These tags must match BLOCK_TAGS in src/utils/htmlParagraphExtractor.ts
+  // to ensure TTS paragraph count matches WebView highlight elements
   this.readableNodeNames = [
     '#text',
+    // Inline formatting
     'B',
     'I',
     'SPAN',
@@ -1908,6 +1915,7 @@ window.tts = new (function () {
     'BR',
     'STRONG',
     'A',
+    // Block elements (must match extractParagraphs BLOCK_TAGS)
     'P',
     'DIV',
     'H1',
@@ -1916,6 +1924,39 @@ window.tts = new (function () {
     'H4',
     'H5',
     'H6',
+    // List items
+    'LI',
+    'UL',
+    'OL',
+    'DL',
+    'DT',
+    'DD',
+    // Quote and code blocks
+    'BLOCKQUOTE',
+    'PRE',
+    // Tables
+    'TABLE',
+    'TFOOT',
+    // Figures
+    'FIGURE',
+    'FIGCAPTION',
+    // Semantic sections
+    'SECTION',
+    'ARTICLE',
+    'ASIDE',
+    'NAV',
+    'HEADER',
+    'FOOTER',
+    'MAIN',
+    // Forms
+    'FORM',
+    'FIELDSET',
+    'ADDRESS',
+    // Other block elements
+    'HR',
+    'NOSCRIPT',
+    'CANVAS',
+    'VIDEO',
   ];
   this.blockNodeNames = [
     'P',
@@ -1931,6 +1972,28 @@ window.tts = new (function () {
     'MAIN',
     'HEADER',
     'FOOTER',
+    // Additional block tags to match extractParagraphs
+    'LI',
+    'UL',
+    'OL',
+    'DL',
+    'DT',
+    'DD',
+    'BLOCKQUOTE',
+    'PRE',
+    'TABLE',
+    'TFOOT',
+    'FIGURE',
+    'FIGCAPTION',
+    'ASIDE',
+    'NAV',
+    'FORM',
+    'FIELDSET',
+    'ADDRESS',
+    'HR',
+    'NOSCRIPT',
+    'CANVAS',
+    'VIDEO',
   ];
   this.prevElement = null;
   this.currentElement = reader.chapterElement;
@@ -2052,15 +2115,21 @@ window.tts = new (function () {
         window.tts.currentElement,
       );
 
-      // User scrolled to an earlier paragraph
+      // SEMANTIC FIX: With "last completed" semantic, currentElement = currently speaking
+      // For manual scroll comparison, we want to know if user scrolled before the last COMPLETED paragraph
+      // So we use currentTTSIndex - 1 as the "last completed" position
+      const lastCompletedIndex =
+        currentTTSIndex >= 0 ? currentTTSIndex - 1 : -1;
+
+      // User scrolled to an earlier paragraph (compare against last completed)
       if (
         visibleParagraphIndex !== -1 &&
-        visibleParagraphIndex < currentTTSIndex - 2
+        visibleParagraphIndex < lastCompletedIndex - 1
       ) {
-        // At least 2 paragraphs back
+        // At least 1 paragraph back from last completed (more generous than before)
 
         console.log(
-          `TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}`,
+          `TTS: User at paragraph ${visibleParagraphIndex}, TTS at ${currentTTSIndex}, Last completed: ${lastCompletedIndex}`,
         );
 
         // Check user preference
@@ -3477,10 +3546,10 @@ function calculatePages() {
         }
 
         // CRITICAL FIX: Skip recovery scroll if stitched mode (multiple chapters loaded)
-        const isStitchedMode =
+        const isStitchedModeRecovery =
           reader.loadedChapters && reader.loadedChapters.length > 1;
 
-        if (isStitchedMode) {
+        if (isStitchedModeRecovery) {
           if (DEBUG) {
             console.log(
               '[calculatePages] Skipping paragraph recovery - stitched mode active (paragraph belongs to different chapter)',
@@ -3546,10 +3615,10 @@ function calculatePages() {
       }
     } else if (!reader.hasPerformedInitialScroll) {
       // CRITICAL FIX: Skip if stitched mode (multiple chapters loaded)
-      const isStitchedMode =
+      const isStitchedModeInitial =
         reader.loadedChapters && reader.loadedChapters.length > 1;
 
-      if (isStitchedMode) {
+      if (isStitchedModeInitial) {
         if (DEBUG) {
           console.log(
             '[calculatePages] Skipping initial scroll - stitched mode active (multiple chapters loaded)',

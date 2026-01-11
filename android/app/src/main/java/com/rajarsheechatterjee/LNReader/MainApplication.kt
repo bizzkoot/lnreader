@@ -30,6 +30,7 @@ class MainApplication : Application(), ReactApplication {
                     add(NativeZipArchivePackage())
                     add(ScreenStateListenerPackage())
                     add(TTSPackage())
+                    add(DoHPackage())
                 }
 
             override fun getJSMainModuleName(): String = "index"

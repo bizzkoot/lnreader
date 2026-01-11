@@ -202,10 +202,10 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
   });
 
   // ==========================================================================
-  // Timer T+2300ms - Media Nav Cleanup
+  // Timer T+2300ms - Media Nav Cleanup (REMOVED - Now handled by confirmation)
   // ==========================================================================
-  describe('Timer T+2300ms - Media Nav Cleanup', () => {
-    it('should clear mediaNavSourceChapterIdRef after 2300ms if set', () => {
+  describe('Timer T+2300ms - Media Nav Cleanup (Legacy Tests)', () => {
+    it('should NOT automatically clear mediaNavSourceChapterIdRef (fix for race condition)', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
 
       renderHook(() =>
@@ -215,12 +215,15 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
         }),
       );
 
+      // Advance past old 2.3s cleanup timer
       jest.advanceTimersByTime(2300);
 
-      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBeNull();
+      // FIX: Refs should NOT be cleared automatically anymore
+      // This fixes race condition where confirmation might happen after 10-15s with slow speech
+      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBe(100);
     });
 
-    it('should clear mediaNavDirectionRef after 2300ms if source chapter ID set', () => {
+    it('should NOT clear mediaNavDirectionRef after 2300ms', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
       mockRefs.mediaNavDirectionRef.current = 'NEXT';
 
@@ -233,11 +236,13 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       jest.advanceTimersByTime(2300);
 
-      expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
+      // FIX: Direction ref should persist for confirmation
+      expect(mockRefs.mediaNavDirectionRef.current).toBe('NEXT');
     });
 
-    it('should clear media nav after 2300ms', () => {
+    it('should preserve media nav refs for confirmation', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
+      mockRefs.mediaNavDirectionRef.current = 'PREV'; // Set direction
 
       renderHook(() =>
         useChapterTransition({
@@ -248,11 +253,12 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       jest.advanceTimersByTime(2300);
 
-      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBeNull();
-      expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
+      // FIX: Both refs should persist (not cleared after 2.3s)
+      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBe(100);
+      expect(mockRefs.mediaNavDirectionRef.current).toBe('PREV');
     });
 
-    it('should NOT clear media nav if source chapter ID is null', () => {
+    it('should respect null source chapter ID', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = null;
       mockRefs.mediaNavDirectionRef.current = 'NEXT';
 
@@ -265,11 +271,11 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       jest.advanceTimersByTime(2300);
 
-      // Direction should remain since no clearing happened
+      // Direction should remain (no cleanup triggered)
       expect(mockRefs.mediaNavDirectionRef.current).toBe('NEXT');
     });
 
-    it('should NOT clear media nav before 2300ms', () => {
+    it('should preserve refs even after extended time (60s+)', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
 
       renderHook(() =>
@@ -279,8 +285,10 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
         }),
       );
 
-      jest.advanceTimersByTime(2299); // Just before 2300ms
+      // Advance way past old timer - simulating slow speech rate
+      jest.advanceTimersByTime(60000); // 60 seconds
 
+      // FIX: Refs should still be set for later confirmation
       expect(mockRefs.mediaNavSourceChapterIdRef.current).toBe(100);
     });
   });
@@ -289,8 +297,9 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
   // Complete Timer Sequence
   // ==========================================================================
   describe('Complete Timer Sequence', () => {
-    it('should execute all timer effects in correct order', () => {
+    it('should execute timer effects in correct order (WebView sync only)', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
+      mockRefs.mediaNavDirectionRef.current = 'PREV'; // Set direction
       mockRefs.isWebViewSyncedRef.current = false;
 
       renderHook(() =>
@@ -309,13 +318,13 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
       jest.advanceTimersByTime(300);
       expect(mockRefs.isWebViewSyncedRef.current).toBe(true);
 
-      // Media nav not cleared yet
+      // FIX: Media nav NOT cleared by timer anymore
       expect(mockRefs.mediaNavSourceChapterIdRef.current).toBe(100);
 
-      // T+2300ms (total): Media nav cleared
+      // T+2300ms (total): Media nav still NOT cleared
       jest.advanceTimersByTime(2000); // +2000ms more = 2300ms total
-      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBeNull();
-      expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
+      expect(mockRefs.mediaNavSourceChapterIdRef.current).toBe(100);
+      expect(mockRefs.mediaNavDirectionRef.current).toBe('PREV');
     });
   });
 
@@ -489,7 +498,7 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
   // Media Nav Direction Handling
   // ==========================================================================
   describe('Media Nav Direction', () => {
-    it('should clear PREV direction after 2300ms', () => {
+    it('should preserve PREV direction (not cleared after 2300ms)', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
       mockRefs.mediaNavDirectionRef.current = 'PREV';
 
@@ -502,10 +511,11 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       jest.advanceTimersByTime(2300);
 
-      expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
+      // FIX: Refs should persist (not auto-cleared) to prevent race condition
+      expect(mockRefs.mediaNavDirectionRef.current).toBe('PREV');
     });
 
-    it('should clear NEXT direction after 2300ms', () => {
+    it('should preserve NEXT direction (not cleared after 2300ms)', () => {
       mockRefs.mediaNavSourceChapterIdRef.current = 100;
       mockRefs.mediaNavDirectionRef.current = 'NEXT';
 
@@ -518,7 +528,8 @@ describe('useChapterTransition (Phase 2 - Step 7)', () => {
 
       jest.advanceTimersByTime(2300);
 
-      expect(mockRefs.mediaNavDirectionRef.current).toBeNull();
+      // FIX: Refs should persist (not auto-cleared) to prevent race condition
+      expect(mockRefs.mediaNavDirectionRef.current).toBe('NEXT');
     });
   });
 

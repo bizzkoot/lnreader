@@ -123,7 +123,7 @@ const AboutScreen = ({ navigation }: AboutScreenProps) => {
   };
 
   return (
-    <SafeAreaView excludeTop>
+    <SafeAreaView>
       <MoreHeader
         title={getString('common.about')}
         navigation={navigation}

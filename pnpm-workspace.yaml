@@ -1,0 +1,3 @@
+patchedDependencies:
+  '@react-native-cookies/cookies': patches/@react-native-cookies__cookies.patch
+  react-native-sha256: patches/react-native-sha256.patch

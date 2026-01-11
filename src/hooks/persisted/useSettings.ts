@@ -6,6 +6,7 @@ import {
 import { useMMKVObject } from 'react-native-mmkv';
 import { Voice } from 'expo-speech';
 import { clampUIScale } from '@theme/scaling';
+import { DoHProvider } from '@services/network/DoHManager';
 
 export const APP_SETTINGS = 'APP_SETTINGS';
 export const BROWSE_SETTINGS = 'BROWSE_SETTINGS';
@@ -96,6 +97,15 @@ export interface AppSettings {
     repositories: boolean;
     downloads: boolean;
   };
+
+  /**
+   * DNS-over-HTTPS provider
+   * - DoHProvider.DISABLED: Use system DNS (default)
+   * - DoHProvider.CLOUDFLARE: Cloudflare DoH (1.1.1.1)
+   * - DoHProvider.GOOGLE: Google DoH (8.8.8.8)
+   * - DoHProvider.ADGUARD: AdGuard DoH (94.140.14.140)
+   */
+  doHProvider: DoHProvider;
 }
 
 export interface BrowseSettings {
@@ -320,6 +330,11 @@ const initialAppSettings: AppSettings = {
     repositories: true,
     downloads: true,
   },
+
+  /**
+   * DNS-over-HTTPS provider
+   */
+  doHProvider: DoHProvider.DISABLED,
 };
 
 const initialBrowseSettings: BrowseSettings = {

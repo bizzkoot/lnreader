@@ -12,3 +12,9 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 -keep class com.facebook.hermes.unicode.** { *; }
 -keep class com.facebook.jni.** { *; }
+
+# OkHttp DoH (Phase 3)
+-dontwarn okhttp3.dnsoverhttps.**
+-keep class okhttp3.dnsoverhttps.** { *; }
+-dontwarn okhttp3.**
+-keep class okhttp3.** { *; }

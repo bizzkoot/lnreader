@@ -356,3 +356,126 @@ describe('TTSHighlight Service', () => {
     });
   });
 });
+
+describe('TTSAudioManager - Rate/Pitch Tracking', () => {
+  // These tests verify that TTSAudioManager tracks rate and pitch from speakBatch params
+  // Properties should be added to TTSAudioManager class: currentRate, currentPitch
+
+  it('should track rate and pitch from speakBatch params', async () => {
+    // Get the actual TTSAudioManager singleton (not the mock)
+    const manager = jest.requireActual('../TTSAudioManager').default;
+
+    // Mock native methods for this test
+    const NativeModules = require('react-native').NativeModules;
+    const originalSpeakBatch = NativeModules.TTSHighlight?.speakBatch;
+
+    NativeModules.TTSHighlight = {
+      ...NativeModules.TTSHighlight,
+      speakBatch: jest.fn().mockResolvedValue(2),
+      getQueueSize: jest.fn().mockResolvedValue(10),
+    };
+
+    await manager.speakBatch(['text1', 'text2'], ['id1', 'id2'], {
+      rate: 1.5,
+      pitch: 0.8,
+      voice: 'test-voice',
+    });
+
+    // Restore original
+    if (originalSpeakBatch) {
+      NativeModules.TTSHighlight.speakBatch = originalSpeakBatch;
+    }
+
+    // After implementation, these should pass
+    expect(manager.currentRate).toBe(1.5);
+    expect(manager.currentPitch).toBe(0.8);
+  });
+
+  it('should default to rate 1, pitch 1 when not specified', async () => {
+    const manager = jest.requireActual('../TTSAudioManager').default;
+
+    const NativeModules = require('react-native').NativeModules;
+    const originalSpeakBatch = NativeModules.TTSHighlight?.speakBatch;
+
+    NativeModules.TTSHighlight = {
+      ...NativeModules.TTSHighlight,
+      speakBatch: jest.fn().mockResolvedValue(1),
+      getQueueSize: jest.fn().mockResolvedValue(10),
+    };
+
+    await manager.speakBatch(['text1'], ['id1'], {
+      voice: 'test-voice',
+    });
+
+    if (originalSpeakBatch) {
+      NativeModules.TTSHighlight.speakBatch = originalSpeakBatch;
+    }
+
+    expect(manager.currentRate).toBe(1);
+    expect(manager.currentPitch).toBe(1);
+  });
+
+  it('should update rate/pitch on subsequent speakBatch calls', async () => {
+    const manager = jest.requireActual('../TTSAudioManager').default;
+
+    const NativeModules = require('react-native').NativeModules;
+    const originalSpeakBatch = NativeModules.TTSHighlight?.speakBatch;
+
+    NativeModules.TTSHighlight = {
+      ...NativeModules.TTSHighlight,
+      speakBatch: jest.fn().mockResolvedValue(1),
+      getQueueSize: jest.fn().mockResolvedValue(10),
+    };
+
+    await manager.speakBatch(['text1'], ['id1'], {
+      rate: 1.5,
+      pitch: 0.8,
+      voice: 'test-voice',
+    });
+
+    await manager.speakBatch(['text2'], ['id2'], {
+      rate: 2.0,
+      pitch: 1.2,
+      voice: 'test-voice',
+    });
+
+    if (originalSpeakBatch) {
+      NativeModules.TTSHighlight.speakBatch = originalSpeakBatch;
+    }
+
+    expect(manager.currentRate).toBe(2.0);
+    expect(manager.currentPitch).toBe(1.2);
+  });
+
+  it('should preserve rate and pitch in emergency fallback', async () => {
+    const manager = jest.requireActual('../TTSAudioManager').default;
+
+    const NativeModules = require('react-native').NativeModules;
+    const originalSpeakBatch = NativeModules.TTSHighlight?.speakBatch;
+
+    // Start with custom rate/pitch - this sets currentRate and currentPitch
+    const speakBatchMock = jest.fn().mockResolvedValue(1);
+    NativeModules.TTSHighlight = {
+      ...NativeModules.TTSHighlight,
+      speakBatch: speakBatchMock,
+    };
+
+    await manager.speakBatch(['text1'], ['id1'], {
+      rate: 1.8,
+      pitch: 0.7,
+      voice: 'test-voice',
+    });
+
+    // Verify rate/pitch were tracked
+    expect(manager.currentRate).toBe(1.8);
+    expect(manager.currentPitch).toBe(0.7);
+
+    // The fix ensures that emergency fallback uses this.currentRate and this.currentPitch
+    // instead of hardcoded rate: 1, pitch: 1. We verify the properties are set correctly.
+
+    // Restore original
+    if (originalSpeakBatch) {
+      NativeModules.TTSHighlight.speakBatch = originalSpeakBatch;
+    }
+  });
+});

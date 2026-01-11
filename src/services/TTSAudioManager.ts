@@ -111,6 +111,10 @@ class TTSAudioManager {
   // If a fallback path is needed, we prefer this locked voice before using system default.
   private lockedVoice?: string;
 
+  // Track current rate and pitch for emergency fallback
+  public currentRate: number = 1;
+  public currentPitch: number = 1;
+
   // Dev-only counters (non-spammy diagnostics)
   private devCounters = {
     refillAttempts: 0,
@@ -395,6 +399,10 @@ class TTSAudioManager {
     const rate = params.rate || 1;
     const pitch = params.pitch || 1;
     const voice = this.sanitizeVoice(params.voice);
+
+    // Store current rate and pitch for emergency fallback
+    this.currentRate = rate;
+    this.currentPitch = pitch;
 
     // Lock voice at session start so refills/fallbacks keep consistent voice.
     this.lockVoiceIfProvided(voice);
@@ -681,8 +689,8 @@ class TTSAudioManager {
                 );
 
                 await TTSHighlight.speakBatch(nextTexts, nextIds, {
-                  rate: 1,
-                  pitch: 1,
+                  rate: this.currentRate,
+                  pitch: this.currentPitch,
                   voice: fallbackVoice,
                 });
 
