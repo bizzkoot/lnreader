@@ -297,6 +297,7 @@ describe('useTTSController - Integration Tests', () => {
   let mockNextChapter: ChapterInfo;
   let mockPrevChapter: ChapterInfo;
   let mockWebViewRef: RefObject<WebView | null>;
+  let mockParagraphHighlightOffsetRef: RefObject<number>;
   let mockReaderSettingsRef: RefObject<ChapterReaderSettings>;
   let mockChapterGeneralSettingsRef: RefObject<ChapterGeneralSettings>;
   let mockSaveProgress: jest.Mock;
@@ -324,6 +325,7 @@ describe('useTTSController - Integration Tests', () => {
     novel: mockNovel,
     html: '<p id="0">First paragraph</p><p id="1">Second paragraph</p><p id="2">Third paragraph</p>',
     webViewRef: mockWebViewRef,
+    paragraphHighlightOffsetRef: mockParagraphHighlightOffsetRef,
     saveProgress: mockSaveProgress,
     refreshChaptersFromContext: mockRefreshChaptersFromContext,
     navigateChapter: mockNavigateChapter,
@@ -803,6 +805,11 @@ describe('useTTSController - Integration Tests', () => {
       } as unknown as WebView,
     };
 
+    // Setup paragraph highlight offset ref (ephemeral, default 0)
+    mockParagraphHighlightOffsetRef = {
+      current: 0,
+    };
+
     // Setup settings refs
     mockReaderSettingsRef = {
       current: {
@@ -1118,8 +1125,7 @@ describe('useTTSController - Integration Tests', () => {
         );
       });
 
-      // TODO: Fix after offset feature - requires onLoadEnd simulation
-      it.skip('should update currentParagraphIndexRef when onSpeechStart fires', async () => {
+      it('should update currentParagraphIndexRef when onSpeechStart fires', async () => {
         const params = createDefaultParams();
         const { result } = renderHook(() => useTTSController(params));
 
@@ -1128,9 +1134,9 @@ describe('useTTSController - Integration Tests', () => {
           jest.advanceTimersByTime(500); // Longer delay to let everything settle
         });
 
-        // Call handleWebViewLoadEnd to mark WebView as synced
+        // Simulate WebView load completion (set ref directly)
         await act(async () => {
-          result.current.handleWebViewLoadEnd();
+          result.current.isWebViewSyncedRef.current = true;
         });
 
         // Clear previous WebView calls
@@ -1142,14 +1148,18 @@ describe('useTTSController - Integration Tests', () => {
           });
         });
 
-        // Verify observable behavior: WebView injection with correct paragraph index
-        expect(mockWebViewRef.current?.injectJavaScript).toHaveBeenCalledWith(
-          expect.stringContaining('window.tts.highlightParagraph(5'),
+        // Verify observable behavior: WebView injection with adjusted paragraph index (5 + offset)
+        const injectJavaScript = mockWebViewRef.current
+          ?.injectJavaScript as jest.Mock;
+        expect(injectJavaScript).toHaveBeenCalled();
+        const injectedCode = injectJavaScript.mock.calls[0][0];
+        expect(injectedCode).toContain('adjustedIndex = 5 + 0');
+        expect(injectedCode).toContain(
+          'window.tts.highlightParagraph(adjustedIndex, 100)',
         );
       });
 
-      // TODO: Fix after offset feature - requires onLoadEnd simulation
-      it.skip('should set isTTSPlayingRef to true on onSpeechStart', async () => {
+      it('should set isTTSPlayingRef to true on onSpeechStart', async () => {
         const params = createDefaultParams();
         const { result } = renderHook(() => useTTSController(params));
 
@@ -1158,9 +1168,9 @@ describe('useTTSController - Integration Tests', () => {
           jest.advanceTimersByTime(500);
         });
 
-        // Call handleWebViewLoadEnd to mark WebView as synced
+        // Simulate WebView load completion (set ref directly)
         await act(async () => {
-          result.current.handleWebViewLoadEnd();
+          result.current.isWebViewSyncedRef.current = true;
         });
 
         // Clear previous WebView calls
@@ -1172,10 +1182,12 @@ describe('useTTSController - Integration Tests', () => {
           });
         });
 
-        // Internal ref updated (verified via WebView injection)
-        expect(mockWebViewRef.current?.injectJavaScript).toHaveBeenCalledWith(
-          expect.stringContaining('window.tts.highlightParagraph'),
-        );
+        // Internal ref updated (verified via WebView injection with adjusted index)
+        const injectJavaScript = mockWebViewRef.current
+          ?.injectJavaScript as jest.Mock;
+        expect(injectJavaScript).toHaveBeenCalled();
+        const injectedCode = injectJavaScript.mock.calls[0][0];
+        expect(injectedCode).toContain('window.tts.highlightParagraph');
       });
 
       it('should reject onSpeechStart from mismatched chapter ID', async () => {
