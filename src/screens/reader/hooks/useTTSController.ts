@@ -2226,8 +2226,9 @@ export function useTTSController(
             webViewRef.current.injectJavaScript(`
               try {
                 if (window.tts) {
-                  window.tts.highlightParagraph(${paragraphIndex}, ${currentChapterId});
-                  window.tts.updateState(${paragraphIndex}, ${currentChapterId});
+                  const adjustedIndex = ${paragraphIndex} + ${paragraphHighlightOffsetRef.current};
+                  window.tts.highlightParagraph(adjustedIndex, ${currentChapterId});
+                  window.tts.updateState(adjustedIndex, ${currentChapterId});
                 }
               } catch (e) { console.error('TTS: start inject failed', e); }
               true;
