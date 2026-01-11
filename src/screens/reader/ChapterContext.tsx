@@ -75,7 +75,6 @@ export function ChapterContextProvider({
     }),
     [
       novel,
-      webViewRef,
       chapterHookContent,
       paragraphHighlightOffset,
       adjustHighlightOffset,

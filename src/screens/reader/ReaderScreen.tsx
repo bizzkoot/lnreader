@@ -65,7 +65,13 @@ export const ChapterContent = ({
   openDrawer,
 }: ChapterContentProps) => {
   const { left, right } = useSafeAreaInsets();
-  const { novel, chapter } = useChapterContext();
+  const {
+    novel,
+    chapter,
+    paragraphHighlightOffset,
+    adjustHighlightOffset,
+    resetHighlightOffset,
+  } = useChapterContext();
   const readerSheetRef = useRef<BottomSheetModalMethods>(null);
   const theme = useTheme();
   const { pageReader = false, keepScreenOn } = useChapterGeneralSettings();
@@ -131,7 +137,13 @@ export const ChapterContent = ({
       ) : (
         <WebViewReader onPress={hideHeader} />
       )}
-      <ReaderBottomSheetV2 bottomSheetRef={readerSheetRef} novel={novel} />
+      <ReaderBottomSheetV2
+        bottomSheetRef={readerSheetRef}
+        novel={novel}
+        paragraphHighlightOffset={paragraphHighlightOffset}
+        adjustHighlightOffset={adjustHighlightOffset}
+        resetHighlightOffset={resetHighlightOffset}
+      />
       {!hidden ? (
         <>
           <ReaderAppbar
