@@ -246,6 +246,7 @@ describe('TTS State Cleanup - Media Navigation', () => {
       current: { tts: { voice: {}, rate: 1.0, pitch: 1.0 } },
     } as any,
     chapterGeneralSettingsRef: { current: {} } as any,
+    paragraphHighlightOffsetRef: { current: 0 },
   });
 
   beforeEach(() => {

@@ -11,7 +11,7 @@ import {
   useChapterReaderSettings,
   useAppSettings,
 } from '@hooks/persisted';
-import { List, Button } from '@components/index';
+import { List, Button, IconButtonV2 } from '@components/index';
 import { useBoolean } from '@hooks';
 import { Portal } from 'react-native-paper';
 import VoicePickerModal from '@screens/settings/SettingsReaderScreen/Modals/VoicePickerModal';
@@ -41,7 +41,12 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
   // webViewRef comes from context; novel is passed as prop to work around Portal context issue
-  const { webViewRef } = useChapterContext();
+  const {
+    webViewRef,
+    paragraphHighlightOffset,
+    adjustHighlightOffset,
+    resetHighlightOffset,
+  } = useChapterContext();
   const {
     TTSEnable = false,
     showParagraphHighlight = true,
@@ -133,6 +138,31 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
         },
         bottomSpacing: {
           height: scaleDimension(24, uiScale),
+        },
+        offsetControlContainer: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingVertical: scaleDimension(12, uiScale),
+          paddingHorizontal: scaleDimension(16, uiScale),
+        },
+        offsetButtons: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: scaleDimension(8, uiScale),
+        },
+        offsetButton: {
+          padding: scaleDimension(8, uiScale),
+        },
+        offsetResetButton: {
+          padding: scaleDimension(6, uiScale),
+          marginLeft: scaleDimension(4, uiScale),
+        },
+        offsetValue: {
+          fontSize: scaleDimension(16, uiScale),
+          fontWeight: '600',
+          minWidth: scaleDimension(32, uiScale),
+          textAlign: 'center',
         },
       }),
     [uiScale],
@@ -353,6 +383,43 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(({ novel }) => {
                 postTTSSettingsToWebView({ enabled: newValue });
               }}
             />
+          </View>
+
+          {/* Paragraph Highlight Offset Controls */}
+          <View style={styles.offsetControlContainer}>
+            <AppText style={[styles.switchLabel, { color: theme.onSurface }]}>
+              Highlight offset
+            </AppText>
+            <View style={styles.offsetButtons}>
+              <IconButtonV2
+                name="minus"
+                size={scaleDimension(20, uiScale)}
+                color={theme.onSurface}
+                onPress={() => adjustHighlightOffset(-1)}
+                theme={theme}
+                style={styles.offsetButton}
+              />
+              <AppText style={[styles.offsetValue, { color: theme.primary }]}>
+                {paragraphHighlightOffset > 0 ? '+' : ''}
+                {paragraphHighlightOffset}
+              </AppText>
+              <IconButtonV2
+                name="plus"
+                size={scaleDimension(20, uiScale)}
+                color={theme.onSurface}
+                onPress={() => adjustHighlightOffset(+1)}
+                theme={theme}
+                style={styles.offsetButton}
+              />
+              <IconButtonV2
+                name="refresh"
+                size={scaleDimension(18, uiScale)}
+                color={theme.onSurfaceVariant}
+                onPress={resetHighlightOffset}
+                theme={theme}
+                style={styles.offsetResetButton}
+              />
+            </View>
           </View>
         </View>
 

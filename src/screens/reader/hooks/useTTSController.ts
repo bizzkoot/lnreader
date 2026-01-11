@@ -90,6 +90,8 @@ export interface UseTTSControllerParams {
   // === Refs ===
   /** WebView reference for JS injection */
   webViewRef: RefObject<WebView | null>;
+  /** Paragraph highlight offset ref (from ChapterContext, ephemeral) */
+  paragraphHighlightOffsetRef: RefObject<number>;
 
   // === Context Functions ===
   /** Save reading progress (calls hook's updateChapterProgress for DB + UI update) */
@@ -264,13 +266,8 @@ export interface UseTTSControllerReturn {
   /** Cleanup all TTS state (MMKV + refs) for media navigation */
   cleanupAllTTSState: (chapterIds: number[]) => Promise<void>;
 
-  // === Paragraph Highlight Offset Controls ===
-  /** Current paragraph highlight offset (ephemeral, chapter-scoped) */
-  paragraphHighlightOffset: number;
-  /** Adjust highlight offset by delta (clamped to [-10, +10]) */
-  adjustHighlightOffset: (delta: number) => void;
-  /** Reset highlight offset to 0 */
-  resetHighlightOffset: () => void;
+  // NOTE: Paragraph highlight offset controls moved to ChapterContext
+  // (paragraphHighlightOffset, adjustHighlightOffset, resetHighlightOffset)
 }
 
 // ============================================================================
@@ -300,6 +297,7 @@ export function useTTSController(
     novel,
     html,
     webViewRef,
+    paragraphHighlightOffsetRef,
     saveProgress,
     refreshChaptersFromContext,
     navigateChapter,
@@ -381,11 +379,11 @@ export function useTTSController(
       ttsStateRef.current = null;
       currentParagraphIndexRef.current = -1;
       latestParagraphIndexRef.current = -1;
-      paragraphHighlightOffsetRef.current = 0;
+      // NOTE: paragraphHighlightOffset reset is handled in ChapterContext
 
       ttsCtrlLog.debug(
         'tts-state-cleanup-refs',
-        'Cleared in-memory refs: ttsStateRef, currentParagraphIndexRef, latestParagraphIndexRef, paragraphHighlightOffsetRef',
+        'Cleared in-memory refs: ttsStateRef, currentParagraphIndexRef, latestParagraphIndexRef',
       );
 
       ttsCtrlLog.info(
@@ -401,8 +399,8 @@ export function useTTSController(
     }
   }, []);
 
-  // Paragraph highlight offset (ephemeral, resets on chapter change)
-  const paragraphHighlightOffsetRef = useRef<number>(0);
+  // Paragraph highlight offset (passed from ChapterContext, ephemeral)
+  // const paragraphHighlightOffsetRef = useRef<number>(0); // REMOVED: Now passed as param
 
   // Auto-start flags
   const autoStartTTSRef = useRef<boolean>(false);
@@ -724,9 +722,7 @@ export function useTTSController(
   // ===========================================================================
 
   useEffect(() => {
-    // Reset highlight offset when chapter changes (ephemeral state)
-    paragraphHighlightOffsetRef.current = 0;
-
+    // NOTE: paragraphHighlightOffset reset is handled in ChapterContext
     const pendingResumeId = MMKVStorage.getNumber('pendingTTSResumeChapterId');
     if (pendingResumeId === chapterId) {
       ttsCtrlLog.debug(
@@ -3458,22 +3454,8 @@ export function useTTSController(
     cleanupAllTTSState,
   ]);
 
-  // ===========================================================================
-  // Paragraph Highlight Offset Handlers
-  // ===========================================================================
-
-  const adjustHighlightOffset = useCallback((delta: number) => {
-    paragraphHighlightOffsetRef.current += delta;
-    // Clamp to reasonable range (-10 to +10)
-    paragraphHighlightOffsetRef.current = Math.max(
-      -10,
-      Math.min(10, paragraphHighlightOffsetRef.current),
-    );
-  }, []);
-
-  const resetHighlightOffset = useCallback(() => {
-    paragraphHighlightOffsetRef.current = 0;
-  }, []);
+  // NOTE: Paragraph highlight offset handlers moved to ChapterContext
+  // to avoid duplication and ensure consistency between useTTSController and UI
 
   // ===========================================================================
   // Return Value
@@ -3563,10 +3545,7 @@ export function useTTSController(
     updateTtsMediaNotificationState,
     cleanupAllTTSState,
 
-    // Paragraph Highlight Offset Controls
-    paragraphHighlightOffset: paragraphHighlightOffsetRef.current,
-    adjustHighlightOffset,
-    resetHighlightOffset,
+    // NOTE: Paragraph highlight offset controls moved to ChapterContext
   };
 }
 
