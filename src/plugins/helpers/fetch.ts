@@ -12,6 +12,12 @@ type FetchInit = {
   [x: string]: string | Record<string, string> | undefined | FormData | Headers;
 };
 
+/**
+ * Maximum number of Cloudflare bypass retries to prevent infinite loops.
+ * This handles edge cases where cf_clearance cookie exists but is expired/invalid.
+ */
+const MAX_CLOUDFLARE_RETRIES = 2;
+
 const makeInit = (init?: FetchInit) => {
   const defaultHeaders = {
     'Connection': 'keep-alive',
@@ -42,9 +48,18 @@ const makeInit = (init?: FetchInit) => {
   return init;
 };
 
+/**
+ * Fetches a URL with automatic cookie injection and Cloudflare bypass support.
+ *
+ * @param url - The URL to fetch
+ * @param init - Optional fetch init options
+ * @param cloudflareRetryCount - Internal counter for Cloudflare bypass retries (default: 0)
+ * @returns Promise resolving to the Response
+ */
 export const fetchApi = async (
   url: string,
   init?: FetchInit,
+  cloudflareRetryCount = 0,
 ): Promise<Response> => {
   init = makeInit(init);
 
@@ -72,8 +87,11 @@ export const fetchApi = async (
   // STEP 2: Make request
   const response = await fetch(url, init);
 
-  // STEP 3: Check for Cloudflare challenge
-  if (CloudflareDetector.isChallenge(response)) {
+  // STEP 3: Check for Cloudflare challenge (with retry limit to prevent infinite loops)
+  if (
+    CloudflareDetector.isChallenge(response) &&
+    cloudflareRetryCount < MAX_CLOUDFLARE_RETRIES
+  ) {
     try {
       // Attempt automatic bypass
       const bypassResult = await CloudflareBypass.solve({
@@ -88,7 +106,8 @@ export const fetchApi = async (
 
       if (bypassResult.success) {
         // Retry request with new cookies (auto-injected by STEP 1)
-        return fetchApi(url, init);
+        // Increment retry counter to prevent infinite loops
+        return fetchApi(url, init, cloudflareRetryCount + 1);
       }
     } catch (error) {
       // Bypass error - fall through to return original response

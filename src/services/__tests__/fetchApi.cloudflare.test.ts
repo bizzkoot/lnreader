@@ -336,5 +336,35 @@ describe('fetchApi Cloudflare bypass integration', () => {
       expect(mockFetch).toHaveBeenCalledTimes(3);
       expect(response.status).toBe(200);
     });
+
+    it('should stop retrying after MAX_CLOUDFLARE_RETRIES (infinite loop prevention)', async () => {
+      // Create persistent challenge responses - simulates expired cookie scenario
+      const challenge = new Response('Challenge', {
+        status: 403,
+        headers: { Server: 'cloudflare' },
+      });
+
+      // All requests return challenge (simulates invalid cookie scenario)
+      mockFetch.mockResolvedValue(challenge);
+
+      // Always detect as challenge (simulates expired cf_clearance cookie)
+      (CloudflareDetector.isChallenge as jest.Mock).mockReturnValue(true);
+
+      // Bypass always succeeds (but cookies don't actually work)
+      (CloudflareBypass.solve as jest.Mock).mockResolvedValue({
+        success: true,
+        cookies: { cf_clearance: 'expired_token' },
+      });
+
+      const response = await fetchApi('https://example.com');
+
+      // Should stop after MAX_CLOUDFLARE_RETRIES (2) retries
+      // Initial request + 2 retries = 3 total requests
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(CloudflareBypass.solve).toHaveBeenCalledTimes(2);
+
+      // Final response should be the challenge (graceful degradation)
+      expect(response.status).toBe(403);
+    });
   });
 });
