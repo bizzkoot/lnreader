@@ -204,20 +204,15 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
 
-  // Get setChapterReaderSettings to sync per-novel TTS settings to MMKV
-  const { setChapterReaderSettings } = useChapterReaderSettings();
-
   // Apply per-novel TTS overrides (if enabled) on chapter/novel changes.
-  // This syncs settings to MMKV so UI and TTS engine use the same settings from the start.
+  // Updates ref + WebView — does NOT write to global ChapterReaderSettings.
   useEffect(() => {
     try {
       if (!novel?.id) return;
 
       const stored = getNovelTtsSettings(novel.id);
       if (stored?.enabled && stored.tts) {
-        // Per-novel TTS settings exist and are enabled: sync to MMKV
-        setChapterReaderSettings({ tts: stored.tts });
-
+        // Per-novel TTS overrides: merge into ref + apply to WebView only
         const nextReaderSettings = {
           ...readerSettingsRef.current,
           tts: {
@@ -232,10 +227,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           webViewRef,
         );
       } else {
-        // No per-novel settings: reset to global defaults
-        // This prevents carrying over previous novel's TTS settings
+        // No per-novel settings: restore global defaults in ref
         const globalTts = readerSettings.tts;
-        setChapterReaderSettings({ tts: globalTts });
 
         readerSettingsRef.current = {
           ...readerSettingsRef.current,
@@ -249,13 +242,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     } catch {
       // Best-effort: never block reader load
     }
-  }, [
-    novel?.id,
-    chapter.id,
-    webViewRef,
-    setChapterReaderSettings,
-    readerSettings.tts,
-  ]);
+  }, [novel?.id, chapter.id, webViewRef, readerSettings.tts]);
 
   // CRITICAL FIX: Capture initial nextChapter/prevChapter to prevent HTML regeneration
   // These values are only used for initial WebView load. Updates after that are via injectJavaScript.

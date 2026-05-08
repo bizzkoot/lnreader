@@ -21,6 +21,7 @@ interface VoicePickerModalProps {
   onDismiss: () => void;
   voices: TTSVoice[];
   onVoiceSelect?: (voice: TTSVoice) => void;
+  currentVoiceIdentifier?: string;
 }
 
 const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
@@ -28,6 +29,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   visible,
   voices,
   onVoiceSelect,
+  currentVoiceIdentifier,
 }) => {
   const theme = useTheme();
   const { iconSize } = useScaledDimensions();
@@ -80,39 +82,24 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
           }
           ListHeaderComponentStyle={styles.paddingHorizontal}
           data={searchText ? searchedVoices : voices}
-          extraData={tts?.voice}
+          extraData={currentVoiceIdentifier || tts?.voice?.identifier}
           renderItem={({ item }) => {
-            // Add quality badge to label for non-default voices
-            let labelWithBadge = item.name;
-            if (item.identifier !== 'default') {
-              // Import and use classifyVoiceQuality locally
-              // Quality thresholds: 400+ = Neural, 200-399 = Enhanced, <200 = Standard
-              const quality =
-                typeof item.quality === 'number'
-                  ? item.quality
-                  : typeof item.quality === 'string'
-                    ? parseInt(item.quality, 10)
-                    : 0;
-              const qualityLabel =
-                quality >= 400
-                  ? 'Neural'
-                  : quality >= 200
-                    ? 'Enhanced'
-                    : 'Standard';
-              labelWithBadge = `${item.name} (${qualityLabel})`;
-            }
-
             return (
               <RadioButton
                 key={item.identifier}
-                status={item.identifier === tts?.voice?.identifier}
+                status={
+                  item.identifier ===
+                  (currentVoiceIdentifier || tts?.voice?.identifier)
+                }
                 onPress={() => {
-                  setChapterReaderSettings({
-                    tts: { ...tts, voice: item as Voice },
-                  });
+                  if (!onVoiceSelect) {
+                    setChapterReaderSettings({
+                      tts: { ...tts, voice: item as Voice },
+                    });
+                  }
                   onVoiceSelect?.(item);
                 }}
-                label={labelWithBadge}
+                label={item.name}
                 theme={theme}
                 labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
               />

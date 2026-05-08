@@ -17,12 +17,14 @@ interface EnginePickerModalProps {
   visible: boolean;
   onDismiss: () => void;
   onEngineSelected?: (engine: TTSEngine) => void;
+  currentEngine?: string;
 }
 
 const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
   onDismiss,
   visible,
   onEngineSelected,
+  currentEngine: currentEngineProp,
 }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
@@ -53,7 +55,7 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
     [uiScale],
   );
 
-  const currentEngine = tts?.engine || 'default';
+  const currentEngine = currentEngineProp || tts?.engine || 'default';
 
   const engineList: TTSEngine[] = [
     { name: 'default', label: 'System Default' },
@@ -79,6 +81,15 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
                 const engineName = item.name === 'default' ? '' : item.name;
                 if (item.name !== currentEngine) {
                   TTSAudioManager.switchEngine(engineName);
+                }
+                if (!onEngineSelected) {
+                  setChapterReaderSettings({
+                    tts: {
+                      ...tts,
+                      engine: item.name === 'default' ? undefined : item.name,
+                      voice: undefined,
+                    },
+                  });
                 }
                 onEngineSelected?.(item);
               }}
