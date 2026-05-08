@@ -333,36 +333,22 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
           novelId,
         });
 
-        // CRITICAL FIX: Actually switch the engine using TTSAudioManager
-        try {
-          const engineName = engine.name === 'default' ? '' : engine.name;
-          const success = await TTSAudioManager.switchEngine(engineName);
-
-          if (!success) {
-            debugLog('engine-switch-failed', 'Failed to switch engine');
-            // Still save settings even if switch failed (user can retry)
-          } else {
-            debugLog(
-              'engine-switch-success',
-              `Switched to engine: ${engineName}`,
-            );
-          }
-        } catch (err) {
-          debugLog('engine-switch-error', 'Error switching engine', err);
-        }
-
         // Save engine setting to persistence
+        // Modal already handled TTSAudioManager.switchEngine()
         if (useNovelTtsSettings && typeof novelId === 'number') {
           const current = getNovelTtsSettings(novelId);
           if (current?.enabled) {
+            const newTts = {
+              ...current.tts,
+              engine: engine.name === 'default' ? undefined : engine.name,
+              voice: undefined, // Clear voice when engine changes (voices are engine-specific)
+            };
             setNovelTtsSettings(novelId, {
               ...current,
-              tts: {
-                ...current.tts,
-                engine: engine.name === 'default' ? undefined : engine.name,
-                voice: undefined, // Clear voice when engine changes (voices are engine-specific)
-              },
+              tts: newTts,
             });
+            // Sync to global settings so modal displays correct value
+            setChapterReaderSettings({ tts: newTts });
             debugLog('engine-saved-per-novel', {
               engine: engine.name,
               novelId,

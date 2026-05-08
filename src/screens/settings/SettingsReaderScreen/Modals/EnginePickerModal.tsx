@@ -80,13 +80,6 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
                 if (item.name !== currentEngine) {
                   TTSAudioManager.switchEngine(engineName);
                 }
-                setChapterReaderSettings({
-                  tts: {
-                    ...tts,
-                    engine: item.name === 'default' ? undefined : item.name,
-                    voice: undefined,
-                  },
-                });
                 onEngineSelected?.(item);
               }}
               label={item.label || item.name}
