@@ -19,6 +19,7 @@ import Switch from '@components/Switch/Switch';
 import { useBoolean } from '@hooks';
 import { Portal } from 'react-native-paper';
 import VoicePickerModal from '../Modals/VoicePickerModal';
+import EnginePickerModal from '../Modals/EnginePickerModal';
 import TTSScrollBehaviorModal from '../Modals/TTSScrollBehaviorModal';
 
 import AutoResumeModal from '../Modals/AutoResumeModal';
@@ -107,6 +108,11 @@ const AccessibilityTab: React.FC = () => {
     value: voiceModalVisible,
     setTrue: showVoiceModal,
     setFalse: hideVoiceModal,
+  } = useBoolean();
+  const {
+    value: engineModalVisible,
+    setTrue: showEngineModal,
+    setFalse: hideEngineModal,
   } = useBoolean();
   const {
     value: autoResumeModalVisible,
@@ -396,6 +402,12 @@ const AccessibilityTab: React.FC = () => {
                       : 'Ask every time'
                 }
                 onPress={showAutoResumeModal}
+                theme={theme}
+              />
+              <List.Item
+                title="TTS Engine"
+                description={tts?.engine || 'System Default'}
+                onPress={showEngineModal}
                 theme={theme}
               />
               <List.Item
@@ -706,6 +718,10 @@ const AccessibilityTab: React.FC = () => {
           visible={voiceModalVisible}
           onDismiss={hideVoiceModal}
           voices={voices}
+        />
+        <EnginePickerModal
+          visible={engineModalVisible}
+          onDismiss={hideEngineModal}
         />
         <AutoResumeModal
           visible={autoResumeModalVisible}

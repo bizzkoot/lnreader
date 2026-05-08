@@ -22,6 +22,11 @@ export type TTSVoice = {
   quality: string;
 };
 
+export type TTSEngine = {
+  name: string;
+  label: string;
+};
+
 export type TTSParams = {
   rate?: number;
   pitch?: number;
@@ -140,6 +145,14 @@ class TTSHighlightService {
     return TTSHighlight.getVoices();
   }
 
+  getEngines(): Promise<TTSEngine[]> {
+    return TTSHighlight.getEngines();
+  }
+
+  setEngine(engineName: string): Promise<boolean> {
+    return TTSHighlight.setEngine(engineName);
+  }
+
   addListener(
     eventType:
       | 'onWordRange'
@@ -147,8 +160,9 @@ class TTSHighlightService {
       | 'onSpeechDone'
       | 'onSpeechError'
       | 'onQueueEmpty'
-      | 'onVoiceFallback' // FIX Case 7.2: Voice fallback notification
-      | 'onMediaAction',
+      | 'onVoiceFallback'
+      | 'onMediaAction'
+      | 'onEngineReady',
     listener: (event: any) => void,
   ): EmitterSubscription {
     return ttsEmitter.addListener(eventType, listener);

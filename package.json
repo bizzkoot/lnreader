@@ -8,7 +8,7 @@
     "dev:ios": "react-native run-ios",
     "dev:start": "react-native start",
     "dev:clean-start": "pnpm run dev:start -- --reset-cache",
-    "build:release:android": "pnpm run generate:env:release && cd android && ./gradlew clean && ./gradlew assembleRelease",
+    "build:release:android": "pnpm run generate:env:release && cd android && ./gradlew assembleRelease",
     "build:open-apk": "open ./android/app/build/outputs/apk/release/",
     "generate:env:debug": "node scripts/generate-env-file.cjs Debug",
     "generate:env:release": "node scripts/generate-env-file.cjs Release",

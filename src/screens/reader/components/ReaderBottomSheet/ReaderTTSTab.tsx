@@ -4,7 +4,7 @@ import AppText from '@components/AppText';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { VoiceQuality, Voice } from 'expo-speech';
-import TTSHighlight, { TTSVoice } from '@services/TTSHighlight';
+import TTSHighlight, { TTSVoice, TTSEngine } from '@services/TTSHighlight';
 import {
   useTheme,
   useChapterGeneralSettings,
@@ -15,6 +15,7 @@ import { List, Button, IconButtonV2 } from '@components/index';
 import { useBoolean } from '@hooks';
 import { Portal } from 'react-native-paper';
 import VoicePickerModal from '@screens/settings/SettingsReaderScreen/Modals/VoicePickerModal';
+import EnginePickerModal from '@screens/settings/SettingsReaderScreen/Modals/EnginePickerModal';
 import TTSScrollBehaviorModal from '@screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal';
 import Switch from '@components/Switch/Switch';
 import { useChapterContext } from '../../ChapterContext';
@@ -318,6 +319,32 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
       setFalse: hideVoiceModal,
     } = useBoolean();
     const {
+      value: engineModalVisible,
+      setTrue: showEngineModal,
+      setFalse: hideEngineModal,
+    } = useBoolean();
+
+    const handleEngineSelect = useCallback(
+      (engine: TTSEngine) => {
+        if (useNovelTtsSettings && typeof novelId === 'number') {
+          const current = getNovelTtsSettings(novelId);
+          if (current?.enabled) {
+            setNovelTtsSettings(novelId, {
+              ...current,
+              tts: {
+                ...current.tts,
+                engine: engine.name === 'default' ? undefined : engine.name,
+                voice: undefined,
+              },
+            });
+          }
+        }
+
+        hideEngineModal();
+      },
+      [hideEngineModal, useNovelTtsSettings, novelId],
+    );
+    const {
       value: ttsAutoDownloadModalVisible,
       setTrue: showTtsAutoDownloadModal,
       setFalse: hideTtsAutoDownloadModal,
@@ -357,6 +384,28 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
           ...formattedVoices,
         ]);
       });
+    }, []);
+
+    useEffect(() => {
+      const subscription = TTSHighlight.addListener('onEngineReady', () => {
+        TTSHighlight.getVoices().then(res => {
+          const formattedVoices = res.map(voice => ({
+            ...voice,
+            name: TTSHighlight.formatVoiceName(voice),
+          }));
+          formattedVoices.sort((a, b) => a.name.localeCompare(b.name));
+          setVoices([
+            {
+              name: 'System',
+              language: 'System',
+              identifier: 'default',
+              quality: 'default',
+            } as TTSVoice,
+            ...formattedVoices,
+          ]);
+        });
+      });
+      return () => subscription.remove();
     }, []);
 
     const resetTTSSettings = useCallback(() => {
@@ -453,6 +502,16 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                     }}
                   />
                 </View>
+              </View>
+
+              {/* Engine Selection */}
+              <View style={styles.section}>
+                <List.Item
+                  title="TTS Engine"
+                  description={tts?.engine || 'System Default'}
+                  onPress={showEngineModal}
+                  theme={theme}
+                />
               </View>
 
               {/* Voice Settings */}
@@ -802,6 +861,11 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
             onDismiss={hideVoiceModal}
             voices={voices}
             onVoiceSelect={handleVoiceSelect}
+          />
+          <EnginePickerModal
+            visible={engineModalVisible}
+            onDismiss={hideEngineModal}
+            onEngineSelected={handleEngineSelect}
           />
           <TTSScrollBehaviorModal
             visible={ttsAutoDownloadModalVisible}

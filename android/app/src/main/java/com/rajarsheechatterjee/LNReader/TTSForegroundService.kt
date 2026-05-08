@@ -34,6 +34,8 @@ import java.util.Locale
 
 class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
+    private var currentEngineName: String? = null
+    private var engineSwitchPending = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var isTtsInitialized = false
     private val binder = TTSBinder()
@@ -97,6 +99,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         fun onQueueEmpty()  // Called when TTS queue is completely empty (chapter finished)
         fun onVoiceFallback(originalVoice: String, fallbackVoice: String)  // FIX Case 7.2: Notify when voice fallback occurs
         fun onMediaAction(action: String) // Notification media control action
+        fun onEngineReady() // Called when TTS engine finishes initializing after switch
     }
 
     inner class TTSBinder : Binder() {
@@ -180,10 +183,22 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
 
+    private fun initTTS(engineName: String? = null) {
+        tts?.stop()
+        tts?.shutdown()
+        tts = if (engineName != null) {
+            TextToSpeech(this, this, engineName)
+        } else {
+            TextToSpeech(this, this)
+        }
+        currentEngineName = engineName
+        isTtsInitialized = false
+    }
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        tts = TextToSpeech(this, this)
+        initTTS()
         
         // Initialize AudioManager for AudioFocus
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -310,6 +325,12 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                     ttsListener?.onWordRange(utteranceId, start, end, frame)
                 }
             })
+
+            // Notify RN layer if this was an engine switch
+            if (engineSwitchPending) {
+                engineSwitchPending = false
+                ttsListener?.onEngineReady()
+            }
         }
     }
 
@@ -577,6 +598,44 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
 
     fun getVoices(): List<Voice> {
         return tts?.voices?.toList() ?: emptyList()
+    }
+
+    fun getEngines(): List<TextToSpeech.EngineInfo> {
+        val ttsEngines = tts?.engines?.toList()
+        if (!ttsEngines.isNullOrEmpty()) {
+            return ttsEngines
+        }
+
+        val engines = mutableListOf<TextToSpeech.EngineInfo>()
+        try {
+            val ttsIntent = Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE)
+            val resolveInfos = packageManager.queryIntentServices(ttsIntent, 0)
+            for (info in resolveInfos) {
+                val engineInfo = TextToSpeech.EngineInfo()
+                engineInfo.name = info.serviceInfo.packageName
+                engineInfo.label = info.serviceInfo.loadLabel(packageManager).toString()
+                engines.add(engineInfo)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TTSForegroundService", "Failed to query TTS engines: ${e.message}")
+        }
+        return engines
+    }
+
+    fun getCurrentEngineName(): String? {
+        return currentEngineName
+    }
+
+    fun setEngine(engineName: String?): Boolean {
+        return try {
+            engineSwitchPending = true
+            initTTS(engineName)
+            true
+        } catch (e: Exception) {
+            engineSwitchPending = false
+            android.util.Log.e("TTSForegroundService", "Failed to set engine: ${e.message}")
+            false
+        }
     }
 
     private fun startForegroundService() {

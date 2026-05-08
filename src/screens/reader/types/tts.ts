@@ -348,7 +348,42 @@ export type TTSSettings = {
   rate?: number;
   /** Speech pitch (0.5 - 2.0) */
   pitch?: number;
+  /** TTS engine package name (e.g., 'com.google.android.tts', 'com.samsung.SMT') */
+  engine?: string;
 };
+
+/**
+ * TTS engine info from Android system.
+ * Each engine provides its own set of voices.
+ */
+export type TTSEngine = {
+  /** Engine package name */
+  name: string;
+  /** Human-readable engine label */
+  label: string;
+};
+
+/**
+ * Voice quality classification for display badges.
+ */
+export type VoiceQualityBadge = 'Neural' | 'Enhanced' | 'Standard' | 'Low';
+
+/**
+ * Classify a voice quality score into a display badge.
+ * Android Voice.quality values:
+ *   400+ = Very high (neural)
+ *   200-399 = High (enhanced)
+ *   < 200 = Standard/low
+ */
+export function classifyVoiceQuality(
+  quality: string | number,
+): VoiceQualityBadge {
+  const q = typeof quality === 'string' ? parseInt(quality, 10) : quality;
+  if (isNaN(q) || q <= 0) return 'Standard';
+  if (q >= 400) return 'Neural';
+  if (q >= 200) return 'Enhanced';
+  return 'Standard';
+}
 
 /**
  * Media navigation direction for chapter changes via notification.

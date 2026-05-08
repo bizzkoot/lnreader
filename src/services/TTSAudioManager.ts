@@ -826,6 +826,30 @@ class TTSAudioManager {
     return this.stop();
   }
 
+  /**
+   * Stop TTS playback, switch TTS engine, and clear locked state.
+   * Call this when the user selects a different TTS engine.
+   * @param engineName Engine package name or empty string for system default
+   */
+  async switchEngine(engineName: string): Promise<boolean> {
+    if (this.state !== TTSState.IDLE) {
+      await this.stop();
+    }
+
+    try {
+      const result = await TTSHighlight.setEngine(engineName);
+      if (!result) {
+        logError('TTSAudioManager: Failed to switch engine');
+        return false;
+      }
+      this.lockedVoice = undefined;
+      return true;
+    } catch (error) {
+      logError('TTSAudioManager: Engine switch error:', error);
+      return false;
+    }
+  }
+
   async getQueueSize(): Promise<number> {
     try {
       return await TTSHighlight.getQueueSize();

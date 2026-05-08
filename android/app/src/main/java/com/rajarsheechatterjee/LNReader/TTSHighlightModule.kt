@@ -203,6 +203,42 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
+    @ReactMethod
+    fun getEngines(promise: Promise) {
+        if (isBound && ttsService != null) {
+            try {
+                val engines = ttsService?.getEngines() ?: emptyList()
+                val engineArray = Arguments.createArray()
+                for (engine in engines) {
+                    val engineMap = Arguments.createMap()
+                    engineMap.putString("name", engine.name)
+                    engineMap.putString("label", engine.label)
+                    engineArray.pushMap(engineMap)
+                }
+                promise.resolve(engineArray)
+            } catch (e: Exception) {
+                promise.reject("GET_ENGINES_ERROR", e.message)
+            }
+        } else {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+        }
+    }
+
+    @ReactMethod
+    fun setEngine(engineName: String, promise: Promise) {
+        if (isBound && ttsService != null) {
+            val cleanName = if (engineName.isBlank()) null else engineName
+            val success = ttsService?.setEngine(cleanName) ?: false
+            if (success) {
+                promise.resolve(true)
+            } else {
+                promise.reject("SET_ENGINE_ERROR", "Failed to set TTS engine")
+            }
+        } else {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+        }
+    }
+
 
     @ReactMethod
     fun addListener(eventName: String) {
@@ -266,6 +302,11 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         val params = Arguments.createMap()
         params.putString("action", action)
         sendEvent("onMediaAction", params)
+    }
+
+    override fun onEngineReady() {
+        android.util.Log.d("TTS_DEBUG", "TTSHighlightModule.onEngineReady")
+        sendEvent("onEngineReady", Arguments.createMap())
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {

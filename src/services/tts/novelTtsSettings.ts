@@ -8,6 +8,7 @@ export type NovelTtsSettings = {
     voice?: Voice;
     rate?: number;
     pitch?: number;
+    engine?: string;
   };
 };
 
