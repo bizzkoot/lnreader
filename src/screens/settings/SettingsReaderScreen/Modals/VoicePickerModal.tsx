@@ -11,9 +11,8 @@ import {
 } from '@hooks/persisted';
 import { TTSVoice } from '@services/TTSHighlight';
 import { scaleDimension } from '@theme/scaling';
-import { LegendList } from '@legendapp/list';
 import { Modal } from '@components';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface VoicePickerModalProps {
@@ -43,7 +42,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
     () =>
       StyleSheet.create({
         containerStyle: {
-          flex: 1,
+          maxHeight: Math.round(Dimensions.get('window').height * 0.65),
         },
         paddingHorizontal: { paddingHorizontal: scaleDimension(12, uiScale) },
         marginTop: { marginTop: scaleDimension(16, uiScale) },
@@ -58,35 +57,38 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
         onDismiss={onDismiss}
         contentContainerStyle={[styles.containerStyle]}
       >
-        <LegendList
-          recycleItems
-          ListHeaderComponent={
-            <TextInput
-              mode="outlined"
-              underlineColor={theme.outline}
-              theme={{ colors: { ...theme } }}
-              onChangeText={text => {
-                setSearchText(text);
-                setSearchedVoices(
-                  voices.filter(voice =>
-                    voice.name
-                      .toLocaleLowerCase()
-                      .includes(text.toLocaleLowerCase()),
-                  ),
-                );
-              }}
-              value={searchText}
-              placeholder="Search voice"
-              style={{ fontSize: scaleDimension(16, uiScale) }}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.paddingHorizontal}
+        >
+          <TextInput
+            mode="outlined"
+            underlineColor={theme.outline}
+            theme={{ colors: { ...theme } }}
+            onChangeText={text => {
+              setSearchText(text);
+              setSearchedVoices(
+                voices.filter(voice =>
+                  voice.name
+                    .toLocaleLowerCase()
+                    .includes(text.toLocaleLowerCase()),
+                ),
+              );
+            }}
+            value={searchText}
+            placeholder="Search voice"
+            style={{ fontSize: scaleDimension(16, uiScale) }}
+          />
+          {(searchText ? searchedVoices : voices).length === 0 ? (
+            <ActivityIndicator
+              size={iconSize.md}
+              style={styles.marginTop}
+              color={theme.primary}
             />
-          }
-          ListHeaderComponentStyle={styles.paddingHorizontal}
-          data={searchText ? searchedVoices : voices}
-          extraData={currentVoiceIdentifier || tts?.voice?.identifier}
-          renderItem={({ item }) => {
-            return (
+          ) : (
+            (searchText ? searchedVoices : voices).map((item, index) => (
               <RadioButton
-                key={item.identifier}
+                key={item.identifier || `voice_${index}_${item.name}`}
                 status={
                   item.identifier ===
                   (currentVoiceIdentifier || tts?.voice?.identifier)
@@ -103,20 +105,9 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
                 theme={theme}
                 labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
               />
-            );
-          }}
-          keyExtractor={(item, index) =>
-            item.identifier || `voice_${index}_${item.name}`
-          }
-          estimatedItemSize={scaleDimension(64, uiScale)}
-          ListEmptyComponent={
-            <ActivityIndicator
-              size={iconSize.md}
-              style={styles.marginTop}
-              color={theme.primary}
-            />
-          }
-        />
+            ))
+          )}
+        </ScrollView>
       </Modal>
     </Portal>
   );

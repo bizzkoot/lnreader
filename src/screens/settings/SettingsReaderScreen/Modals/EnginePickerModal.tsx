@@ -9,9 +9,8 @@ import {
 import TTSHighlight, { TTSEngine } from '@services/TTSHighlight';
 import TTSAudioManager from '@services/TTSAudioManager';
 import { scaleDimension } from '@theme/scaling';
-import { LegendList } from '@legendapp/list';
 import { Modal } from '@components';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, ScrollView, Dimensions } from 'react-native';
 
 interface EnginePickerModalProps {
   visible: boolean;
@@ -47,7 +46,7 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
     () =>
       StyleSheet.create({
         containerStyle: {
-          flex: 1,
+          maxHeight: Math.round(Dimensions.get('window').height * 0.65),
         },
         paddingHorizontal: { paddingHorizontal: scaleDimension(12, uiScale) },
         marginTop: { marginTop: scaleDimension(16, uiScale) },
@@ -69,45 +68,41 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
         onDismiss={onDismiss}
         contentContainerStyle={[styles.containerStyle]}
       >
-        <LegendList
-          recycleItems
-          data={engineList}
-          extraData={currentEngine}
-          renderItem={({ item }) => (
-            <RadioButton
-              key={item.name}
-              status={item.name === currentEngine}
-              onPress={() => {
-                const engineName = item.name === 'default' ? '' : item.name;
-                if (item.name !== currentEngine) {
-                  TTSAudioManager.switchEngine(engineName);
-                }
-                if (!onEngineSelected) {
-                  setChapterReaderSettings({
-                    tts: {
-                      ...tts,
-                      engine: item.name === 'default' ? undefined : item.name,
-                      voice: undefined,
-                    },
-                  });
-                }
-                onEngineSelected?.(item);
-              }}
-              label={item.label || item.name}
-              theme={theme}
-              labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
-            />
-          )}
-          keyExtractor={item => item.name}
-          estimatedItemSize={scaleDimension(64, uiScale)}
-          ListEmptyComponent={
-            <ActivityIndicator
-              size={scaleDimension(24, uiScale)}
-              style={styles.marginTop}
-              color={theme.primary}
-            />
-          }
-        />
+        {engineList.length === 0 ? (
+          <ActivityIndicator
+            size={scaleDimension(24, uiScale)}
+            style={styles.marginTop}
+            color={theme.primary}
+          />
+        ) : (
+          <ScrollView contentContainerStyle={styles.paddingHorizontal}>
+            {engineList.map(item => (
+              <RadioButton
+                key={item.name}
+                status={item.name === currentEngine}
+                onPress={() => {
+                  const engineName = item.name === 'default' ? '' : item.name;
+                  if (item.name !== currentEngine) {
+                    TTSAudioManager.switchEngine(engineName);
+                  }
+                  if (!onEngineSelected) {
+                    setChapterReaderSettings({
+                      tts: {
+                        ...tts,
+                        engine: item.name === 'default' ? undefined : item.name,
+                        voice: undefined,
+                      },
+                    });
+                  }
+                  onEngineSelected?.(item);
+                }}
+                label={item.label || item.name}
+                theme={theme}
+                labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
+              />
+            ))}
+          </ScrollView>
+        )}
       </Modal>
     </Portal>
   );
