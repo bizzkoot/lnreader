@@ -139,6 +139,17 @@ class TTSAudioManager {
   // Counter for periodic cache calibration (every N spoken items)
   private speechDoneCounter = 0;
 
+  // Batch support detection - non-Google engines may not properly support QUEUE_ADD
+  private engineSupportsBatch: boolean = true;
+  // Aggressive refill mode for engines that don't batch: refill after every utterance
+  private aggressiveRefillMode: boolean = false;
+  // Whether initial batch capability check has been performed
+  private initialBatchCheckDone: boolean = false;
+
+  // Track the currently active TTS engine on the native side.
+  // Used by restoreSavedEngine to avoid unnecessary shutdown/re-init cycles.
+  private currentEngine: string | null = null;
+
   /**
    * Transition to a new state with validation and debug logging.
    * @private
@@ -155,6 +166,14 @@ class TTSAudioManager {
    */
   getState(): TTSState {
     return this.state;
+  }
+
+  /**
+   * Get the currently active TTS engine name (from the native side).
+   * Returns null if no engine has been explicitly set (system default in use).
+   */
+  getCurrentEngine(): string | null {
+    return this.currentEngine;
   }
 
   setNotifyUserCallback(cb?: (msg: string) => void) {
@@ -245,6 +264,47 @@ class TTSAudioManager {
     }
     this.hasLoggedSessionFallback = true;
     logError(message);
+  }
+
+  /**
+   * Detect if the current TTS engine supports batch queuing (QUEUE_ADD).
+   * Google TTS is known to work. Non-Google engines may only process 1
+   * utterance at a time. Sets engineSupportsBatch and aggressiveRefillMode.
+   *
+   * Uses timeout to avoid blocking - defaults to batch-capable if native call hangs.
+   */
+  private async detectBatchCapability(): Promise<void> {
+    this.initialBatchCheckDone = true;
+
+    // Create a timeout promise that resolves after 2 seconds
+    // This prevents blocking if native module call hangs
+    const timeoutPromise = new Promise<boolean>(resolve => {
+      setTimeout(() => {
+        ttsLog.warn(
+          'detect-batch-capability-timeout',
+          'Native call timed out, defaulting to batch-capable',
+        );
+        resolve(true); // Default to batch-capable on timeout
+      }, 2000);
+    });
+
+    try {
+      // Race between native call and timeout - whichever completes first wins
+      this.engineSupportsBatch = await Promise.race([
+        TTSHighlight.isBatchCapable(),
+        timeoutPromise,
+      ]);
+      this.aggressiveRefillMode = !this.engineSupportsBatch;
+      ttsLog.info(
+        'detect-batch-capability',
+        `engineSupportsBatch=${this.engineSupportsBatch}, aggressiveRefillMode=${this.aggressiveRefillMode}`,
+      );
+    } catch (e) {
+      // Default to batch-capable on error (safe fallback - original behavior)
+      this.engineSupportsBatch = true;
+      this.aggressiveRefillMode = false;
+      ttsLog.warn('detect-batch-capability-error', e);
+    }
   }
 
   /**
@@ -393,6 +453,15 @@ class TTSAudioManager {
     if (texts.length === 0) {
       return 0;
     }
+
+    // Detect batch capability on first speakBatch if not already determined.
+    // Must be awaited so that aggressiveRefillMode is correct before we compute
+    // the initial batch size — otherwise JS sends 25 items while native only
+    // queues 1, causing a massive index mismatch.
+    if (!this.initialBatchCheckDone) {
+      await this.detectBatchCapability();
+    }
+
     let attempts = 0;
     let lastError: any = null;
     const maxAttempts = 2;
@@ -422,8 +491,11 @@ class TTSAudioManager {
         this.lastKnownQueueSize = 0;
         // BUG FIX: Reset last spoken index for new session
         this.resetLastSpokenIndex();
-        const batchTexts = texts.slice(0, TTS_CONSTANTS.BATCH_SIZE);
-        const batchIds = utteranceIds.slice(0, TTS_CONSTANTS.BATCH_SIZE);
+        const initialBatchSize = this.aggressiveRefillMode
+          ? 1
+          : TTS_CONSTANTS.BATCH_SIZE;
+        const batchTexts = texts.slice(0, initialBatchSize);
+        const batchIds = utteranceIds.slice(0, initialBatchSize);
 
         // Guard against empty batch (shouldn't happen, but be defensive)
         if (batchTexts.length === 0) {
@@ -450,18 +522,18 @@ class TTSAudioManager {
         this.hasQueuedNativeThisSession = true;
         this.currentQueue = texts;
         this.currentUtteranceIds = utteranceIds;
-        // Set currentIndex to number of items already pushed to native queue
-        this.currentIndex = batchTexts.length;
+        // For non-batch engines, only 1 item was actually queued by native
+        this.currentIndex = initialBatchSize;
         this.transitionTo(TTSState.PLAYING);
         this.hasLoggedNoMoreItems = false;
-        // Update queue size cache with initial batch size
-        this.lastKnownQueueSize = batchTexts.length;
+        // Update queue size cache with actual queued count
+        this.lastKnownQueueSize = initialBatchSize;
         // Calibrate cache after successful batch start
         await this.calibrateQueueCache();
         logDebug(
           `TTSAudioManager: Started batch playback with ${
-            batchTexts.length
-          } items, ${texts.length - TTS_CONSTANTS.BATCH_SIZE} remaining`,
+            initialBatchSize
+          } items, ${texts.length - initialBatchSize} remaining`,
         );
         if (this.eventListeners.length === 0) {
           logDebug('TTSAudioManager: Setting up auto-refill subscription');
@@ -472,8 +544,11 @@ class TTSAudioManager {
               if (this.lastKnownQueueSize > 0) {
                 this.lastKnownQueueSize--;
               }
-              // Only refill when approaching threshold
-              if (this.lastKnownQueueSize <= PREFETCH_THRESHOLD + 3) {
+              // For non-batch engines, ALWAYS refill after each utterance
+              // For batch-capable engines, only refill when approaching threshold
+              if (this.aggressiveRefillMode) {
+                await this.refillQueue();
+              } else if (this.lastKnownQueueSize <= PREFETCH_THRESHOLD + 3) {
                 await this.refillQueue();
               }
             },
@@ -488,8 +563,11 @@ class TTSAudioManager {
     }
     // Fallback: try again, but prefer locked voice first.
     try {
-      const batchTexts = texts.slice(0, TTS_CONSTANTS.BATCH_SIZE);
-      const batchIds = utteranceIds.slice(0, TTS_CONSTANTS.BATCH_SIZE);
+      const initialBatchSize = this.aggressiveRefillMode
+        ? 1
+        : TTS_CONSTANTS.BATCH_SIZE;
+      const batchTexts = texts.slice(0, initialBatchSize);
+      const batchIds = utteranceIds.slice(0, initialBatchSize);
       const fallbackVoice = this.getPreferredVoiceForFallback(voice);
       await TTSHighlight.speakBatch(batchTexts, batchIds, {
         rate,
@@ -510,23 +588,33 @@ class TTSAudioManager {
       }
       this.currentQueue = texts;
       this.currentUtteranceIds = utteranceIds;
-      this.currentIndex = TTS_CONSTANTS.BATCH_SIZE;
+      this.currentIndex = initialBatchSize;
       this.transitionTo(TTSState.PLAYING);
       this.hasLoggedNoMoreItems = false;
       // Update cache and calibrate after fallback batch start
-      this.lastKnownQueueSize = batchTexts.length;
+      this.lastKnownQueueSize = initialBatchSize;
       await this.calibrateQueueCache();
       logDebug(
         `TTSAudioManager: Started batch playback with fallback voice, ${
-          batchTexts.length
-        } items, ${texts.length - TTS_CONSTANTS.BATCH_SIZE} remaining`,
+          initialBatchSize
+        } items, ${texts.length - initialBatchSize} remaining`,
       );
       if (this.eventListeners.length === 0) {
         logDebug('TTSAudioManager: Setting up auto-refill subscription');
         const subscription = ttsEmitter.addListener(
           'onSpeechDone',
           async _event => {
-            await this.refillQueue();
+            // Decrement cache as native consumes items
+            if (this.lastKnownQueueSize > 0) {
+              this.lastKnownQueueSize--;
+            }
+            // For non-batch engines, ALWAYS refill after each utterance
+            // For batch-capable engines, always refill (fallback path)
+            if (this.aggressiveRefillMode) {
+              await this.refillQueue();
+            } else {
+              await this.refillQueue();
+            }
           },
         );
         this.eventListeners.push(subscription);
@@ -582,10 +670,11 @@ class TTSAudioManager {
 
         const queueSize = await TTSHighlight.getQueueSize();
 
-        // Extra safety: if queue is low or near-empty, refill more aggressively.
-        // Prefetch threshold helps avoid queue drain and the fallback paths.
-        const thresholdToUse =
-          queueSize <= TTS_CONSTANTS.EMERGENCY_THRESHOLD
+        // For non-batch engines, use very low threshold (refill when 1-2 items left).
+        // For batch-capable engines, use normal prefetch threshold with emergency fallback.
+        const thresholdToUse = this.aggressiveRefillMode
+          ? 1
+          : queueSize <= TTS_CONSTANTS.EMERGENCY_THRESHOLD
             ? TTS_CONSTANTS.EMERGENCY_THRESHOLD
             : PREFETCH_THRESHOLD;
 
@@ -597,10 +686,10 @@ class TTSAudioManager {
 
         // Add next batch
         const remainingCount = this.currentQueue.length - this.currentIndex;
-        const nextBatchSize = Math.min(
-          TTS_CONSTANTS.BATCH_SIZE,
-          remainingCount,
-        );
+        const refillBatchSize = this.aggressiveRefillMode
+          ? 1
+          : TTS_CONSTANTS.BATCH_SIZE;
+        const nextBatchSize = Math.min(refillBatchSize, remainingCount);
 
         const nextTexts = this.currentQueue.slice(
           this.currentIndex,
@@ -843,6 +932,18 @@ class TTSAudioManager {
         return false;
       }
       this.lockedVoice = undefined;
+
+      // Track the current engine to avoid unnecessary re-init in restoreSavedEngine
+      this.currentEngine = engineName || null;
+
+      // Reset batch capability flags — the native engine initialises async
+      // (onInit fires later). detectBatchCapability() will run on the next
+      // speakBatch() call once the engine is ready, ensuring JS and native
+      // agree on batch size.
+      this.initialBatchCheckDone = false;
+      this.engineSupportsBatch = true;
+      this.aggressiveRefillMode = false;
+
       return true;
     } catch (error) {
       logError('TTSAudioManager: Engine switch error:', error);
@@ -911,10 +1012,14 @@ class TTSAudioManager {
         });
       }
 
-      // Auto-refill queue - but only if we're approaching the threshold
+      // Auto-refill queue
+      // For non-batch engines, ALWAYS refill after each utterance (aggressive mode)
+      // For batch-capable engines, only refill when approaching the threshold
       // This avoids 60+ unnecessary native bridge calls per chapter
       // Use PREFETCH_THRESHOLD + small buffer to account for cache drift
-      if (this.lastKnownQueueSize <= PREFETCH_THRESHOLD + 3) {
+      if (this.aggressiveRefillMode) {
+        this.refillQueue();
+      } else if (this.lastKnownQueueSize <= PREFETCH_THRESHOLD + 3) {
         this.refillQueue();
       }
     });

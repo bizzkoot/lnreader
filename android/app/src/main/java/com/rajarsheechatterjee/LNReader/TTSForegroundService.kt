@@ -60,6 +60,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     // Queue management for batch feeding
     private var currentBatchIndex = 0
     private val queuedUtteranceIds = mutableListOf<String>()
+
+    // Batch support detection - some TTS engines (non-Google) don't properly support QUEUE_ADD
+    private var batchCapable: Boolean = true
     
     // Track if service is already in foreground state to avoid Android 12+ background start restriction
     private var isServiceForeground = false
@@ -293,6 +296,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             isTtsInitialized = true
+            // Determine batch capability for the current engine
+            batchCapable = determineBatchCapability()
+            android.util.Log.d("TTSForegroundService", "Initial engine batch capability: $batchCapable")
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) {
                     // CRITICAL: Ensure wake lock is still held during playback
@@ -449,24 +455,46 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                 queuedUtteranceIds.clear()
             }
             currentBatchIndex = 0
-            
-            // Queue all texts
-            for (i in texts.indices) {
+
+            if (!batchCapable) {
+                // Non-batch engines don't properly support QUEUE_ADD.
+                // Queue only 1 item per speakBatch call.
+                // The JS layer will trigger refill via onDone → refillQueue → addToBatch
+                // for each subsequent item, maintaining a continuous stream.
                 val params = android.os.Bundle()
-                val utteranceId = utteranceIds.getOrNull(i) ?: "utterance_$i"
+                val utteranceId = utteranceIds[0]
                 params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
-                
-                val queueMode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-                val result = ttsInstance.speak(texts[i], queueMode, params, utteranceId)
-                
+                val result = ttsInstance.speak(texts[0], TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+
                 if (result == TextToSpeech.SUCCESS) {
                     synchronized(queuedUtteranceIds) {
                         queuedUtteranceIds.add(utteranceId)
                     }
+                    currentBatchIndex = 1
                 } else {
-                    android.util.Log.e("TTSForegroundService", "speak returned non-SUCCESS for utteranceId=${utteranceId} index=${i} result=${result}")
+                    android.util.Log.e("TTSForegroundService", "speak returned non-SUCCESS for utteranceId=${utteranceId} index=0 result=${result}")
                     return false
                 }
+            } else {
+                // Normal batch: queue all items with QUEUE_FLUSH (first) + QUEUE_ADD (rest)
+                for (i in texts.indices) {
+                    val params = android.os.Bundle()
+                    val utteranceId = utteranceIds.getOrNull(i) ?: "utterance_$i"
+                    params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+                    
+                    val queueMode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                    val result = ttsInstance.speak(texts[i], queueMode, params, utteranceId)
+                    
+                    if (result == TextToSpeech.SUCCESS) {
+                        synchronized(queuedUtteranceIds) {
+                            queuedUtteranceIds.add(utteranceId)
+                        }
+                    } else {
+                        android.util.Log.e("TTSForegroundService", "speak returned non-SUCCESS for utteranceId=${utteranceId} index=${i} result=${result}")
+                        return false
+                    }
+                }
+                currentBatchIndex = texts.size
             }
             
             startForegroundService()
@@ -490,6 +518,11 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
      * - Consistency: Guarantees same voice throughout batch session
      * - Simplicity: Refill path doesn't need to re-specify voice
      *
+     * **Non-Batch-Capable Engines:**
+     * The JS layer sends only 1 item per call for such engines.
+     * This method processes all items in the list, but non-batch engines
+     * may queue only 1. The JS layer compensates by refilling aggressively.
+     *
      * @param texts Array of text strings to speak
      * @param utteranceIds Array of unique utterance identifiers
      * @return true if all utterances were added successfully, false otherwise
@@ -502,7 +535,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         if (texts.isEmpty()) return false
 
         tts?.let { ttsInstance ->
-            for (i in texts.indices) {
+            val itemsToAdd = if (!batchCapable) Math.min(1, texts.size) else texts.size
+            for (i in 0 until itemsToAdd) {
                 val params = android.os.Bundle()
                 val utteranceId = utteranceIds.getOrNull(i) ?: "utterance_${currentBatchIndex + i}"
                 params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
@@ -519,7 +553,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                 }
             }
             
-            currentBatchIndex += texts.size
+            currentBatchIndex += itemsToAdd
             return true
         }
         return false
@@ -626,10 +660,40 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         return currentEngineName
     }
 
+    /**
+     * Determines if the current TTS engine supports batch queuing (QUEUE_ADD).
+     * Google TTS is known to work. Non-Google engines may only process 1
+     * utterance at a time despite returning SUCCESS for QUEUE_ADD calls.
+     *
+     * When currentEngineName is null (system default), queries the actual
+     * default engine name from the TTS instance so we don't misidentify
+     * Google TTS as non-batch-capable.
+     */
+    private fun determineBatchCapability(): Boolean {
+        // Resolve the effective engine name: explicit setting > TTS default > empty
+        val engine = currentEngineName
+            ?: tts?.defaultEngine
+            ?: ""
+        // Google TTS is known to properly support QUEUE_ADD
+        if (engine.contains("google", ignoreCase = true)) {
+            return true
+        }
+        // Non-Google engines often ignore QUEUE_ADD - be conservative
+        return false
+    }
+
+    fun isBatchCapable(): Boolean {
+        return batchCapable
+    }
+
     fun setEngine(engineName: String?): Boolean {
         return try {
             engineSwitchPending = true
             initTTS(engineName)
+            // Note: batchCapable is NOT set here because initTTS() is async —
+            // the TTS engine hasn't initialised yet.  onInit() will call
+            // determineBatchCapability() once the engine is ready.
+            android.util.Log.d("TTSForegroundService", "Engine switch initiated (engine=$engineName), batch capability will be set in onInit")
             true
         } catch (e: Exception) {
             engineSwitchPending = false

@@ -153,6 +153,10 @@ class TTSHighlightService {
     return TTSHighlight.setEngine(engineName);
   }
 
+  isBatchCapable(): Promise<boolean> {
+    return TTSHighlight.isBatchCapable();
+  }
+
   addListener(
     eventType:
       | 'onWordRange'

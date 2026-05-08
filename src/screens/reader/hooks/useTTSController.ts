@@ -17,7 +17,7 @@ import type { RootStackParamList } from '@navigators/types';
 import TTSHighlight from '@services/TTSHighlight';
 import TTSAudioManager from '@services/TTSAudioManager';
 import { TTSState } from '@services/TTSState';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import {
   getChapter as getChapterFromDb,
@@ -580,9 +580,28 @@ export function useTTSController(
    * @returns Promise<boolean> - true if engine restored successfully
    */
   const restoreSavedEngine = useCallback(async (): Promise<boolean> => {
-    const savedEngine = readerSettingsRef.current.tts?.engine;
+    // Read directly from MMKV to avoid stale refs (readerSettings useMemo
+    // only recomputes on chapter.id change, missing TTS engine updates).
+    const savedSettings = getMMKVObject<ChapterReaderSettings>(
+      'CHAPTER_READER_SETTINGS',
+    );
+    const savedEngine = savedSettings?.tts?.engine;
+
     if (!savedEngine) {
       // No engine preference saved, use system default
+      return true;
+    }
+
+    // Skip switchEngine if the engine is already active on the native side.
+    // This avoids an unnecessary shutdown+re-init cycle that would set
+    // isTtsInitialized=false and cause speakBatch() to arrive while the
+    // engine is still initializing (producing no audio).
+    const currentEngine = TTSAudioManager.getCurrentEngine();
+    if (currentEngine === savedEngine) {
+      ttsCtrlLog.info(
+        'engine-restoration-skip',
+        `Engine already active: ${savedEngine}`,
+      );
       return true;
     }
 
@@ -1108,34 +1127,43 @@ export function useTTSController(
               };
               currentParagraphIndexRef.current = paragraphIdx;
 
-              // CRITICAL FIX: Restore saved engine before starting TTS
-              // Fire and forget - if it fails, TTS will still start with default engine
-              restoreSavedEngine().catch(err => {
-                ttsCtrlLog.warn(
-                  'engine-restore-failed',
-                  'Failed to restore engine',
-                  err,
-                );
-              });
+              // CRITICAL FIX: Restore saved engine BEFORE starting TTS.
+              // Must be awaited — if we fire-and-forget, the native setEngine()
+              // call shuts down the TTS engine (isTtsInitialized=false) and the
+              // subsequent speakBatch() arrives while the engine is still torn down,
+              // producing no audio.
+              //
+              // Wrapped in async IIFE because handleTTSMessage is synchronous.
+              (async () => {
+                try {
+                  await restoreSavedEngine();
+                } catch (err) {
+                  ttsCtrlLog.warn(
+                    'engine-restore-failed',
+                    'Failed to restore engine, continuing with default',
+                    err,
+                  );
+                }
 
-              TTSHighlight.speakBatch(remaining, ids, {
-                voice: readerSettingsRef.current.tts?.voice?.identifier,
-                pitch: readerSettingsRef.current.tts?.pitch || 1,
-                rate: readerSettingsRef.current.tts?.rate || 1,
-              }).catch(err => {
-                ttsCtrlLog.error('start-batch-failed', err);
-                // Fallback to single speak
-                const utteranceId =
-                  paragraphIdx >= 0
-                    ? `chapter_${chapterId}_utterance_${paragraphIdx}`
-                    : undefined;
-                TTSHighlight.speak(textToSpeak, {
+                TTSHighlight.speakBatch(remaining, ids, {
                   voice: readerSettingsRef.current.tts?.voice?.identifier,
                   pitch: readerSettingsRef.current.tts?.pitch || 1,
                   rate: readerSettingsRef.current.tts?.rate || 1,
-                  utteranceId,
+                }).catch(err => {
+                  ttsCtrlLog.error('start-batch-failed', err);
+                  // Fallback to single speak
+                  const utteranceId =
+                    paragraphIdx >= 0
+                      ? `chapter_${chapterId}_utterance_${paragraphIdx}`
+                      : undefined;
+                  TTSHighlight.speak(textToSpeak, {
+                    voice: readerSettingsRef.current.tts?.voice?.identifier,
+                    pitch: readerSettingsRef.current.tts?.pitch || 1,
+                    rate: readerSettingsRef.current.tts?.rate || 1,
+                    utteranceId,
+                  });
                 });
-              });
+              })();
             } else {
               ttsCtrlLog.warn(
                 'start-batch-invalid-params',

@@ -239,6 +239,15 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
+    @ReactMethod
+    fun isBatchCapable(promise: Promise) {
+        if (isBound && ttsService != null) {
+            promise.resolve(ttsService?.isBatchCapable() ?: true)
+        } else {
+            promise.resolve(true)
+        }
+    }
+
 
     @ReactMethod
     fun addListener(eventName: String) {
