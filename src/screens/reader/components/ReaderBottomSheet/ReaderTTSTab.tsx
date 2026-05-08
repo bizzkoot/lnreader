@@ -5,6 +5,7 @@ import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Slider from '@react-native-community/slider';
 import { VoiceQuality, Voice } from 'expo-speech';
 import TTSHighlight, { TTSVoice, TTSEngine } from '@services/TTSHighlight';
+import TTSAudioManager from '@services/TTSAudioManager';
 import {
   useTheme,
   useChapterGeneralSettings,
@@ -325,7 +326,32 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
     } = useBoolean();
 
     const handleEngineSelect = useCallback(
-      (engine: TTSEngine) => {
+      async (engine: TTSEngine) => {
+        debugLog('handleEngineSelect called', {
+          engine: engine.name,
+          useNovelTtsSettings,
+          novelId,
+        });
+
+        // CRITICAL FIX: Actually switch the engine using TTSAudioManager
+        try {
+          const engineName = engine.name === 'default' ? '' : engine.name;
+          const success = await TTSAudioManager.switchEngine(engineName);
+
+          if (!success) {
+            debugLog('engine-switch-failed', 'Failed to switch engine');
+            // Still save settings even if switch failed (user can retry)
+          } else {
+            debugLog(
+              'engine-switch-success',
+              `Switched to engine: ${engineName}`,
+            );
+          }
+        } catch (err) {
+          debugLog('engine-switch-error', 'Error switching engine', err);
+        }
+
+        // Save engine setting to persistence
         if (useNovelTtsSettings && typeof novelId === 'number') {
           const current = getNovelTtsSettings(novelId);
           if (current?.enabled) {
@@ -334,15 +360,36 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
               tts: {
                 ...current.tts,
                 engine: engine.name === 'default' ? undefined : engine.name,
-                voice: undefined,
+                voice: undefined, // Clear voice when engine changes (voices are engine-specific)
               },
             });
+            debugLog('engine-saved-per-novel', {
+              engine: engine.name,
+              novelId,
+            });
           }
+        } else {
+          // Global settings: save directly
+          setChapterReaderSettings({
+            tts: {
+              ...tts,
+              engine: engine.name === 'default' ? undefined : engine.name,
+              voice: undefined, // Clear voice when engine changes
+            },
+          });
+          debugLog('engine-saved-global', { engine: engine.name });
         }
 
         hideEngineModal();
       },
-      [hideEngineModal, useNovelTtsSettings, novelId],
+      [
+        hideEngineModal,
+        useNovelTtsSettings,
+        novelId,
+        tts,
+        setChapterReaderSettings,
+        debugLog,
+      ],
     );
     const {
       value: ttsAutoDownloadModalVisible,
