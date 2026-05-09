@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Voice } from 'expo-speech';
 
 import { Portal, TextInput, ActivityIndicator } from 'react-native-paper';
@@ -35,8 +35,49 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   const [searchedVoices, setSearchedVoices] = useState<TTSVoice[]>([]);
   const [searchText, setSearchText] = useState('');
   const { setChapterReaderSettings, tts } = useChapterReaderSettings();
+  const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollEndTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+      }
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+      }
+    };
+  }, []);
 
   const { uiScale = 1.0 } = useAppSettings();
+
+  const startDismissTimer = () => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+    }
+    dismissTimerRef.current = setTimeout(() => {
+      onDismiss();
+    }, 2000);
+  };
+
+  const handleScrollBegin = () => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+    if (scrollEndTimerRef.current) {
+      clearTimeout(scrollEndTimerRef.current);
+    }
+  };
+
+  const handleScrollEnd = () => {
+    if (scrollEndTimerRef.current) {
+      clearTimeout(scrollEndTimerRef.current);
+    }
+    scrollEndTimerRef.current = setTimeout(() => {
+      startDismissTimer();
+    }, 150);
+  };
 
   const styles = React.useMemo(
     () =>
@@ -60,6 +101,10 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.paddingHorizontal}
+          onScrollBeginDrag={handleScrollBegin}
+          onScrollEndDrag={handleScrollEnd}
+          onMomentumScrollBegin={handleScrollBegin}
+          onMomentumScrollEnd={handleScrollEnd}
         >
           <TextInput
             mode="outlined"
@@ -100,6 +145,7 @@ const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
                     });
                   }
                   onVoiceSelect?.(item);
+                  startDismissTimer();
                 }}
                 label={item.name}
                 theme={theme}
