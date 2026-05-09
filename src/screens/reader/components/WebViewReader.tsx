@@ -64,7 +64,10 @@ import { useBoolean, useBackHandler } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView, type TTSSettings } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
-import { getNovelTtsSettings } from '@services/tts/novelTtsSettings';
+import {
+  getNovelTtsSettings,
+  useNovelTtsSettings,
+} from '@services/tts/novelTtsSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 // Import the TTS hook
@@ -204,20 +207,15 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
 
-  // Get setChapterReaderSettings to sync per-novel TTS settings to MMKV
-  const { setChapterReaderSettings } = useChapterReaderSettings();
-
   // Apply per-novel TTS overrides (if enabled) on chapter/novel changes.
-  // This syncs settings to MMKV so UI and TTS engine use the same settings from the start.
+  // Updates ref + WebView — does NOT write to global ChapterReaderSettings.
   useEffect(() => {
     try {
       if (!novel?.id) return;
 
       const stored = getNovelTtsSettings(novel.id);
       if (stored?.enabled && stored.tts) {
-        // Per-novel TTS settings exist and are enabled: sync to MMKV
-        setChapterReaderSettings({ tts: stored.tts });
-
+        // Per-novel TTS overrides: merge into ref + apply to WebView only
         const nextReaderSettings = {
           ...readerSettingsRef.current,
           tts: {
@@ -232,10 +230,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           webViewRef,
         );
       } else {
-        // No per-novel settings: reset to global defaults
-        // This prevents carrying over previous novel's TTS settings
+        // No per-novel settings: restore global defaults in ref
         const globalTts = readerSettings.tts;
-        setChapterReaderSettings({ tts: globalTts });
 
         readerSettingsRef.current = {
           ...readerSettingsRef.current,
@@ -249,13 +245,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     } catch {
       // Best-effort: never block reader load
     }
-  }, [
-    novel?.id,
-    chapter.id,
-    webViewRef,
-    setChapterReaderSettings,
-    readerSettings.tts,
-  ]);
+  }, [novel?.id, chapter.id, webViewRef, readerSettings.tts]);
 
   // CRITICAL FIX: Capture initial nextChapter/prevChapter to prevent HTML regeneration
   // These values are only used for initial WebView load. Updates after that are via injectJavaScript.
@@ -357,7 +347,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Live TTS Settings Listener
   // ============================================================================
 
-  const { tts: liveReaderTts } = useChapterReaderSettings();
+  const { tts: globalTts } = useChapterReaderSettings();
+  const [novelTtsSettings] = useNovelTtsSettings(novel?.id);
+
+  const liveReaderTts =
+    novel?.id && novelTtsSettings?.enabled && novelTtsSettings?.tts
+      ? novelTtsSettings.tts
+      : globalTts;
 
   // Track previous TTS values to detect genuine changes
   const previousTtsRef = useRef(liveReaderTts);
@@ -368,11 +364,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       const oldTts = previousTtsRef.current;
 
       // Compare actual values BEFORE updating the ref
+      const engineChanged = oldTts?.engine !== liveReaderTts.engine;
       const voiceChanged =
         oldTts?.voice?.identifier !== liveReaderTts.voice?.identifier;
       const rateChanged = oldTts?.rate !== liveReaderTts.rate;
       const pitchChanged = oldTts?.pitch !== liveReaderTts.pitch;
-      const settingsChanged = voiceChanged || rateChanged || pitchChanged;
+      const settingsChanged =
+        engineChanged || voiceChanged || rateChanged || pitchChanged;
 
       // Only proceed if settings actually changed
       if (settingsChanged) {
@@ -395,7 +393,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           TTSHighlight.stop();
 
           const idx = tts.currentParagraphIndex;
-          const paragraphs = extractParagraphs(html);
+          const paragraphs = extractParagraphs(html, chapter.name);
 
           if (paragraphs && paragraphs.length > idx) {
             tts.restartTtsFromParagraphIndex(idx);

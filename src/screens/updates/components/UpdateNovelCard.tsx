@@ -216,7 +216,7 @@ function createStyles(theme: ThemeColors, uiScale: number) {
   return StyleSheet.create({
     alignSelf: { alignSelf: 'center' },
     chapterList: {
-      marginLeft: -40,
+      marginLeft: -64,
     },
     container: {
       alignItems: 'center',

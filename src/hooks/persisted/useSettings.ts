@@ -261,6 +261,7 @@ export interface ChapterReaderSettings {
     voice?: Voice;
     rate?: number;
     pitch?: number;
+    engine?: string;
   };
   epubLocation: string;
   epubUseAppTheme: boolean;

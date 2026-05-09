@@ -14,15 +14,10 @@
   <a href="https://github.com/bizzkoot/lnreader/releases">
     <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/bizzkoot/lnreader/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat">
   </a>
-</div>
-
-<div align="center">
   <a href="https://github.com/bizzkoot/lnreader/blob/main/LICENSE">
     <img alt="GitHub" src="https://img.shields.io/github/license/bizzkoot/lnreader?labelColor=27303D&color=1a73e8&style=flat">
   </a>
-  <a title="Crowdin" target="_blank" href="https://crowdin.com/project/lnreader">
-    <img src="https://badges.crowdin.net/lnreader/localized.svg">
-  </a>
+
 </div>
 
 <h2 align="center">Download</h2>
@@ -81,7 +76,6 @@ This fork builds on the original LNReader with enhanced features focused on acce
   - [Backup \& Restore](#backup--restore)
 - [Architecture](#architecture)
 - [Plugins](#plugins)
-- [Translation](#translation)
 - [Building \& Contributing](#building--contributing)
   - [Quick Start](#quick-start)
   - [Code Quality](#code-quality)
@@ -118,7 +112,9 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 | 📥 **Queue Management**                   | Proactive refill prevents audio gaps with race condition protection                              |
 | 💾 **Progress Persistence**               | Triple-layer save (DB + MMKV + Native) with reconciliation                                       |
 | ⏯️ **Smart Resume**                       | Auto-resume after interruptions with position sync                                               |
-| 📚 **Per-Novel TTS Settings**             | Custom voice/speed per novel with global defaults                                                |
+| 📚 **Per-Novel TTS Settings**             | Isolated voice/speed/pitch per novel without overwriting global defaults                         |
+| 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                 |
+| 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                         |
 
 </div>
 
@@ -160,6 +156,35 @@ This release introduces a 5-button Android MediaStyle notification for the TTS f
     <figcaption style="font-size:14px; color:#666;">Expanded notification with title, chapter and paragraph progress</figcaption>
   </figure>
 </div>
+
+---
+
+#### TTS Engine Picker
+
+Android devices can have multiple TTS engines installed. The default engine is often your manufacturer's (Google on most phones, Samsung on Galaxy devices), but you can install better ones. The **Engine Picker** (Settings → Reader → Accessibility → TTS Engine) lets you choose which engine powers LNReader's TTS, independently of your system default.
+
+**Why switch engines?** Voice quality varies dramatically between engines. Neural/TTS voices sound significantly more natural than older synthesizers — with better intonation, pacing, and clarity for long listening sessions.
+
+<div align="center">
+  <img src="./.github/readme-images/TTS/TTS-Engine%20Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
+  <figcaption style="font-size:14px; color:#666;">Engine Picker showing detected TTS engines</figcaption>
+</div>
+
+<div align="center">
+
+| Engine | Description | Install |
+|--------|-------------|---------|
+| **Google Text-to-Speech** | Best all-around — Neural2 voices are the most natural-sounding | [Play Store](https://play.google.com/store/apps/details?id=com.google.android.tts) |
+| **Microsoft Text-to-Speech** | High-quality neural voices, great for English | [Play Store](https://play.google.com/store/apps/details?id=com.microsoft.tts) |
+| **NekoSpeak** | Offline AI TTS with voice cloning (Kokoro, Piper, Pocket-TTS) | [GitHub](https://github.com/siva-sub/NekoSpeak) |
+| **SherpaTTS / VoxSherpa** | 100% offline on-device TTS powered by Sherpa-ONNX | [GitHub](https://github.com/CodeBySonu95/VoxSherpa-TTS) |
+| **RHVoice** | Open source, good multilingual support | [Play Store](https://play.google.com/store/apps/details?id=com.github.olga_yakovleva.rhvoice.android) |
+| **eSpeak** | Lightweight, many languages, works on older devices | [Play Store](https://play.google.com/store/apps/details?id=com.reecedunn.espeak) |
+
+</div>
+
+> [!TIP]
+> **Google TTS with Neural2 voices** is the current best recommendation. Install Google TTS, open your device's TTS settings (Settings → Accessibility → Text-to-Speech → Preferred Engine), select "Google Text-to-Speech", then install the Neural2 voice packs. Switch LNReader to use Google TTS and you'll get the highest quality reading experience.
 
 ---
 
@@ -249,6 +274,14 @@ Robust backup system with multiple options and versioned schema.
 
 - **Header Positioning Fix**: Resolved header overlap with Android status bar icons across all Settings and More screens
 - **SafeAreaView Enhancement**: Proper inset handling following React Native best practices
+
+### TTS Enhancements
+
+- **TTS Engine Picker**: Custom engine selection with native Android integration, quality badges, and persistent selection across sessions
+- **Per-Novel TTS Settings**: Isolated voice/speed/pitch per novel — changes no longer overwrite global defaults
+- **TTS Resume Reliability**: Fixed resume playback failure and wrong engine audio output after interruptions
+- **Engine Stability**: Improved engine stability, voice matching, and reactive live settings updates
+- **Auto Chapter Title Prepend**: TTS auto-announces the chapter title when not visibly present in content
 
 ### Stability & Performance
 
@@ -456,12 +489,6 @@ The network stack has been enhanced to address three common challenges when acce
 
 - **No affiliation with content providers**: LNReader does not endorse or provide content sources.
 - **Plugin requests**: For the original upstream plugin repository see [lnreader-plugins](https://github.com/LNReader/lnreader-plugins).
-
----
-
-## Translation
-
-- Help translate the app on [Crowdin](https://crowdin.com/project/lnreader).
 
 ---
 

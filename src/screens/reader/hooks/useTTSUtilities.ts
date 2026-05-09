@@ -140,7 +140,7 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
    */
   const restartTtsFromParagraphIndex = useCallback(
     async (targetIndex: number) => {
-      const paragraphs = extractParagraphs(html);
+      const paragraphs = extractParagraphs(html, chapter.name);
       if (!paragraphs || paragraphs.length === 0) return;
 
       const clamped = validateAndClampParagraphIndex(

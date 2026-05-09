@@ -453,7 +453,10 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
         await result.current.restartTtsFromParagraphIndex(0);
       });
 
-      expect(extractParagraphs).toHaveBeenCalledWith(mockHtml);
+      expect(extractParagraphs).toHaveBeenCalledWith(
+        mockHtml,
+        mockChapter.name,
+      );
     });
 
     it('should return early if no paragraphs extracted', async () => {

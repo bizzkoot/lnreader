@@ -348,6 +348,19 @@ export type TTSSettings = {
   rate?: number;
   /** Speech pitch (0.5 - 2.0) */
   pitch?: number;
+  /** TTS engine package name (e.g., 'com.google.android.tts', 'com.samsung.SMT') */
+  engine?: string;
+};
+
+/**
+ * TTS engine info from Android system.
+ * Each engine provides its own set of voices.
+ */
+export type TTSEngine = {
+  /** Engine package name */
+  name: string;
+  /** Human-readable engine label */
+  label: string;
 };
 
 /**

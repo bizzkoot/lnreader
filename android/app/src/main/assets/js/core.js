@@ -2326,9 +2326,19 @@ window.tts = new (function () {
 
       if (config.autoStart) {
         this.log('Auto-starting playback from current paragraph');
+        const resumeIndex = paragraphIndex;
         setTimeout(() => {
-          // FIX: Call speak() directly on the current element instead of next()
-          // This ensures the saved paragraph is spoken, not skipped
+          // CRITICAL FIX: Re-resolve element from numeric index to avoid stale DOM reference.
+          // Between the initial restoreState and this timeout (500ms), DOM mutations from
+          // scroll-to-element and ResizeObserver can invalidate the stored currentElement
+          // reference, causing readableElements.indexOf(this.currentElement) to return -1
+          // inside speak(), which breaks batch mode and produces no audio.
+          const freshElements = reader.getReadableElements();
+          if (freshElements[resumeIndex]) {
+            this.currentElement = freshElements[resumeIndex];
+            this.prevElement =
+              resumeIndex > 0 ? freshElements[resumeIndex - 1] : null;
+          }
           this.reading = true;
           this.speak();
         }, 500);

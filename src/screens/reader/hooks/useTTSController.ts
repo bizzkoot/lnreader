@@ -17,7 +17,7 @@ import type { RootStackParamList } from '@navigators/types';
 import TTSHighlight from '@services/TTSHighlight';
 import TTSAudioManager from '@services/TTSAudioManager';
 import { TTSState } from '@services/TTSState';
-import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import {
   getChapter as getChapterFromDb,
@@ -571,6 +571,69 @@ export function useTTSController(
   }, []);
 
   // ===========================================================================
+  // Engine Restoration Helper
+  // ===========================================================================
+
+  /**
+   * Restore saved TTS engine before starting playback.
+   * Ensures the correct engine is loaded when user presses play.
+   * @returns Promise<boolean> - true if engine restored successfully
+   */
+  const restoreSavedEngine = useCallback(async (): Promise<boolean> => {
+    // Read directly from MMKV to avoid stale refs (readerSettings useMemo
+    // only recomputes on chapter.id change, missing TTS engine updates).
+    const savedSettings = getMMKVObject<ChapterReaderSettings>(
+      'CHAPTER_READER_SETTINGS',
+    );
+    const savedEngine = savedSettings?.tts?.engine;
+
+    if (!savedEngine) {
+      // No engine preference saved, use system default
+      return true;
+    }
+
+    // Skip switchEngine if the engine is already active on the native side.
+    // This avoids an unnecessary shutdown+re-init cycle that would set
+    // isTtsInitialized=false and cause speakBatch() to arrive while the
+    // engine is still initializing (producing no audio).
+    const currentEngine = TTSAudioManager.getCurrentEngine();
+    if (currentEngine === savedEngine) {
+      ttsCtrlLog.info(
+        'engine-restoration-skip',
+        `Engine already active: ${savedEngine}`,
+      );
+      return true;
+    }
+
+    try {
+      ttsCtrlLog.info(
+        'engine-restoration',
+        `Restoring saved engine: ${savedEngine}`,
+      );
+      const success = await TTSAudioManager.switchEngine(savedEngine);
+      if (success) {
+        ttsCtrlLog.info(
+          'engine-restoration-success',
+          'Engine restored successfully',
+        );
+      } else {
+        ttsCtrlLog.warn(
+          'engine-restoration-failed',
+          'Engine switch returned false',
+        );
+      }
+      return success;
+    } catch (err) {
+      ttsCtrlLog.warn(
+        'engine-restoration-error',
+        'Failed to restore engine, continuing with default',
+        err,
+      );
+      return false;
+    }
+  }, []);
+
+  // ===========================================================================
   // Chapter Change Effect - Phase 2 Step 1: Extracted to useChapterTransition
   // ===========================================================================
 
@@ -625,7 +688,7 @@ export function useTTSController(
     ttsCtrlLog.debug('webview-synced-background');
 
     // Extract paragraphs from HTML
-    const paragraphs = extractParagraphs(html);
+    const paragraphs = extractParagraphs(html, chapterName);
     ttsCtrlLog.debug('background-paragraphs', `count=${paragraphs.length}`);
 
     if (paragraphs.length === 0) {
@@ -676,45 +739,53 @@ export function useTTSController(
     currentParagraphIndexRef.current = startIndex;
     latestParagraphIndexRef.current = startIndex;
 
-    // Start batch TTS (this will flush old queue and start new one)
-    if (textsToSpeak.length > 0) {
-      TTSHighlight.speakBatch(textsToSpeak, utteranceIds, {
-        voice: readerSettingsRef.current.tts?.voice?.identifier,
-        pitch: readerSettingsRef.current.tts?.pitch || 1,
-        rate: readerSettingsRef.current.tts?.rate || 1,
-      })
-        .then(() => {
-          ttsCtrlLog.info(
-            'batch-start-success',
-            'Background TTS batch started successfully from index',
-            startIndex,
-          );
-          // CRITICAL: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
-          isTTSReadingRef.current = true;
-          isTTSPlayingRef.current = true;
-          hasUserScrolledRef.current = false;
-          updateTtsMediaNotificationState(true);
+    // CRITICAL FIX: Restore TTS engine before starting playback
+    // If user has saved an engine preference (global or per-novel), ensure it's loaded
+    // Wrap in async IIFE since useEffect cannot be async
+    (async () => {
+      await restoreSavedEngine();
+
+      // Start batch TTS (this will flush old queue and start new one)
+      if (textsToSpeak.length > 0) {
+        TTSHighlight.speakBatch(textsToSpeak, utteranceIds, {
+          voice: readerSettingsRef.current.tts?.voice?.identifier,
+          pitch: readerSettingsRef.current.tts?.pitch || 1,
+          rate: readerSettingsRef.current.tts?.rate || 1,
         })
-        .catch(err => {
-          ttsCtrlLog.error(
-            'batch-start-failed',
-            'Background TTS batch failed',
-            err,
-          );
-          isTTSReadingRef.current = false;
-          isTTSPlayingRef.current = false;
-          showToastMessage('TTS failed to start. Please try again.');
-        });
-    } else {
-      ttsCtrlLog.warn('no-paragraphs', 'No paragraphs to speak');
-      isTTSReadingRef.current = false;
-    }
+          .then(() => {
+            ttsCtrlLog.info(
+              'batch-start-success',
+              'Background TTS batch started successfully from index',
+              startIndex,
+            );
+            // CRITICAL: Ensure isTTSReadingRef is true so onQueueEmpty can trigger next chapter
+            isTTSReadingRef.current = true;
+            isTTSPlayingRef.current = true;
+            hasUserScrolledRef.current = false;
+            updateTtsMediaNotificationState(true);
+          })
+          .catch(err => {
+            ttsCtrlLog.error(
+              'batch-start-failed',
+              'Background TTS batch failed',
+              err,
+            );
+            isTTSReadingRef.current = false;
+            isTTSPlayingRef.current = false;
+            showToastMessage('TTS failed to start. Please try again.');
+          });
+      } else {
+        ttsCtrlLog.warn('no-paragraphs', 'No paragraphs to speak');
+        isTTSReadingRef.current = false;
+      }
+    })();
   }, [
     chapterId,
     html,
     readerSettingsRef,
     showToastMessage,
     updateTtsMediaNotificationState,
+    restoreSavedEngine,
   ]);
 
   // ===========================================================================
@@ -753,7 +824,7 @@ export function useTTSController(
         MMKVStorage.getNumber(`chapter_progress_${chapterId}`) ?? -1;
 
       if (savedMMKVIndex >= 0) {
-        const paragraphs = extractParagraphs(html);
+        const paragraphs = extractParagraphs(html, chapterName);
         const totalParagraphs = paragraphs?.length || 0;
 
         // If saved index is beyond chapter bounds, it's likely an off-by-one error
@@ -1005,7 +1076,7 @@ export function useTTSController(
             const textToSpeak = event.data as string;
             let paragraphs: string[] = [];
             try {
-              paragraphs = extractParagraphs(html);
+              paragraphs = extractParagraphs(html, chapterName);
             } catch (e) {
               ttsCtrlLog.error('extract-paragraphs-failed', e);
             }
@@ -1056,24 +1127,43 @@ export function useTTSController(
               };
               currentParagraphIndexRef.current = paragraphIdx;
 
-              TTSHighlight.speakBatch(remaining, ids, {
-                voice: readerSettingsRef.current.tts?.voice?.identifier,
-                pitch: readerSettingsRef.current.tts?.pitch || 1,
-                rate: readerSettingsRef.current.tts?.rate || 1,
-              }).catch(err => {
-                ttsCtrlLog.error('start-batch-failed', err);
-                // Fallback to single speak
-                const utteranceId =
-                  paragraphIdx >= 0
-                    ? `chapter_${chapterId}_utterance_${paragraphIdx}`
-                    : undefined;
-                TTSHighlight.speak(textToSpeak, {
+              // CRITICAL FIX: Restore saved engine BEFORE starting TTS.
+              // Must be awaited — if we fire-and-forget, the native setEngine()
+              // call shuts down the TTS engine (isTtsInitialized=false) and the
+              // subsequent speakBatch() arrives while the engine is still torn down,
+              // producing no audio.
+              //
+              // Wrapped in async IIFE because handleTTSMessage is synchronous.
+              (async () => {
+                try {
+                  await restoreSavedEngine();
+                } catch (err) {
+                  ttsCtrlLog.warn(
+                    'engine-restore-failed',
+                    'Failed to restore engine, continuing with default',
+                    err,
+                  );
+                }
+
+                TTSHighlight.speakBatch(remaining, ids, {
                   voice: readerSettingsRef.current.tts?.voice?.identifier,
                   pitch: readerSettingsRef.current.tts?.pitch || 1,
                   rate: readerSettingsRef.current.tts?.rate || 1,
-                  utteranceId,
+                }).catch(err => {
+                  ttsCtrlLog.error('start-batch-failed', err);
+                  // Fallback to single speak
+                  const utteranceId =
+                    paragraphIdx >= 0
+                      ? `chapter_${chapterId}_utterance_${paragraphIdx}`
+                      : undefined;
+                  TTSHighlight.speak(textToSpeak, {
+                    voice: readerSettingsRef.current.tts?.voice?.identifier,
+                    pitch: readerSettingsRef.current.tts?.pitch || 1,
+                    rate: readerSettingsRef.current.tts?.rate || 1,
+                    utteranceId,
+                  });
                 });
-              });
+              })();
             } else {
               ttsCtrlLog.warn(
                 'start-batch-invalid-params',
@@ -1387,7 +1477,7 @@ export function useTTSController(
           );
 
           // Calculate progress info for the error dialog
-          const retryParagraphs = extractParagraphs(html);
+          const retryParagraphs = extractParagraphs(html, chapterName);
           const retryTotalParagraphs = retryParagraphs?.length ?? 0;
           const paragraphIdx = savedWakeParagraphIdx ?? 0;
           const progressPercent =
@@ -1504,7 +1594,7 @@ export function useTTSController(
             savedWakeParagraphIdx,
           );
 
-          const paragraphs = extractParagraphs(html);
+          const paragraphs = extractParagraphs(html, chapterName);
           if (paragraphs && paragraphs.length > savedWakeParagraphIdx) {
             // CRITICAL FIX (Bug #2): Inject scroll restoration BEFORE resuming playback
             // This ensures WebView scrolls to the correct paragraph when user returns from background
@@ -1744,7 +1834,7 @@ export function useTTSController(
 
   useEffect(() => {
     if (html) {
-      const paragraphs = extractParagraphs(html);
+      const paragraphs = extractParagraphs(html, chapterName);
       totalParagraphsRef.current = paragraphs?.length || 0;
       updateTtsMediaNotificationState(isTTSReadingRef.current);
     }
@@ -2314,6 +2404,31 @@ export function useTTSController(
 
             await restartTtsFromParagraphIndex(idx);
             autoStopService.resetCounters();
+            return;
+          }
+
+          if (action === TTS_MEDIA_ACTIONS.STOP) {
+            ttsCtrlLog.info(
+              'media-action-stop',
+              'Received internal stop signal',
+            );
+            isTTSReadingRef.current = false;
+            isTTSPlayingRef.current = false;
+            isTTSPausedRef.current = false;
+            autoStartTTSRef.current = false;
+            autoStopService.stop();
+            updateTtsMediaNotificationState(false);
+
+            webViewRef.current?.injectJavaScript(`
+              if (window.tts) {
+                window.tts.reading = false;
+                // Update button icon to show play icon
+                const controller = document.getElementById('TTS-Controller');
+                if (controller?.firstElementChild && window.tts.playIcon) {
+                  controller.firstElementChild.innerHTML = window.tts.playIcon;
+                }
+              }
+            `);
             return;
           }
 
@@ -3188,7 +3303,7 @@ export function useTTSController(
                     if (idx >= 0) {
                       // Attempt to resume using native batch playback
                       try {
-                        const paragraphs = extractParagraphs(html);
+                        const paragraphs = extractParagraphs(html, chapterName);
                         if (paragraphs && paragraphs.length > idx) {
                           const remaining = paragraphs.slice(idx);
                           const ids = remaining.map(
