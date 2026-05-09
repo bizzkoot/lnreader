@@ -358,43 +358,81 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         if (voiceId == null) return
         
         try {
-            // Step 1: Try to find exact voice
-            for (voice in ttsInstance.voices) {
+            val allVoices = ttsInstance.voices ?: emptySet()
+            if (allVoices.isEmpty()) {
+                android.util.Log.w("TTSForegroundService", "No voices available from engine")
+                return
+            }
+
+            // Step 1: Try to find exact voice (case-sensitive)
+            for (voice in allVoices) {
                 if (voice.name == voiceId) {
                     ttsInstance.voice = voice
                     return
                 }
             }
             
-            android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found, attempting fallback")
+            // Step 2: Fuzzy name matching (case-insensitive, contains)
+            val voiceIdLower = voiceId.lowercase()
+            for (voice in allVoices) {
+                val nameLower = voice.name.lowercase()
+                if (nameLower == voiceIdLower || nameLower.contains(voiceIdLower) || voiceIdLower.contains(nameLower)) {
+                    ttsInstance.voice = voice
+                    android.util.Log.i("TTSForegroundService", "Voice found by fuzzy name match: ${voice.name}")
+                    return
+                }
+            }
             
-            // Step 2: Refresh voices and retry
-            val refreshedVoices = ttsInstance.voices
+            android.util.Log.w("TTSForegroundService", "Preferred voice '$voiceId' not found, attempting locale fallback")
+            
+            // Step 3: Refresh voices and retry exact match (just in case)
+            val refreshedVoices = ttsInstance.voices ?: allVoices
             for (voice in refreshedVoices) {
                 if (voice.name == voiceId) {
                     ttsInstance.voice = voice
-                    android.util.Log.i("TTSForegroundService", "Voice found on retry")
                     return
                 }
             }
             
-            // Step 3: Select best quality voice for same language
+            // Step 4: Select best voice for same locale (Language + Country)
             val currentLocale = ttsInstance.voice?.locale ?: Locale.getDefault()
             var bestVoice: Voice? = null
             var bestQuality = -1
             
+            // Try exact locale match first (Lang + Country)
             for (voice in refreshedVoices) {
-                if (voice.locale.language == currentLocale.language && voice.quality > bestQuality) {
-                    bestVoice = voice
-                    bestQuality = voice.quality
+                if (voice.locale.language == currentLocale.language && 
+                    voice.locale.country == currentLocale.country) {
+                    if (voice.quality > bestQuality) {
+                        bestVoice = voice
+                        bestQuality = voice.quality
+                    }
+                }
+            }
+
+            // Step 5: Fallback to same language only
+            if (bestVoice == null) {
+                for (voice in refreshedVoices) {
+                    if (voice.locale.language == currentLocale.language) {
+                        if (voice.quality > bestQuality) {
+                            bestVoice = voice
+                            bestQuality = voice.quality
+                        }
+                    }
                 }
             }
             
             if (bestVoice != null) {
+                val originalVoiceName = voiceId
+                val newVoiceName = bestVoice.name
+                
                 ttsInstance.voice = bestVoice
-                android.util.Log.w("TTSForegroundService", "Using fallback voice: ${bestVoice.name} (quality: $bestQuality)")
-                // FIX Case 7.2: Notify listener about voice fallback
-                ttsListener?.onVoiceFallback(voiceId, bestVoice.name)
+                android.util.Log.w("TTSForegroundService", "Using fallback voice: $newVoiceName (quality: $bestQuality)")
+                
+                // Only notify if the voice name is actually different to avoid redundant toasts
+                if (originalVoiceName != newVoiceName) {
+                    ttsListener?.onVoiceFallback(originalVoiceName, newVoiceName)
+                }
             }
             
         } catch (e: Exception) {

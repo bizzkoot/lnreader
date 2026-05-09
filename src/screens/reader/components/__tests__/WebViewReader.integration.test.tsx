@@ -146,6 +146,11 @@ jest.mock('@utils/ScreenStateListener', () => ({
   addListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
+jest.mock('@services/tts/novelTtsSettings', () => ({
+  getNovelTtsSettings: jest.fn(() => null),
+  useNovelTtsSettings: jest.fn(() => [null]),
+}));
+
 const mockChapter = { id: 10, name: 'Chapter 10', progress: 0 };
 jest.mock('../../ChapterContext', () => ({
   useChapterContext: jest.fn(() => ({

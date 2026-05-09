@@ -146,6 +146,44 @@ class TTSAudioManager {
   // Whether initial batch capability check has been performed
   private initialBatchCheckDone: boolean = false;
 
+  // Track engine readiness for synchronization during switches
+  private engineReadyPromise: Promise<void> | null = null;
+  private resolveEngineReady: (() => void) | null = null;
+
+  constructor() {
+    this.setupEngineReadyListener();
+  }
+
+  private setupEngineReadyListener() {
+    ttsEmitter.addListener('onEngineReady', () => {
+      logDebug('TTSAudioManager: Engine ready event received');
+      if (this.resolveEngineReady) {
+        this.resolveEngineReady();
+        this.resolveEngineReady = null;
+      } else {
+        // If no one is waiting, just ensure the promise is resolved for future callers
+        this.engineReadyPromise = Promise.resolve();
+      }
+    });
+  }
+
+  private waitForEngineReady(timeoutMs: number = 3000): Promise<void> {
+    if (!this.engineReadyPromise) {
+      this.engineReadyPromise = new Promise<void>(resolve => {
+        this.resolveEngineReady = resolve;
+      });
+    }
+
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      setTimeout(
+        () => reject(new Error('Timeout waiting for TTS engine readiness')),
+        timeoutMs,
+      );
+    });
+
+    return Promise.race([this.engineReadyPromise, timeoutPromise]);
+  }
+
   // Track the currently active TTS engine on the native side.
   // Used by restoreSavedEngine to avoid unnecessary shutdown/re-init cycles.
   private currentEngine: string | null = null;
@@ -274,6 +312,20 @@ class TTSAudioManager {
    * Uses timeout to avoid blocking - defaults to batch-capable if native call hangs.
    */
   private async detectBatchCapability(): Promise<void> {
+    // If a switch was recently triggered, wait for the engine to be ready
+    // before checking capability to ensure we don't get stale info.
+    if (!this.initialBatchCheckDone) {
+      try {
+        logDebug(
+          'TTSAudioManager: Waiting for engine readiness before capability check',
+        );
+        await this.waitForEngineReady(3000);
+      } catch (err) {
+        logError('TTSAudioManager: Failed to wait for engine ready:', err);
+        // Continue anyway; detectBatchCapability has its own timeout
+      }
+    }
+
     this.initialBatchCheckDone = true;
 
     // Create a timeout promise that resolves after 2 seconds
@@ -885,9 +937,12 @@ class TTSAudioManager {
       // Set cancellation flag to stop ongoing refills
       this.refillCancelled = true;
 
+      const wasPlaying =
+        this.state === TTSState.PLAYING || this.state === TTSState.REFILLING;
+
       this.transitionTo(TTSState.STOPPING);
 
-      // CRITICAL: Remove all event listeners BEFORE stopping native TTS
+      // CRITICAL: Remove internal event listeners BEFORE stopping native TTS
       // This prevents refill subscriptions from firing after we've stopped
       this.removeAllListeners();
 
@@ -897,7 +952,14 @@ class TTSAudioManager {
       this.currentUtteranceIds = [];
       this.currentIndex = 0;
       this.lastKnownQueueSize = 0;
+      this.lockedVoice = undefined;
       this.transitionTo(TTSState.IDLE);
+
+      // If we were playing, notify listeners that playback has been aborted
+      // This helps useTTSController reset its state if the stop was internal
+      if (wasPlaying) {
+        ttsEmitter.emit('onMediaAction', { action: 'stop' });
+      }
 
       logDebug('TTSAudioManager: Playback stopped');
       return true;
@@ -926,6 +988,13 @@ class TTSAudioManager {
     }
 
     try {
+      // RESET readiness state for the new engine
+      this.initialBatchCheckDone = false;
+      this.engineReadyPromise = new Promise<void>(resolve => {
+        this.resolveEngineReady = resolve;
+      });
+      this.currentEngine = engineName || null;
+
       const result = await TTSHighlight.setEngine(engineName);
       if (!result) {
         logError('TTSAudioManager: Failed to switch engine');
@@ -933,14 +1002,10 @@ class TTSAudioManager {
       }
       this.lockedVoice = undefined;
 
-      // Track the current engine to avoid unnecessary re-init in restoreSavedEngine
-      this.currentEngine = engineName || null;
-
       // Reset batch capability flags — the native engine initialises async
       // (onInit fires later). detectBatchCapability() will run on the next
       // speakBatch() call once the engine is ready, ensuring JS and native
       // agree on batch size.
-      this.initialBatchCheckDone = false;
       this.engineSupportsBatch = true;
       this.aggressiveRefillMode = false;
 

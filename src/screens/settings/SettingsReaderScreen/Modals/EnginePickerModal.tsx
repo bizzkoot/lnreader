@@ -84,17 +84,20 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
                   const engineName = item.name === 'default' ? '' : item.name;
                   if (item.name !== currentEngine) {
                     TTSAudioManager.switchEngine(engineName);
+                    if (!onEngineSelected) {
+                      setChapterReaderSettings({
+                        tts: {
+                          ...tts,
+                          engine:
+                            item.name === 'default' ? undefined : item.name,
+                          voice: undefined,
+                        },
+                      });
+                    }
+                    onEngineSelected?.(item);
+                  } else {
+                    onDismiss();
                   }
-                  if (!onEngineSelected) {
-                    setChapterReaderSettings({
-                      tts: {
-                        ...tts,
-                        engine: item.name === 'default' ? undefined : item.name,
-                        voice: undefined,
-                      },
-                    });
-                  }
-                  onEngineSelected?.(item);
                 }}
                 label={item.label || item.name}
                 theme={theme}

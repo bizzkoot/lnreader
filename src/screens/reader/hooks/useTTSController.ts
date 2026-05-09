@@ -2407,6 +2407,31 @@ export function useTTSController(
             return;
           }
 
+          if (action === TTS_MEDIA_ACTIONS.STOP) {
+            ttsCtrlLog.info(
+              'media-action-stop',
+              'Received internal stop signal',
+            );
+            isTTSReadingRef.current = false;
+            isTTSPlayingRef.current = false;
+            isTTSPausedRef.current = false;
+            autoStartTTSRef.current = false;
+            autoStopService.stop();
+            updateTtsMediaNotificationState(false);
+
+            webViewRef.current?.injectJavaScript(`
+              if (window.tts) {
+                window.tts.reading = false;
+                // Update button icon to show play icon
+                const controller = document.getElementById('TTS-Controller');
+                if (controller?.firstElementChild && window.tts.playIcon) {
+                  controller.firstElementChild.innerHTML = window.tts.playIcon;
+                }
+              }
+            `);
+            return;
+          }
+
           if (action === TTS_MEDIA_ACTIONS.SEEK_FORWARD) {
             const idx = Math.max(0, currentParagraphIndexRef.current ?? 0);
             const total = Math.max(0, totalParagraphsRef.current);

@@ -1,6 +1,7 @@
 import { Voice } from 'expo-speech';
 
 import { getMMKVObject, setMMKVObject, MMKVStorage } from '@utils/mmkv/mmkv';
+import { useMMKVObject } from 'react-native-mmkv';
 
 export type NovelTtsSettings = {
   enabled: boolean;
@@ -23,4 +24,10 @@ export const setNovelTtsSettings = (novelId: number, value: NovelTtsSettings) =>
 
 export const deleteNovelTtsSettings = (novelId: number) => {
   MMKVStorage.delete(keyForNovelTtsSettings(novelId));
+};
+
+export const useNovelTtsSettings = (novelId?: number) => {
+  return useMMKVObject<NovelTtsSettings>(
+    novelId ? keyForNovelTtsSettings(novelId) : 'DUMMY_KEY_NEVER_USED',
+  );
 };

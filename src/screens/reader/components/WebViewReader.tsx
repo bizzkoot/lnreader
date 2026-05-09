@@ -64,7 +64,10 @@ import { useBoolean, useBackHandler } from '@hooks';
 import { extractParagraphs } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView, type TTSSettings } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
-import { getNovelTtsSettings } from '@services/tts/novelTtsSettings';
+import {
+  getNovelTtsSettings,
+  useNovelTtsSettings,
+} from '@services/tts/novelTtsSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 // Import the TTS hook
@@ -344,7 +347,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // Live TTS Settings Listener
   // ============================================================================
 
-  const { tts: liveReaderTts } = useChapterReaderSettings();
+  const { tts: globalTts } = useChapterReaderSettings();
+  const [novelTtsSettings] = useNovelTtsSettings(novel?.id);
+
+  const liveReaderTts =
+    novel?.id && novelTtsSettings?.enabled && novelTtsSettings?.tts
+      ? novelTtsSettings.tts
+      : globalTts;
 
   // Track previous TTS values to detect genuine changes
   const previousTtsRef = useRef(liveReaderTts);
@@ -355,11 +364,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       const oldTts = previousTtsRef.current;
 
       // Compare actual values BEFORE updating the ref
+      const engineChanged = oldTts?.engine !== liveReaderTts.engine;
       const voiceChanged =
         oldTts?.voice?.identifier !== liveReaderTts.voice?.identifier;
       const rateChanged = oldTts?.rate !== liveReaderTts.rate;
       const pitchChanged = oldTts?.pitch !== liveReaderTts.pitch;
-      const settingsChanged = voiceChanged || rateChanged || pitchChanged;
+      const settingsChanged =
+        engineChanged || voiceChanged || rateChanged || pitchChanged;
 
       // Only proceed if settings actually changed
       if (settingsChanged) {

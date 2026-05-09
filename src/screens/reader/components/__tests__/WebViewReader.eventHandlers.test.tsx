@@ -150,6 +150,7 @@ jest.mock('@database/queries/ChapterQueries', () => ({
 // Mock novel-specific TTS settings to prevent interference
 jest.mock('@services/tts/novelTtsSettings', () => ({
   getNovelTtsSettings: jest.fn(() => null), // Return null = no per-novel overrides
+  useNovelTtsSettings: jest.fn(() => [null]),
   setNovelTtsSettings: jest.fn(),
   deleteNovelTtsSettings: jest.fn(),
 }));
