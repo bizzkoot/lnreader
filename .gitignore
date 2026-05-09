@@ -103,3 +103,6 @@ WebViewReader_Backup.tsx
 
 # Sample Novel files
 docs/TTS/*.txt
+
+# jenv
+.java-version
