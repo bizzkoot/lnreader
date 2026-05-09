@@ -1,50 +1,31 @@
 ## What's New
 
-This release represents a major milestone with comprehensive network infrastructure including Cookie Management, DNS-over-HTTPS (DoH), and Cloudflare Bypass. It also includes significant TTS improvements with paragraph highlight offset, real-time progress synchronization, and wake scroll restoration. The build system has been upgraded to Gradle 9.2.0, and the UI has been enhanced with better header positioning and a more discoverable Features screen.
+This release introduces the TTS Engine Picker, allowing users to choose between multiple installed TTS engines directly from the reader, along with improved engine stability, voice matching, and a fix for chapter titles not being announced during playback.
 
 ### ✨ Features
 
-- **Cookie Management System:** Automatic cookie persistence for authentication-required novel sources with dual-layer storage (MMKV + native), seamless WebView integration, and global cookie management
-- **DNS-over-HTTPS (DoH):** Enhanced privacy with three provider options (Cloudflare, Google, AdGuard), using Android's platform trust store and Certificate Transparency for security without brittle certificate pinning
-- **Cloudflare Bypass:** Automated challenge detection and solving for protected sources with retry limits to prevent infinite loops and fallback support
-- **TTS Paragraph Highlight Offset:** User-adjustable highlight synchronization offset (±10 paragraphs) with UI controls in the reader TTS tab, resetting automatically on chapter navigation
-- **Real-Time Progress Sync:** Chapter list now updates live during TTS playback with 2-second debounce, eliminating stale progress indicators
-- **TTS Wake Scroll Restoration:** When returning to the app, reader automatically scrolls to the last TTS paragraph position
-- **Enhanced Features Screen:** New Privacy & Network and TTS features sections with comprehensive step-by-step guides for all new functionality
+- **TTS Engine Picker:** New engine picker modal with native Android integration, quality badges for installed engines, and persistent selection per novel or globally
+- **Auto-Prepend Chapter Title:** Automatically announces the chapter title via TTS when it is not visibly present in the chapter content
 
 ### 🐛 Bug Fixes
 
-- **TTS Resume Dialog Reliability:** Reset hasAutoResumed flag on chapter load, ensuring the resume dialog appears correctly with "Ask everytime" setting on subsequent chapter opens
-- **Cloudflare Infinite Loop Prevention:** Added MAX_CLOUDFLARE_RETRIES=2 to prevent endless bypass attempts when cf_clearance cookies are expired/invalid
-- **TTS Highlight Drift:** Resolved paragraph highlight offset issues during pause/resume/stop cycles with defensive null checks and proper state management
-- **Background Resume Synchronization:** Fixed MMKV sync on every paragraph during background resume to prevent progress loss
-- **Media Navigation Race Condition:** Improved race condition protection for currentParagraphIndexRef and confirmed skipped chapter status reset
-- **Header Positioning Fix:** Removed excludeTop prop from 14 screens (all Settings, More menu, Statistics, Categories) to prevent status bar icon overlap caused by StatusBar.currentHeight being null/undefined on some devices
+- **TTS Resume Playback Failure:** Fixed resume playback failure and wrong engine audio output after switching engines
+- **Engine Selection Persistence:** Resolved engine selection not persisting in the modal picker across sessions
+- **Engine Stability & Voice Matching:** Improved engine stability, voice matching accuracy, and reactive settings updates
+- **UpdateNovelCard Margin:** Adjusted chapter list margin in update novel cards
+- **Browse Screen State:** Reset screen mounted state on novel refetch to prevent stale UI
 
 ### 🛠️ Core Updates
 
-- **Gradle 9.2.0 Upgrade:** Major build system upgrade from 8.14.3 to 9.2.0 with breaking changes fixed (jcenter → mavenCentral via pnpm patch, force resolution for OkHttp/Okio versions)
-- **OkHttp 4.12.0 Integration:** Upgraded network stack with DoH support (okhttp, okhttp-urlconnection, okhttp-dnsoverhttps) and Okio 3.6.0 for improved performance
-- **Enhanced Security Architecture:** Removed certificate pinning per OWASP 2025 guidance, relying on Android's platform trust store and Certificate Transparency to prevent app outages when third-party providers rotate certificates
-- **TTS Race Condition Protection:** Enhanced currentParagraphIndexRef handling, wake cycle protection (wakeTransitionInProgressRef), and TTS state reconciliation (Math.max of dbIndex, mmkvIndex, nativeIndex)
-- **Media Notification Improvements:** 5-button controls (Prev/Next Chapter, Rewind/Forward 5s, Play/Pause) with 500ms debounce to prevent duplicate actions
-- **React.memo Optimization:** Added custom equality implementation to ChapterItem component to prevent unnecessary re-renders on non-progress changes
+- **Novel-Specific TTS Isolation:** Refactored TTS settings to isolate novel-specific configuration from global defaults
+- **Reactive Modal Height:** TTS engine and voice picker modal height now adapts to content size
 
 ### 📜 Commits
 
-- **Cookie Management Infrastructure (4 commits):** Implemented complete cookie persistence system with CookieManager service wrapping @react-native-cookies/cookies, enhanced fetchApi with automatic cookie injection and Set-Cookie header saving, WebView cookie extraction and synchronization to CookieManager, global cookie clearing UI in Settings → Advanced with confirmation dialog, and comprehensive test coverage (22 CookieManager tests, 23 fetch integration tests, 16 WebView tests)
-- **DNS-over-HTTPS Implementation (4 commits):** Built native Kotlin DoHManagerModule with OkHttp 4.12.0 integration, created TypeScript wrapper with platform detection (Android-only, iOS fallback), implemented provider persistence via dual-layer storage (MMKV in React Native layer, SharedPreferences in native layer), added Settings UI with provider picker modal (Cloudflare, Google, AdGuard), user confirmation dialog for app restart after provider change, 5-second timeouts on bootstrap client to prevent hangs, replaced harsh System.exit(0) with graceful shutdown (finish()), and migrated from apply() to commit() for synchronous SharedPreferences writes
-- **DoH Security Hardening (2 commits):** Initially added certificate pinning per OWASP guidance, then removed certificate pinning entirely following OWASP 2025 updated guidance - third-party DoH providers rotate certificates unpredictably causing app outages, Android's platform trust store + Certificate Transparency provides sufficient security without custom pins
-- **Cloudflare Bypass System (3 commits):** Created CloudflareDetector to identify challenges via multiple signals (403/503 status codes, cf-ray header, body patterns), implemented CloudflareBypass with automated WebView-based challenge handling, integrated with fetchApi for automatic detection and bypass attempts, prevented infinite loops with MAX_CLOUDFLARE_RETRIES=2 limit for consecutive bypass attempts when cf_clearance cookies are expired, and added comprehensive test coverage (~13 integration tests)
-- **TTS Paragraph Highlight Offset (7 commits):** Added ephemeral paragraphHighlightOffset state to ChapterContext with bounded range (±10), created UI controls in Reader TTS Tab (+/- buttons and reset), applied offset to WebView highlight injection in core.js, added defensive null checks for offset handlers, fixed undefined crash when handlers fire before state initialization, and reset offset to 0 on chapter navigation (chapter-scoped, not persisted), with proper documentation and PRD completion
-- **TTS Resume Dialog Fix (5 commits):** Identified root cause where hasAutoResumed flag was set immediately on posting 'request-tts-confirmation' before user response, solved by resetting hasAutoResumed = false on chapter load in core.js (line 38), added comprehensive documentation, updated AGENTS.md with completed task status, and created completion plan marking PRD as completed with final summary
-- **TTS Real-Time Progress Sync (4 commits):** Fixed stale chapter list progress during active TTS playback (only updated on stop/complete), added debounced refreshChaptersFromContext() call during every paragraph progress save, used 500ms (later 2000ms for performance) debounce to reduce DB queries from ~10/sec to ~2/sec, implemented setTimeout(..., 0) to avoid blocking TTS playback, added NaN guards, extracted chapter list sync helper, and comprehensive test coverage (~50 tests)
-- **TTS Wake Scroll Restoration (4 commits):** Fixed wake resume block missing scroll restoration, injected window.tts.scrollToElement() before speakBatch() in wake resume, resolved "maintain consistent last completed semantic for currentParagraphIndexRef", synced WebView readable tags with RN extractParagraphs, fixed highlight +1 offset using utterance ID for accurate progress tracking, fixed highlight +1 offset during background resume, and updated AGENTS.md documentation
-- **TTS Race Condition & State Management (4 commits):** Enhanced race condition protection refs (wakeTransitionInProgressRef, chapterTransitionTimeRef, ttsLastStopTime with 2s grace), improved currentParagraphIndexRef handling, fixed race condition in media nav confirmation and reset skipped chapters, preserved rate/pitch in emergency fallback with test coverage, and clear all TTS state on media notification navigation
-- **Gradle 9.2.0 Upgrade & Network Stack (4 commits):** Upgraded Gradle wrapper from 8.14.3 to 9.2.0, fixed jcenter() removal by patching @react-native-cookies/cookies@8.0.1 via pnpm (4 instances → mavenCentral), migrated force resolution syntax from force = true to configurations.all { resolutionStrategy.force() }, added OkHttp 4.12.0, okhttp-urlconnection 4.12.0, okhttp-dnsoverhttps 4.12.0, and Okio 3.6.0 dependencies, resolved Kotlin compilation error in DoHManagerModule, and resolved @typescript-eslint/no-shadow warning in WebviewScreen
-- **UI/UX Improvements (4 commits):** Removed excludeTop prop from 14 screens (8 Settings screens: General, Appearance, Reader, Tracker, Backup, Advanced, Repository; 4 More screens: About, Downloads, Task Queue, Features; Statistics, Categories) to prevent header overlap with status bar icons caused by StatusBar.currentHeight null/undefined on some devices, repositioned highlight offset controls below highlight paragraph toggle in UI, comprehensive README update with network features documentation and architecture diagrams, and added 7 new features to Features screen with detailed step-by-step guides (Privacy & Network section with DoH, Cookie Management, Cloudflare Bypass; TTS Improvements section with highlight offset, real-time progress, wake scroll)
-- **Documentation & Project Organization (6 commits):** Initialized comprehensive LNReader TTS highlight sync fix documentation (8 phases), mapped existing codebase, created completion plans for TTS highlight offset & resume dialog fix, added TTS highlight offset & resume dialog fix to AGENTS.md, initialized LNReader TTS highlight sync fix, added comprehensive branch audit report - origin/dev (32 commits) approved for merge, updated CLAUDE.md to reflect current production readiness tasks (2026-01-03), reorganized root directory for cleaner GitHub view, and polished README with enhanced diagrams and formatting
-- **TTS Media Notification & Focus (3 commits):** Added notification persistence when audio focus lost for seamless playback control, enhanced media notification with improved state management and sync, implemented TTS notification persistence with 5-button controls and proper MediaStyle integration
-- **Project Refactoring (3 commits):** Resolved chapter stitching issues and code quality improvements, complete chapter progress sync test coverage (~50 tests), and chapter/DoH/network infrastructure improvements
+- **TTS Engine Picker (6 commits):** Added native Android TTS engine enumeration, created engine picker modal with quality badges, integrated engine selection into reader TTS tab, fixed persistence of selected engine, made modal height reactive to content, and isolated novel-specific TTS settings from global configuration
+- **Chapter Title Announcement (1 commit):** Auto-prepend chapter title to TTS content when not visibly present, ensuring chapter transitions are announced
+- **UI Fixes (1 commit):** Adjusted UpdateNovelCard chapter list margin for better readability
+- **Browse Fix (1 commit):** Reset screen mounted state on novel refetch to prevent stale data display
+- **Chores (2 commits):** Made pre-commit hook executable, added .java-version to gitignore
 
-**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.0.14...v2.1.0
+**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.1.0...v2.1.1
