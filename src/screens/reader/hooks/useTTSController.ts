@@ -688,7 +688,7 @@ export function useTTSController(
     ttsCtrlLog.debug('webview-synced-background');
 
     // Extract paragraphs from HTML
-    const paragraphs = extractParagraphs(html);
+    const paragraphs = extractParagraphs(html, chapterName);
     ttsCtrlLog.debug('background-paragraphs', `count=${paragraphs.length}`);
 
     if (paragraphs.length === 0) {
@@ -824,7 +824,7 @@ export function useTTSController(
         MMKVStorage.getNumber(`chapter_progress_${chapterId}`) ?? -1;
 
       if (savedMMKVIndex >= 0) {
-        const paragraphs = extractParagraphs(html);
+        const paragraphs = extractParagraphs(html, chapterName);
         const totalParagraphs = paragraphs?.length || 0;
 
         // If saved index is beyond chapter bounds, it's likely an off-by-one error
@@ -1076,7 +1076,7 @@ export function useTTSController(
             const textToSpeak = event.data as string;
             let paragraphs: string[] = [];
             try {
-              paragraphs = extractParagraphs(html);
+              paragraphs = extractParagraphs(html, chapterName);
             } catch (e) {
               ttsCtrlLog.error('extract-paragraphs-failed', e);
             }
@@ -1477,7 +1477,7 @@ export function useTTSController(
           );
 
           // Calculate progress info for the error dialog
-          const retryParagraphs = extractParagraphs(html);
+          const retryParagraphs = extractParagraphs(html, chapterName);
           const retryTotalParagraphs = retryParagraphs?.length ?? 0;
           const paragraphIdx = savedWakeParagraphIdx ?? 0;
           const progressPercent =
@@ -1594,7 +1594,7 @@ export function useTTSController(
             savedWakeParagraphIdx,
           );
 
-          const paragraphs = extractParagraphs(html);
+          const paragraphs = extractParagraphs(html, chapterName);
           if (paragraphs && paragraphs.length > savedWakeParagraphIdx) {
             // CRITICAL FIX (Bug #2): Inject scroll restoration BEFORE resuming playback
             // This ensures WebView scrolls to the correct paragraph when user returns from background
@@ -1834,7 +1834,7 @@ export function useTTSController(
 
   useEffect(() => {
     if (html) {
-      const paragraphs = extractParagraphs(html);
+      const paragraphs = extractParagraphs(html, chapterName);
       totalParagraphsRef.current = paragraphs?.length || 0;
       updateTtsMediaNotificationState(isTTSReadingRef.current);
     }
@@ -3303,7 +3303,7 @@ export function useTTSController(
                     if (idx >= 0) {
                       // Attempt to resume using native batch playback
                       try {
-                        const paragraphs = extractParagraphs(html);
+                        const paragraphs = extractParagraphs(html, chapterName);
                         if (paragraphs && paragraphs.length > idx) {
                           const remaining = paragraphs.slice(idx);
                           const ids = remaining.map(

@@ -66,7 +66,10 @@ function decodeHtmlEntities(text: string): string {
 /**
  * Extract readable paragraphs from HTML content
  */
-export function extractParagraphs(html: string): string[] {
+export function extractParagraphs(
+  html: string,
+  chapterName?: string,
+): string[] {
   if (!html) {
     return [];
   }
@@ -98,10 +101,49 @@ export function extractParagraphs(html: string): string[] {
   text = decodeHtmlEntities(text);
 
   // 5. Split, trim, and filter
-  return text
+  const paragraphs = text
     .split(DELIMITER)
     .map(line => line.replace(/\s+/g, ' ').trim())
     .filter(line => line.length > 0);
+
+  // 6. Enhance chapter title to match WebView core.js logic
+  if (chapterName && paragraphs.length > 0) {
+    let hasVisibleTitle = false;
+    const firstFew = paragraphs.slice(0, 5);
+
+    for (const pText of firstFew) {
+      const lowerText = pText.toLowerCase();
+      const lowerName = chapterName.toLowerCase();
+
+      const matchName = lowerText.includes(lowerName);
+      const matchChapter = lowerText.includes('chapter');
+      const matchChap = lowerText.includes('chap');
+      const matchPattern1 = /^(ch\.?\s*\d+|chapter\s+\d+|\d+\.?\s*[-–—])/i.test(
+        pText,
+      );
+      const matchPattern2 = /^\d+\.\s/.test(pText);
+      const matchPattern3 = /^\d+\s/.test(pText);
+
+      const looksLikeTitle =
+        matchName ||
+        matchChapter ||
+        matchChap ||
+        matchPattern1 ||
+        matchPattern2 ||
+        matchPattern3;
+
+      if (looksLikeTitle) {
+        hasVisibleTitle = true;
+        break;
+      }
+    }
+
+    if (!hasVisibleTitle) {
+      paragraphs.unshift(chapterName);
+    }
+  }
+
+  return paragraphs;
 }
 
 /**
@@ -112,8 +154,9 @@ export function extractParagraphsFrom(
   html: string,
   startIndex: number,
   count?: number,
+  chapterName?: string,
 ): string[] {
-  const allParagraphs = extractParagraphs(html);
+  const allParagraphs = extractParagraphs(html, chapterName);
   const endIndex = count
     ? Math.min(startIndex + count, allParagraphs.length)
     : allParagraphs.length;

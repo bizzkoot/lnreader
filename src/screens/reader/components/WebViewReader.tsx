@@ -393,7 +393,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           TTSHighlight.stop();
 
           const idx = tts.currentParagraphIndex;
-          const paragraphs = extractParagraphs(html);
+          const paragraphs = extractParagraphs(html, chapter.name);
 
           if (paragraphs && paragraphs.length > idx) {
             tts.restartTtsFromParagraphIndex(idx);
