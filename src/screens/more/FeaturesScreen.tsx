@@ -75,6 +75,22 @@ const FEATURES: FeatureSection[] = [
         ],
       },
       {
+        icon: 'cog-outline',
+        title: 'TTS Engine Picker',
+        desc: 'Choose your preferred TTS engine (Google, NekoSpeak, Microsoft, etc.) independently of your Android system default.',
+        location: 'Settings → Reader → Accessibility / Bottom Sheet',
+        detailedGuide: [
+          'Option 1: Global Settings',
+          '• Go to "More" -> "Settings" -> "Reader".',
+          '• Select the "Accessibility" tab.',
+          '• Tap "TTS Engine" under the TTS section.',
+          'Option 2: Reader Mode (Quick Access)',
+          '• Open any novel chapter.',
+          '• Tap center -> "TTS" tab (headset icon).',
+          '• Scroll to the "TTS Engine" section.',
+        ],
+      },
+      {
         icon: 'format-vertical-align-center',
         title: 'Paragraph Highlight Offset',
         desc: 'Adjustable highlight offset (±10) for precise TTS-to-text synchronization. Resets per chapter.',
@@ -86,6 +102,17 @@ const FEATURES: FeatureSection[] = [
           'Adjust offset if highlight drifts from audio.',
           'Tap reset button to return to 0.',
           'Offset resets automatically when changing chapters.',
+        ],
+      },
+      {
+        icon: 'gesture-tap-hold',
+        title: 'Advanced Button Gestures',
+        desc: 'Interactive controls directly on the floating TTS button: Tap to play/pause, swipe to adjust offset, or drag to move.',
+        location: 'Reader Mode (TTS Button)',
+        detailedGuide: [
+          'Short Tap: Toggle Play / Pause playback.',
+          'Hold 0.5s (Amber Glow) + Swipe Up/Down: Dynamically adjust highlight offset (±10).',
+          'Hold 2.0s (Teal Glow) + Drag: Move and reposition the button anywhere on the screen.',
         ],
       },
       {
