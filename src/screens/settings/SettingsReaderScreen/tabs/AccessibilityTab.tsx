@@ -59,6 +59,7 @@ const AccessibilityTab: React.FC = () => {
     ttsAutoDownload = 'disabled',
     ttsAutoDownloadAmount = '10',
     ttsForwardChapterReset = 'none',
+    ttsShowGestureHints = true,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -363,6 +364,16 @@ const AccessibilityTab: React.FC = () => {
                 onPress={() =>
                   setChapterGeneralSettings({
                     ttsBackgroundPlayback: !ttsBackgroundPlayback,
+                  })
+                }
+                theme={theme}
+              />
+              <SettingSwitch
+                label="Show TTS gesture hints"
+                value={ttsShowGestureHints}
+                onPress={() =>
+                  setChapterGeneralSettings({
+                    ttsShowGestureHints: !ttsShowGestureHints,
                   })
                 }
                 theme={theme}

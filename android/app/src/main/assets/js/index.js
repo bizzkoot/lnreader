@@ -271,14 +271,124 @@ const SafeStorage = {
   },
 };
 
+// Offset badge helper functions
+let offsetBadgeTimeout = null;
+
+const showOffsetBadge = offset => {
+  // Remove existing badge if any
+  const existing = document.getElementById('TTS-OffsetBadge');
+  if (existing) {
+    existing.remove();
+  }
+
+  // Clear any existing timeout
+  if (offsetBadgeTimeout) {
+    clearTimeout(offsetBadgeTimeout);
+    offsetBadgeTimeout = null;
+  }
+
+  // Get controller position and theme colors
+  const controller = document.getElementById('TTS-Controller');
+  if (!controller) return;
+
+  const rect = controller.getBoundingClientRect();
+
+  // Get theme colors from CSS variables
+  const computedStyle = getComputedStyle(document.body);
+  const themeColor =
+    computedStyle.getPropertyValue('--readerSettings-theme').trim() ||
+    'rgba(0, 0, 0, 0.85)';
+  const textColor =
+    computedStyle.getPropertyValue('--readerSettings-textColor').trim() ||
+    '#fff';
+
+  // Create badge element
+  const badge = document.createElement('div');
+  badge.id = 'TTS-OffsetBadge';
+  badge.className = 'tts-offset-badge';
+
+  // Position badge with boundary checks
+  const badgeRight = rect.right + 10;
+  const badgeLeft = rect.left - 10; // Anchor to left edge of the button
+  const badgeTop = rect.top - 10;
+  const badgeBottom = rect.bottom + 10;
+
+  // Check if badge would overflow right edge
+  if (badgeRight + 50 > window.innerWidth) {
+    badge.style.left = badgeLeft + 'px';
+    badge.classList.add('position-left');
+  } else {
+    badge.style.left = badgeRight + 'px';
+    badge.classList.add('position-right');
+  }
+
+  // Check if badge would overflow top edge
+  if (badgeTop - 30 < 0) {
+    badge.style.top = badgeBottom + 'px';
+  } else {
+    badge.style.top = badgeTop + 'px';
+  }
+
+  const offsetText = offset > 0 ? `+${offset}` : offset.toString();
+  badge.textContent = offsetText;
+
+  // Apply theme colors
+  badge.style.background = themeColor;
+  badge.style.color = textColor;
+
+  document.body.appendChild(badge);
+
+  // Trigger fade-in animation via visible class
+  requestAnimationFrame(() => {
+    badge.classList.add('visible');
+  });
+
+  // Auto-hide after 3 seconds of inactivity (extended from 2s)
+  offsetBadgeTimeout = setTimeout(() => {
+    hideOffsetBadge();
+  }, 3000);
+};
+
+const hideOffsetBadge = () => {
+  const badge = document.getElementById('TTS-OffsetBadge');
+  if (badge) {
+    badge.remove();
+  }
+  if (offsetBadgeTimeout) {
+    clearTimeout(offsetBadgeTimeout);
+    offsetBadgeTimeout = null;
+  }
+};
+
+const updateOffsetBadge = offset => {
+  const badge = document.getElementById('TTS-OffsetBadge');
+  if (badge) {
+    const offsetText = offset > 0 ? `+${offset}` : offset.toString();
+    badge.textContent = offsetText;
+    // Reset the auto-hide timeout (extended to 3s to match showOffsetBadge)
+    if (offsetBadgeTimeout) {
+      clearTimeout(offsetBadgeTimeout);
+    }
+    offsetBadgeTimeout = setTimeout(() => {
+      hideOffsetBadge();
+    }, 3000);
+  }
+};
+
 const TTSController = () => {
   try {
     let controllerElement = null;
     let isDragging = false;
+    let isOffsetReady = false;
+    let isOffsetActive = false;
+    let isDragReady = false;
     let startX, startY, initialLeft, initialTop;
+    let offsetTimer = null;
+    let dragTimer = null;
+    let lastSwipeY = null;
+    let stepsTaken = 0;
 
     // Restore saved position with validation
-    // Priority: 1. In-memory/Session (SafeStorage) 2. Native Persisted (initialReaderConfig)
     let savedLeft = SafeStorage.getItem('tts-controller-left');
     let savedTop = SafeStorage.getItem('tts-controller-top');
 
@@ -293,7 +403,6 @@ const TTSController = () => {
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
 
-      // Basic validation: must be within screen bounds (allowing for some margin)
       if (
         leftVal < 0 ||
         leftVal > windowWidth - 20 ||
@@ -305,23 +414,133 @@ const TTSController = () => {
       }
     }
 
+    // --- Helpers ---
+    const clearTimers = () => {
+      if (offsetTimer) {
+        clearTimeout(offsetTimer);
+        offsetTimer = null;
+      }
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        dragTimer = null;
+      }
+    };
+
+    const startDrag = (ctX, ctY, dX, dY) => {
+      clearTimers();
+      isDragging = true;
+      isOffsetReady = false;
+      isOffsetActive = false;
+      isDragReady = false;
+      controllerElement.dataset.dragging = 'true';
+      controllerElement.classList.remove('offset-mode', 'drag-ready');
+      hideOffsetBadge();
+
+      const bw = controllerElement.offsetWidth;
+      const bh = controllerElement.offsetHeight;
+
+      dragElement(ctX, ctY, dX, dY, bw, bh);
+    };
+
+    const dragElement = (_, __, dX, dY, bw, bh) => {
+      const nl = Math.max(
+        0,
+        Math.min(initialLeft + dX, window.innerWidth - bw),
+      );
+      const nt = Math.max(
+        0,
+        Math.min(initialTop + dY, window.innerHeight - bh),
+      );
+      controllerElement.style.transform = `translate(${nl}px, ${nt}px)`;
+      controllerElement.style.left = '0px';
+      controllerElement.style.top = '0px';
+    };
+
+    const enterOffsetReady = () => {
+      isOffsetReady = true;
+      controllerElement.classList.add('offset-mode');
+      const initialOffset = initialReaderConfig.paragraphHighlightOffset || 0;
+      showOffsetBadge(initialOffset);
+
+      // Haptic feedback if enabled
+      if (navigator.vibrate && !initialReaderConfig.disableHapticFeedback) {
+        navigator.vibrate(15);
+      }
+
+      // Show discoverability hint on first use and toggle off
+      if (initialReaderConfig.ttsShowGestureHints) {
+        reader.post({
+          type: 'show-toast',
+          data: 'Swipe up/down to adjust highlight offset',
+        });
+        reader.post({
+          type: 'tts-apply-settings',
+          data: { ttsShowGestureHints: false },
+        });
+        initialReaderConfig.ttsShowGestureHints = false;
+      }
+
+      // Start drag timer: 1500ms after offset ready = 2000ms total
+      dragTimer = setTimeout(() => {
+        if (isOffsetReady && !isOffsetActive) {
+          isOffsetReady = false;
+          isDragReady = true;
+          controllerElement.classList.remove('offset-mode');
+          controllerElement.classList.add('drag-ready');
+          hideOffsetBadge();
+          if (navigator.vibrate && !initialReaderConfig.disableHapticFeedback) {
+            navigator.vibrate(15);
+          }
+        }
+      }, 1500);
+    };
+
+    const activateOffset = () => {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        dragTimer = null;
+      }
+      isOffsetReady = false;
+      isOffsetActive = true;
+      stepsTaken = 0; // Reset step counter
+      // No vibration here - only vibrate on successful adjustment
+    };
+
+    const cleanState = () => {
+      clearTimers();
+      if (controllerElement) {
+        delete controllerElement.dataset.cleanupInProgress;
+        delete controllerElement.dataset.dragging;
+        controllerElement.classList.remove('offset-mode', 'drag-ready');
+      }
+      window.ttsOperationActive = false;
+      window.ttsOperationEndTime = Date.now();
+      isDragging = false;
+      isOffsetReady = false;
+      isOffsetActive = false;
+      isDragReady = false;
+      startX = undefined;
+      startY = undefined;
+      lastSwipeY = null;
+      stepsTaken = 0; // Reset step counter
+    };
+
+    // --- Component ---
     return div(
       {
         id: 'TTS-Controller',
         class: () => (reader.generalSettings.val.TTSEnable ? '' : 'hidden'),
         style: () => {
-          // Skip ALL style updates during any drag operation to prevent ResizeObserver triggering
           if (
             controllerElement &&
             (controllerElement.dataset.dragging === 'true' ||
               controllerElement.dataset.cleanupInProgress === 'true')
           ) {
-            return 'transform: none;'; // Ensure clean state for transform positioning
+            return 'transform: none;';
           }
           if (savedLeft && savedTop) {
             return `left: ${savedLeft}; top: ${savedTop};`;
           }
-          // Default to left-center (9 o'clock position)
           return 'left: 15px; top: calc(50% - 25px);';
         },
         ontouchstart: e => {
@@ -329,57 +548,126 @@ const TTSController = () => {
             controllerElement = document.getElementById('TTS-Controller');
           }
 
-          // Only handle if touching the controller itself
           if (e.target.closest('#TTS-Controller')) {
-            // CRITICAL: Set global TTS operation flag IMMEDIATELY on touchstart
-            // This prevents ResizeObserver from firing before we detect drag
             window.ttsOperationActive = true;
 
-            isDragging = false; // Will be set to true if movement detected
+            isDragging = false;
+            isOffsetReady = false;
+            isOffsetActive = false;
+            isDragReady = false;
+            stepsTaken = 0; // Reset step counter
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
+            lastSwipeY = null;
 
             const rect = controllerElement.getBoundingClientRect();
             initialLeft = rect.left;
             initialTop = rect.top;
 
             controllerElement.classList.add('active');
-            controllerElement.style.transition = 'none'; // Disable transition during drag
+            controllerElement.style.transition = 'none';
 
-            // Prevent default to stop scroll during potential drag
+            clearTimers();
+            offsetTimer = setTimeout(enterOffsetReady, 500);
+
             e.stopPropagation();
           }
         },
         ontouchmove: e => {
           if (startX === undefined) return;
 
-          const deltaX = e.touches[0].clientX - startX;
-          const deltaY = e.touches[0].clientY - startY;
+          const ctX = e.touches[0].clientX;
+          const ctY = e.touches[0].clientY;
+          const dX = ctX - startX;
+          const dY = ctY - startY;
+          const aX = Math.abs(dX);
+          const aY = Math.abs(dY);
 
-          // Consider it a drag if moved more than 5px
-          if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-            isDragging = true;
-            controllerElement.dataset.dragging = 'true';
+          // --- OFFSET ACTIVE: handle vertical swipe steps ---
+          if (isOffsetActive) {
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            e.stopPropagation();
 
-            // Update position with boundary constraints
-            const buttonWidth = controllerElement.offsetWidth;
-            const buttonHeight = controllerElement.offsetHeight;
+            if (lastSwipeY === null) {
+              lastSwipeY = ctY;
+              return;
+            }
 
-            const newLeft = Math.max(
-              0,
-              Math.min(initialLeft + deltaX, window.innerWidth - buttonWidth),
-            );
-            const newTop = Math.max(
-              0,
-              Math.min(initialTop + deltaY, window.innerHeight - buttonHeight),
-            );
+            const swipeDelta = lastSwipeY - ctY;
 
-            // Apply transform directly to DOM element to bypass reactivity system
-            controllerElement.style.transform = `translate(${newLeft}px, ${newTop}px)`;
-            controllerElement.style.left = '0px';
-            controllerElement.style.top = '0px';
+            if (Math.abs(swipeDelta) >= 40) {
+              // Limit to ±1 per gesture (max one step)
+              if (stepsTaken === 0) {
+                // Invert the sign: swipe up (positive delta) → offset -1 (highlight moves up)
+                // swipe down (negative delta) → offset +1 (highlight moves down)
+                const steps = -Math.sign(swipeDelta);
+                reader.post({
+                  type: 'adjust-highlight-offset',
+                  data: { delta: steps },
+                });
+                stepsTaken = 1; // Mark as taken
+                lastSwipeY = ctY;
 
-            // CRITICAL: Prevent scroll propagation
+                // Haptic feedback only on successful adjustment
+                if (
+                  navigator.vibrate &&
+                  !initialReaderConfig.disableHapticFeedback
+                ) {
+                  navigator.vibrate(10);
+                }
+              }
+            }
+            return;
+          }
+
+          // --- OFFSET READY: vertical swipe → offset, other → drag ---
+          if (isOffsetReady) {
+            // Primarily vertical with enough distance → activate offset
+            if (aY > 15 && aY >= aX) {
+              activateOffset();
+              lastSwipeY = ctY;
+              if (e.cancelable) {
+                e.preventDefault();
+              }
+              e.stopPropagation();
+              return;
+            }
+
+            // Primarily horizontal movement → start drag
+            if (aX > 15 && aX > aY) {
+              startDrag(ctX, ctY, dX, dY);
+              if (e.cancelable) {
+                e.preventDefault();
+              }
+              e.stopPropagation();
+              return;
+            }
+
+            // Small movement while offset ready → wait (allows vertical accumulation)
+            e.stopPropagation();
+            return;
+          }
+
+          // --- DRAG READY: any movement → drag ---
+          if (isDragReady) {
+            if (aX > 5 || aY > 5) {
+              startDrag(ctX, ctY, dX, dY);
+              if (e.cancelable) {
+                e.preventDefault();
+              }
+              e.stopPropagation();
+              return;
+            }
+
+            e.stopPropagation();
+            return;
+          }
+
+          // --- NOT READY YET: movement > 30px → immediate drag (tolerates finger drift) ---
+          if (aX > 30 || aY > 30) {
+            startDrag(ctX, ctY, dX, dY);
             if (e.cancelable) {
               e.preventDefault();
             }
@@ -387,88 +675,129 @@ const TTSController = () => {
           }
         },
         ontouchend: e => {
+          clearTimers();
+
           if (isDragging) {
-            // Prevent click event from firing after drag
+            hideOffsetBadge();
             if (e.cancelable) {
               e.preventDefault();
             }
             e.stopPropagation();
 
-            // Set cleanup flag to prevent style function from interfering
             controllerElement.dataset.cleanupInProgress = 'true';
 
-            // Get the final position from the current transform
             const rect = controllerElement.getBoundingClientRect();
             const finalLeft = rect.left;
             const finalTop = rect.top;
 
-            // Save final position to local variables for the style binding
             savedLeft = finalLeft + 'px';
             savedTop = finalTop + 'px';
 
-            // Save position to SafeStorage (Session)
             SafeStorage.setItem('tts-controller-left', savedLeft);
             SafeStorage.setItem('tts-controller-top', savedTop);
 
-            // Save position to Native (Persistent)
             reader.post({
               type: 'save-tts-position',
-              data: {
-                left: savedLeft,
-                top: savedTop,
-              },
+              data: { left: savedLeft, top: savedTop },
             });
 
-            // CRITICAL: Remove active class immediately to fix visual issue
             controllerElement.classList.remove('active');
-
-            // Clear transform and switch to left/top positioning
             controllerElement.style.transform = 'none';
             controllerElement.style.left = savedLeft;
             controllerElement.style.top = savedTop;
-            controllerElement.style.transition = '0.5s'; // Restore transition for future changes
+            controllerElement.style.transition = '0.5s';
 
-            // Clear all flags and global operation state after delay
             setTimeout(() => {
               if (controllerElement) {
                 delete controllerElement.dataset.cleanupInProgress;
                 delete controllerElement.dataset.dragging;
               }
               window.ttsOperationActive = false;
-              window.ttsOperationEndTime = Date.now(); // Set cooldown timestamp
+              window.ttsOperationEndTime = Date.now();
+              isDragging = false;
+              startX = undefined;
+              startY = undefined;
+              lastSwipeY = null;
             }, 300);
-
-            return; // Exit early to prevent the general touchend logic
+            return;
           }
 
-          // If not dragging, clear the operation flag immediately
-          // This happens for simple taps on TTS button
+          // Active offset mode → suppress click
+          if (isOffsetActive) {
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            e.stopPropagation();
+
+            controllerElement.classList.remove('offset-mode', 'active');
+            controllerElement.style.transition = '0.5s';
+
+            if (offsetBadgeTimeout) {
+              clearTimeout(offsetBadgeTimeout);
+            }
+            offsetBadgeTimeout = setTimeout(hideOffsetBadge, 3000);
+
+            cleanState();
+            return;
+          }
+
+          // Drag ready → suppress click (held 2s without moving)
+          if (isDragReady) {
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            e.stopPropagation();
+
+            controllerElement.classList.remove('drag-ready', 'active');
+            controllerElement.style.transition = '0.5s';
+
+            cleanState();
+            return;
+          }
+
+          // Offset ready → allow click (held 500ms, no swipe)
+          if (isOffsetReady) {
+            isOffsetReady = false;
+            if (e.cancelable) {
+              e.preventDefault();
+            }
+            controllerElement.classList.remove('offset-mode', 'active');
+            controllerElement.style.transition = '0.5s';
+            hideOffsetBadge();
+            cleanState();
+            e.stopPropagation();
+            return;
+          }
+
+          // Normal tap → allow click
           window.ttsOperationActive = false;
 
           if (controllerElement) {
-            // Only remove active class if we weren't dragging
             if (controllerElement.dataset.dragging !== 'true') {
               controllerElement.classList.remove('active');
             }
-            controllerElement.style.transition = '0.5s'; // Restore transition
+            controllerElement.style.transition = '0.5s';
           }
 
-          // Reset
-          isDragging = false;
-          startX = undefined;
-          startY = undefined;
+          cleanState();
+        },
+        ontouchcancel: e => {
+          cleanState();
+          if (controllerElement) {
+            controllerElement.classList.remove(
+              'active',
+              'offset-mode',
+              'drag-ready',
+            );
+            controllerElement.style.transition = '0.5s';
+          }
+          hideOffsetBadge();
         },
         onclick: e => {
           e.stopPropagation();
-
-          // Set TTS operation flag to prevent ResizeObserver during click processing
           window.ttsOperationActive = true;
 
-          // If we were dragging, don't toggle playback
-          if (
-            controllerElement &&
-            controllerElement.dataset.dragging === 'true'
-          ) {
+          if (isDragging || isOffsetActive || isDragReady) {
             window.ttsOperationActive = false;
             return;
           }
@@ -481,7 +810,6 @@ const TTSController = () => {
             controllerElement.firstElementChild.innerHTML = tts.pauseIcon;
           }
 
-          // Clear operation flag after a brief delay for click processing
           setTimeout(() => {
             window.ttsOperationActive = false;
             window.ttsOperationEndTime = Date.now();

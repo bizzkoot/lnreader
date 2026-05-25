@@ -239,6 +239,10 @@ export interface ChapterGeneralSettings {
     | 85
     | 90
     | 95;
+  /**
+   * Show discoverability hint toast for TTS floating button gestures
+   */
+  ttsShowGestureHints: boolean;
 }
 
 export interface ReaderTheme {
@@ -376,6 +380,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   continuousScrollBoundary: 'bordered',
   continuousScrollTransitionThreshold: 15,
   continuousScrollStitchThreshold: 90,
+  ttsShowGestureHints: true,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

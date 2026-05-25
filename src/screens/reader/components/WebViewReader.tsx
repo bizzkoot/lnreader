@@ -31,7 +31,11 @@ import {
 } from '@utils/webviewSecurity';
 import color from 'color';
 
-import { useTheme, useChapterReaderSettings } from '@hooks/persisted';
+import {
+  useTheme,
+  useChapterReaderSettings,
+  useAppSettings,
+} from '@hooks/persisted';
 import { getString } from '@strings/translations';
 
 import { getPlugin } from '@plugins/pluginManager';
@@ -146,8 +150,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     getChapter,
     setAdjacentChapter,
     paragraphHighlightOffsetRef,
+    paragraphHighlightOffset,
+    adjustHighlightOffset,
   } = useChapterContext();
   const theme = useTheme();
+  const { disableHapticFeedback } = useAppSettings();
 
   const webViewNonceRef = useRef<string>(createWebViewNonce());
   const allowMessageRef = useRef(createMessageRateLimiter());
@@ -628,6 +635,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             ttsButtonPosition: MMKVStorage.getString('tts_button_position')
               ? JSON.parse(MMKVStorage.getString('tts_button_position')!)
               : null,
+            paragraphHighlightOffset: paragraphHighlightOffset,
+            disableHapticFeedback: disableHapticFeedback,
+            ttsShowGestureHints: chapterGeneralSettings.ttsShowGestureHints,
+            hintsShown: {},
           })}
         </script>
         <script src="${assetsUriPrefix}/js/polyfill-onscrollend.js"></script>
@@ -655,6 +666,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     pluginCustomCSS,
     pluginCustomJS,
     theme,
+    disableHapticFeedback, // Added: haptic feedback setting
+    paragraphHighlightOffset, // Added: only changes when chapter.id changes (reset in ChapterContext)
   ]);
 
   // ============================================================================
@@ -688,6 +701,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'tts-queue',
         'tts-apply-settings',
         'save-tts-position',
+        'adjust-highlight-offset',
         'show-toast',
         'console',
         'fetch-chapter-content',
@@ -844,6 +858,24 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             MMKV.set('tts_button_position', JSON.stringify(event.data));
           }
           break;
+        case 'adjust-highlight-offset':
+          if (event.data && typeof event.data === 'object') {
+            const offsetData = event.data as { delta: number };
+            if (typeof offsetData.delta === 'number') {
+              adjustHighlightOffset(offsetData.delta);
+              const currentOffset = paragraphHighlightOffsetRef.current;
+              const clampedOffset = Math.max(-10, Math.min(10, currentOffset));
+              webViewRef.current?.injectJavaScript(`
+                try {
+                  if (typeof updateOffsetBadge === 'function') {
+                    updateOffsetBadge(${clampedOffset});
+                  }
+                } catch (e) { console.error('Failed to update offset badge', e); }
+                true;
+              `);
+            }
+          }
+          break;
         case 'tts-apply-settings':
           // Handle live TTS settings updates from WebView
           if (
@@ -857,6 +889,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               voice?: string;
               enabled?: boolean;
               showParagraphHighlight?: boolean;
+              ttsShowGestureHints?: boolean;
             };
             readerLog.debug(
               'tts-settings-update',
@@ -888,7 +921,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
             if (
               ttsData.enabled !== undefined ||
-              ttsData.showParagraphHighlight !== undefined
+              ttsData.showParagraphHighlight !== undefined ||
+              ttsData.ttsShowGestureHints !== undefined
             ) {
               chapterGeneralSettingsRef.current = {
                 ...chapterGeneralSettingsRef.current,
@@ -898,7 +932,22 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 showParagraphHighlight:
                   ttsData.showParagraphHighlight ??
                   chapterGeneralSettingsRef.current.showParagraphHighlight,
+                ttsShowGestureHints:
+                  ttsData.ttsShowGestureHints ??
+                  chapterGeneralSettingsRef.current.ttsShowGestureHints,
               };
+
+              if (ttsData.ttsShowGestureHints !== undefined) {
+                const current =
+                  getMMKVObject<ChapterGeneralSettings>(
+                    CHAPTER_GENERAL_SETTINGS,
+                  ) || initialChapterGeneralSettings;
+                const next = {
+                  ...current,
+                  ttsShowGestureHints: ttsData.ttsShowGestureHints,
+                };
+                MMKV.set(CHAPTER_GENERAL_SETTINGS, JSON.stringify(next));
+              }
             }
           }
           break;
