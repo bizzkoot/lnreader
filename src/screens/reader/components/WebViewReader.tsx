@@ -635,7 +635,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             ttsButtonPosition: MMKVStorage.getString('tts_button_position')
               ? JSON.parse(MMKVStorage.getString('tts_button_position')!)
               : null,
-            paragraphHighlightOffset: paragraphHighlightOffset,
+            paragraphHighlightOffset: paragraphHighlightOffsetRef?.current ?? 0,
             disableHapticFeedback: disableHapticFeedback,
             ttsShowGestureHints: chapterGeneralSettings.ttsShowGestureHints,
             hintsShown: {},
@@ -666,9 +666,35 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     pluginCustomCSS,
     pluginCustomJS,
     theme,
-    disableHapticFeedback, // Added: haptic feedback setting
-    paragraphHighlightOffset, // Added: only changes when chapter.id changes (reset in ChapterContext)
   ]);
+
+  const isFirstRenderHaptic = useRef(true);
+  useEffect(() => {
+    if (isFirstRenderHaptic.current) {
+      isFirstRenderHaptic.current = false;
+      return;
+    }
+    webViewRef.current?.injectJavaScript(`
+      if (window.initialReaderConfig) {
+        window.initialReaderConfig.disableHapticFeedback = ${disableHapticFeedback};
+      }
+      true;
+    `);
+  }, [disableHapticFeedback]);
+
+  const isFirstRenderOffset = useRef(true);
+  useEffect(() => {
+    if (isFirstRenderOffset.current) {
+      isFirstRenderOffset.current = false;
+      return;
+    }
+    webViewRef.current?.injectJavaScript(`
+      if (window.initialReaderConfig) {
+        window.initialReaderConfig.paragraphHighlightOffset = ${paragraphHighlightOffset};
+      }
+      true;
+    `);
+  }, [paragraphHighlightOffset]);
 
   // ============================================================================
   // WebView Message Handler
