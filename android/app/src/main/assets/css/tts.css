@@ -55,3 +55,60 @@
   width: 24px;
   height: 24px;
 }
+
+/* Offset mode styles - amber glow for hold 500ms */
+#TTS-Controller.offset-mode button {
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: color-mix(
+    in srgb,
+    var(--readerSettings-theme) 70%,
+    #ffd700 30%
+  );
+}
+
+/* Drag ready mode styles - green/teal glow for hold 2s */
+#TTS-Controller.drag-ready button {
+  border-color: #00bcd4;
+  box-shadow: 0 0 15px rgba(0, 188, 212, 0.6), 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: color-mix(
+    in srgb,
+    var(--readerSettings-theme) 70%,
+    #00bcd4 30%
+  );
+}
+
+/* Offset badge */
+.tts-offset-badge {
+  position: fixed;
+  background: var(--readerSettings-theme);
+  color: var(--readerSettings-textColor);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Right-side placement (default slide in from top) */
+.tts-offset-badge.position-right {
+  transform: translateY(-10px);
+}
+.tts-offset-badge.position-right.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Left-side placement (slide in from top, offset left by 100% of badge width) */
+.tts-offset-badge.position-left {
+  transform: translate(-100%, -10px);
+}
+.tts-offset-badge.position-left.visible {
+  opacity: 1;
+  transform: translate(-100%, 0);
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Portal, ActivityIndicator } from 'react-native-paper';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 import {
@@ -29,6 +29,8 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
   const { uiScale = 1.0 } = useAppSettings();
   const { setChapterReaderSettings, tts } = useChapterReaderSettings();
   const [engines, setEngines] = useState<TTSEngine[]>([]);
+  const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollEndTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -40,6 +42,15 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
           setEngines([]);
         });
     }
+
+    return () => {
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current);
+      }
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+      }
+    };
   }, [visible]);
 
   const styles = React.useMemo(
@@ -61,6 +72,34 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
     ...engines,
   ];
 
+  const startDismissTimer = () => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+    }
+    dismissTimerRef.current = setTimeout(() => {
+      onDismiss();
+    }, 2000);
+  };
+
+  const handleScrollBegin = () => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+    if (scrollEndTimerRef.current) {
+      clearTimeout(scrollEndTimerRef.current);
+    }
+  };
+
+  const handleScrollEnd = () => {
+    if (scrollEndTimerRef.current) {
+      clearTimeout(scrollEndTimerRef.current);
+    }
+    scrollEndTimerRef.current = setTimeout(() => {
+      startDismissTimer();
+    }, 150);
+  };
+
   return (
     <Portal>
       <Modal
@@ -75,7 +114,13 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
             color={theme.primary}
           />
         ) : (
-          <ScrollView contentContainerStyle={styles.paddingHorizontal}>
+          <ScrollView
+            contentContainerStyle={styles.paddingHorizontal}
+            onScrollBeginDrag={handleScrollBegin}
+            onScrollEndDrag={handleScrollEnd}
+            onMomentumScrollBegin={handleScrollBegin}
+            onMomentumScrollEnd={handleScrollEnd}
+          >
             {engineList.map(item => (
               <RadioButton
                 key={item.name}
@@ -95,8 +140,9 @@ const EnginePickerModal: React.FC<EnginePickerModalProps> = ({
                       });
                     }
                     onEngineSelected?.(item);
+                    startDismissTimer();
                   } else {
-                    onDismiss();
+                    startDismissTimer();
                   }
                 }}
                 label={item.label || item.name}

@@ -113,6 +113,20 @@ Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 
 ## Recent Fixes
 
+### TTS highlight offset page reload and button state desync fix (2026-05-26) - ✅ COMPLETED
+
+- **Bug #1 - WebView reload on offset adjustment**: ✅ COMPLETED - Adjusting highlight offset does not reload reader
+  - **Root Cause**: `paragraphHighlightOffset` state variable was in `memoizedHTML` dependency array, triggering full WebView reload on every offset gesture step.
+  - **Solution**: Removed `paragraphHighlightOffset` from dependency array. Passed `paragraphHighlightOffsetRef?.current ?? 0` for bootstrapping, and synchronized updates dynamically using a `useEffect` + `injectJavaScript` hook.
+- **Bug #2 - TTS button play icon and state desync**: ✅ COMPLETED - TTS button remains synchronized with playback state after offset adjustments
+  - **Root Cause**: The WebView reload reset the WebView JavaScript execution context, causing the TTS button to re-render in its default state (play/volume icon) while native TTS was still playing.
+  - **Solution**: Fixing the WebView reload (Bug #1) prevents the JavaScript state reset, keeping button and playback states perfectly synced.
+- **Optimization - Dynamic sync of haptic feedback setting**: ✅ COMPLETED - Setting haptic feedback doesn't reload WebView
+  - **Solution**: Removed `disableHapticFeedback` from `memoizedHTML` dependency array, updating the WebView context dynamically via `useEffect` + `injectJavaScript`.
+
+- **Commits**: e28001d88 (WebViewReader fix)
+- **Tests**: 1196 passing (zero regressions)
+
 ### TTS Paragraph Highlight Offset & Resume Dialog Fix (2026-01-11) - ✅ COMPLETED
 
 - **Bug #1 - Highlight Offset**: ✅ COMPLETED - User can adjust paragraph highlight offset

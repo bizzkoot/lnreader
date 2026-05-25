@@ -59,6 +59,7 @@ const AccessibilityTab: React.FC = () => {
     ttsAutoDownload = 'disabled',
     ttsAutoDownloadAmount = '10',
     ttsForwardChapterReset = 'none',
+    ttsShowGestureHints = true,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -155,21 +156,14 @@ const AccessibilityTab: React.FC = () => {
     setFalse: hideTtsResetModeModal,
   } = useBoolean();
 
-  useEffect(() => {
+  const loadVoices = React.useCallback(() => {
     TTSHighlight.getVoices().then(res => {
-      // 1. Format all voices first
       const formattedVoices = res.map(voice => ({
         ...voice,
         name: TTSHighlight.formatVoiceName(voice),
       }));
 
-      // 2. Sort formatted voices
-      formattedVoices.sort((a, b) => {
-        // Extract language from name for grouping (e.g., "English (US)")
-        // This assumes the format starts with the language.
-        // If names are identical (rare), stable sort.
-        return a.name.localeCompare(b.name);
-      });
+      formattedVoices.sort((a, b) => a.name.localeCompare(b.name));
 
       setVoices([
         {
@@ -182,6 +176,18 @@ const AccessibilityTab: React.FC = () => {
       ]);
     });
   }, []);
+
+  useEffect(() => {
+    loadVoices();
+  }, [loadVoices]);
+
+  // Refresh voice list when TTS engine changes (engine emits onEngineReady event)
+  useEffect(() => {
+    const subscription = TTSHighlight.addListener('onEngineReady', () => {
+      loadVoices();
+    });
+    return () => subscription.remove();
+  }, [loadVoices]);
 
   const { uiScale = 1.0 } = useAppSettings();
 
@@ -358,6 +364,16 @@ const AccessibilityTab: React.FC = () => {
                 onPress={() =>
                   setChapterGeneralSettings({
                     ttsBackgroundPlayback: !ttsBackgroundPlayback,
+                  })
+                }
+                theme={theme}
+              />
+              <SettingSwitch
+                label="Show TTS gesture hints"
+                value={ttsShowGestureHints}
+                onPress={() =>
+                  setChapterGeneralSettings({
+                    ttsShowGestureHints: !ttsShowGestureHints,
                   })
                 }
                 theme={theme}

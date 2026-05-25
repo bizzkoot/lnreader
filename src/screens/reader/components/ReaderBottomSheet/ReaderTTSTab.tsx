@@ -61,6 +61,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
       ttsAutoDownloadAmount = '10',
       ttsAutoStopMode = 'off',
       ttsAutoStopAmount = 0,
+      ttsShowGestureHints = true,
       setChapterGeneralSettings,
     } = useChapterGeneralSettings();
 
@@ -816,6 +817,21 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                     onValueChange={() =>
                       setChapterGeneralSettings({
                         ttsBackgroundPlayback: !ttsBackgroundPlayback,
+                      })
+                    }
+                  />
+                </View>
+                <View style={styles.switchItem}>
+                  <AppText
+                    style={[styles.switchLabel, { color: theme.onSurface }]}
+                  >
+                    Show gesture hints
+                  </AppText>
+                  <Switch
+                    value={ttsShowGestureHints}
+                    onValueChange={() =>
+                      setChapterGeneralSettings({
+                        ttsShowGestureHints: !ttsShowGestureHints,
                       })
                     }
                   />

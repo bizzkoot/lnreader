@@ -64,6 +64,9 @@ jest.mock('@hooks/persisted', () => ({
       ttsAutoStopAmount: 0,
     },
   })),
+  useAppSettings: jest.fn(() => ({
+    disableHapticFeedback: false,
+  })),
 }));
 
 jest.mock('@strings/translations', () => ({ getString: jest.fn(k => k) }));

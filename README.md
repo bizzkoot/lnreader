@@ -115,6 +115,7 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 | 📚 **Per-Novel TTS Settings**             | Isolated voice/speed/pitch per novel without overwriting global defaults                         |
 | 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                 |
 | 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                         |
+| 🖱️ **Advanced Button Gestures**         | Tap to toggle playback, hold 0.5s + swipe to adjust highlight offset, hold 2s + drag to move   |
 
 </div>
 
@@ -319,6 +320,10 @@ View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
 3. **Customize Voice**: Select system voice, adjust speed (0.1x-3.0x) and pitch (0.1x-2.0x)
 4. **Background Playback**: Enable "Background Playback" to continue listening with screen off
 5. **Auto-Download**: Configure auto-download threshold to fetch next chapters automatically
+6. **Advanced Button Gestures**:
+   - **Short Tap**: Play / Pause playback.
+   - **Hold 0.5s (Amber Glow) + Swipe Up/Down**: Adjust paragraph highlight offset (resets per chapter).
+   - **Hold 2.0s (Teal Glow) + Drag**: Move the TTS button anywhere on the screen.
 
 ### Using Continuous Scrolling
 
