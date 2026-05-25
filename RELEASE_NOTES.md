@@ -1,31 +1,49 @@
 ## What's New
 
-This release introduces the TTS Engine Picker, allowing users to choose between multiple installed TTS engines directly from the reader, along with improved engine stability, voice matching, and a fix for chapter titles not being announced during playback.
+This release introduces advanced TTS gesture controls with interactive visual feedback, significant WebView performance optimizations to eliminate unnecessary reloads, enhanced TTS engine and voice picker UX with auto-dismiss timers, and comprehensive documentation updates.
 
 ### ✨ Features
 
-- **TTS Engine Picker:** New engine picker modal with native Android integration, quality badges for installed engines, and persistent selection per novel or globally
-- **Auto-Prepend Chapter Title:** Automatically announces the chapter title via TTS when it is not visibly present in the chapter content
+- **Advanced Button Gestures:** Hold-to-wait logic for gesture distinction, vertical swipe in offset mode for highlight adjustment, interactive visual feedback with amber/teal glows and floating badge, haptic feedback integration, and discoverability hints with gesture hint toggle in reader settings
+- **Auto-Refresh Voice List on Engine Switch:** Voice list now automatically reloads when switching TTS engines in settings, ensuring accurate voice availability display
+- **Enhanced Picker UX:** Both EnginePickerModal and VoicePickerModal now feature 2-second auto-dismiss timers with scroll-aware pause/resume to prevent accidental dismissals during navigation
 
 ### 🐛 Bug Fixes
 
-- **TTS Resume Playback Failure:** Fixed resume playback failure and wrong engine audio output after switching engines
-- **Engine Selection Persistence:** Resolved engine selection not persisting in the modal picker across sessions
-- **Engine Stability & Voice Matching:** Improved engine stability, voice matching accuracy, and reactive settings updates
-- **UpdateNovelCard Margin:** Adjusted chapter list margin in update novel cards
-- **Browse Screen State:** Reset screen mounted state on novel refetch to prevent stale UI
+- **WebView Reload on Highlight Offset Gesture:** **CRITICAL FIX** - Eliminated WebView page reload when adjusting paragraph highlight offset via gesture controls. Previously, `paragraphHighlightOffset` in `memoizedHTML` dependency array triggered full WebView reload on every gesture step
+- **TTS Button State Desync:** Fixed TTS play/pause icon showing incorrect state after offset adjustments. The WebView reload was resetting JavaScript execution context, causing button to revert to default state while native TTS remained active
+- **Haptic Feedback Setting Reload:** Adjusting haptic feedback setting no longer causes WebView reload. Setting now updates dynamically via useEffect + injectJavaScript
 
 ### 🛠️ Core Updates
 
-- **Novel-Specific TTS Isolation:** Refactored TTS settings to isolate novel-specific configuration from global defaults
-- **Reactive Modal Height:** TTS engine and voice picker modal height now adapts to content size
+- **Dynamic WebView Context Updates:** Refactored `paragraphHighlightOffset` and `disableHapticFeedback` to update WebView context dynamically via useEffect hooks instead of triggering full page reloads
+- **Gesture System Architecture:** Implemented sophisticated gesture detection system in core.js with touch event listeners, state machine for hold/swipe detection, and visual feedback system
+- **Scroll-Aware Dismissal Logic:** Enhanced modal UX with intelligent auto-dismiss timers that pause during user scrolling to prevent accidental closures
+
+### 📚 Documentation
+
+- **Features Screen Updates:** Added comprehensive documentation for TTS Engine Picker configuration and Advanced Button Gestures (tap, hold, swipe, drag interactions) in FeaturesScreen
+- **README Enhancements:** Updated feature table and Getting Started section with gesture controls documentation
 
 ### 📜 Commits
 
-- **TTS Engine Picker (6 commits):** Added native Android TTS engine enumeration, created engine picker modal with quality badges, integrated engine selection into reader TTS tab, fixed persistence of selected engine, made modal height reactive to content, and isolated novel-specific TTS settings from global configuration
-- **Chapter Title Announcement (1 commit):** Auto-prepend chapter title to TTS content when not visibly present, ensuring chapter transitions are announced
-- **UI Fixes (1 commit):** Adjusted UpdateNovelCard chapter list margin for better readability
-- **Browse Fix (1 commit):** Reset screen mounted state on novel refetch to prevent stale data display
-- **Chores (2 commits):** Made pre-commit hook executable, added .java-version to gitignore
+- **Advanced Button Gestures (0b4bcf32c):** Implemented sophisticated gesture system with hold-to-wait logic (500ms delay), vertical swipe for highlight offset adjustment (1px per 10px movement), interactive visual feedback system with amber/teal glows and floating badge, haptic feedback integration, and discoverability hints
+  - **Files Modified:** 8 files changed, 540 insertions(+), 68 deletions(-)
+  - **Key Files:** core.js (+460 lines, gesture system), tts.css (+57 lines, visual feedback), ReaderTTSTab.tsx (+16 lines), AccessibilityTab.tsx (+11 lines, gesture hint toggle), WebViewReader.tsx (+53 lines)
+  - **Known Issues:** Documented page refresh on offset gesture and button state desync (subsequently fixed in commit 327cd6e59)
 
-**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.1.0...v2.1.1
+- **WebView Reload Prevention (327cd6e59):** Fixed critical WebView reload issue by removing `paragraphHighlightOffset` from `memoizedHTML` dependency array, implementing dynamic updates via useEffect + injectJavaScript hook, and synchronizing `disableHapticFeedback` setting without page reload
+  - **Files Modified:** 2 files changed, 43 insertions(+), 3 deletions(-)
+  - **Key Files:** WebViewReader.tsx (+32 lines, dynamic sync), AGENTS.md (+14 lines, documentation)
+  - **Impact:** Gesture controls now operate smoothly without disrupting WebView state or TTS playback
+
+- **Voice List Auto-Refresh (ffa6fa0e7):** Added `onEngineReady` event listener to reload voices when TTS engine switches, implemented 2-second auto-dismiss timers in both EnginePickerModal and VoicePickerModal with scroll-aware pause/resume logic
+  - **Files Modified:** 3 files changed, 110 insertions(+), 13 deletions(-)
+  - **Key Files:** EnginePickerModal.tsx (+52 lines), VoicePickerModal.tsx (+48 lines), AccessibilityTab.tsx (+23 lines, onEngineReady integration)
+  - **Closes:** #15
+
+- **Documentation Updates (c1ca89484):** Added TTS Engine Picker configuration guide to FeaturesScreen, documented Advanced Button Gestures interactions (tap, hold, swipe, drag), updated README feature table and Getting Started section with gesture controls
+  - **Files Modified:** 2 files changed, 32 insertions(+)
+  - **Key Files:** FeaturesScreen.tsx (+27 lines), README.md (+5 lines)
+
+**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.1.1...v2.1.2
