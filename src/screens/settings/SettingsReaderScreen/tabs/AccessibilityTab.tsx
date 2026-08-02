@@ -23,6 +23,8 @@ import EnginePickerModal from '../Modals/EnginePickerModal';
 import TTSScrollBehaviorModal from '../Modals/TTSScrollBehaviorModal';
 
 import AutoResumeModal from '../Modals/AutoResumeModal';
+import TtsTextCleanupModal from '../Modals/TtsTextCleanupModal';
+import { DEFAULT_TTS_CLEANUP_SETTINGS } from '@utils/htmlParagraphExtractor';
 
 interface TTSVoiceSettings {
   identifier?: string;
@@ -60,6 +62,7 @@ const AccessibilityTab: React.FC = () => {
     ttsAutoDownloadAmount = '10',
     ttsForwardChapterReset = 'none',
     ttsShowGestureHints = true,
+    ttsTextCleanup = DEFAULT_TTS_CLEANUP_SETTINGS,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -154,6 +157,11 @@ const AccessibilityTab: React.FC = () => {
     value: ttsResetModeModalVisible,
     setTrue: showTtsResetModeModal,
     setFalse: hideTtsResetModeModal,
+  } = useBoolean();
+  const {
+    value: ttsTextCleanupModalVisible,
+    setTrue: showTtsTextCleanupModal,
+    setFalse: hideTtsTextCleanupModal,
   } = useBoolean();
 
   const loadVoices = React.useCallback(() => {
@@ -657,6 +665,28 @@ const AccessibilityTab: React.FC = () => {
                 />
               </View>
 
+              <List.SubHeader theme={theme}>TTS Text Cleanup</List.SubHeader>
+              <SettingSwitch
+                label="Clean TTS text"
+                description="Strip watermarks & fix pronunciation before TTS reads"
+                value={ttsTextCleanup.enabled}
+                onPress={() =>
+                  setChapterGeneralSettings({
+                    ttsTextCleanup: {
+                      ...ttsTextCleanup,
+                      enabled: !ttsTextCleanup.enabled,
+                    },
+                  })
+                }
+                theme={theme}
+              />
+              <List.Item
+                title="Cleanup rules & phonetic dictionary"
+                description={`${ttsTextCleanup.rules.filter(r => r.enabled).length} active rules · ${ttsTextCleanup.phoneticPairs.filter(p => p.enabled).length} phonetic`}
+                onPress={showTtsTextCleanupModal}
+                theme={theme}
+              />
+
               <List.SubHeader theme={theme}>TTS Scroll Behavior</List.SubHeader>
               <List.Item
                 title="When you scroll up while TTS is paused"
@@ -931,6 +961,14 @@ const AccessibilityTab: React.FC = () => {
               value: 'reset-all',
             },
           ]}
+        />
+        <TtsTextCleanupModal
+          visible={ttsTextCleanupModalVisible}
+          onDismiss={hideTtsTextCleanupModal}
+          settings={ttsTextCleanup}
+          onSave={nextSettings =>
+            setChapterGeneralSettings({ ttsTextCleanup: nextSettings })
+          }
         />
       </Portal>
     </>

@@ -71,6 +71,8 @@ jest.mock('@utils/htmlParagraphExtractor', () => ({
     'Para 4',
     'Para 5',
   ]),
+  applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
+  cleanTtsText: jest.fn((text: string) => text),
 }));
 jest.mock('../../components/ttsHelpers', () => ({
   validateAndClampParagraphIndex: jest.fn(idx => Math.max(0, idx)),

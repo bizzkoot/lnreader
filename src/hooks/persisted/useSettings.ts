@@ -7,6 +7,10 @@ import { useMMKVObject } from 'react-native-mmkv';
 import { Voice } from 'expo-speech';
 import { clampUIScale } from '@theme/scaling';
 import { DoHProvider } from '@services/network/DoHManager';
+import {
+  TtsTextCleanupSettings,
+  DEFAULT_TTS_CLEANUP_SETTINGS,
+} from '@utils/htmlParagraphExtractor';
 
 export const APP_SETTINGS = 'APP_SETTINGS';
 export const BROWSE_SETTINGS = 'BROWSE_SETTINGS';
@@ -243,6 +247,15 @@ export interface ChapterGeneralSettings {
    * Show discoverability hint toast for TTS floating button gestures
    */
   ttsShowGestureHints: boolean;
+  /**
+   * TTS text cleanup pipeline applied to every paragraph before it reaches
+   * the native TTS engine. Includes ordered find/replace rules, a phonetic
+   * pronunciation dictionary, and optional Unicode normalization.
+   * Applied across ALL playback modes and paths (initial queue, WebView
+   * refills, fallback single-speak). Length-preserving: never drops or merges
+   * paragraphs, so the RN <-> WebView paragraph index contract stays intact.
+   */
+  ttsTextCleanup: TtsTextCleanupSettings;
 }
 
 export interface ReaderTheme {
@@ -381,6 +394,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   continuousScrollTransitionThreshold: 15,
   continuousScrollStitchThreshold: 90,
   ttsShowGestureHints: true,
+  ttsTextCleanup: DEFAULT_TTS_CLEANUP_SETTINGS,
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

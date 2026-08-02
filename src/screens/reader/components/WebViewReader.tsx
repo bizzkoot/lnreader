@@ -65,7 +65,10 @@ import TTSChapterSelectionDialog from './TTSChapterSelectionDialog';
 import TTSSyncDialog from './TTSSyncDialog';
 import Toast from '@components/Toast';
 import { useBoolean, useBackHandler } from '@hooks';
-import { extractParagraphs } from '@utils/htmlParagraphExtractor';
+import {
+  extractParagraphs,
+  applyTtsTextCleanup,
+} from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView, type TTSSettings } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
 import {
@@ -400,7 +403,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           TTSHighlight.stop();
 
           const idx = tts.currentParagraphIndex;
-          const paragraphs = extractParagraphs(html, chapter.name);
+          const paragraphs = applyTtsTextCleanup(
+            extractParagraphs(html, chapter.name),
+            chapterGeneralSettingsRef.current?.ttsTextCleanup,
+          );
 
           if (paragraphs && paragraphs.length > idx) {
             tts.restartTtsFromParagraphIndex(idx);

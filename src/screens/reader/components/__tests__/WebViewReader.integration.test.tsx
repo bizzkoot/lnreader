@@ -113,6 +113,8 @@ jest.mock('@hooks', () => ({
 
 jest.mock('@utils/htmlParagraphExtractor', () => ({
   extractParagraphs: jest.fn(() => ['P1', 'P2', 'P3', 'P4', 'P5']),
+  applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
+  cleanTtsText: jest.fn((text: string) => text),
 }));
 
 jest.mock('../ttsHelpers', () => ({

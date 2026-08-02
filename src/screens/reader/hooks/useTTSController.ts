@@ -18,7 +18,11 @@ import TTSHighlight from '@services/TTSHighlight';
 import TTSAudioManager from '@services/TTSAudioManager';
 import { TTSState } from '@services/TTSState';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
-import { extractParagraphs } from '@utils/htmlParagraphExtractor';
+import {
+  extractParagraphs,
+  applyTtsTextCleanup,
+  cleanTtsText,
+} from '@utils/htmlParagraphExtractor';
 import {
   getChapter as getChapterFromDb,
   updateChapterProgress as updateChapterProgressDb,
@@ -530,6 +534,7 @@ export function useTTSController(
     html,
     webViewRef,
     readerSettingsRef,
+    chapterGeneralSettingsRef,
     refs: {
       currentParagraphIndexRef,
       totalParagraphsRef,
@@ -687,8 +692,11 @@ export function useTTSController(
     isWebViewSyncedRef.current = true;
     ttsCtrlLog.debug('webview-synced-background');
 
-    // Extract paragraphs from HTML
-    const paragraphs = extractParagraphs(html, chapterName);
+    // Extract paragraphs from HTML (with TTS text cleanup applied)
+    const paragraphs = applyTtsTextCleanup(
+      extractParagraphs(html, chapterName),
+      chapterGeneralSettingsRef.current?.ttsTextCleanup,
+    );
     ttsCtrlLog.debug('background-paragraphs', `count=${paragraphs.length}`);
 
     if (paragraphs.length === 0) {
@@ -824,7 +832,10 @@ export function useTTSController(
         MMKVStorage.getNumber(`chapter_progress_${chapterId}`) ?? -1;
 
       if (savedMMKVIndex >= 0) {
-        const paragraphs = extractParagraphs(html, chapterName);
+        const paragraphs = applyTtsTextCleanup(
+          extractParagraphs(html, chapterName),
+          chapterGeneralSettingsRef.current?.ttsTextCleanup,
+        );
         const totalParagraphs = paragraphs?.length || 0;
 
         // If saved index is beyond chapter bounds, it's likely an off-by-one error
@@ -1073,10 +1084,16 @@ export function useTTSController(
             }
 
             // UNIFIED BATCH MODE: Always use speakBatch
-            const textToSpeak = event.data as string;
+            const textToSpeak = cleanTtsText(
+              event.data as string,
+              chapterGeneralSettingsRef.current?.ttsTextCleanup,
+            );
             let paragraphs: string[] = [];
             try {
-              paragraphs = extractParagraphs(html, chapterName);
+              paragraphs = applyTtsTextCleanup(
+                extractParagraphs(html, chapterName),
+                chapterGeneralSettingsRef.current?.ttsTextCleanup,
+              );
             } catch (e) {
               ttsCtrlLog.error('extract-paragraphs-failed', e);
             }
@@ -1341,24 +1358,30 @@ export function useTTSController(
             }
 
             ttsCtrlLog.info('tts-queue-accept', `start=${incomingStart}`);
+            // Apply TTS text cleanup to the DOM-fed refill paragraphs (Path B)
+            // before they reach the native TTS engine.
+            const cleanedQueueTexts = applyTtsTextCleanup(
+              event.data as string[],
+              chapterGeneralSettingsRef.current?.ttsTextCleanup,
+            );
             ttsQueueRef.current = {
               startIndex: event.startIndex,
-              texts: event.data as string[],
+              texts: cleanedQueueTexts,
             };
 
             // Use batch TTS for background playback
             if (
               chapterGeneralSettingsRef.current.ttsBackgroundPlayback &&
-              event.data.length > 0
+              cleanedQueueTexts.length > 0
             ) {
               const startIndex = event.startIndex;
-              const utteranceIds = (event.data as string[]).map(
+              const utteranceIds = cleanedQueueTexts.map(
                 (_, i) => `chapter_${chapterId}_utterance_${startIndex + i}`,
               );
 
               ttsCtrlLog.debug(
                 'add-to-batch',
-                `Adding ${event.data.length} paragraphs to TTS queue from index ${startIndex}`,
+                `Adding ${cleanedQueueTexts.length} paragraphs to TTS queue from index ${startIndex}`,
               );
 
               const addToBatchWithRetry = async (
@@ -1388,7 +1411,7 @@ export function useTTSController(
                 return false;
               };
 
-              addToBatchWithRetry(event.data as string[], utteranceIds)
+              addToBatchWithRetry(cleanedQueueTexts, utteranceIds)
                 .then(success => {
                   if (!success) {
                     ttsCtrlLog.error(
@@ -1477,7 +1500,10 @@ export function useTTSController(
           );
 
           // Calculate progress info for the error dialog
-          const retryParagraphs = extractParagraphs(html, chapterName);
+          const retryParagraphs = applyTtsTextCleanup(
+            extractParagraphs(html, chapterName),
+            chapterGeneralSettingsRef.current?.ttsTextCleanup,
+          );
           const retryTotalParagraphs = retryParagraphs?.length ?? 0;
           const paragraphIdx = savedWakeParagraphIdx ?? 0;
           const progressPercent =
@@ -1594,7 +1620,10 @@ export function useTTSController(
             savedWakeParagraphIdx,
           );
 
-          const paragraphs = extractParagraphs(html, chapterName);
+          const paragraphs = applyTtsTextCleanup(
+            extractParagraphs(html, chapterName),
+            chapterGeneralSettingsRef.current?.ttsTextCleanup,
+          );
           if (paragraphs && paragraphs.length > savedWakeParagraphIdx) {
             // CRITICAL FIX (Bug #2): Inject scroll restoration BEFORE resuming playback
             // This ensures WebView scrolls to the correct paragraph when user returns from background
@@ -1834,7 +1863,10 @@ export function useTTSController(
 
   useEffect(() => {
     if (html) {
-      const paragraphs = extractParagraphs(html, chapterName);
+      const paragraphs = applyTtsTextCleanup(
+        extractParagraphs(html, chapterName),
+        chapterGeneralSettingsRef.current?.ttsTextCleanup,
+      );
       totalParagraphsRef.current = paragraphs?.length || 0;
       updateTtsMediaNotificationState(isTTSReadingRef.current);
     }
@@ -3303,7 +3335,10 @@ export function useTTSController(
                     if (idx >= 0) {
                       // Attempt to resume using native batch playback
                       try {
-                        const paragraphs = extractParagraphs(html, chapterName);
+                        const paragraphs = applyTtsTextCleanup(
+                          extractParagraphs(html, chapterName),
+                          chapterGeneralSettingsRef.current?.ttsTextCleanup,
+                        );
                         if (paragraphs && paragraphs.length > idx) {
                           const remaining = paragraphs.slice(idx);
                           const ids = remaining.map(

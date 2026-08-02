@@ -133,6 +133,8 @@ jest.mock('@utils/htmlParagraphExtractor', () => ({
     'Paragraph 4',
     'Paragraph 5',
   ]),
+  applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
+  cleanTtsText: jest.fn((text: string) => text),
 }));
 
 jest.mock('../ttsHelpers', () => ({

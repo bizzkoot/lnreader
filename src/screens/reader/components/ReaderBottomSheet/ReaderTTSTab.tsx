@@ -16,6 +16,7 @@ import { useBoolean } from '@hooks';
 import { Portal } from 'react-native-paper';
 import VoicePickerModal from '@screens/settings/SettingsReaderScreen/Modals/VoicePickerModal';
 import EnginePickerModal from '@screens/settings/SettingsReaderScreen/Modals/EnginePickerModal';
+import TtsTextCleanupModal from '@screens/settings/SettingsReaderScreen/Modals/TtsTextCleanupModal';
 import TTSScrollBehaviorModal from '@screens/settings/SettingsReaderScreen/Modals/TTSScrollBehaviorModal';
 import Switch from '@components/Switch/Switch';
 import { useChapterContext } from '../../ChapterContext';
@@ -26,6 +27,7 @@ import {
 } from '@services/tts/novelTtsSettings';
 import { NovelInfo } from '@database/types';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import { DEFAULT_TTS_CLEANUP_SETTINGS } from '@utils/htmlParagraphExtractor';
 
 const readerTTSTabLog = createRateLimitedLogger('ReaderTTSTab', {
   windowMs: 1500,
@@ -62,6 +64,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
       ttsAutoStopMode = 'off',
       ttsAutoStopAmount = 0,
       ttsShowGestureHints = true,
+      ttsTextCleanup = DEFAULT_TTS_CLEANUP_SETTINGS,
       setChapterGeneralSettings,
     } = useChapterGeneralSettings();
 
@@ -408,6 +411,11 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
       value: ttsAutoStopAmountModalVisible,
       setTrue: showTtsAutoStopAmountModal,
       setFalse: hideTtsAutoStopAmountModal,
+    } = useBoolean();
+    const {
+      value: ttsTextCleanupModalVisible,
+      setTrue: showTtsTextCleanupModal,
+      setFalse: hideTtsTextCleanupModal,
     } = useBoolean();
 
     useEffect(() => {
@@ -838,6 +846,21 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                 </View>
               </View>
 
+              {/* TTS Text Cleanup Settings */}
+              <View style={styles.section}>
+                <List.SubHeader theme={theme}>Text Cleanup</List.SubHeader>
+                <List.Item
+                  title="Cleanup rules & phonetic dictionary"
+                  description={
+                    ttsTextCleanup.enabled
+                      ? `${ttsTextCleanup.rules.filter(r => r.enabled).length} active rules · ${ttsTextCleanup.phoneticPairs.filter(p => p.enabled).length} phonetic`
+                      : 'Disabled'
+                  }
+                  onPress={showTtsTextCleanupModal}
+                  theme={theme}
+                />
+              </View>
+
               {/* Auto-Download Settings */}
               <View style={styles.section}>
                 <List.SubHeader theme={theme}>Auto-Download</List.SubHeader>
@@ -1014,6 +1037,14 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                       { label: '20 paragraphs', value: '20' },
                       { label: '30 paragraphs', value: '30' },
                     ]
+            }
+          />
+          <TtsTextCleanupModal
+            visible={ttsTextCleanupModalVisible}
+            onDismiss={hideTtsTextCleanupModal}
+            settings={ttsTextCleanup}
+            onSave={nextSettings =>
+              setChapterGeneralSettings({ ttsTextCleanup: nextSettings })
             }
           />
         </Portal>
