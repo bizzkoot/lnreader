@@ -213,6 +213,12 @@ export interface TtsPhoneticPair {
   word: string;
   /** What the TTS engine should say instead. */
   pronunciation: string;
+  /**
+   * Optional; defaults to 'whole-word'. 'substring' replaces every
+   * occurrence, which is needed for unspaced CJK text where whole-word
+   * boundaries never fire between adjacent CJK characters.
+   */
+  matchMode?: 'whole-word' | 'substring';
 }
 
 /** Full user-configurable TTS text cleanup settings. */
@@ -314,12 +320,14 @@ export function createTtsPhoneticPair(
   word: string,
   pronunciation = '',
   enabled = true,
+  matchMode: 'whole-word' | 'substring' = 'whole-word',
 ): TtsPhoneticPair {
   return {
     id: nextCleanupId('tts-phonetic'),
     enabled,
     word,
     pronunciation,
+    matchMode,
   };
 }
 
@@ -464,7 +472,10 @@ export function cleanTtsText(
     if (!pair.enabled || !pair.word) {
       continue;
     }
-    result = replaceWholeWord(result, pair.word, pair.pronunciation);
+    result =
+      pair.matchMode === 'substring'
+        ? result.split(pair.word).join(pair.pronunciation)
+        : replaceWholeWord(result, pair.word, pair.pronunciation);
   }
 
   return result;

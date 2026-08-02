@@ -41,6 +41,7 @@ interface PairFormState {
   id?: string;
   word: string;
   pronunciation: string;
+  matchMode: 'whole-word' | 'substring';
 }
 
 const EMPTY_RULE_FORM: RuleFormState = {
@@ -53,6 +54,7 @@ const EMPTY_RULE_FORM: RuleFormState = {
 const EMPTY_PAIR_FORM: PairFormState = {
   word: '',
   pronunciation: '',
+  matchMode: 'whole-word',
 };
 
 /** Validate a rule form; returns an error string or null when valid. */
@@ -215,6 +217,35 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
     }));
   };
 
+  const moveRule = (id: string, dir: -1 | 1) => {
+    setDraft(d => {
+      const idx = d.rules.findIndex(r => r.id === id);
+      const target = idx + dir;
+      if (idx < 0 || target < 0 || target >= d.rules.length) {
+        return d;
+      }
+      const rules = [...d.rules];
+      [rules[idx], rules[target]] = [rules[target], rules[idx]];
+      return { ...d, rules };
+    });
+  };
+
+  const movePair = (id: string, dir: -1 | 1) => {
+    setDraft(d => {
+      const idx = d.phoneticPairs.findIndex(p => p.id === id);
+      const target = idx + dir;
+      if (idx < 0 || target < 0 || target >= d.phoneticPairs.length) {
+        return d;
+      }
+      const phoneticPairs = [...d.phoneticPairs];
+      [phoneticPairs[idx], phoneticPairs[target]] = [
+        phoneticPairs[target],
+        phoneticPairs[idx],
+      ];
+      return { ...d, phoneticPairs };
+    });
+  };
+
   const removePair = (id: string) => {
     setDraft(d => ({
       ...d,
@@ -279,8 +310,9 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
             p.id === pairForm.id
               ? {
                   ...p,
-                  word: pairForm.word,
+                  word: pairForm.word.trim(),
                   pronunciation: pairForm.pronunciation,
+                  matchMode: pairForm.matchMode,
                 }
               : p,
           ),
@@ -290,7 +322,12 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
         ...d,
         phoneticPairs: [
           ...d.phoneticPairs,
-          createTtsPhoneticPair(pairForm.word, pairForm.pronunciation),
+          createTtsPhoneticPair(
+            pairForm.word.trim(),
+            pairForm.pronunciation,
+            true,
+            pairForm.matchMode,
+          ),
         ],
       };
     });
@@ -432,7 +469,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                     text (e.g. "u2014"), or replace lookalike characters.
                   </AppText>
                 ) : (
-                  draft.rules.map(rule => (
+                  draft.rules.map((rule, index) => (
                     <View key={rule.id} style={styles.ruleRow}>
                       <Switch
                         value={rule.enabled}
@@ -446,6 +483,18 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                       >
                         {formatRuleSummary(rule)}
                       </AppText>
+                      <IconButtonV2
+                        name="arrow-up"
+                        theme={theme}
+                        disabled={index === 0}
+                        onPress={() => moveRule(rule.id, -1)}
+                      />
+                      <IconButtonV2
+                        name="arrow-down"
+                        theme={theme}
+                        disabled={index === draft.rules.length - 1}
+                        onPress={() => moveRule(rule.id, 1)}
+                      />
                       <IconButtonV2
                         name="pencil-outline"
                         theme={theme}
@@ -503,6 +552,30 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                   }
                   style={styles.formField}
                 />
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleLabel}>
+                    <AppText style={{ color: theme.onSurface }}>
+                      Replace every occurrence (substring)
+                    </AppText>
+                    <AppText
+                      style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                    >
+                      Needed for unspaced CJK text; off = whole-word only
+                    </AppText>
+                  </View>
+                  <Switch
+                    value={pairForm.matchMode === 'substring'}
+                    onValueChange={() =>
+                      setPairForm(f => ({
+                        ...f,
+                        matchMode:
+                          f.matchMode === 'substring'
+                            ? 'whole-word'
+                            : 'substring',
+                      }))
+                    }
+                  />
+                </View>
                 <View style={styles.formActions}>
                   <Button
                     title="Cancel"
@@ -531,7 +604,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                     fixes (e.g. "Xianxia" → "Shee-an-shah").
                   </AppText>
                 ) : (
-                  draft.phoneticPairs.map(pair => (
+                  draft.phoneticPairs.map((pair, index) => (
                     <View key={pair.id} style={styles.ruleRow}>
                       <Switch
                         value={pair.enabled}
@@ -546,6 +619,18 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                         {formatPairSummary(pair)}
                       </AppText>
                       <IconButtonV2
+                        name="arrow-up"
+                        theme={theme}
+                        disabled={index === 0}
+                        onPress={() => movePair(pair.id, -1)}
+                      />
+                      <IconButtonV2
+                        name="arrow-down"
+                        theme={theme}
+                        disabled={index === draft.phoneticPairs.length - 1}
+                        onPress={() => movePair(pair.id, 1)}
+                      />
+                      <IconButtonV2
                         name="pencil-outline"
                         theme={theme}
                         onPress={() => {
@@ -553,6 +638,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                             id: pair.id,
                             word: pair.word,
                             pronunciation: pair.pronunciation,
+                            matchMode: pair.matchMode ?? 'whole-word',
                           });
                           setMode('pair');
                         }}

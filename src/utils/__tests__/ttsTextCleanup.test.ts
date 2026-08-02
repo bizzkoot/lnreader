@@ -153,6 +153,32 @@ describe('cleanTtsText', () => {
     );
   });
 
+  it('substring match mode replaces adjacent CJK occurrences', () => {
+    const settings = buildSettings({
+      enabled: true,
+      phoneticPairs: [
+        createTtsPhoneticPair('秦', 'Qin', true, 'substring'),
+        createTtsPhoneticPair('卿', 'Qing', true, 'substring'),
+      ],
+    });
+    // Whole-word mode would no-op here (adjacent CJK are both \p{L});
+    // substring mode replaces every occurrence.
+    expect(cleanTtsText('秦国 大秦 卿卿', settings)).toBe(
+      'Qin国 大Qin QingQing',
+    );
+  });
+
+  it('defaults to whole-word mode when matchMode is absent', () => {
+    const pair = createTtsPhoneticPair('秦', 'Qin');
+    expect(pair.matchMode).toBe('whole-word');
+    const settings = buildSettings({
+      enabled: true,
+      phoneticPairs: [pair],
+    });
+    // Legacy pair without matchMode behaves as before (no CJK adjacency hit)
+    expect(cleanTtsText('秦国', settings)).toBe('秦国');
+  });
+
   it('applies rules before phonetic swaps (pipeline order)', () => {
     const settings = buildSettings({
       enabled: true,
