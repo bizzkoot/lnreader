@@ -791,6 +791,7 @@ export function useTTSController(
     chapterId,
     html,
     readerSettingsRef,
+    chapterGeneralSettingsRef,
     showToastMessage,
     updateTtsMediaNotificationState,
     restoreSavedEngine,
@@ -890,7 +891,7 @@ export function useTTSController(
         }
       }
     }
-  }, [chapterId, html]);
+  }, [chapterId, html, chapterGeneralSettingsRef]);
 
   // ===========================================================================
   // Utility Functions
@@ -1870,7 +1871,7 @@ export function useTTSController(
       totalParagraphsRef.current = paragraphs?.length || 0;
       updateTtsMediaNotificationState(isTTSReadingRef.current);
     }
-  }, [html, updateTtsMediaNotificationState]);
+  }, [html, updateTtsMediaNotificationState, chapterGeneralSettingsRef]);
 
   // ===========================================================================
   // Native TTS Event Listeners Effect

@@ -682,7 +682,7 @@ const AccessibilityTab: React.FC = () => {
               />
               <List.Item
                 title="Cleanup rules & phonetic dictionary"
-                description={`${ttsTextCleanup.rules.filter(r => r.enabled).length} active rules · ${ttsTextCleanup.phoneticPairs.filter(p => p.enabled).length} phonetic`}
+                description={`${(ttsTextCleanup.rules ?? []).filter(r => r.enabled).length} active rules · ${(ttsTextCleanup.phoneticPairs ?? []).filter(p => p.enabled).length} phonetic`}
                 onPress={showTtsTextCleanupModal}
                 theme={theme}
               />

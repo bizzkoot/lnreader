@@ -873,7 +873,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                   title="Cleanup rules & phonetic dictionary"
                   description={
                     effectiveCleanup.enabled
-                      ? `${effectiveCleanup.rules.filter(r => r.enabled).length} active rules · ${effectiveCleanup.phoneticPairs.filter(p => p.enabled).length} phonetic${useNovelTtsSettings && novelCleanupOverride ? ' · per-novel' : ''}`
+                      ? `${(effectiveCleanup.rules ?? []).filter(r => r.enabled).length} active rules · ${(effectiveCleanup.phoneticPairs ?? []).filter(p => p.enabled).length} phonetic${useNovelTtsSettings && novelCleanupOverride ? ' · per-novel' : ''}`
                       : 'Disabled'
                   }
                   onPress={showTtsTextCleanupModal}

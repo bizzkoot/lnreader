@@ -92,6 +92,20 @@ const formatRuleSummary = (rule: TtsCleanupRule): string => {
 const formatPairSummary = (pair: TtsPhoneticPair): string =>
   `"${pair.word}" → "${pair.pronunciation}"`;
 
+/**
+ * Coerce possibly-partial stored settings (e.g. MMKV written by an older or
+ * interrupted version missing `rules`/`phoneticPairs`) into a fully-shaped
+ * object so every draft access below can assume the arrays exist.
+ */
+const normalizeSettings = (
+  settings: TtsTextCleanupSettings,
+): TtsTextCleanupSettings => ({
+  enabled: !!settings.enabled,
+  normalizeUnicode: !!settings.normalizeUnicode,
+  rules: settings.rules ?? [],
+  phoneticPairs: settings.phoneticPairs ?? [],
+});
+
 const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
   visible,
   onDismiss,
@@ -101,7 +115,9 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
 
-  const [draft, setDraft] = useState<TtsTextCleanupSettings>(settings);
+  const [draft, setDraft] = useState<TtsTextCleanupSettings>(() =>
+    normalizeSettings(settings),
+  );
   const [mode, setMode] = useState<EditorMode>('list');
   const [ruleForm, setRuleForm] = useState<RuleFormState>(EMPTY_RULE_FORM);
   const [pairForm, setPairForm] = useState<PairFormState>(EMPTY_PAIR_FORM);
@@ -110,7 +126,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
   // Re-sync draft whenever the modal opens or settings change externally.
   useEffect(() => {
     if (visible) {
-      setDraft(settings);
+      setDraft(normalizeSettings(settings));
       setMode('list');
       setRuleForm(EMPTY_RULE_FORM);
       setPairForm(EMPTY_PAIR_FORM);
@@ -424,16 +440,26 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                   />
                 </View>
                 {ruleForm.isRegex && (
-                  <TextInput
-                    {...inputProps}
-                    label="Regex flags"
-                    placeholder="g"
-                    value={ruleForm.flags}
-                    onChangeText={text =>
-                      setRuleForm(f => ({ ...f, flags: text }))
-                    }
-                    style={styles.formField}
-                  />
+                  <>
+                    <TextInput
+                      {...inputProps}
+                      label="Regex flags"
+                      placeholder="g"
+                      value={ruleForm.flags}
+                      onChangeText={text =>
+                        setRuleForm(f => ({ ...f, flags: text }))
+                      }
+                      style={styles.formField}
+                    />
+                    <AppText
+                      style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                    >
+                      Note: regex patterns match text after Unicode
+                      normalization — precomposed characters (e.g. é) will not
+                      match normalized text. Use the decomposed form or disable
+                      normalization.
+                    </AppText>
+                  </>
                 )}
                 {ruleFormError && (
                   <AppText style={[styles.formError, { color: theme.error }]}>
