@@ -194,6 +194,7 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
     },
     [
       chapter.id,
+      chapter.name,
       html,
       readerSettingsRef,
       chapterGeneralSettingsRef,

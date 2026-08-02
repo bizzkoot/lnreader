@@ -790,6 +790,7 @@ export function useTTSController(
   }, [
     chapterId,
     html,
+    chapterName,
     readerSettingsRef,
     chapterGeneralSettingsRef,
     showToastMessage,
@@ -891,7 +892,7 @@ export function useTTSController(
         }
       }
     }
-  }, [chapterId, html, chapterGeneralSettingsRef]);
+  }, [chapterId, html, chapterName, chapterGeneralSettingsRef]);
 
   // ===========================================================================
   // Utility Functions
@@ -1441,9 +1442,11 @@ export function useTTSController(
     [
       chapterId,
       html,
+      chapterName,
       webViewRef,
       readerSettingsRef,
       chapterGeneralSettingsRef,
+      restoreSavedEngine,
       navigation,
       handleRequestTTSConfirmation,
       showScrollSyncDialog,
@@ -1849,6 +1852,7 @@ export function useTTSController(
   }, [
     chapterId,
     html,
+    chapterName,
     getChapter,
     webViewRef,
     readerSettingsRef,
@@ -1871,7 +1875,12 @@ export function useTTSController(
       totalParagraphsRef.current = paragraphs?.length || 0;
       updateTtsMediaNotificationState(isTTSReadingRef.current);
     }
-  }, [html, updateTtsMediaNotificationState, chapterGeneralSettingsRef]);
+  }, [
+    html,
+    chapterName,
+    updateTtsMediaNotificationState,
+    chapterGeneralSettingsRef,
+  ]);
 
   // ===========================================================================
   // Native TTS Event Listeners Effect
