@@ -153,12 +153,27 @@ jest.mock('@database/queries/ChapterQueries', () => ({
 }));
 
 // Mock novel-specific TTS settings to prevent interference
-jest.mock('@services/tts/novelTtsSettings', () => ({
-  getNovelTtsSettings: jest.fn(() => null), // Return null = no per-novel overrides
-  useNovelTtsSettings: jest.fn(() => [null]),
-  setNovelTtsSettings: jest.fn(),
-  deleteNovelTtsSettings: jest.fn(),
-}));
+jest.mock('@services/tts/novelTtsSettings', () => {
+  const getNovelTtsSettings = jest.fn((novelId?: number) => null) as jest.Mock; // Return null = no per-novel overrides
+  return {
+    getNovelTtsSettings,
+    useNovelTtsSettings: jest.fn(() => [null]),
+    setNovelTtsSettings: jest.fn(),
+    deleteNovelTtsSettings: jest.fn(),
+    resolveEffectiveTtsCleanup: jest.fn(
+      (globalCleanup: unknown, novelId?: number) => {
+        // Mirrors the real resolver against the mocked getNovelTtsSettings
+        // so WebViewReader's ref sync stays testable end-to-end.
+        const stored =
+          novelId !== undefined ? getNovelTtsSettings(novelId) : null;
+        if (stored?.enabled && stored.ttsTextCleanup) {
+          return stored.ttsTextCleanup;
+        }
+        return globalCleanup;
+      },
+    ),
+  };
+});
 
 // 3. Mock TTS Service & Dialogs
 jest.mock('@services/TTSHighlight', () => ({

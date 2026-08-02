@@ -27,7 +27,10 @@ import {
 } from '@services/tts/novelTtsSettings';
 import { NovelInfo } from '@database/types';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
-import { DEFAULT_TTS_CLEANUP_SETTINGS } from '@utils/htmlParagraphExtractor';
+import {
+  DEFAULT_TTS_CLEANUP_SETTINGS,
+  type TtsTextCleanupSettings,
+} from '@utils/htmlParagraphExtractor';
 
 const readerTTSTabLog = createRateLimitedLogger('ReaderTTSTab', {
   windowMs: 1500,
@@ -197,6 +200,9 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
     const [novelTtsOverride, setNovelTtsOverride] = useState<NonNullable<
       typeof tts
     > | null>(null);
+    // Per-novel TTS text cleanup override (only meaningful in per-novel mode)
+    const [novelCleanupOverride, setNovelCleanupOverride] =
+      useState<TtsTextCleanupSettings | null>(null);
     // Compute effective TTS: per-novel overrides overlaid on clean global defaults
     const effectiveTts = useMemo(() => {
       if (useNovelTtsSettings && novelTtsOverride) {
@@ -204,6 +210,14 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
       }
       return tts ?? { rate: 1, pitch: 1 };
     }, [tts, useNovelTtsSettings, novelTtsOverride]);
+    // Effective cleanup: per-novel override when saved, else global.
+    const effectiveCleanup = useMemo(
+      () =>
+        useNovelTtsSettings && novelCleanupOverride
+          ? novelCleanupOverride
+          : ttsTextCleanup,
+      [useNovelTtsSettings, novelCleanupOverride, ttsTextCleanup],
+    );
 
     const [voices, setVoices] = useState<TTSVoice[]>([]);
 
@@ -234,6 +248,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
       } else {
         setNovelTtsOverride(null);
       }
+      setNovelCleanupOverride(stored?.ttsTextCleanup ?? null);
     }, [novelId, debugLog]);
 
     const persistNovelTtsEnabled = useCallback(
@@ -251,6 +266,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
         setNovelTtsSettings(novelId, {
           enabled,
           tts: previous?.tts ?? effectiveTts,
+          ttsTextCleanup: previous?.ttsTextCleanup,
         });
 
         debugLog('after persistNovelTtsEnabled write', {
@@ -272,6 +288,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
           setNovelTtsSettings(novelId, {
             enabled: true,
             tts: merged,
+            ttsTextCleanup: previous?.ttsTextCleanup,
           });
           setNovelTtsOverride(merged);
         } else {
@@ -362,6 +379,7 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
           setNovelTtsSettings(novelId, {
             enabled: true,
             tts: newTts,
+            ttsTextCleanup: current?.ttsTextCleanup,
           });
           setNovelTtsOverride(newTts);
           debugLog('engine-saved-per-novel', {
@@ -541,6 +559,8 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                         setNovelTtsSettings(novelId, {
                           enabled: true,
                           tts: effectiveTts,
+                          ttsTextCleanup:
+                            getNovelTtsSettings(novelId)?.ttsTextCleanup,
                         });
 
                         debugLog('saved baseline tts on enable', {
@@ -852,8 +872,8 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                 <List.Item
                   title="Cleanup rules & phonetic dictionary"
                   description={
-                    ttsTextCleanup.enabled
-                      ? `${ttsTextCleanup.rules.filter(r => r.enabled).length} active rules · ${ttsTextCleanup.phoneticPairs.filter(p => p.enabled).length} phonetic`
+                    effectiveCleanup.enabled
+                      ? `${effectiveCleanup.rules.filter(r => r.enabled).length} active rules · ${effectiveCleanup.phoneticPairs.filter(p => p.enabled).length} phonetic${useNovelTtsSettings && novelCleanupOverride ? ' · per-novel' : ''}`
                       : 'Disabled'
                   }
                   onPress={showTtsTextCleanupModal}
@@ -1042,10 +1062,20 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
           <TtsTextCleanupModal
             visible={ttsTextCleanupModalVisible}
             onDismiss={hideTtsTextCleanupModal}
-            settings={ttsTextCleanup}
-            onSave={nextSettings =>
-              setChapterGeneralSettings({ ttsTextCleanup: nextSettings })
-            }
+            settings={effectiveCleanup}
+            onSave={nextSettings => {
+              if (useNovelTtsSettings && typeof novelId === 'number') {
+                const previous = getNovelTtsSettings(novelId);
+                setNovelTtsSettings(novelId, {
+                  enabled: true,
+                  tts: previous?.tts ?? effectiveTts,
+                  ttsTextCleanup: nextSettings,
+                });
+                setNovelCleanupOverride(nextSettings);
+              } else {
+                setChapterGeneralSettings({ ttsTextCleanup: nextSettings });
+              }
+            }}
           />
         </Portal>
       </>

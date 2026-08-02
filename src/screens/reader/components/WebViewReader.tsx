@@ -68,11 +68,14 @@ import { useBoolean, useBackHandler } from '@hooks';
 import {
   extractParagraphs,
   applyTtsTextCleanup,
+  DEFAULT_TTS_CLEANUP_SETTINGS,
+  type TtsTextCleanupSettings,
 } from '@utils/htmlParagraphExtractor';
 import { applyTtsUpdateToWebView, type TTSSettings } from './ttsHelpers';
 import TTSExitDialog from './TTSExitDialog';
 import {
   getNovelTtsSettings,
+  resolveEffectiveTtsCleanup,
   useNovelTtsSettings,
 } from '@services/tts/novelTtsSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
@@ -217,6 +220,26 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
 
+  // Mirror novel.id in a ref so mount-once listeners (e.g. the MMKV
+  // CHAPTER_GENERAL_SETTINGS listener) can resolve per-novel cleanup even
+  // though the reader screen is mounted per-novel.
+  const novelIdRef = useRef(novel?.id);
+  useEffect(() => {
+    novelIdRef.current = novel?.id;
+  }, [novel?.id]);
+
+  // Re-resolve the effective per-novel TTS text cleanup into the settings
+  // ref. Every wholesale ref assignment below is followed by this call, so
+  // the value converges to (per-novel override when saved, else global).
+  const syncEffectiveTtsCleanup = useCallback(
+    (globalCleanup?: TtsTextCleanupSettings | null) => {
+      chapterGeneralSettingsRef.current.ttsTextCleanup =
+        resolveEffectiveTtsCleanup(globalCleanup, novelIdRef.current) ??
+        DEFAULT_TTS_CLEANUP_SETTINGS;
+    },
+    [],
+  );
+
   // Apply per-novel TTS overrides (if enabled) on chapter/novel changes.
   // Updates ref + WebView — does NOT write to global ChapterReaderSettings.
   useEffect(() => {
@@ -275,7 +298,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   useEffect(() => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
-  }, [readerSettings, chapterGeneralSettings]);
+    syncEffectiveTtsCleanup(chapterGeneralSettings.ttsTextCleanup);
+  }, [readerSettings, chapterGeneralSettings, syncEffectiveTtsCleanup]);
 
   // Calculate initial saved paragraph index - MMKV is single source of truth
   const initialSavedParagraphIndex = useMemo(() => {
@@ -359,6 +383,17 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
   const { tts: globalTts } = useChapterReaderSettings();
   const [novelTtsSettings] = useNovelTtsSettings(novel?.id);
+
+  // Re-resolve effective cleanup when the per-novel override or the global
+  // settings change (the MMKV listener + ref-sync effect cover other paths).
+  useEffect(() => {
+    syncEffectiveTtsCleanup(chapterGeneralSettings.ttsTextCleanup);
+  }, [
+    chapterGeneralSettings.ttsTextCleanup,
+    novel?.id,
+    novelTtsSettings,
+    syncEffectiveTtsCleanup,
+  ]);
 
   const liveReaderTts =
     novel?.id && novelTtsSettings?.enabled && novelTtsSettings?.tts
@@ -463,6 +498,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             }
 
             chapterGeneralSettingsRef.current = merged;
+            syncEffectiveTtsCleanup(merged.ttsTextCleanup);
 
             readerLog.debug(
               'mmkv-general-settings-ref-updated',
