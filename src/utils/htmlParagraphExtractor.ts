@@ -234,6 +234,56 @@ export const DEFAULT_TTS_CLEANUP_SETTINGS: TtsTextCleanupSettings = {
   phoneticPairs: [],
 };
 
+/**
+ * Maximum length for a user-authored regex pattern. Bounds both the compile
+ * and per-paragraph scan cost. Real-world watermark/pronunciation patterns
+ * are far shorter (the issue thread's longest is < 80 chars).
+ */
+export const TTS_CLEANUP_MAX_REGEX_LENGTH = 200;
+
+const VALID_REGEX_FLAGS = ['d', 'g', 'i', 'm', 's', 'u', 'v', 'y'];
+
+// Narrow catastrophic-backtracking heuristics (defense-in-depth on top of the
+// length cap + compile-time try/catch). Kept intentionally narrow so common
+// safe patterns like `(?:[.-][a-z0-9_]+)*` or the issue's `(?:\\W)*` watermark
+// fragments are never rejected. Validated empirically against the existing
+// test corpus (see src/utils/__tests__/ttsTextCleanup.test.ts).
+const NESTED_SIMPLE_QUANT = /\((?:(?:\?:)?[^()[\]*+?{}][*+?])\)[*+?]/;
+const NESTED_SIMPLE_BOUNDED =
+  /\((?:(?:\?:)?[^()[\]*+?{}][*+?])\)\{[2-9]\d*(?:,\d*)?\}/;
+const IDENTICAL_ALT_QUANT = /\((?:(?:\?:)?([^()[\]*+?{}])\|(\1))\)[*+?]/;
+
+/**
+ * True when a regex source matches known exponential-backtracking shapes
+ * (e.g. `(a+)+`, `(?:a*)*`, `(?:a+){2,}`, `(a|a)+`). Best-effort structural
+ * detection: false negatives are acceptable (length cap + try/catch remain),
+ * false positives are not (a rejected rule silently stops cleaning).
+ */
+export function isPotentiallyCatastrophic(pattern: string): boolean {
+  return (
+    NESTED_SIMPLE_QUANT.test(pattern) ||
+    NESTED_SIMPLE_BOUNDED.test(pattern) ||
+    IDENTICAL_ALT_QUANT.test(pattern)
+  );
+}
+
+/**
+ * Normalize user-supplied regex flags: keep only valid flags, dedupe,
+ * always include `g` (cleanup is a global find/replace), and drop `y`
+ * (sticky without a global scan silently no-ops on mid-string matches).
+ */
+export function normalizeRegExpFlags(flags: string | undefined | null): string {
+  const seen = new Set<string>();
+  for (const ch of flags ?? '') {
+    if (VALID_REGEX_FLAGS.includes(ch)) {
+      seen.add(ch);
+    }
+  }
+  seen.delete('y');
+  seen.add('g');
+  return [...seen].join('');
+}
+
 let ttsCleanupIdCounter = 0;
 
 function nextCleanupId(prefix: string): string {
@@ -285,28 +335,82 @@ export function normalizeUnicodeText(text: string): string {
   return text.normalize('NFD').replace(COMBINING_MARKS_REGEX, '');
 }
 
-/** Apply a single cleanup rule; invalid regexes are skipped silently. */
-function applyCleanupRule(text: string, rule: TtsCleanupRule): string {
+/**
+ * Apply a single cleanup rule; invalid or unsafe regexes are skipped silently.
+ * `normalizePattern` NFD-normalizes LITERAL patterns so they match text that
+ * was already normalized when `normalizeUnicode` is enabled (regex patterns
+ * are matched verbatim against already-normalized text by design).
+ */
+function applyCleanupRule(
+  text: string,
+  rule: TtsCleanupRule,
+  normalizePattern: boolean,
+): string {
   if (!rule.pattern) {
     return text;
   }
   if (rule.isRegex) {
+    if (
+      rule.pattern.length > TTS_CLEANUP_MAX_REGEX_LENGTH ||
+      isPotentiallyCatastrophic(rule.pattern)
+    ) {
+      return text;
+    }
     try {
-      const flags = rule.flags && rule.flags.length > 0 ? rule.flags : 'g';
-      return text.replace(new RegExp(rule.pattern, flags), rule.replacement);
+      const flags = normalizeRegExpFlags(rule.flags);
+      // Callback form keeps the replacement LITERAL: with a string
+      // replacement, `$&`, `$'`, `$``, `$$` and `$n` are interpolated.
+      return text.replace(
+        new RegExp(rule.pattern, flags),
+        () => rule.replacement,
+      );
     } catch {
       // Invalid regex source: leave text untouched rather than crashing TTS.
       return text;
     }
   }
-  // Literal find/replace of all occurrences.
-  return text.split(rule.pattern).join(rule.replacement);
+  const pattern = normalizePattern
+    ? normalizeUnicodeText(rule.pattern)
+    : rule.pattern;
+  if (!pattern) {
+    return text;
+  }
+  // Literal find/replace of all occurrences (fully literal — no `$` semantics).
+  return text.split(pattern).join(rule.replacement);
+}
+
+// Compiled whole-word regexes keyed by word (per-paragraph reuse across a
+// 2000-paragraph queue build). Bounded: cleared once it exceeds 500 entries.
+const wholeWordRegexCache = new Map<string, RegExp>();
+const WHOLE_WORD_CACHE_LIMIT = 500;
+
+function getWholeWordRegex(word: string): RegExp | null {
+  const cached = wholeWordRegexCache.get(word);
+  if (cached) {
+    return cached;
+  }
+  try {
+    const escaped = escapeRegExp(word);
+    const regex = new RegExp(
+      `(^|[^\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`,
+      'gu',
+    );
+    if (wholeWordRegexCache.size >= WHOLE_WORD_CACHE_LIMIT) {
+      wholeWordRegexCache.clear();
+    }
+    wholeWordRegexCache.set(word, regex);
+    return regex;
+  } catch {
+    // Unicode property escapes unsupported on some runtime: degrade gracefully.
+    return null;
+  }
 }
 
 /**
  * Replace an exact whole word (case-sensitive) without touching
  * larger words that merely contain it. Unicode-aware boundaries so
- * non-ASCII names (e.g. Chinese honorifics) match correctly.
+ * non-ASCII names match correctly. Returns text unchanged when the
+ * regex cannot be compiled.
  */
 function replaceWholeWord(
   text: string,
@@ -316,11 +420,11 @@ function replaceWholeWord(
   if (!word) {
     return text;
   }
-  const escaped = escapeRegExp(word);
-  const regex = new RegExp(
-    `(^|[^\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`,
-    'gu',
-  );
+  const regex = getWholeWordRegex(word);
+  if (!regex) {
+    return text;
+  }
+  regex.lastIndex = 0; // global regexes carry lastIndex between calls
   return text.replace(regex, (_match: string, prefix: string) => {
     return `${prefix}${replacement}`;
   });
@@ -339,7 +443,7 @@ export function cleanTtsText(
   text: string,
   settings?: TtsTextCleanupSettings | null,
 ): string {
-  if (!text || !settings?.enabled) {
+  if (typeof text !== 'string' || !text || !settings?.enabled) {
     return text;
   }
 
@@ -353,7 +457,7 @@ export function cleanTtsText(
     if (!rule.enabled) {
       continue;
     }
-    result = applyCleanupRule(result, rule);
+    result = applyCleanupRule(result, rule, settings.normalizeUnicode);
   }
 
   for (const pair of settings.phoneticPairs ?? []) {

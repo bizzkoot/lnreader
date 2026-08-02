@@ -15,6 +15,9 @@ import {
   TtsPhoneticPair,
   createTtsCleanupRule,
   createTtsPhoneticPair,
+  TTS_CLEANUP_MAX_REGEX_LENGTH,
+  isPotentiallyCatastrophic,
+  normalizeRegExpFlags,
 } from '@utils/htmlParagraphExtractor';
 
 interface TtsTextCleanupModalProps {
@@ -52,6 +55,30 @@ const EMPTY_PAIR_FORM: PairFormState = {
   pronunciation: '',
 };
 
+/** Validate a rule form; returns an error string or null when valid. */
+const validateRuleForm = (form: RuleFormState): string | null => {
+  if (!form.pattern.trim()) {
+    return 'Pattern is required.';
+  }
+  if (!form.isRegex) {
+    return null;
+  }
+  const pattern = form.pattern.trim();
+  if (pattern.length > TTS_CLEANUP_MAX_REGEX_LENGTH) {
+    return `Regex is too long (max ${TTS_CLEANUP_MAX_REGEX_LENGTH} chars).`;
+  }
+  if (isPotentiallyCatastrophic(pattern)) {
+    return 'Pattern looks unsafe and may freeze playback (e.g. nested quantifiers like (a+)+). Simplify it.';
+  }
+  try {
+    // Compile-check the pattern + flags exactly as the runtime will apply it.
+    new RegExp(pattern, normalizeRegExpFlags(form.flags));
+  } catch {
+    return 'Invalid regex pattern or flags.';
+  }
+  return null;
+};
+
 const formatRuleSummary = (rule: TtsCleanupRule): string => {
   const find = rule.isRegex
     ? `/${rule.pattern}/${rule.flags}`
@@ -76,6 +103,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
   const [mode, setMode] = useState<EditorMode>('list');
   const [ruleForm, setRuleForm] = useState<RuleFormState>(EMPTY_RULE_FORM);
   const [pairForm, setPairForm] = useState<PairFormState>(EMPTY_PAIR_FORM);
+  const [ruleFormError, setRuleFormError] = useState<string | null>(null);
 
   // Re-sync draft whenever the modal opens or settings change externally.
   useEffect(() => {
@@ -84,6 +112,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
       setMode('list');
       setRuleForm(EMPTY_RULE_FORM);
       setPairForm(EMPTY_PAIR_FORM);
+      setRuleFormError(null);
     }
   }, [visible, settings]);
 
@@ -145,6 +174,10 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
         emptyText: {
           paddingVertical: scaleDimension(8, uiScale),
         },
+        formError: {
+          fontSize: scaleDimension(12, uiScale),
+          marginBottom: scaleDimension(8, uiScale),
+        },
         addButtonContainer: {
           marginTop: scaleDimension(8, uiScale),
         },
@@ -190,9 +223,12 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
   };
 
   const saveRule = () => {
-    if (!ruleForm.pattern.trim()) {
+    const validationError = validateRuleForm(ruleForm);
+    if (validationError) {
+      setRuleFormError(validationError);
       return;
     }
+    setRuleFormError(null);
     setDraft(d => {
       if (ruleForm.id) {
         return {
@@ -201,10 +237,12 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
             r.id === ruleForm.id
               ? {
                   ...r,
-                  pattern: ruleForm.pattern,
+                  pattern: ruleForm.pattern.trim(),
                   replacement: ruleForm.replacement,
                   isRegex: ruleForm.isRegex,
-                  flags: ruleForm.flags,
+                  flags: ruleForm.isRegex
+                    ? normalizeRegExpFlags(ruleForm.flags)
+                    : ruleForm.flags,
                 }
               : r,
           ),
@@ -215,10 +253,12 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
         rules: [
           ...d.rules,
           createTtsCleanupRule(
-            ruleForm.pattern,
+            ruleForm.pattern.trim(),
             ruleForm.replacement,
             ruleForm.isRegex,
-            ruleForm.flags,
+            ruleForm.isRegex
+              ? normalizeRegExpFlags(ruleForm.flags)
+              : ruleForm.flags,
           ),
         ],
       };
@@ -358,6 +398,11 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                     style={styles.formField}
                   />
                 )}
+                {ruleFormError && (
+                  <AppText style={[styles.formError, { color: theme.error }]}>
+                    {ruleFormError}
+                  </AppText>
+                )}
                 <View style={styles.formActions}>
                   <Button
                     title="Cancel"
@@ -365,6 +410,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                     onPress={() => {
                       setMode('list');
                       setRuleForm(EMPTY_RULE_FORM);
+                      setRuleFormError(null);
                     }}
                   />
                   <Button title="Save" mode="contained" onPress={saveRule} />
@@ -411,6 +457,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                             isRegex: rule.isRegex,
                             flags: rule.flags,
                           });
+                          setRuleFormError(null);
                           setMode('rule');
                         }}
                       />
@@ -428,6 +475,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                     mode="outlined"
                     onPress={() => {
                       setRuleForm(EMPTY_RULE_FORM);
+                      setRuleFormError(null);
                       setMode('rule');
                     }}
                   />

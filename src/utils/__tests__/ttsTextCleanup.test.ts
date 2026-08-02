@@ -6,6 +6,9 @@ import {
   normalizeUnicodeText,
   DEFAULT_TTS_CLEANUP_SETTINGS,
   TtsTextCleanupSettings,
+  TTS_CLEANUP_MAX_REGEX_LENGTH,
+  isPotentiallyCatastrophic,
+  normalizeRegExpFlags,
 } from '../htmlParagraphExtractor';
 
 const buildSettings = (
@@ -167,6 +170,114 @@ describe('cleanTtsText', () => {
     expect(cleanTtsText('[TTS] Once upon a time', settings)).toBe(
       'Once upon a time',
     );
+  });
+});
+
+describe('isPotentiallyCatastrophic', () => {
+  it('detects known exponential-backtracking shapes', () => {
+    expect(isPotentiallyCatastrophic('(a+)+')).toBe(true);
+    expect(isPotentiallyCatastrophic('(?:a*)*')).toBe(true);
+    expect(isPotentiallyCatastrophic('(?:a?)+')).toBe(true);
+    expect(isPotentiallyCatastrophic('(?:a+){2,}')).toBe(true);
+    expect(isPotentiallyCatastrophic('(a|a)+')).toBe(true);
+    expect(isPotentiallyCatastrophic('(?:x|x)+')).toBe(true);
+    expect(isPotentiallyCatastrophic('(?:a+){2,10}')).toBe(true);
+  });
+
+  it('does not flag common safe patterns', () => {
+    // The author's watermark fragment + full pattern from the issue thread
+    expect(isPotentiallyCatastrophic('(?:\\W)*')).toBe(false);
+    expect(
+      isPotentiallyCatastrophic(
+        'N(?:\\W)*o(?:\\W)*v(?:\\W)*e(?:\\W)*l(?:\\W)*i(?:\\W)*g(?:\\W)*h(?:\\W)*t',
+      ),
+    ).toBe(false);
+    // Existing test patterns
+    expect(isPotentiallyCatastrophic('(Do not rehost this novel)+')).toBe(
+      false,
+    );
+    expect(isPotentiallyCatastrophic('\\(Official version\\)\\s*')).toBe(false);
+    expect(isPotentiallyCatastrophic('(?:ab)+')).toBe(false);
+    expect(isPotentiallyCatastrophic('[0-9]+')).toBe(false);
+    expect(isPotentiallyCatastrophic('^[a-z0-9_]+(?:[.-][a-z0-9_]+)*$')).toBe(
+      false,
+    );
+    expect(isPotentiallyCatastrophic('(?:\\W|\\d)+')).toBe(false);
+    expect(isPotentiallyCatastrophic('(?:ab){2,4}')).toBe(false);
+    expect(isPotentiallyCatastrophic('(?:x){2,}')).toBe(false);
+    expect(isPotentiallyCatastrophic('a+b+')).toBe(false);
+  });
+});
+
+describe('normalizeRegExpFlags', () => {
+  it('always includes g and dedupes duplicates', () => {
+    expect(normalizeRegExpFlags('')).toBe('g');
+    expect(normalizeRegExpFlags('gg')).toBe('g');
+    expect(normalizeRegExpFlags('gi')).toBe('gi');
+    expect(normalizeRegExpFlags('xgi')).toBe('gi');
+  });
+
+  it('drops the sticky y flag so mid-string matches work', () => {
+    expect(normalizeRegExpFlags('y')).toBe('g');
+    expect(normalizeRegExpFlags('iy')).toBe('ig');
+  });
+});
+
+describe('cleanTtsText hardening', () => {
+  it('skips regex rules exceeding the length cap', () => {
+    const longPattern = 'a'.repeat(TTS_CLEANUP_MAX_REGEX_LENGTH + 1);
+    const settings = buildSettings({
+      enabled: true,
+      rules: [
+        createTtsCleanupRule(longPattern, 'x', true),
+        createTtsCleanupRule('u2014', ' '),
+      ],
+    });
+    expect(cleanTtsText('hello u2014 world', settings)).toBe('hello   world');
+  });
+
+  it('skips a catastrophic regex rule without breaking later rules', () => {
+    const settings = buildSettings({
+      enabled: true,
+      rules: [
+        createTtsCleanupRule('(a+)+', 'x', true), // skipped (unsafe)
+        createTtsCleanupRule('u2014', ' '), // still applied
+      ],
+    });
+    expect(cleanTtsText('aaaa u2014 text', settings)).toBe('aaaa   text');
+  });
+
+  it('treats regex replacement text literally ($& stays literal)', () => {
+    const settings = buildSettings({
+      enabled: true,
+      rules: [createTtsCleanupRule('\\d+', '$&', true)],
+    });
+    expect(cleanTtsText('price 5', settings)).toBe('price $&');
+  });
+
+  it('sticky y flags behave like a global scan (mid-string match)', () => {
+    const settings = buildSettings({
+      enabled: true,
+      rules: [createTtsCleanupRule('world', 'replaced', true, 'y')],
+    });
+    expect(cleanTtsText('hello world', settings)).toBe('hello replaced');
+  });
+
+  it('matches precomposed literal patterns against normalized text', () => {
+    const settings = buildSettings({
+      enabled: true,
+      normalizeUnicode: true,
+      rules: [createTtsCleanupRule('é', 'x')],
+    });
+    // Text is NFD-normalized first (café -> cafe'), so the precomposed
+    // 'é' pattern must be normalized too before matching.
+    expect(cleanTtsText('café', settings)).toBe('cafx');
+  });
+
+  it('leaves text unchanged when a non-string reaches the pipeline', () => {
+    const settings = buildSettings({ enabled: true });
+    // Cast: not reachable from extractParagraphs, but a cheap runtime guard.
+    expect(cleanTtsText(42 as unknown as string, settings)).toBe(42);
   });
 });
 
