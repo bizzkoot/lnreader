@@ -62,6 +62,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
     - [TTS Feature Demo](#tts-feature-demo)
       - [Key TTS Features Showcase](#key-tts-features-showcase)
     - [Enhanced TTS Media Notification (Android)](#enhanced-tts-media-notification-android)
+    - [TTS Text Cleanup](#tts-text-cleanup)
   - [Reader Experience](#reader-experience)
   - [Network \& Security](#network--security)
   - [UI \& Accessibility](#ui--accessibility)
@@ -72,6 +73,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
 - [Getting Started](#getting-started)
   - [First-Time Setup](#first-time-setup)
   - [Using TTS](#using-tts)
+  - [Using TTS Text Cleanup](#using-tts-text-cleanup)
   - [Using Continuous Scrolling](#using-continuous-scrolling)
   - [Backup \& Restore](#backup--restore)
 - [Architecture](#architecture)
@@ -116,6 +118,7 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 | 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                 |
 | 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                         |
 | 🖱️ **Advanced Button Gestures**         | Tap to toggle playback, hold 0.5s + swipe to adjust highlight offset, hold 2s + drag to move   |
+| 🧹 **TTS Text Cleanup**                  | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export |
 
 </div>
 
@@ -186,6 +189,40 @@ Android devices can have multiple TTS engines installed. The default engine is o
 
 > [!TIP]
 > **Google TTS with Neural2 voices** is the current best recommendation. Install Google TTS, open your device's TTS settings (Settings → Accessibility → Text-to-Speech → Preferred Engine), select "Google Text-to-Speech", then install the Neural2 voice packs. Switch LNReader to use Google TTS and you'll get the highest quality reading experience.
+
+---
+
+#### TTS Text Cleanup
+
+Sites like Novelight inject anti-scraper watermarks (spaced letters, unicode lookalikes, `u2014` corruption, "Do not rehost this novel" spam) that system TTS engines read aloud, and LN names/honorifics are commonly mispronounced. **Text Cleanup** fixes both with a declarative, **length-preserving** pipeline applied to every paragraph before it reaches the TTS engine — across all playback modes, including background playback.
+
+<div align="center">
+
+```mermaid
+flowchart LR
+    %% Styles
+    classDef src fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1,font-weight:bold
+    classDef clean fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100,font-weight:bold
+    classDef out fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20,font-weight:bold
+
+    %% Nodes
+    PARA["📄 Every Paragraph<br/>(any playback path)"]:::src
+    NORM["🔤 1. Unicode Normalization<br/>(optional: NFD + strip combining marks)"]:::clean
+    RULES["🧹 2. Find &amp; Replace Rules<br/>(literal or regex, ordered)"]:::clean
+    PHON["🗣️ 3. Phonetic Dictionary<br/>(whole-word or substring)"]:::clean
+    TTS["🔈 Native TTS Engine"]:::out
+
+    %% Flow
+    PARA ==> NORM ==> RULES ==> PHON ==> TTS
+```
+
+</div>
+
+- **Access**: Settings → Reader → Accessibility → **TTS Text Cleanup** (global), or Reader Bottom Sheet → TTS Tab → **Text Cleanup** (quick access, per-novel aware)
+- **Presets (one-tap)**: Curated templates — Novelight spaced watermark, `u2014` corruption, "(Official version)" tags, "Do not rehost" spam, math-bold lookalikes, LN name pronunciations, and CJK substring pairs. Presets are UI data only; applying copies them into your editable rules
+- **Import / Export**: Share or restore your rule set as a versioned JSON envelope (`lnreader-tts-cleanup` v1)
+- **Per-novel overrides**: With per-novel TTS settings enabled, cleanup can be overridden per novel
+- **Safety**: Regex length cap + ReDoS-shape detection + invalid-regex skip; length-preserving (paragraph count never changes, so highlight/scroll stay in sync)
 
 ---
 
@@ -278,6 +315,9 @@ Robust backup system with multiple options and versioned schema.
 
 ### TTS Enhancements
 
+- **TTS Text Cleanup**: Declarative rule pipeline strips anti-scraper watermarks, corrupted text, and fixes LN name pronunciations before TTS reads (Settings → Reader → Accessibility → TTS Text Cleanup; quick access in the Reader TTS tab)
+- **Cleanup Presets**: One-tap curated templates (Novelight watermark, `u2014` corruption, LN/CJK pronunciations, and more) — UI data only, copied into your editable rules
+- **Cleanup Import/Export**: Share or restore cleanup rule sets as versioned JSON from the editor
 - **TTS Engine Picker**: Custom engine selection with native Android integration, quality badges, and persistent selection across sessions
 - **Per-Novel TTS Settings**: Isolated voice/speed/pitch per novel — changes no longer overwrite global defaults
 - **TTS Resume Reliability**: Fixed resume playback failure and wrong engine audio output after interruptions
@@ -325,6 +365,16 @@ View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
    - **Hold 0.5s (Amber Glow) + Swipe Up/Down**: Adjust paragraph highlight offset (resets per chapter).
    - **Hold 2.0s (Teal Glow) + Drag**: Move the TTS button anywhere on the screen.
 
+### Using TTS Text Cleanup
+
+1. **Enable**: Settings → Reader → Accessibility → TTS Text Cleanup → toggle "Clean TTS text" ON (or open Reader → TTS Tab → Text Cleanup)
+2. **One-tap presets**: Tap **Add** on a preset (e.g. "Fix `u2014` text corruption") to copy curated rules into your list — deduplicated, fully editable
+3. **Custom rules**: Add find/replace rules (literal or regex) to strip watermarks or corrupted text
+4. **Phonetic dictionary**: Add name pronunciations (e.g. `Xianxia` → "Shee-an-shah"); enable **substring** mode for unspaced CJK names
+5. **Unicode normalization**: Optionally NFD-normalize + strip combining marks to fix lookalike characters
+6. **Import / Export**: From the editor, share your rule set as JSON (Export) or restore one (Import — replaces the draft, Cancel discards)
+7. **Verify**: Play a chapter in foreground and background — cleaned text is spoken and paragraph highlighting stays in sync
+
 ### Using Continuous Scrolling
 
 1. Navigate to Settings → Reader
@@ -363,6 +413,7 @@ The TTS engine uses a **Hybrid 3-Layer Architecture** to ensure reliable playbac
 -   **Proactive Queue Refill**: Monitors queue size and refills (batch size ~20) before depletion to prevent audio gaps.
 -   **State Reconciliation**: On load, syncs progress from three sources: Database (permanent), MMKV (fast), and Native (current utterance).
 -   **Smart Wake-Up**: Detects app foregrounding and seamlessly syncs the visual reader position with the background audio position.
+-   **Declarative Text Cleanup**: Settings-driven find/replace + phonetic rules applied length-preserving at every audio entry point (initial queue, WebView DOM refills, fallback single-speak) — no arbitrary JS, no hardcoded site regexes.
 
 <div align="center">
 

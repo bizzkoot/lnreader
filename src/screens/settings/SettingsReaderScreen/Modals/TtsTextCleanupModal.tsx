@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, View, ScrollView, Dimensions, Share } from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
 import Modal from '@components/Modal/Modal';
 import List from '@components/List/List';
@@ -19,6 +19,13 @@ import {
   isPotentiallyCatastrophic,
   normalizeRegExpFlags,
 } from '@utils/htmlParagraphExtractor';
+import {
+  TTS_CLEANUP_PRESETS,
+  TtsCleanupPreset,
+  applyPresetToSettings,
+  parseCleanupSettingsImport,
+  serializeCleanupSettings,
+} from './ttsCleanupPresets';
 
 interface TtsTextCleanupModalProps {
   visible: boolean;
@@ -122,6 +129,12 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
   const [ruleForm, setRuleForm] = useState<RuleFormState>(EMPTY_RULE_FORM);
   const [pairForm, setPairForm] = useState<PairFormState>(EMPTY_PAIR_FORM);
   const [ruleFormError, setRuleFormError] = useState<string | null>(null);
+  const [importVisible, setImportVisible] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importFeedback, setImportFeedback] = useState<{
+    kind: 'error' | 'success';
+    message: string;
+  } | null>(null);
 
   // Re-sync draft whenever the modal opens or settings change externally.
   useEffect(() => {
@@ -131,6 +144,9 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
       setRuleForm(EMPTY_RULE_FORM);
       setPairForm(EMPTY_PAIR_FORM);
       setRuleFormError(null);
+      setImportVisible(false);
+      setImportText('');
+      setImportFeedback(null);
     }
   }, [visible, settings]);
 
@@ -195,6 +211,22 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
         formError: {
           fontSize: scaleDimension(12, uiScale),
           marginBottom: scaleDimension(8, uiScale),
+        },
+        feedbackText: {
+          fontSize: scaleDimension(12, uiScale),
+          marginTop: scaleDimension(6, uiScale),
+        },
+        presetRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: scaleDimension(8, uiScale),
+          paddingVertical: scaleDimension(6, uiScale),
+        },
+        shareRow: {
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
+          gap: scaleDimension(4, uiScale),
+          marginTop: scaleDimension(8, uiScale),
         },
         addButtonContainer: {
           marginTop: scaleDimension(8, uiScale),
@@ -351,6 +383,27 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
     setPairForm(EMPTY_PAIR_FORM);
   };
 
+  const handleApplyPreset = (preset: TtsCleanupPreset) => {
+    setDraft(d => applyPresetToSettings(d, preset));
+  };
+
+  const handleExport = () => {
+    Share.share({ message: serializeCleanupSettings(draft) }).catch(() => {
+      // User dismissed the share sheet — nothing to do.
+    });
+  };
+
+  const handleImport = () => {
+    const result = parseCleanupSettingsImport(importText, draft);
+    if (result.ok) {
+      setDraft(result.settings);
+      setImportFeedback({ kind: 'success', message: result.summary });
+      setImportText('');
+    } else {
+      setImportFeedback({ kind: 'error', message: result.error });
+    }
+  };
+
   return (
     <Portal>
       <Modal
@@ -400,6 +453,93 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                 }
               />
             </View>
+
+            {/* Import / Export */}
+            <View style={styles.shareRow}>
+              <Button
+                title="Export JSON"
+                mode="text"
+                compact
+                onPress={handleExport}
+              />
+              <Button
+                title={importVisible ? 'Hide import' : 'Import JSON'}
+                mode="text"
+                compact
+                onPress={() => setImportVisible(v => !v)}
+              />
+            </View>
+            {importVisible && (
+              <View style={styles.form}>
+                <AppText
+                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                >
+                  Paste a TTS Text Cleanup JSON export. Import replaces the
+                  current rules &amp; phonetic pairs (draft only — Cancel
+                  discards).
+                </AppText>
+                <TextInput
+                  {...inputProps}
+                  label="JSON"
+                  multiline
+                  numberOfLines={5}
+                  value={importText}
+                  onChangeText={setImportText}
+                  style={styles.formField}
+                />
+                <View style={styles.formActions}>
+                  <Button
+                    title="Import"
+                    mode="contained"
+                    onPress={handleImport}
+                  />
+                </View>
+                {importFeedback && (
+                  <AppText
+                    style={[
+                      importFeedback.kind === 'error'
+                        ? styles.formError
+                        : styles.feedbackText,
+                      {
+                        color:
+                          importFeedback.kind === 'error'
+                            ? theme.error
+                            : theme.primary,
+                      },
+                    ]}
+                  >
+                    {importFeedback.message}
+                  </AppText>
+                )}
+              </View>
+            )}
+
+            {mode === 'list' && (
+              <View style={styles.section}>
+                <List.SubHeader theme={theme}>Presets (one-tap)</List.SubHeader>
+                {TTS_CLEANUP_PRESETS.map(preset => (
+                  <View key={preset.id} style={styles.presetRow}>
+                    <View style={styles.toggleLabel}>
+                      <AppText style={{ color: theme.onSurface }}>
+                        {preset.title}
+                      </AppText>
+                      <AppText
+                        style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                        numberOfLines={2}
+                      >
+                        {preset.description}
+                      </AppText>
+                    </View>
+                    <Button
+                      title="Add"
+                      mode="outlined"
+                      compact
+                      onPress={() => handleApplyPreset(preset)}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
 
             {mode === 'rule' ? (
               <View style={styles.form}>
