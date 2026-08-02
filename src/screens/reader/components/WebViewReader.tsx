@@ -580,7 +580,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       subscription.remove();
       mmkvListener.remove();
     };
-  }, [webViewRef, showToastMessage]);
+  }, [webViewRef, showToastMessage, syncEffectiveTtsCleanup]);
 
   // ============================================================================
   // HTML Generation
