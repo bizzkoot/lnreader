@@ -62,12 +62,16 @@ This fork builds on the original LNReader with enhanced features focused on acce
     - [TTS Feature Demo](#tts-feature-demo)
       - [Key TTS Features Showcase](#key-tts-features-showcase)
     - [Enhanced TTS Media Notification (Android)](#enhanced-tts-media-notification-android)
+    - [TTS Engine Picker](#tts-engine-picker)
     - [TTS Text Cleanup](#tts-text-cleanup)
   - [Reader Experience](#reader-experience)
   - [Network \& Security](#network--security)
   - [UI \& Accessibility](#ui--accessibility)
   - [Backup \& Sync](#backup--sync)
 - [What's New](#whats-new)
+  - [Network \& Security Enhancements](#network--security-enhancements)
+  - [UI \& Accessibility](#ui--accessibility-1)
+  - [TTS Enhancements](#tts-enhancements)
   - [Stability \& Performance](#stability--performance)
   - [Platform Updates](#platform-updates)
 - [Getting Started](#getting-started)
@@ -126,11 +130,11 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 
 <h3 align="center">🎵 Text-to-Speech in Action</h3>
 
-<p align="center">
+<div align="center">
 
 [TTS-Dragable_Bottom Panel_Direct Update.webm](https://github.com/user-attachments/assets/94fad773-f63d-4a43-ac6d-53f62421e14a)
 
-</p>
+</div>
 
 <p align="center">
   <em>Experience the new draggable TTS bottom panel with direct update functionality</em>
@@ -151,14 +155,16 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 This release introduces a 5-button Android MediaStyle notification for the TTS foreground service. It provides rich metadata (novel name, chapter title, and paragraph-based progress), lock-screen visibility, and a native ⇄ React Native TTS progress sync — all while preserving visibility of the 5 action buttons.
 
 <div align="center">
-  <figure style="display:block; margin:0 auto; text-align:center; width:360px;">
+  <p align="center">
     <img src="./.github/readme-images/Media_Player/Media-Player_Compact.jpg" alt="Media Player Compact" width="360" style="border-radius:6px;" />
-    <figcaption style="font-size:14px; color:#666;">Compact notification layout with controls</figcaption>
-  </figure>
-  <figure style="display:block; margin:16px auto 0; text-align:center; width:360px;">
+    <br />
+    <em>Compact notification layout with controls</em>
+  </p>
+  <p align="center">
     <img src="./.github/readme-images/Media_Player/Media-Player_Expanded.jpg" alt="Media Player Expanded" width="360" style="border-radius:6px;" />
-    <figcaption style="font-size:14px; color:#666;">Expanded notification with title, chapter and paragraph progress</figcaption>
-  </figure>
+    <br />
+    <em>Expanded notification with title, chapter and paragraph progress</em>
+  </p>
 </div>
 
 ---
@@ -170,8 +176,11 @@ Android devices can have multiple TTS engines installed. The default engine is o
 **Why switch engines?** Voice quality varies dramatically between engines. Neural/TTS voices sound significantly more natural than older synthesizers — with better intonation, pacing, and clarity for long listening sessions.
 
 <div align="center">
-  <img src="./.github/readme-images/TTS/TTS-Engine%20Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
-  <figcaption style="font-size:14px; color:#666;">Engine Picker showing detected TTS engines</figcaption>
+  <p align="center">
+    <img src="./.github/readme-images/TTS/TTS-Engine%20Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
+    <br />
+    <em>Engine Picker showing detected TTS engines</em>
+  </p>
 </div>
 
 <div align="center">
@@ -208,7 +217,7 @@ flowchart LR
     %% Nodes
     PARA["📄 Every Paragraph<br/>(any playback path)"]:::src
     NORM["🔤 1. Unicode Normalization<br/>(optional: NFD + strip combining marks)"]:::clean
-    RULES["🧹 2. Find &amp; Replace Rules<br/>(literal or regex, ordered)"]:::clean
+    RULES["🧹 2. Find & Replace Rules<br/>(literal or regex, ordered)"]:::clean
     PHON["🗣️ 3. Phonetic Dictionary<br/>(whole-word or substring)"]:::clean
     TTS["🔈 Native TTS Engine"]:::out
 
@@ -397,7 +406,7 @@ View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
 
 ---
 
-
+## Architecture
 
 ### Advanced TTS System
 > [!NOTE]
