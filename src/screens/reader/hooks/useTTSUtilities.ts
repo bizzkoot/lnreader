@@ -11,10 +11,16 @@ import { useCallback, RefObject } from 'react';
 import WebView from 'react-native-webview';
 import TTSHighlight from '@services/TTSHighlight';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { extractParagraphs } from '@utils/htmlParagraphExtractor';
+import {
+  extractParagraphs,
+  applyTtsTextCleanup,
+} from '@utils/htmlParagraphExtractor';
 import { validateAndClampParagraphIndex } from '../components/ttsHelpers';
 import { ChapterInfo, NovelInfo } from '@database/types';
-import { ChapterReaderSettings } from '@hooks/persisted/useSettings';
+import {
+  ChapterReaderSettings,
+  ChapterGeneralSettings,
+} from '@hooks/persisted/useSettings';
 import { TTSQueueState, TTSPersistenceState } from '../types/tts';
 
 /**
@@ -26,6 +32,7 @@ export interface TTSUtilitiesParams {
   html: string;
   webViewRef: RefObject<WebView | null>;
   readerSettingsRef: RefObject<ChapterReaderSettings>;
+  chapterGeneralSettingsRef: RefObject<ChapterGeneralSettings>;
   refs: {
     currentParagraphIndexRef: RefObject<number>;
     totalParagraphsRef: RefObject<number>;
@@ -62,6 +69,7 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
     html,
     webViewRef,
     readerSettingsRef,
+    chapterGeneralSettingsRef,
     refs: {
       currentParagraphIndexRef,
       totalParagraphsRef,
@@ -140,7 +148,10 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
    */
   const restartTtsFromParagraphIndex = useCallback(
     async (targetIndex: number) => {
-      const paragraphs = extractParagraphs(html, chapter.name);
+      const paragraphs = applyTtsTextCleanup(
+        extractParagraphs(html, chapter.name),
+        chapterGeneralSettingsRef.current?.ttsTextCleanup,
+      );
       if (!paragraphs || paragraphs.length === 0) return;
 
       const clamped = validateAndClampParagraphIndex(
@@ -183,8 +194,10 @@ export function useTTSUtilities(params: TTSUtilitiesParams): TTSUtilities {
     },
     [
       chapter.id,
+      chapter.name,
       html,
       readerSettingsRef,
+      chapterGeneralSettingsRef,
       ttsQueueRef,
       currentParagraphIndexRef,
       latestParagraphIndexRef,

@@ -30,40 +30,41 @@ pnpm run test:tts-wake-cycle
 
 ## Current Task
 
-Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
+TTS Text Cleanup Pipeline (2026-08-02) - ✅ COMPLETED
 
-### Phase 1: Critical Security & Bug Fixes (P0) - ✅ COMPLETED
-
-- **1.1**: Fixed cookie value truncation in WebviewScreen.tsx (handles values with `=`)
-- **1.2**: Fixed Set-Cookie header parsing (handles comma + newline separation, equals in values)
-- **1.3**: Replaced harsh `System.exit(0)` with graceful shutdown in DoHManagerModule.kt
-- **1.4**: Added 5-second timeouts to DoH bootstrap client (connectTimeout, readTimeout, writeTimeout)
-- **1.5**: Changed SharedPreferences from `apply()` to `commit()` (synchronous writes to prevent data loss)
-- **1.6**: Removed obsolete `.pnpm-patches/cookies/` directory (kept patches/ directory)
-
-### Phase 2: Security Hardening (P1) - ✅ COMPLETED
-
-- **2.1**: ~~Added certificate pinning for DoH providers~~ → **REMOVED** (2026-01-11)
-  - Certificate pinning removed per OWASP 2025 guidance
-  - Reason: Third-party DoH providers rotate certs unpredictably, causing app outages
-  - Android's platform trust store + Certificate Transparency provides sufficient security
-  - See: OWASP Pinning Cheat Sheet - "don't pin if you don't control both sides"
-- **2.2**: User confirmation dialog for app restart already implemented
-- **2.3**: Cookie attribute filtering already implemented
-
-### Phase 4: Performance Optimization (P2) - ✅ COMPLETED
-
-- **4.1**: Increased TTS chapter list debounce from 500ms → 2000ms (4x reduction in DB queries)
-- **4.2**: Code already optimized (single refresh pattern, no major duplication)
-- **4.3**: Added React.memo with custom equality to ChapterItem (prevents re-renders on non-progress changes)
-
-### Phase 5: Testing & Documentation (P2) - ✅ COMPLETED
-
-- **5.1**: Cookie parsing tests comprehensive (special chars, URL encoding, multiple cookies, etc.)
-- **5.2**: Updated AGENTS.md with completed task status
-- **Tests**: All 1072 tests passing (zero regressions)
+- **Feature**: Declarative, length-preserving text cleanup applied to every paragraph before it reaches the native TTS engine across ALL playback paths (initial queue, WebView tts-queue refills, fallback single-speak)
+- **Capabilities**: Ordered find/replace + regex strip rules, phonetic pronunciation dictionary (whole-word/substring match), optional Unicode normalization, per-novel overrides
+- **UI**: Global in Settings → Reader → Accessibility Tab; Quick access in Reader Bottom Sheet → TTS Tab ("Text Cleanup" section)
+- **Commits**: 2d35beff0 (pipeline), 1a1ffb00d (regex safety), aeec7abb6 (per-novel overrides), b0b56f333 (substring mode + reorder), b47f527c0 (wiring tests), e4a78d623 (listener deps) — all 2026-08-02, branch `dev` (not yet pushed)
+- **Tests**: 1235 passing (zero regressions)
+- **Docs**: PRD at specs/tts-text-cleanup/PRD.md
 
 ### Previous Completed Tasks
+
+- Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
+  - **Phase 1: Critical Security & Bug Fixes (P0)** - ✅ COMPLETED
+    - **1.1**: Fixed cookie value truncation in WebviewScreen.tsx (handles values with `=`)
+    - **1.2**: Fixed Set-Cookie header parsing (handles comma + newline separation, equals in values)
+    - **1.3**: Replaced harsh `System.exit(0)` with graceful shutdown in DoHManagerModule.kt
+    - **1.4**: Added 5-second timeouts to DoH bootstrap client (connectTimeout, readTimeout, writeTimeout)
+    - **1.5**: Changed SharedPreferences from `apply()` to `commit()` (synchronous writes to prevent data loss)
+    - **1.6**: Removed obsolete `.pnpm-patches/cookies/` directory (kept patches/ directory)
+  - **Phase 2: Security Hardening (P1)** - ✅ COMPLETED
+    - **2.1**: ~~Added certificate pinning for DoH providers~~ → **REMOVED** (2026-01-11)
+      - Certificate pinning removed per OWASP 2025 guidance
+      - Reason: Third-party DoH providers rotate certs unpredictably, causing app outages
+      - Android's platform trust store + Certificate Transparency provides sufficient security
+      - See: OWASP Pinning Cheat Sheet - "don't pin if you don't control both sides"
+    - **2.2**: User confirmation dialog for app restart already implemented
+    - **2.3**: Cookie attribute filtering already implemented
+  - **Phase 4: Performance Optimization (P2)** - ✅ COMPLETED
+    - **4.1**: Increased TTS chapter list debounce from 500ms → 2000ms (4x reduction in DB queries)
+    - **4.2**: Code already optimized (single refresh pattern, no major duplication)
+    - **4.3**: Added React.memo with custom equality to ChapterItem (prevents re-renders on non-progress changes)
+  - **Phase 5: Testing & Documentation (P2)** - ✅ COMPLETED
+    - **5.1**: Cookie parsing tests comprehensive (special chars, URL encoding, multiple cookies, etc.)
+    - **5.2**: Updated AGENTS.md with completed task status
+    - **Tests**: All 1072 tests passing (zero regressions)
 
 - TTS Chapter List Progress Sync - Real-Time Fix (2026-01-03) - ✅ COMPLETED
   - **Bug**: Chapter List showed stale progress during active TTS playback
@@ -112,6 +113,18 @@ Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
 7. `src/plugins/pluginManager.ts` - Dynamic plugin loading
 
 ## Recent Fixes
+
+### TTS Text Cleanup Pipeline (2026-08-02) - ✅ COMPLETED
+
+- **Feature**: Declarative, length-preserving text cleanup applied to every paragraph before it reaches the native TTS engine across ALL playback paths (initial queue, WebView tts-queue refills, fallback single-speak)
+- **Capabilities**: Ordered find/replace + regex strip rules (literal or regex), phonetic pronunciation dictionary (whole-word/substring match), optional Unicode normalization (NFD + strip combining marks), per-novel overrides
+- **Design Constraints**: No eval/Function in the RN layer; length-preserving (RN ↔ WebView paragraph index contract stays intact); no hardcoded site-specific regexes
+- **Regex Safety**: 200-char length cap, catastrophic-backtracking shape detection, compile-time try/catch, literal replacement semantics (`$&` stays literal), sticky `y` flag dropped
+- **Effective Settings**: `resolveEffectiveTtsCleanup()` → per-novel override when per-novel TTS enabled AND cleanup saved, else global; synced into `chapterGeneralSettingsRef` via `syncEffectiveTtsCleanup` (prop effect + MMKV listener + per-novel effect)
+- **Files**: htmlParagraphExtractor.ts (pipeline, +350 lines), TtsTextCleanupModal.tsx (new, 685 lines), useSettings.ts, novelTtsSettings.ts, useTTSController.ts, useTTSUtilities.ts, WebViewReader.tsx, AccessibilityTab.tsx, ReaderTTSTab.tsx
+- **Commits**: 2d35beff0 (pipeline), 1a1ffb00d (regex safety), aeec7abb6 (per-novel overrides), b0b56f333 (substring mode + reorder), b47f527c0 (wiring tests), e4a78d623 (listener deps)
+- **Tests**: 1235 passing (zero regressions)
+- **Docs**: PRD at specs/tts-text-cleanup/PRD.md
 
 ### TTS highlight offset page reload and button state desync fix (2026-05-26) - ✅ COMPLETED
 
@@ -300,7 +313,9 @@ React Native Layer
 ├── TTSAudioManager.ts                 Native module wrapper
 ├── TTSState.ts                        State machine definition
 ├── ttsBridge.ts                       RN↔WebView bridge
-└── ttsNotification.ts                 Media notification utils
+├── ttsNotification.ts                 Media notification utils
+├── htmlParagraphExtractor.ts          Paragraph extraction + text cleanup pipeline
+└── novelTtsSettings.ts                Per-novel TTS settings + cleanup overrides
 
 WebView Layer
 └── core.js                            DOM parsing, highlighting, scroll
@@ -316,7 +331,8 @@ UI Components
 ├── TTSManualModeDialog.tsx            Manual mode activation
 ├── TTSScrollSyncDialog.tsx            Position mismatch
 ├── TTSChapterSelectionDialog.tsx      Chapter picker
-└── TTSExitDialog.tsx                  Exit confirmation
+├── TTSExitDialog.tsx                  Exit confirmation
+└── TtsTextCleanupModal.tsx            Text cleanup rules & phonetic editor
 ```
 
 ## Path Aliases

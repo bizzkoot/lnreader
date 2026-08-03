@@ -2,6 +2,7 @@ import {
   getNovelTtsSettings,
   setNovelTtsSettings,
   deleteNovelTtsSettings,
+  resolveEffectiveTtsCleanup,
 } from '../tts/novelTtsSettings';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { VoiceQuality } from 'expo-speech';
@@ -208,6 +209,89 @@ describe('Per-Novel TTS Settings', () => {
 
       expect(result?.tts?.rate).toBe(1.8);
       expect(result?.tts?.pitch).toBe(0.7);
+    });
+  });
+
+  describe('resolveEffectiveTtsCleanup', () => {
+    const globalCleanup = {
+      enabled: true,
+      normalizeUnicode: false,
+      rules: [
+        {
+          id: 'r1',
+          enabled: true,
+          pattern: 'u2014',
+          isRegex: false,
+          flags: 'g',
+          replacement: ' ',
+        },
+      ],
+      phoneticPairs: [],
+    };
+    const novelCleanup = {
+      enabled: true,
+      normalizeUnicode: true,
+      rules: [],
+      phoneticPairs: [
+        { id: 'p1', enabled: true, word: 'Qing', pronunciation: 'Ching' },
+      ],
+    };
+
+    it('returns global cleanup when novelId is undefined', () => {
+      expect(resolveEffectiveTtsCleanup(globalCleanup, undefined)).toBe(
+        globalCleanup,
+      );
+    });
+
+    it('returns global cleanup when no per-novel settings exist', () => {
+      (MMKVStorage.getString as jest.Mock).mockReturnValue(undefined);
+      expect(resolveEffectiveTtsCleanup(globalCleanup, 123)).toBe(
+        globalCleanup,
+      );
+    });
+
+    it('returns global cleanup when per-novel mode is disabled', () => {
+      (MMKVStorage.getString as jest.Mock).mockReturnValue(
+        JSON.stringify({
+          enabled: false,
+          tts: {},
+          ttsTextCleanup: novelCleanup,
+        }),
+      );
+      expect(resolveEffectiveTtsCleanup(globalCleanup, 123)).toBe(
+        globalCleanup,
+      );
+    });
+
+    it('returns per-novel cleanup when enabled and saved', () => {
+      (MMKVStorage.getString as jest.Mock).mockReturnValue(
+        JSON.stringify({
+          enabled: true,
+          tts: {},
+          ttsTextCleanup: novelCleanup,
+        }),
+      );
+      expect(resolveEffectiveTtsCleanup(globalCleanup, 123)).toEqual(
+        novelCleanup,
+      );
+    });
+
+    it('returns global cleanup when enabled but no cleanup override saved', () => {
+      (MMKVStorage.getString as jest.Mock).mockReturnValue(
+        JSON.stringify({ enabled: true, tts: {} }),
+      );
+      expect(resolveEffectiveTtsCleanup(globalCleanup, 123)).toBe(
+        globalCleanup,
+      );
+    });
+
+    it('degrades to global cleanup when MMKV read throws', () => {
+      (MMKVStorage.getString as jest.Mock).mockImplementation(() => {
+        throw new Error('mmkv read failure');
+      });
+      expect(resolveEffectiveTtsCleanup(globalCleanup, 123)).toBe(
+        globalCleanup,
+      );
     });
   });
 });

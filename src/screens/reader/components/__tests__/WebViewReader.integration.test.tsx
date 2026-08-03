@@ -113,6 +113,8 @@ jest.mock('@hooks', () => ({
 
 jest.mock('@utils/htmlParagraphExtractor', () => ({
   extractParagraphs: jest.fn(() => ['P1', 'P2', 'P3', 'P4', 'P5']),
+  applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
+  cleanTtsText: jest.fn((text: string) => text),
 }));
 
 jest.mock('../ttsHelpers', () => ({
@@ -149,10 +151,27 @@ jest.mock('@utils/ScreenStateListener', () => ({
   addListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
-jest.mock('@services/tts/novelTtsSettings', () => ({
-  getNovelTtsSettings: jest.fn(() => null),
-  useNovelTtsSettings: jest.fn(() => [null]),
-}));
+jest.mock('@services/tts/novelTtsSettings', () => {
+  const getNovelTtsSettings = jest.fn((novelId?: number) => null) as jest.Mock;
+  return {
+    getNovelTtsSettings,
+    useNovelTtsSettings: jest.fn(() => [null]),
+    setNovelTtsSettings: jest.fn(),
+    deleteNovelTtsSettings: jest.fn(),
+    resolveEffectiveTtsCleanup: jest.fn(
+      (globalCleanup: unknown, novelId?: number) => {
+        // Mirrors the real resolver against the mocked getNovelTtsSettings
+        // so WebViewReader's ref sync stays testable end-to-end.
+        const stored =
+          novelId !== undefined ? getNovelTtsSettings(novelId) : null;
+        if (stored?.enabled && stored.ttsTextCleanup) {
+          return stored.ttsTextCleanup;
+        }
+        return globalCleanup;
+      },
+    ),
+  };
+});
 
 const mockChapter = { id: 10, name: 'Chapter 10', progress: 0 };
 jest.mock('../../ChapterContext', () => ({

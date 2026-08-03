@@ -53,6 +53,10 @@ import {
 } from '@database/queries/ChapterQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import {
+  applyTtsTextCleanup,
+  cleanTtsText,
+} from '@utils/htmlParagraphExtractor';
+import {
   ChapterGeneralSettings,
   ChapterReaderSettings,
 } from '@hooks/persisted/useSettings';
@@ -87,6 +91,8 @@ jest.mock('@utils/htmlParagraphExtractor', () => ({
     'Fourth paragraph',
     'Fifth paragraph',
   ]),
+  applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
+  cleanTtsText: jest.fn((text: string) => text),
 }));
 jest.mock('../../components/ttsHelpers', () => ({
   validateAndClampParagraphIndex: jest.fn(index => Math.max(0, index)),
@@ -2053,10 +2059,17 @@ describe('useTTSController - Integration Tests', () => {
 
   describe('WebView Message Routing', () => {
     it('should handle tts-queue message and initialize TTS', async () => {
+      const cleanupSettings = {
+        enabled: true,
+        normalizeUnicode: false,
+        rules: [],
+        phoneticPairs: [],
+      };
       const params = createDefaultParams({
         chapterGeneralSettingsRef: {
           current: {
             ttsBackgroundPlayback: true, // Enable background playback to trigger addToBatch
+            ttsTextCleanup: cleanupSettings,
           } as ChapterGeneralSettings,
         },
       });
@@ -2064,10 +2077,11 @@ describe('useTTSController - Integration Tests', () => {
 
       jest.advanceTimersByTime(300); // Wait for isWebViewSyncedRef
 
+      const queueTexts = ['First paragraph', 'Second paragraph'];
       await act(async () => {
         const queueMessage: any = {
           type: 'tts-queue',
-          data: ['First paragraph', 'Second paragraph'],
+          data: queueTexts,
           chapterId: 100,
           startIndex: 0,
         };
@@ -2076,6 +2090,46 @@ describe('useTTSController - Integration Tests', () => {
 
       // Should call addToBatch (not speakBatch) when background playback is enabled
       expect(TTSHighlight.addToBatch).toHaveBeenCalled();
+      // Cleanup must be applied to the DOM-fed refill paragraphs BEFORE
+      // they reach the native TTS engine, with the effective settings.
+      expect(applyTtsTextCleanup).toHaveBeenCalledWith(
+        queueTexts,
+        cleanupSettings,
+      );
+    });
+
+    it('should apply text cleanup to speak message text', async () => {
+      const cleanupSettings = {
+        enabled: true,
+        normalizeUnicode: false,
+        rules: [],
+        phoneticPairs: [],
+      };
+      const params = createDefaultParams({
+        chapterGeneralSettingsRef: {
+          current: {
+            ttsBackgroundPlayback: true,
+            ttsTextCleanup: cleanupSettings,
+          } as ChapterGeneralSettings,
+        },
+      });
+      const { result } = renderHook(() => useTTSController(params));
+
+      await act(async () => {
+        const speakMessage: any = {
+          type: 'speak',
+          data: 'First paragraph text',
+          paragraphIndex: 0,
+        };
+        result.current.handleTTSMessage(speakMessage as any);
+      });
+
+      // The fallback single-speak path must clean the DOM text before
+      // TTSHighlight.speak is reached.
+      expect(cleanTtsText).toHaveBeenCalledWith(
+        'First paragraph text',
+        cleanupSettings,
+      );
     });
 
     it('should handle change-paragraph-position message', async () => {

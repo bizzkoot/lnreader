@@ -14,7 +14,10 @@ import { renderHook, act } from '@testing-library/react-hooks';
 import { useTTSUtilities } from '../useTTSUtilities';
 import TTSHighlight from '@services/TTSHighlight';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
-import { extractParagraphs } from '@utils/htmlParagraphExtractor';
+import {
+  extractParagraphs,
+  applyTtsTextCleanup,
+} from '@utils/htmlParagraphExtractor';
 import { validateAndClampParagraphIndex } from '../../components/ttsHelpers';
 
 // Mock dependencies
@@ -37,6 +40,8 @@ jest.mock('@utils/mmkv/mmkv', () => ({
 
 jest.mock('@utils/htmlParagraphExtractor', () => ({
   extractParagraphs: jest.fn(),
+  applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
+  cleanTtsText: jest.fn((text: string) => text),
 }));
 
 jest.mock('../../components/ttsHelpers', () => ({
@@ -47,6 +52,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
   // Mock refs
   let mockWebViewRef: any;
   let mockReaderSettingsRef: any;
+  let mockChapterGeneralSettingsRef: any;
   let mockRefs: any;
 
   // Mock data
@@ -73,6 +79,11 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           pitch: 1.0,
         },
       },
+    };
+
+    // Setup chapter general settings ref
+    mockChapterGeneralSettingsRef = {
+      current: {},
     };
 
     // Setup all refs
@@ -108,6 +119,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -126,6 +138,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -153,6 +166,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -192,6 +206,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -217,6 +232,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -251,6 +267,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -277,6 +294,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -302,6 +320,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -327,6 +346,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -354,6 +374,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -379,6 +400,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -398,6 +420,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -417,6 +440,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -445,6 +469,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -456,6 +481,10 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
       expect(extractParagraphs).toHaveBeenCalledWith(
         mockHtml,
         mockChapter.name,
+      );
+      expect(applyTtsTextCleanup).toHaveBeenCalledWith(
+        expect.any(Array),
+        mockChapterGeneralSettingsRef.current?.ttsTextCleanup,
       );
     });
 
@@ -469,6 +498,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -491,6 +521,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -518,6 +549,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -542,6 +574,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -566,6 +599,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -592,6 +626,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -625,6 +660,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -648,6 +684,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -676,6 +713,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
@@ -707,6 +745,7 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
           html: mockHtml,
           webViewRef: mockWebViewRef,
           readerSettingsRef: mockReaderSettingsRef,
+          chapterGeneralSettingsRef: mockChapterGeneralSettingsRef,
           refs: mockRefs,
         }),
       );
