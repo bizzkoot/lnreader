@@ -69,6 +69,7 @@ const NovelScreenList = ({
   const {
     deleteChapter,
     fetching,
+    firstUnreadChapter,
     getNovel,
     lastRead,
     loading,
@@ -245,6 +246,8 @@ const NovelScreenList = ({
     });
   };
 
+  const continueReadingChapter = lastRead ?? firstUnreadChapter;
+
   const scrollToTop = () => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
@@ -392,6 +395,7 @@ const NovelScreenList = ({
             deleteDownloadsSnackbar={deleteDownloadsSnackbar}
             fetching={fetching}
             filter={filter}
+            firstUnreadChapter={firstUnreadChapter}
             isLoading={loading}
             lastRead={lastRead}
             navigateToChapter={navigateToChapter}
@@ -446,7 +450,7 @@ const NovelScreenList = ({
               visible={showScrollToTop}
             />
           )}
-          {useFabForContinueReading && (lastRead || chapters[0]) ? (
+          {useFabForContinueReading && continueReadingChapter ? (
             <AnimatedFAB
               style={[
                 styles.fab,
@@ -468,7 +472,7 @@ const NovelScreenList = ({
                   screen: 'Chapter',
                   params: {
                     novel: novel,
-                    chapter: lastRead ?? chapters[0],
+                    chapter: continueReadingChapter,
                   },
                 });
               }}

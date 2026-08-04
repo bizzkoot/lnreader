@@ -21,6 +21,7 @@ import {
   insertChapters,
   getCustomPages,
   getChapterCount,
+  getFirstUnreadChapter as _getFirstUnreadChapter,
   getPageChaptersBatched,
   updateChapterProgress as _updateChapterProgress,
 } from '@database/queries/ChapterQueries';
@@ -93,6 +94,9 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
     );
 
   const [chapters, _setChapters] = useState<ChapterInfo[]>([]);
+  const [firstUnreadChapter, setFirstUnreadChapter] = useState<
+    ChapterInfo | undefined
+  >();
   const [batchInformation, setBatchInformation] = useState<{
     batch: number;
     total: number;
@@ -297,6 +301,13 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
         totalChapters: chapterCount,
       });
       setChapters(newChapters);
+
+      const unread = await _getFirstUnreadChapter(
+        novel.id,
+        novelSettings.filter,
+        page,
+      );
+      setFirstUnreadChapter(unread ?? undefined);
     }
   }, [
     novel,
@@ -574,6 +585,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
       novel,
       lastRead,
       chapters,
+      firstUnreadChapter,
       novelSettings,
       batchInformation,
       getNextChapterBatch,
@@ -605,6 +617,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
       novel,
       lastRead,
       chapters,
+      firstUnreadChapter,
       novelSettings,
       batchInformation,
       getNextChapterBatch,

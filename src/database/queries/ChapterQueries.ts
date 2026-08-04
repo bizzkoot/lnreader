@@ -413,6 +413,17 @@ export const getChapterCount = (novelId: number, page: string = '1') =>
     page,
   )?.['COUNT(*)'] ?? 0;
 
+export const getFirstUnreadChapter = (
+  novelId: number,
+  filter?: string,
+  page?: string,
+) =>
+  db.getFirstAsync<ChapterInfo>(
+    `SELECT * FROM Chapter WHERE novelId = ? AND page = ? AND unread = 1 ${filter || ''} ORDER BY position ASC LIMIT 1`,
+    novelId,
+    page || '1',
+  );
+
 export const getPageChaptersBatched = (
   novelId: number,
   sort?: string,
