@@ -483,7 +483,7 @@ export const getNovelDownloadedChapters = (
 ) => {
   if (startPosition !== undefined && endPosition !== undefined) {
     return db.getAllAsync<ChapterInfo>(
-      'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 AND position >= ? AND position <= ? ORDER BY position ASC',
+      'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 AND position >= ? AND position <= ? ORDER BY CAST(page AS INTEGER) ASC, position ASC',
       novelId,
       startPosition - 1,
       endPosition - 1,
@@ -491,7 +491,7 @@ export const getNovelDownloadedChapters = (
   }
 
   return db.getAllAsync<ChapterInfo>(
-    'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY position ASC',
+    'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY CAST(page AS INTEGER) ASC, position ASC',
     novelId,
   );
 };
