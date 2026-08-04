@@ -34,6 +34,7 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
     epubUseAppTheme = false,
     epubUseCustomCSS = false,
     epubUseCustomJS = false,
+    epubIncludeChapterNumber = false,
     setChapterReaderSettings,
   } = useChapterReaderSettings();
 
@@ -71,6 +72,7 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
   const useAppTheme = useBoolean(epubUseAppTheme);
   const useCustomCSS = useBoolean(epubUseCustomCSS);
   const useCustomJS = useBoolean(epubUseCustomJS);
+  const includeChapterNumber = useBoolean(epubIncludeChapterNumber);
   const exportAll = useBoolean(true);
   const [startChapter, setStartChapter] = useState('');
   const [endChapter, setEndChapter] = useState('');
@@ -109,6 +111,7 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
       epubUseAppTheme: useAppTheme.value,
       epubUseCustomCSS: useCustomCSS.value,
       epubUseCustomJS: useCustomJS.value,
+      epubIncludeChapterNumber: includeChapterNumber.value,
     });
 
     const start = exportAll.value ? undefined : parseInt(startChapter, 10);
@@ -158,6 +161,12 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
           label={getString('novelScreen.exportEpubModal.exportAll')}
           value={exportAll.value}
           onPress={exportAll.toggle}
+          theme={theme}
+        />
+        <SwitchItem
+          label={getString('novelScreen.exportEpubModal.includeChapterNumber')}
+          value={includeChapterNumber.value}
+          onPress={includeChapterNumber.toggle}
           theme={theme}
         />
         {!exportAll.value && (

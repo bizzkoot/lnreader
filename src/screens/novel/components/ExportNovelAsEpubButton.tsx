@@ -43,6 +43,7 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
     epubUseAppTheme = false,
     epubUseCustomCSS = false,
     epubUseCustomJS = false,
+    epubIncludeChapterNumber = false,
   } = readerSettings;
 
   const epubStylesheet = useMemo(() => {
@@ -158,10 +159,17 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
 
         if (NativeFile.exists(chapterFilePath)) {
           const chapterContent = NativeFile.readFile(chapterFilePath);
+          const chapterNumber = chapter.chapterNumber ?? i + 1;
+          const numberedTitle = getString('novelScreen.chapterChapnum', {
+            num: chapterNumber,
+          });
+          const sourceTitle = chapter.name?.trim();
 
           await epub.addChapter({
             title:
-              chapter.name?.trim() || `Chapter ${chapter.chapterNumber || i}`,
+              epubIncludeChapterNumber && sourceTitle
+                ? `${numberedTitle} — ${sourceTitle}`
+                : sourceTitle || numberedTitle,
             fileName: `Chapter${i}`,
             htmlBody: `<chapter data-novel-id='${novel.pluginId}' data-chapter-id='${chapter.id}'>${chapterContent}</chapter>`,
           });
