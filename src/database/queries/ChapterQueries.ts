@@ -165,25 +165,33 @@ export const deleteChapters = async (
 };
 
 export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
+  if (!chapters?.length) {
+    return;
+  }
   await Promise.all(
     chapters?.map(chapter => {
       deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
     }),
   );
-  await db.execAsync('UPDATE Chapter SET isDownloaded = 0');
+  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
+  await db.execAsync(
+    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
+  );
 };
 
 export const deleteReadChaptersFromDb = async () => {
   const chapters = await getReadDownloadedChapters();
   await Promise.all(
     chapters?.map(chapter => {
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.novelId);
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
     }),
   );
   const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
-  db.execAsync(
-    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-  );
+  if (chapterIdsString) {
+    await db.execAsync(
+      `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
+    );
+  }
   showToast(getString('novelScreen.readChaptersDeleted'));
 };
 
