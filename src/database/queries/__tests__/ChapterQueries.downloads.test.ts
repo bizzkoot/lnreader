@@ -1,6 +1,7 @@
 import { db } from '@database/db';
 import * as ChapterQueries from '../ChapterQueries';
 import NativeFile from '@specs/NativeFile';
+import type { DownloadedChapter } from '../../types';
 
 jest.mock('@database/db', () => ({
   db: {
@@ -48,7 +49,7 @@ describe('ChapterQueries download deletion', () => {
       const chapters = [
         { id: 1, novelId: 10, pluginId: 'plugin-a' },
         { id: 2, novelId: 10, pluginId: 'plugin-a' },
-      ];
+      ] as DownloadedChapter[];
 
       await ChapterQueries.deleteDownloads(chapters);
 
@@ -80,7 +81,7 @@ describe('ChapterQueries download deletion', () => {
       const readDownloadedChapters = [
         { id: 5, novelId: 10, pluginId: 'plugin-a' },
         { id: 6, novelId: 11, pluginId: 'plugin-b' },
-      ];
+      ] as DownloadedChapter[];
       (db.getAllAsync as jest.Mock).mockResolvedValueOnce(
         readDownloadedChapters,
       );
