@@ -12,10 +12,8 @@ import { Checkbox, SortItem } from '@components/Checkbox/Checkbox';
 
 import { TopTabBar } from '@components';
 
-import { overlay } from 'react-native-paper';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { ThemeColors } from '@theme/types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 
@@ -38,7 +36,6 @@ const ChaptersSettingsSheet = ({
   showChapterTitles,
   setShowChapterTitles,
 }: ChaptersSettingsSheetProps) => {
-  const { left, right } = useSafeAreaInsets();
   const { uiScale = 1.0 } = useAppSettings();
   const sortChapters = useCallback(
     (val: string) => sortAndFilterChapters(val, filter),
@@ -204,7 +201,7 @@ const ChaptersSettingsSheet = ({
       indicatorStyle={{ backgroundColor: theme.primary }}
       style={[
         {
-          backgroundColor: overlay(2, theme.surface),
+          backgroundColor: theme.surfaceContainerLow ?? theme.surface,
           borderBottomColor: theme.outline,
         },
         styles(uiScale).tabBar,
@@ -225,18 +222,8 @@ const ChaptersSettingsSheet = ({
     <BottomSheet
       snapPoints={[scaleDimension(240, uiScale)]}
       bottomSheetRef={bottomSheetRef}
-      backgroundStyle={styles(uiScale).transparent}
     >
-      <BottomSheetView
-        style={[
-          styles(uiScale).contentContainer,
-          {
-            backgroundColor: overlay(2, theme.surface),
-            marginLeft: left,
-            marginRight: right,
-          },
-        ]}
-      >
+      <BottomSheetView style={styles(uiScale).contentContainer}>
         <TabView
           commonOptions={{
             label: renderLabel,
@@ -258,17 +245,10 @@ export default ChaptersSettingsSheet;
 const styles = (uiScale: number) =>
   StyleSheet.create({
     contentContainer: {
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
       flex: 1,
     },
     tabView: {
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
       height: scaleDimension(240, uiScale),
-    },
-    transparent: {
-      backgroundColor: 'transparent',
     },
     flex: {
       flex: 1,

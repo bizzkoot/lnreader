@@ -27,7 +27,6 @@ import {
   librarySortOrderList,
 } from '@screens/library/constants/constants';
 import { RadioButton } from '@components/RadioButton/RadioButton';
-import { overlay } from 'react-native-paper';
 import { TopTabBar } from '@components';
 import { BottomSheetView, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
@@ -217,7 +216,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
       indicatorStyle={{ backgroundColor: theme.primary }}
       style={[
         {
-          backgroundColor: overlay(2, theme.surface),
+          backgroundColor: theme.surfaceContainerLow ?? theme.surface,
           borderBottomColor: color(theme.isDark ? '#FFFFFF' : '#000000')
             .alpha(0.12)
             .string(),
@@ -278,12 +277,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
       bottomSheetRef={bottomSheetRef}
       snapPoints={[scaleDimension(520, uiScale)]}
     >
-      <BottomSheetView
-        style={[
-          styles(uiScale).bottomSheetCtn,
-          { backgroundColor: overlay(2, theme.surface) },
-        ]}
-      >
+      <BottomSheetView style={styles(uiScale).bottomSheetCtn}>
         <TabView
           commonOptions={commonOptions}
           navigationState={{ index, routes }}
@@ -303,8 +297,6 @@ export default LibraryBottomSheet;
 const styles = (uiScale: number) =>
   StyleSheet.create({
     bottomSheetCtn: {
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
       flex: 1,
     },
     sectionHeader: {
@@ -316,8 +308,6 @@ const styles = (uiScale: number) =>
       elevation: 0,
     },
     tabView: {
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
       height: scaleDimension(520, uiScale),
     },
     flex: { flex: 1 },

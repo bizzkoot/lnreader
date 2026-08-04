@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { useNavigation } from '@react-navigation/native';
 import WebView from 'react-native-webview';
 import { FAB } from 'react-native-paper';
@@ -96,7 +96,7 @@ const SettingsReaderScreen = () => {
   const webViewRef = useRef<WebView>(null);
   const webViewNonceRef = useRef<string>(createWebViewNonce());
   const allowMessageRef = useRef(createMessageRateLimiter());
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const bottomSheetRef = useRef<BottomSheetModalMethods>(null);
   const { bottom, right } = useSafeAreaInsets();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [tabIndex, setTabIndex] = useState(0);
@@ -413,24 +413,8 @@ const SettingsReaderScreen = () => {
       <BottomSheet
         bottomSheetRef={bottomSheetRef}
         snapPoints={[BOTTOM_SHEET_HEIGHT]}
-        enablePanDownToClose={true}
       >
-        <View
-          style={[
-            styles.bottomSheetContent,
-            { backgroundColor: theme.surface },
-          ]}
-        >
-          {/* Drag Handle */}
-          <View style={styles.dragHandleContainer}>
-            <View
-              style={[
-                styles.dragHandle,
-                { backgroundColor: theme.onSurfaceVariant },
-              ]}
-            />
-          </View>
-
+        <View style={styles.bottomSheetContent}>
           {/* Tab Bar */}
           <TabView
             commonOptions={tabOptions}
@@ -467,16 +451,6 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     flex: 1,
-  },
-  dragHandleContainer: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  dragHandle: {
-    width: 32,
-    height: 4,
-    borderRadius: 2,
-    opacity: 0.4,
   },
   tabBar: {
     borderBottomWidth: 1,
