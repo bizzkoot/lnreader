@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -18,7 +18,10 @@ import {
   LegendListRef,
   LegendListRenderItemProps,
 } from '@legendapp/list';
-import { getNovelChapters } from '@database/queries/ChapterQueries';
+import {
+  getNovelChaptersByNumber,
+  getNovelChaptersByName,
+} from '@database/queries/ChapterQueries';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import AppText from '@components/AppText';
 
@@ -27,21 +30,28 @@ interface JumpToChapterModalProps {
   modalVisible: boolean;
   navigation: NovelScreenProps['navigation'];
   novel: NovelInfo;
+  chapters: ChapterInfo[];
   chapterListRef: React.RefObject<LegendListRef | null>;
+  loadUpToBatch: (batch: number) => Promise<void>;
+  totalChapters?: number;
 }
 
 const JumpToChapterModal = ({
   hideModal,
   modalVisible,
+  chapters: loadedChapters,
   navigation,
   novel,
   chapterListRef,
+  loadUpToBatch,
+  totalChapters,
 }: JumpToChapterModalProps) => {
+  const minNumber = 1;
+  const maxNumber = totalChapters ?? -1;
   const theme = useTheme();
   const { iconSize } = useScaledDimensions();
   const [mode, setMode] = useState(false);
   const [openChapter, setOpenChapter] = useState(false);
-  const [allChapters, setAllChapters] = useState<ChapterInfo[]>([]);
 
   const [text, setText] = useState('');
   const [error, setError] = useState('');
@@ -92,30 +102,6 @@ const JumpToChapterModal = ({
     [uiScale],
   );
 
-  useEffect(() => {
-    if (modalVisible && novel?.id) {
-      getNovelChapters(novel.id).then(chapters => {
-        setAllChapters(chapters);
-      });
-    }
-  }, [modalVisible, novel?.id]);
-
-  const minNumber = useMemo(() => {
-    if (allChapters.length === 0) {
-      return 1;
-    }
-
-    return Math.min(...allChapters.map(c => c.chapterNumber || -1));
-  }, [allChapters]);
-
-  const maxNumber = useMemo(() => {
-    if (allChapters.length === 0) {
-      return 1;
-    }
-
-    return Math.max(...allChapters.map(c => c.chapterNumber || -1));
-  }, [allChapters]);
-
   const onDismiss = () => {
     hideModal();
     setText('');
@@ -133,22 +119,29 @@ const JumpToChapterModal = ({
     });
   };
 
-  const scrollToChapter = (chap: ChapterInfo) => {
+  const scrollToChapter = async (chap: ChapterInfo) => {
     onDismiss();
-    const index = allChapters.findIndex(c => c.id === chap.id);
+    const loadedIndex = loadedChapters.findIndex(c => c.id === chap.id);
 
-    if (index !== -1) {
+    if (loadedIndex >= 0) {
       chapterListRef.current?.scrollToIndex({
         animated: true,
-        index: index,
+        index: loadedIndex,
         viewPosition: 0.5,
       });
-    } else {
-      chapterListRef.current?.scrollToItem({
-        animated: true,
-        item: chap,
-        viewPosition: 0.5,
-      });
+      return;
+    }
+
+    if ((chap.position ?? -1) >= 0) {
+      const targetBatch = Math.floor(chap.position! / 300);
+      await loadUpToBatch(targetBatch);
+      setTimeout(() => {
+        chapterListRef.current?.scrollToIndex({
+          animated: true,
+          index: chap.position!,
+          viewPosition: 0.5,
+        });
+      }, 0);
     }
   };
 
@@ -188,20 +181,17 @@ const JumpToChapterModal = ({
     );
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!mode) {
       const num = Number(text);
       if (num && num >= minNumber && num <= maxNumber) {
-        if (openChapter) {
-          const chapter = allChapters.find(c => c.chapterNumber === num);
-          if (chapter) {
+        const chapters = await getNovelChaptersByNumber(novel.id, num);
+        if (chapters.length > 0) {
+          const chapter = chapters[0];
+          if (openChapter) {
             return navigateToChapter(chapter);
           }
-        } else {
-          const chapter = allChapters.find(c => c.chapterNumber === num);
-          if (chapter) {
-            return scrollToChapter(chapter);
-          }
+          return scrollToChapter(chapter);
         }
       }
       return setError(
@@ -209,25 +199,26 @@ const JumpToChapterModal = ({
           ` (${num < minNumber ? '≥ ' + minNumber : '≤ ' + maxNumber})`,
       );
     } else {
-      const searchedChapters = allChapters.filter(chap =>
-        chap.name.toLowerCase().includes(text?.toLowerCase()),
+      const chapters = await getNovelChaptersByName(
+        novel.id,
+        text.toLowerCase(),
       );
 
-      if (!searchedChapters.length) {
+      if (!chapters.length) {
         setError(
           getString('novelScreen.jumpToChapterModal.error.validChapterName'),
         );
         return;
       }
 
-      if (searchedChapters.length === 1) {
+      if (chapters.length === 1) {
         if (openChapter) {
-          return navigateToChapter(searchedChapters[0]);
+          return navigateToChapter(chapters[0]);
         }
-        return scrollToChapter(searchedChapters[0]);
+        return scrollToChapter(chapters[0]);
       }
 
-      return setResult(searchedChapters);
+      return setResult(chapters);
     }
   };
 
