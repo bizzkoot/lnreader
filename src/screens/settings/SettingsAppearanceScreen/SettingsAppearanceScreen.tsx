@@ -7,7 +7,6 @@ import {
   Appearance,
 } from 'react-native';
 import AppText from '@components/AppText';
-import Slider from '@react-native-community/slider';
 
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
@@ -21,7 +20,13 @@ import {
   useMMKVNumber,
   useMMKVString,
 } from 'react-native-mmkv';
-import { Appbar, List, SafeAreaView, SegmentedControl } from '@components';
+import {
+  Appbar,
+  List,
+  SafeAreaView,
+  SegmentedControl,
+  Slider,
+} from '@components';
 import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
@@ -227,7 +232,6 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
         },
         slider: {
           flex: 1,
-          height: 48,
         },
         sliderButton: {
           width: 40,
@@ -357,14 +361,16 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               <Slider
                 style={styles.slider}
                 value={localUiScale}
-                minimumValue={0.8}
-                maximumValue={1.3}
+                min={0.8}
+                max={1.3}
                 step={0.05}
-                minimumTrackTintColor={theme.primary}
-                maximumTrackTintColor={theme.surfaceVariant}
-                thumbTintColor={theme.primary}
-                onSlidingStart={() => setIsDraggingScale(true)}
-                onValueChange={setLocalUiScale}
+                showValueIndicator
+                formatValue={value => `${Math.round(value * 100)}%`}
+                accessibilityLabel="UI Scale"
+                onValueChange={value => {
+                  setIsDraggingScale(true);
+                  setLocalUiScale(value);
+                }}
                 onSlidingComplete={value => {
                   setIsDraggingScale(false);
                   setAppSettings({ uiScale: value });

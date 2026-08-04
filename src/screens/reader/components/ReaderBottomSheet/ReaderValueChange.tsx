@@ -3,12 +3,11 @@ import React, { useMemo } from 'react';
 import AppText from '@components/AppText';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
-import { IconButtonV2 } from '@components';
+import { Slider } from '@components';
 import {
   ChapterReaderSettings,
   useAppSettings,
 } from '@hooks/persisted/useSettings';
-import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
 
 type ValueKey<T extends object> = Exclude<
@@ -37,31 +36,27 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
   decimals = 1,
   min = 1.3,
   max = 2,
-  unit = '%',
+  unit = '×',
 }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
-  const { iconSize } = useScaledDimensions();
   const { setChapterReaderSettings, ...settings } = useChapterReaderSettings();
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        buttonContainer: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
-        container: {
+        labelRow: {
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'space-between',
+        },
+        container: {
           marginVertical: scaleDimension(6, uiScale),
           paddingHorizontal: scaleDimension(16, uiScale),
         },
         value: {
-          paddingHorizontal: scaleDimension(4, uiScale),
+          fontVariant: ['tabular-nums'],
           textAlign: 'center',
-          width: scaleDimension(60, uiScale),
         },
       }),
     [uiScale],
@@ -69,38 +64,27 @@ const ReaderValueChange: React.FC<ReaderValueChangeProps> = ({
 
   return (
     <View style={styles.container}>
-      <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
-        {label}
-      </AppText>
-      <View style={styles.buttonContainer}>
-        <IconButtonV2
-          name="minus"
-          color={theme.primary}
-          size={iconSize.md + scaleDimension(2, uiScale)}
-          disabled={settings[valueKey] <= min}
-          onPress={() =>
-            setChapterReaderSettings({
-              [valueKey]: Math.max(min, settings[valueKey] - valueChange),
-            })
-          }
-          theme={theme}
-        />
+      <View style={styles.labelRow}>
+        <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
+          {label}
+        </AppText>
         <AppText style={[styles.value, { color: theme.onSurface }]}>
           {`${((settings[valueKey] * 10) / 10).toFixed(decimals)}${unit}`}
         </AppText>
-        <IconButtonV2
-          name="plus"
-          color={theme.primary}
-          size={iconSize.md + scaleDimension(2, uiScale)}
-          disabled={settings[valueKey] >= max}
-          onPress={() =>
-            setChapterReaderSettings({
-              [valueKey]: Math.min(max, settings[valueKey] + valueChange),
-            })
-          }
-          theme={theme}
-        />
       </View>
+      <Slider
+        value={settings[valueKey]}
+        min={min}
+        max={max}
+        step={valueChange}
+        showStops
+        showValueIndicator
+        formatValue={value => `${value.toFixed(decimals)}${unit}`}
+        accessibilityLabel={label}
+        onSlidingComplete={value =>
+          setChapterReaderSettings({ [valueKey]: value })
+        }
+      />
     </View>
   );
 };

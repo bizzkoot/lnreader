@@ -13,8 +13,7 @@ import {
   useMMKVBoolean,
   useMMKVNumber,
 } from 'react-native-mmkv';
-import Slider from '@react-native-community/slider';
-import { Button, SegmentedControl, List } from '@components';
+import { Button, SegmentedControl, List, Slider } from '@components';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import { useState, useMemo } from 'react';
@@ -294,12 +293,12 @@ export default function OnboardingScreen() {
               <Slider
                 style={styles.slider}
                 value={localUiScale}
-                minimumValue={0.8}
-                maximumValue={1.3}
+                min={0.8}
+                max={1.3}
                 step={0.05}
-                minimumTrackTintColor={theme.primary}
-                maximumTrackTintColor={theme.surface}
-                thumbTintColor={theme.primary}
+                showValueIndicator
+                formatValue={value => `${Math.round(value * 100)}%`}
+                accessibilityLabel={getString('onboardingScreen.uiScale')}
                 onValueChange={setLocalUiScale}
                 onSlidingComplete={value => {
                   setAppSettings({ uiScale: value });
@@ -661,7 +660,6 @@ const createStyles = (uiScale: number, theme: any) =>
     },
     slider: {
       flex: 1,
-      height: 40,
     },
     sliderButton: {
       width: 36,

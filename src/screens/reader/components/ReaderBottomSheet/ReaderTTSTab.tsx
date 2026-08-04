@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import AppText from '@components/AppText';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import Slider from '@react-native-community/slider';
 import { VoiceQuality, Voice } from 'expo-speech';
 import TTSHighlight, { TTSVoice, TTSEngine } from '@services/TTSHighlight';
 import {
@@ -11,7 +10,7 @@ import {
   useChapterReaderSettings,
   useAppSettings,
 } from '@hooks/persisted';
-import { List, Button, IconButtonV2 } from '@components/index';
+import { List, Button, IconButtonV2, Slider } from '@components/index';
 import { useBoolean } from '@hooks';
 import { Portal } from 'react-native-paper';
 import VoicePickerModal from '@screens/settings/SettingsReaderScreen/Modals/VoicePickerModal';
@@ -127,7 +126,6 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
           },
           slider: {
             flex: 1,
-            height: scaleDimension(40, uiScale),
           },
           sliderButton: {
             width: scaleDimension(36, uiScale),
@@ -625,14 +623,16 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                     <Slider
                       style={styles.slider}
                       value={localRate}
-                      minimumValue={0.1}
-                      maximumValue={3}
+                      min={0.1}
+                      max={3}
                       step={0.1}
-                      minimumTrackTintColor={theme.primary}
-                      maximumTrackTintColor={theme.surfaceVariant}
-                      thumbTintColor={theme.primary}
-                      onSlidingStart={() => setIsDraggingRate(true)}
-                      onValueChange={setLocalRate}
+                      showValueIndicator
+                      formatValue={value => `${value.toFixed(1)}x`}
+                      accessibilityLabel="Text to speech speed"
+                      onValueChange={value => {
+                        setIsDraggingRate(true);
+                        setLocalRate(value);
+                      }}
                       onSlidingComplete={value => {
                         setIsDraggingRate(false);
                         setTtsSettings({ ...effectiveTts, rate: value });
@@ -689,14 +689,16 @@ const ReaderTTSTab: React.FC<ReaderTTSTabProps> = React.memo(
                     <Slider
                       style={styles.slider}
                       value={localPitch}
-                      minimumValue={0.1}
-                      maximumValue={2}
+                      min={0.1}
+                      max={2}
                       step={0.1}
-                      minimumTrackTintColor={theme.primary}
-                      maximumTrackTintColor={theme.surfaceVariant}
-                      thumbTintColor={theme.primary}
-                      onSlidingStart={() => setIsDraggingPitch(true)}
-                      onValueChange={setLocalPitch}
+                      showValueIndicator
+                      formatValue={value => value.toFixed(1)}
+                      accessibilityLabel="Text to speech pitch"
+                      onValueChange={value => {
+                        setIsDraggingPitch(true);
+                        setLocalPitch(value);
+                      }}
                       onSlidingComplete={value => {
                         setIsDraggingPitch(false);
                         setTtsSettings({ ...effectiveTts, pitch: value });

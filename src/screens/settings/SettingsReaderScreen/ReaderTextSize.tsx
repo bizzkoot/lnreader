@@ -2,11 +2,10 @@ import { StyleSheet, TextStyle, View } from 'react-native';
 import React, { useMemo } from 'react';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
-import { IconButtonV2 } from '@components/index';
+import { Slider } from '@components';
 import AppText from '@components/AppText';
 import { getString } from '@strings/translations';
 import { useAppSettings } from '@hooks/persisted/useSettings';
-import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
 
 interface ReaderTextSizeProps {
@@ -16,25 +15,22 @@ interface ReaderTextSizeProps {
 const ReaderTextSize: React.FC<ReaderTextSizeProps> = ({ labelStyle }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
-  const { iconSize } = useScaledDimensions();
   const { textSize, setChapterReaderSettings } = useChapterReaderSettings();
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        buttonContainer: {
-          alignItems: 'center',
-          flexDirection: 'row',
-        },
-        container: {
+        labelRow: {
           alignItems: 'center',
           flexDirection: 'row',
           justifyContent: 'space-between',
+        },
+        container: {
           marginVertical: scaleDimension(6, uiScale),
           paddingHorizontal: scaleDimension(16, uiScale),
         },
         value: {
-          paddingHorizontal: scaleDimension(24, uiScale),
+          fontVariant: ['tabular-nums'],
         },
       }),
     [uiScale],
@@ -42,29 +38,27 @@ const ReaderTextSize: React.FC<ReaderTextSizeProps> = ({ labelStyle }) => {
 
   return (
     <View style={styles.container}>
-      <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
-        {getString('readerScreen.bottomSheet.textSize')}
-      </AppText>
-      <View style={styles.buttonContainer}>
-        <IconButtonV2
-          name="minus"
-          color={theme.primary}
-          size={iconSize.md + scaleDimension(2, uiScale)}
-          disabled={textSize <= 0}
-          onPress={() => setChapterReaderSettings({ textSize: textSize - 1 })}
-          theme={theme}
-        />
-        <AppText style={[styles.value, { color: theme.onSurface }]}>
-          {textSize}
+      <View style={styles.labelRow}>
+        <AppText style={[{ color: theme.onSurfaceVariant }, labelStyle]}>
+          {getString('readerScreen.bottomSheet.textSize')}
         </AppText>
-        <IconButtonV2
-          name="plus"
-          color={theme.primary}
-          size={iconSize.md + scaleDimension(2, uiScale)}
-          onPress={() => setChapterReaderSettings({ textSize: textSize + 1 })}
-          theme={theme}
-        />
+        <AppText style={[styles.value, { color: theme.onSurface }]}>
+          {textSize}px
+        </AppText>
       </View>
+      <Slider
+        value={textSize}
+        min={12}
+        max={20}
+        step={1}
+        showStops
+        showValueIndicator
+        formatValue={value => `${value}px`}
+        accessibilityLabel={getString('readerScreen.bottomSheet.textSize')}
+        onSlidingComplete={value =>
+          setChapterReaderSettings({ textSize: value })
+        }
+      />
     </View>
   );
 };
