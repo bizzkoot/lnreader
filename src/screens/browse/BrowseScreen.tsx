@@ -1,6 +1,8 @@
 /* eslint-disable react-native/no-inline-styles -- Dynamic styles require inline approach for theme-dependent values */
 import React, { useEffect, useMemo } from 'react';
+import { useWindowDimensions } from 'react-native';
 import { TabView, TabBar } from 'react-native-tab-view';
+import Color from 'color';
 
 import { useSearch } from '@hooks';
 import { usePlugins, useTheme, useAppSettings } from '@hooks/persisted';
@@ -24,6 +26,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
   const { searchText, setSearchText, clearSearchbar } = useSearch();
   const { languagesFilter } = usePlugins();
   const { uiScale = 1.0 } = useAppSettings();
+  const layout = useWindowDimensions();
 
   const searchbarActions = useMemo(
     () =>
@@ -70,6 +73,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
       />
       <TabView
         navigationState={{ index, routes }}
+        initialLayout={{ width: layout.width }}
         renderScene={({ route }) => {
           if (languagesFilter.length === 0) {
             return (
@@ -112,6 +116,11 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
             indicatorStyle={{ backgroundColor: theme.primary, height: 3 }}
             style={{
               backgroundColor: theme.surface,
+              elevation: 0,
+              borderBottomWidth: 1,
+              borderBottomColor: Color(theme.isDark ? '#FFFFFF' : '#000000')
+                .alpha(0.12)
+                .string(),
             }}
             inactiveColor={theme.secondary}
             activeColor={theme.primary}
