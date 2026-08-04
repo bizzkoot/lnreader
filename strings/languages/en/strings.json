@@ -53,6 +53,7 @@
     "appLanguageDefault": "Default",
     "appTheme": "App theme",
     "darkTheme": "Dark Theme",
+    "dynamicColors": "Dynamic",
     "hideBackdrop": "Hide backdrop",
     "lightTheme": "Light Theme",
     "navbar": "Navbar",

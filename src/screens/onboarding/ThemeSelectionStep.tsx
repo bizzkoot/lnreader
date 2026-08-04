@@ -11,6 +11,11 @@ import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import { ThemeColors } from '@theme/types';
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import { darkThemes, lightThemes } from '@theme/md3';
+import {
+  getSystemDynamicTheme,
+  isDynamicThemeAvailable,
+  toDynamicThemeColors,
+} from '@theme/dynamic';
 import { getString } from '@strings/translations';
 import { LegendList } from '@legendapp/list';
 import Switch from '@components/Switch/Switch';
@@ -61,8 +66,16 @@ export default function ThemeSelectionStep() {
   const currentMode = themeMode as ThemeMode;
 
   const availableThemes = useMemo(() => {
-    return theme.isDark ? darkThemes : lightThemes;
-  }, [theme.isDark]);
+    const themes = theme.isDark ? darkThemes : lightThemes;
+    if (!isDynamicThemeAvailable) {
+      return themes;
+    }
+
+    return [
+      toDynamicThemeColors(getSystemDynamicTheme(), theme.isDark),
+      ...themes,
+    ];
+  }, [theme]);
 
   const themeModeOptions: SegmentedControlOption<ThemeMode>[] = useMemo(
     () => [

@@ -25,6 +25,9 @@ importers:
       '@legendapp/list':
         specifier: ^2.0.16
         version: 2.0.16(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1)
+      '@pchmn/expo-material3-theme':
+        specifier: ^1.4.0
+        version: 1.4.0(expo@54.0.25(@babel/core@7.28.5)(react-native-webview@13.15.0(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1))(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1))(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1)
       '@react-native-community/slider':
         specifier: ^5.1.1
         version: 5.1.1
@@ -1419,6 +1422,9 @@ packages:
       react: '*'
       react-native: '*'
 
+  '@material/material-color-utilities@0.3.0':
+    resolution: {integrity: sha512-ztmtTd6xwnuh2/xu+Vb01btgV8SQWYCaK56CkRK8gEkWe5TuDyBcYJ0wgkMRn+2VcE9KUmhvkz+N9GHrqw/C0g==}
+
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
 
@@ -1436,6 +1442,13 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@pchmn/expo-material3-theme@1.4.0':
+    resolution: {integrity: sha512-XNt0gpZX5argOQ7JiFnNdiXHpHjmpwJoMQrlnd1kpb8ly/IWZN2hh011incmfZXV2Xs+p6Uo1BGDKv8hW4MQTQ==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -1953,41 +1966,49 @@ packages:
     resolution: {integrity: sha512-34gw7PjDGB9JgePJEmhEqBhWvCiiWCuXsL9hYphDF7crW7UgI05gyBAi6MF58uGcMOiOqSJ2ybEeCvHcq0BCmQ==}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-arm64-musl@1.11.1':
     resolution: {integrity: sha512-RyMIx6Uf53hhOtJDIamSbTskA99sPHS96wxVE/bJtePJJtpdKGXO1wY90oRdXuYOGOTuqjT8ACccMc4K6QmT3w==}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@unrs/resolver-binding-linux-ppc64-gnu@1.11.1':
     resolution: {integrity: sha512-D8Vae74A4/a+mZH0FbOkFJL9DSK2R6TFPC9M+jCWYia/q2einCubX10pecpDiTmkJVUH+y8K3BZClycD8nCShA==}
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-gnu@1.11.1':
     resolution: {integrity: sha512-frxL4OrzOWVVsOc96+V3aqTIQl1O2TjgExV4EKgRY09AJ9leZpEg8Ak9phadbuX0BA4k8U5qtvMSQQGGmaJqcQ==}
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-musl@1.11.1':
     resolution: {integrity: sha512-mJ5vuDaIZ+l/acv01sHoXfpnyrNKOk/3aDoEdLO/Xtn9HuZlDD6jKxHlkN8ZhWyLJsRBxfv9GYM2utQ1SChKew==}
     cpu: [riscv64]
     os: [linux]
+    libc: [musl]
 
   '@unrs/resolver-binding-linux-s390x-gnu@1.11.1':
     resolution: {integrity: sha512-kELo8ebBVtb9sA7rMe1Cph4QHreByhaZ2QEADd9NzIQsYNQpt9UkM9iqr2lhGr5afh885d/cB5QeTXSbZHTYPg==}
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-gnu@1.11.1':
     resolution: {integrity: sha512-C3ZAHugKgovV5YvAMsxhq0gtXuwESUKc5MhEtjBpLoHPLYM+iuwSj3lflFwK3DPm68660rZ7G8BMcwSro7hD5w==}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-musl@1.11.1':
     resolution: {integrity: sha512-rV0YSoyhK2nZ4vEswT/QwqzqQXw5I6CjoaYMOX0TqBlWhojUf8P94mvI7nuJTeaCkkds3QE4+zS8Ko+GdXuZtA==}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@unrs/resolver-binding-wasm32-wasi@1.11.1':
     resolution: {integrity: sha512-5u4RkfxJm+Ng7IWgkzi3qrFOvLvQYnPBmjmZQ8+szTK/b31fQCnleNl1GgEt7nIsZRIf5PLhPwT0WM+q45x/UQ==}
@@ -3920,24 +3941,28 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-arm64-musl@1.30.2:
     resolution: {integrity: sha512-5Vh9dGeblpTxWHpOx8iauV02popZDsCYMPIgiuw97OJ5uaDsL86cnqSFs5LZkG3ghHoX5isLgWzMs+eD1YzrnA==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-linux-x64-gnu@1.30.2:
     resolution: {integrity: sha512-Cfd46gdmj1vQ+lR6VRTTadNHu6ALuw2pKR9lYq4FnhvgBc4zWY1EtZcAc6EffShbb1MFrIPfLDXD6Xprbnni4w==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-x64-musl@1.30.2:
     resolution: {integrity: sha512-XJaLUUFXb6/QG2lGIW6aIk6jKdtjtcffUT0NKvIqhSBY3hh9Ch+1LCeH80dR9q9LBjG3ewbDjnumefsLsP6aiA==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-win32-arm64-msvc@1.30.2:
     resolution: {integrity: sha512-FZn+vaj7zLv//D/192WFFVA0RgHawIcHqLX9xuWiQt7P0PtdFEVaxgF9rjM/IRYHQXNnk61/H/gb2Ei+kUQ4xQ==}
@@ -7321,6 +7346,8 @@ snapshots:
       react-native: 0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1)
       use-sync-external-store: 1.6.0(react@19.1.1)
 
+  '@material/material-color-utilities@0.3.0': {}
+
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:
       '@emnapi/core': 1.7.1
@@ -7343,6 +7370,14 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
+
+  '@pchmn/expo-material3-theme@1.4.0(expo@54.0.25(@babel/core@7.28.5)(react-native-webview@13.15.0(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1))(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1))(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@material/material-color-utilities': 0.3.0
+      color: 4.2.3
+      expo: 54.0.25(@babel/core@7.28.5)(react-native-webview@13.15.0(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1))(react-native@0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1))(react@19.1.1)
+      react: 19.1.1
+      react-native: 0.82.1(@babel/core@7.28.5)(@react-native-community/cli@20.0.2(typescript@5.9.3))(@react-native/metro-config@0.82.1(@babel/core@7.28.5))(@types/react@19.1.17)(react@19.1.1)
 
   '@pkgjs/parseargs@0.11.0':
     optional: true

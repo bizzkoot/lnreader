@@ -27,6 +27,12 @@ import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
 import { scaleDimension } from '@theme/scaling';
+import {
+  DYNAMIC_THEME_ID,
+  getSystemDynamicTheme,
+  isDynamicThemeAvailable,
+  toDynamicThemeColors,
+} from '@theme/dynamic';
 import Color from 'color';
 
 type ThemeMode = 'light' | 'dark' | 'system';
@@ -59,6 +65,22 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
       : colorScheme === 'unspecified'
         ? 'light'
         : colorScheme;
+
+  const availableThemes = useMemo(() => {
+    const themes = actualThemeMode === 'light' ? lightThemes : darkThemes;
+    if (!isDynamicThemeAvailable) {
+      return themes;
+    }
+
+    const dynamicTheme =
+      theme.id === DYNAMIC_THEME_ID
+        ? theme
+        : toDynamicThemeColors(
+            getSystemDynamicTheme(),
+            actualThemeMode === 'dark',
+          );
+    return [dynamicTheme, ...themes];
+  }, [actualThemeMode, theme]);
 
   // UI Scale slider local state
   const [localUiScale, setLocalUiScale] = useState(uiScale);
@@ -146,6 +168,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
   };
 
   const handleThemeSelect = (selectedTheme: ThemeColors) => {
+    setCustomAccentColor(undefined);
     setThemeId(selectedTheme.id);
   };
 
@@ -268,17 +291,15 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               horizontal={true}
               showsHorizontalScrollIndicator={false}
             >
-              {(actualThemeMode === 'light' ? lightThemes : darkThemes).map(
-                item => (
-                  <ThemePicker
-                    horizontal
-                    key={item.id}
-                    currentTheme={theme}
-                    theme={item}
-                    onPress={e => handleThemeSelect(item)}
-                  />
-                ),
-              )}
+              {availableThemes.map(item => (
+                <ThemePicker
+                  horizontal
+                  key={item.id}
+                  currentTheme={theme}
+                  theme={item}
+                  onPress={e => handleThemeSelect(item)}
+                />
+              ))}
             </ScrollView>
           </View>
 
@@ -290,12 +311,14 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               theme={theme}
             />
           ) : null}
-          <List.ColorItem
-            title={getString('appearanceScreen.accentColor')}
-            color={Color(theme.primary)}
-            onPress={showAccentColorModal}
-            theme={theme}
-          />
+          {theme.id === DYNAMIC_THEME_ID ? null : (
+            <List.ColorItem
+              title={getString('appearanceScreen.accentColor')}
+              color={Color(theme.primary)}
+              onPress={showAccentColorModal}
+              theme={theme}
+            />
+          )}
           <List.Item
             title={getString('appearanceScreen.appLanguage')}
             description={getCurrentLanguageName()}
