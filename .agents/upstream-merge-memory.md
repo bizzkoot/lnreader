@@ -36,6 +36,38 @@ applyTo: '**'
 
 # Merge History
 
+## 2026-08-03 - Upstream Merge Analysis (170 commits, PLANNED - no code changes)
+
+**Analysis Range**: upstream/master @ c3260e8e0 (2026-08-01) from merge base 467a97dcf (2025-12-24)
+**Commits Analyzed**: 170 (66 fix, 56 feat, 17 chore, 14 refactor, 5 docs, 4 perf, 2 test, 1 ci)
+**Method**: 4 parallel subagents (chronological groups) cross-referencing git diffs vs fork source; key claims spot-verified
+**Strategy**: Selective cherry-pick / manual port (full merge still infeasible - 3 architecture walls)
+
+**Architecture Walls (unchanged since 2025-12-30, now deeper):**
+1. DB: upstream Drizzle ORM + op-sqlite (#1735) vs fork expo-sqlite raw SQL + custom MigrationRunner
+2. TTS/Native: upstream Nitro modules + MediaSession + WorkManager (#1889/#1896) vs fork custom Kotlin (TTSHighlightModule, TTSForegroundService, DoH) + background-actions
+3. Build: upstream Expo 55 managed + rock CLI (#1885/#1812) vs fork Expo 54 bare + Gradle 9.2.0
+
+**Outcome**: 76 of 170 commits worth porting (batches A-D). 94 skipped (CI/release/docs/infra/ALREADY-HAVE/Drizzle). (Updated 2026-08-04 after independent review - see below.)
+
+**Key findings:**
+- Fork often carries byte-identical PRE-FIX code - has the same live bugs upstream just fixed
+- Verified live fork bugs: deleteReadChaptersFromDb passes novelId as chapter id (wrong folder); deleteDownloads UPDATE without WHERE wipes all flags; ServiceManager.setMeta negative-delay throttle; WHERE sort=1 default-category breaks on reorder; TEXT page comparison in multi-page queries; TTS reads quotes aloud (normalizeText); unawaited runAsync inside withTransactionAsync (NovelQueries/helpers.tsx)
+- ALREADY-HAVE (skip): DoH, MediaSession/media notification, WebView-reset fix, metro middleware, EPUB exporter, volume buttons
+- TRAP commit: 72bfcad03 (lint cleanup touching WebViewReader/ReaderScreen/ChapterContext) - never cherry-pick
+- Raw-SQL layer is a PORTABILITY ADVANTAGE for pre-Drizzle-era SQL fixes
+
+**Batches planned (details in specs/upstream-merge-analysis-2026-08/):**
+- Batch A (29 fixes, half-day): 16 Tier-1 (8 DIRECT clean-apply + 8 MANUAL) + 6 SQL + 7 extended (incl. c3260e8e0 download-removal fix and 0cb9da9027 tx-concurrency fix)
+- Batch B (7 features + 15 stretch): Kitsu tracker, ignorable updates, EPUB chapter numbers, parallel library updates, first-unread FAB, jump-to-chapter fix, download cooldown
+- Batch C (7 + 2): theme refactor -> dynamic Material You colors -> MD3 slider/tabs/menu
+- Batch D (5 core + 10 optional, separate PRs): time tracking, in-chapter search, stats overhaul, reader perf sprint, scheduled updates
+
+**2026-08-04 - Independent Review + Corrections Applied**: 4 review subagents verified the analysis (all 6 live-bug claims CONFIRMED, 9/9 ALREADY-HAVE SOUND, trap commit correct, PRDs SOUND). Corrections applied to manifest/PRDs/analysis/README: (1) 0cb9da9027 reclassified SKIP->PORT-A2 (pre-Drizzle expo-sqlite tx fix); (2) 5 DIRECT labels -> MANUAL (31cb4b99, 93bc5e5e, 2a919ec0, f1fdafd3, a062beee - fork rewrote those files, hunks fail apply); (3) 9783c4d5e3 reclassified SKIP->PORT-A1/low; (4) c3c891cea0 relabeled SKIP-CI->SKIP-INFRA; PRD-C now requires BOTH surfaceContainerLow+High keys; PRD-A 45c4ea8ca0 now includes epub/import.ts hunk. Full report: specs/upstream-merge-analysis-2026-08/REVIEW-2026-08-04.md
+
+**Docs**: specs/upstream-merge-analysis-2026-08/ (README.md, analysis.md, commit-manifest.csv, batches/PRD-A..D, REVIEW-2026-08-04.md)
+**Status**: PLANNED - implementation deferred; dev branch has unpushed TTS work (commit/push before starting Batch A)
+
 ## 2025-12-30 - Upstream Merge Analysis (FAILED - DIVERGENCE DETECTED)
 
 **Analysis Summary:**
