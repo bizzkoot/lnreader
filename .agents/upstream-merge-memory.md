@@ -66,9 +66,20 @@ applyTo: '**'
 **2026-08-04 - Independent Review + Corrections Applied**: 4 review subagents verified the analysis (all 6 live-bug claims CONFIRMED, 9/9 ALREADY-HAVE SOUND, trap commit correct, PRDs SOUND). Corrections applied to manifest/PRDs/analysis/README: (1) 0cb9da9027 reclassified SKIP->PORT-A2 (pre-Drizzle expo-sqlite tx fix); (2) 5 DIRECT labels -> MANUAL (31cb4b99, 93bc5e5e, 2a919ec0, f1fdafd3, a062beee - fork rewrote those files, hunks fail apply); (3) 9783c4d5e3 reclassified SKIP->PORT-A1/low; (4) c3c891cea0 relabeled SKIP-CI->SKIP-INFRA; PRD-C now requires BOTH surfaceContainerLow+High keys; PRD-A 45c4ea8ca0 now includes epub/import.ts hunk. Full report: specs/upstream-merge-analysis-2026-08/REVIEW-2026-08-04.md
 
 **Docs**: specs/upstream-merge-analysis-2026-08/ (README.md, analysis.md, commit-manifest.csv, batches/PRD-A..D, REVIEW-2026-08-04.md)
-**Status**: Batch A ✅ COMPLETED 2026-08-04 (29/29 commits ported) on `merge/original-sync-batch-b` (head `d61228002`); Branch B-D pending. Dev branch has unpushed TTS work (commit/push before pushing Batch A).
+**Status**: Batch A ✅ + Batch B ✅ COMPLETED 2026-08-04 on `merge/original-sync-batch-b` (head `398ecb958`, 32 commits ahead of master); Batch C/D pending (checkpointed with user). Dev branch has unpushed TTS work (commit/push before pushing).
 
-**2026-08-04 - Batch A (Safety Fixes) ✅ COMPLETED**: 29/29 upstream fixes ported on `merge/original-sync-batch-b` (23 commits ahead of master; includes the 2026-08-04 review corrections). Validated: type-check ✅, lint ✅ (5 pre-existing warnings in WebViewReader.tsx), format ✅, **73 suites / 1265 tests passing (zero regressions)**. Last item ported: `8f53550d2c` restore tracker search requests (TrackSearchDialog.tsx, manual port, commit `d61228002`).
+**2026-08-04 - Batch A (Safety Fixes) ✅ COMPLETED**: 29/29 upstream fixes ported on `merge/original-sync-batch-b`. Validated: **73 suites / 1265 tests passing (zero regressions)**. Last item: `8f53550d2c` restore tracker search requests (commit `d61228002`).
+
+**2026-08-04 - Batch B (High-Value Features, core 7/7) ✅ COMPLETED**: ported via sequential subagents (orchestrator = main agent, checked each diff + ran gates). 
+- B-1 `799845426c` parallel library updates (`a1d23a0a2`, +2 unit tests)
+- B-2 `c40edd5b2c` Kitsu tracker (`f7c4b65e8`, kitsu.ts byte-identical to upstream, 14 unit tests, kitsu.png extracted via `git cat-file`)
+- B-3 `8f237909d5` first-unread-chapter button/FAB (`0c6a6dc96`)
+- B-4 `4ad0639796` jump-to-chapter loads unloaded batches + drawer end-reach (`62091cb07`, console.error→novelLog)
+- B-5 `345d084eba` EPUB chapter numbers (`032723bbc`, fork's cd-z epub-creator loop; strings/types regenerated)
+- B-6 `c0877a9b06` skip-version update notifications (`7ecb98ab4`, HYBRID port: preserved fork's richer NewUpdateDialog, added ignoreVersion to useGithubUpdateChecker + fixed first-launch check bug)
+- B-7 `5d996f1388` configurable download cooldown (`398ecb958`, modal adapted to fork scaling)
+- Validated: type-check ✅, lint ✅ (5 pre-existing warnings), format ✅, **75 suites / 1281 tests passing**, TTS wake-cycle 7/7 ✅, TTS refill ✅.
+- Stretch items (15) NOT ported — deferred.
 
 ## 2025-12-30 - Upstream Merge Analysis (FAILED - DIVERGENCE DETECTED)
 
