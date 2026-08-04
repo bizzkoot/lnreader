@@ -301,6 +301,10 @@ export interface StringMap {
   'generalSettingsScreen.autoDownloadAmount': 'string';
   'generalSettingsScreen.autoDownloadAmountDesc': 'string';
   'generalSettingsScreen.bySource': 'string';
+  'generalSettingsScreen.chapterDownloadCooldown': 'string';
+  'generalSettingsScreen.chapterDownloadCooldownDesc': 'string';
+  'generalSettingsScreen.chapterDownloadCooldownPlaceholder': 'string';
+  'generalSettingsScreen.chapterDownloadCooldownWarning': 'string';
   'generalSettingsScreen.chapterSort': 'string';
   'generalSettingsScreen.desc': 'string';
   'generalSettingsScreen.disableLoadingAnimations': 'string';
