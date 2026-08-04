@@ -66,7 +66,7 @@ applyTo: '**'
 **2026-08-04 - Independent Review + Corrections Applied**: 4 review subagents verified the analysis (all 6 live-bug claims CONFIRMED, 9/9 ALREADY-HAVE SOUND, trap commit correct, PRDs SOUND). Corrections applied to manifest/PRDs/analysis/README: (1) 0cb9da9027 reclassified SKIP->PORT-A2 (pre-Drizzle expo-sqlite tx fix); (2) 5 DIRECT labels -> MANUAL (31cb4b99, 93bc5e5e, 2a919ec0, f1fdafd3, a062beee - fork rewrote those files, hunks fail apply); (3) 9783c4d5e3 reclassified SKIP->PORT-A1/low; (4) c3c891cea0 relabeled SKIP-CI->SKIP-INFRA; PRD-C now requires BOTH surfaceContainerLow+High keys; PRD-A 45c4ea8ca0 now includes epub/import.ts hunk. Full report: specs/upstream-merge-analysis-2026-08/REVIEW-2026-08-04.md
 
 **Docs**: specs/upstream-merge-analysis-2026-08/ (README.md, analysis.md, commit-manifest.csv, batches/PRD-A..D, REVIEW-2026-08-04.md)
-**Status**: Batch A ✅ + Batch B ✅ COMPLETED 2026-08-04 on `merge/original-sync-batch-b` (head `398ecb958`, 32 commits ahead of master); Batch C/D pending (checkpointed with user). Dev branch has unpushed TTS work (commit/push before pushing).
+**Status**: Batch A ✅ + Batch B ✅ COMPLETED 2026-08-04 on `merge/original-sync-batch-b` (head `275c106`, 32 commits ahead of master, PUSHED to origin 2026-08-04); Batch C/D pending. ✅ CORRECTED: dev has NO pending TTS work — TTS text-cleanup was merged to master via PR #18 (`a7c030a64`); the only dev-only commit is `6550a7884` (docs/merge review), already inside the batch branch history.
 
 **2026-08-04 - Batch A (Safety Fixes) ✅ COMPLETED**: 29/29 upstream fixes ported on `merge/original-sync-batch-b`. Validated: **73 suites / 1265 tests passing (zero regressions)**. Last item: `8f53550d2c` restore tracker search requests (commit `d61228002`).
 
