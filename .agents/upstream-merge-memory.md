@@ -66,7 +66,9 @@ applyTo: '**'
 **2026-08-04 - Independent Review + Corrections Applied**: 4 review subagents verified the analysis (all 6 live-bug claims CONFIRMED, 9/9 ALREADY-HAVE SOUND, trap commit correct, PRDs SOUND). Corrections applied to manifest/PRDs/analysis/README: (1) 0cb9da9027 reclassified SKIP->PORT-A2 (pre-Drizzle expo-sqlite tx fix); (2) 5 DIRECT labels -> MANUAL (31cb4b99, 93bc5e5e, 2a919ec0, f1fdafd3, a062beee - fork rewrote those files, hunks fail apply); (3) 9783c4d5e3 reclassified SKIP->PORT-A1/low; (4) c3c891cea0 relabeled SKIP-CI->SKIP-INFRA; PRD-C now requires BOTH surfaceContainerLow+High keys; PRD-A 45c4ea8ca0 now includes epub/import.ts hunk. Full report: specs/upstream-merge-analysis-2026-08/REVIEW-2026-08-04.md
 
 **Docs**: specs/upstream-merge-analysis-2026-08/ (README.md, analysis.md, commit-manifest.csv, batches/PRD-A..D, REVIEW-2026-08-04.md)
-**Status**: PLANNED - implementation deferred; dev branch has unpushed TTS work (commit/push before starting Batch A)
+**Status**: Batch A ✅ COMPLETED 2026-08-04 (29/29 commits ported) on `merge/original-sync-batch-b` (head `d61228002`); Branch B-D pending. Dev branch has unpushed TTS work (commit/push before pushing Batch A).
+
+**2026-08-04 - Batch A (Safety Fixes) ✅ COMPLETED**: 29/29 upstream fixes ported on `merge/original-sync-batch-b` (23 commits ahead of master; includes the 2026-08-04 review corrections). Validated: type-check ✅, lint ✅ (5 pre-existing warnings in WebViewReader.tsx), format ✅, **73 suites / 1265 tests passing (zero regressions)**. Last item ported: `8f53550d2c` restore tracker search requests (TrackSearchDialog.tsx, manual port, commit `d61228002`).
 
 ## 2025-12-30 - Upstream Merge Analysis (FAILED - DIVERGENCE DETECTED)
 
