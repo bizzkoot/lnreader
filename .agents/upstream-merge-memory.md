@@ -6,8 +6,9 @@ applyTo: '**'
 
 - Original Repo: https://github.com/lnreader/lnreader
 - Fork Repo: https://github.com/bizzkoot/lnreader
-- Last Sync Date: 2025-12-30
-- Last Sync Commit: 7c57b7421 (upstream 2e1a0ab96)
+- Last Sync Date: 2026-08-05
+- Last Sync Commit: c3260e8e0 (upstream/master @ 2026-08-01) — analyzed 2026-08-03; batches A (29 fixes), B (7 features), C (7 theme/UX items) ported 2026-08-04/05
+- Divergence: full merge infeasible (3 architecture walls: Drizzle/op-sqlite, Nitro/WorkManager, Expo-managed) → selective cherry-pick / manual port strategy
 
 # Custom Modifications Registry
 
@@ -29,10 +30,15 @@ applyTo: '**'
 - Custom TTS handling in WebViewReader
 - Background TTS Playback
 - Screen Wake Sync
+- Batch A: 29 upstream safety fixes (DB/download/native-file/reader) — see Batch A history entry
+- Batch B: Kitsu tracker, parallel library updates, first-unread FAB, jump-to-chapter, EPUB chapter numbers, skip-version updates, download cooldown — see Batch B history entry
+- Batch C: context ThemeProvider + theme-ID migration, dynamic Material You colors, MD3 Slider, TopTabBar, standardized bottom sheet, modernized Menu — see Batch C history entry
 
 ## Removed/Deprecated
 
 - src/screens/reader/components/ReaderBottomSheet/TTSTab.tsx (Upstream file removed in favor of ReaderTTSTab.tsx)
+- @react-native-community/slider (replaced by MD3 Slider, Batch C-3)
+- src/screens/settings/SettingsReaderScreen/components/TabBar.tsx (replaced by TopTabBar, Batch C-5)
 
 # Merge History
 
