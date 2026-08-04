@@ -56,7 +56,7 @@ const CategoriesScreen = () => {
     const updatedOrderCategories = [...systemCategories, ...data].map(
       (category, index) => ({
         ...category,
-        sort: index,
+        sort: index + 1,
       }),
     );
 
