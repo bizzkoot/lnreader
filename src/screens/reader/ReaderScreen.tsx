@@ -41,6 +41,7 @@ const Chapter = ({ route, navigation }: ChapterScreenProps) => {
       initialChapter={route.params.chapter}
     >
       <Drawer
+        drawerStyle={styles.drawer}
         open={open}
         onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
@@ -168,4 +169,5 @@ export default Chapter;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  drawer: { backgroundColor: 'transparent' },
 });
