@@ -107,6 +107,12 @@ const Slider: React.FC<SliderProps> = ({
   const safeMax = max > min ? max : min + 1;
   const span = safeMax - min;
   const boundedValue = clamp(value, min, safeMax);
+  // Keep the released drag value visible until the controlled value catches up.
+  const [lastControlledValue, setLastControlledValue] = useState(boundedValue);
+  if (boundedValue !== lastControlledValue) {
+    setLastControlledValue(boundedValue);
+    if (!isActive) setDragValue(null);
+  }
   const displayedValue =
     dragValue === null ? boundedValue : clamp(dragValue, min, safeMax);
   const fraction = (displayedValue - min) / span;
@@ -180,16 +186,26 @@ const Slider: React.FC<SliderProps> = ({
             event.nativeEvent.locationX,
           );
           setIsActive(false);
-          setDragValue(null);
+          if (completedValue === boundedValue) {
+            setDragValue(null);
+          }
           onSlidingComplete?.(completedValue);
         },
         onPanResponderTerminate: () => {
           setIsActive(false);
-          setDragValue(null);
+          if (displayedValue === boundedValue) {
+            setDragValue(null);
+          }
           onSlidingComplete?.(displayedValue);
         },
       }),
-    [disabled, displayedValue, onSlidingComplete, updateFromPosition],
+    [
+      boundedValue,
+      disabled,
+      displayedValue,
+      onSlidingComplete,
+      updateFromPosition,
+    ],
   );
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {

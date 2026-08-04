@@ -152,6 +152,47 @@ describe('Slider', () => {
     expect(onSlidingComplete).toHaveBeenCalledWith(5);
   });
 
+  it('keeps the released value visible until the controlled value updates', () => {
+    const onSlidingComplete = jest.fn();
+    const { rerender } = render(
+      <Slider
+        value={5}
+        min={1}
+        max={5}
+        step={1}
+        onSlidingComplete={onSlidingComplete}
+      />,
+    );
+    const slider = layoutSlider();
+    const responderEvent = {
+      nativeEvent: { locationX: 2 },
+      touchHistory: {
+        indexOfSingleActiveTouch: -1,
+        mostRecentTimeStamp: 0,
+        numberActiveTouches: 0,
+        touchBank: [],
+      },
+    };
+
+    fireEvent(slider, 'responderGrant', responderEvent);
+    fireEvent(slider, 'responderRelease', responderEvent);
+
+    expect(onSlidingComplete).toHaveBeenCalledWith(1);
+    expect(screen.getByTestId('slider-handle')).toHaveStyle({ left: 2 });
+
+    rerender(
+      <Slider
+        value={1}
+        min={1}
+        max={5}
+        step={1}
+        onSlidingComplete={onSlidingComplete}
+      />,
+    );
+
+    expect(screen.getByTestId('slider-handle')).toHaveStyle({ left: 2 });
+  });
+
   it('does not respond while disabled', () => {
     const onValueChange = jest.fn();
     render(
