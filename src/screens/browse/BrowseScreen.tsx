@@ -1,14 +1,14 @@
 /* eslint-disable react-native/no-inline-styles -- Dynamic styles require inline approach for theme-dependent values */
 import React, { useEffect, useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
-import { TabView, TabBar } from 'react-native-tab-view';
+import { TabView } from 'react-native-tab-view';
 import Color from 'color';
 
 import { useSearch } from '@hooks';
 import { usePlugins, useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
 
-import { EmptyView, SafeAreaView, SearchbarV2 } from '@components';
+import { EmptyView, SafeAreaView, SearchbarV2, TopTabBar } from '@components';
 import { BrowseScreenProps } from '@navigators/types';
 import { AvailableTab } from './components/AvailableTab';
 import { InstalledTab } from './components/InstalledTab';
@@ -99,7 +99,7 @@ const BrowseScreen = ({ navigation }: BrowseScreenProps) => {
         }}
         onIndexChange={setIndex}
         renderTabBar={props => (
-          <TabBar
+          <TopTabBar
             {...props}
             // @ts-ignore
             renderLabel={({ route, color }) => (

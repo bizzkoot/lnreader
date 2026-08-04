@@ -10,7 +10,6 @@ import AppText from '@components/AppText';
 import {
   SceneMap,
   SceneRendererProps,
-  TabBar,
   TabDescriptor,
   TabView,
 } from 'react-native-tab-view';
@@ -29,6 +28,7 @@ import {
 } from '@screens/library/constants/constants';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 import { overlay } from 'react-native-paper';
+import { TopTabBar } from '@components';
 import { BottomSheetView, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
@@ -212,7 +212,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
   };
 
   const renderTabBar = (props: TabBarProps) => (
-    <TabBar
+    <TopTabBar
       {...props}
       indicatorStyle={{ backgroundColor: theme.primary }}
       style={[

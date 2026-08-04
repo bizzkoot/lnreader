@@ -22,3 +22,4 @@ export { default as Slider } from './Slider/Slider';
 export type { SliderProps, SliderSize } from './Slider/Slider';
 export { default as BottomTabBar } from './BottomTabBar';
 export { default as Menu } from './Menu';
+export { default as TopTabBar } from './TopTabBar/TopTabBar';

@@ -15,10 +15,11 @@ import React, {
 } from 'react';
 import Color from 'color';
 
+import { TopTabBar } from '@components';
 import { BottomSheetFlashList, BottomSheetView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
-import { TabBar, TabView } from 'react-native-tab-view';
+import { TabView } from 'react-native-tab-view';
 import { getString } from '@strings/translations';
 import { useAppSettings } from '@hooks/persisted/useSettings';
 import { scaleDimension } from '@theme/scaling';
@@ -190,7 +191,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
 
   const renderTabBar = useCallback(
     (props: any) => (
-      <TabBar
+      <TopTabBar
         {...props}
         indicatorStyle={{ backgroundColor: theme.primary }}
         style={[styles(uiScale).tabBar, { backgroundColor: tabHeaderColor }]}
