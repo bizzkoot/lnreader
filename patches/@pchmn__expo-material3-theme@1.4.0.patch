@@ -1,0 +1,20 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index ec86c517e8c904a9e9fb7ddcb5f10f2f4df16db1..74f267a504775866c8e1029f9982201efb8372a6 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -51,6 +51,7 @@ afterEvaluate {
+ }
+ 
+ android {
++  namespace = "expo.modules.material3theme"
+   compileSdkVersion safeExtGet("compileSdkVersion", 34)
+ 
+   def agpVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
+diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
+index 96b3dda64b8fce7d472eaa57540db99c7aeac936..bdae66c8f5a82773eaadc8f7befc05437e27cf25 100644
+--- a/android/src/main/AndroidManifest.xml
++++ b/android/src/main/AndroidManifest.xml
+@@ -1,2 +1,2 @@
+-<manifest package="expo.modules.material3theme">
++<manifest>
+ </manifest>
