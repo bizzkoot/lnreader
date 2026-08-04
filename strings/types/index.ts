@@ -257,6 +257,7 @@ export interface StringMap {
   'common.show': 'string';
   'common.signIn': 'string';
   'common.signOut': 'string';
+  'common.skipVersion': 'string';
   'common.sort': 'string';
   'common.submit': 'string';
   'common.loading': 'string';

@@ -7,9 +7,11 @@ import pickApkAsset from './githubReleaseUtils';
 interface GithubUpdate {
   isNewVersion: boolean;
   latestRelease: any;
+  ignoreVersion: (versionTag: string) => void;
 }
 
 const LAST_UPDATE_CHECK_KEY = 'LAST_UPDATE_CHECK';
+const IGNORED_UPDATE_VERSION_KEY = 'IGNORED_UPDATE_VERSION';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export const useGithubUpdateChecker = (): GithubUpdate => {
@@ -19,18 +21,24 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
 
   const [checking, setChecking] = useState(true);
   const [latestRelease, setLatestRelease] = useState<any>();
+  const [ignoredVersion, setIgnoredVersion] = useState<string | undefined>(() =>
+    MMKVStorage.getString(IGNORED_UPDATE_VERSION_KEY),
+  );
 
-  const checkForRelease = useCallback(async () => {
+  const shouldCheckForUpdate = useCallback(() => {
     const lastCheckTime = MMKVStorage.getNumber(LAST_UPDATE_CHECK_KEY);
     if (!lastCheckTime) {
-      setChecking(false);
-      return;
+      return true;
     }
 
     const now = Date.now();
     const timeSinceLastCheck = now - lastCheckTime;
 
-    if (timeSinceLastCheck < ONE_DAY_MS) {
+    return timeSinceLastCheck >= ONE_DAY_MS;
+  }, []);
+
+  const checkForRelease = useCallback(async () => {
+    if (!shouldCheckForUpdate()) {
       setChecking(false);
       return;
     }
@@ -71,7 +79,7 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
       // Silently fail in offline mode or on network errors
       setChecking(false);
     }
-  }, [latestReleaseUrl]);
+  }, [shouldCheckForUpdate, latestReleaseUrl]);
 
   const isNewVersion = (versionTag: string) => {
     const currentVersion = `${version}`;
@@ -82,6 +90,11 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
     return newer(newVersion, currentVersion);
   };
 
+  const ignoreVersion = useCallback((versionTag: string) => {
+    MMKVStorage.set(IGNORED_UPDATE_VERSION_KEY, versionTag);
+    setIgnoredVersion(versionTag);
+  }, []);
+
   useEffect(() => {
     checkForRelease();
   }, [checkForRelease]);
@@ -89,12 +102,16 @@ export const useGithubUpdateChecker = (): GithubUpdate => {
   if (!checking && latestRelease?.tag_name) {
     return {
       latestRelease,
-      isNewVersion: isNewVersion(latestRelease.tag_name),
+      isNewVersion:
+        isNewVersion(latestRelease.tag_name) &&
+        latestRelease.tag_name !== ignoredVersion,
+      ignoreVersion,
     };
   }
 
   return {
     latestRelease: undefined,
     isNewVersion: false,
+    ignoreVersion,
   };
 };

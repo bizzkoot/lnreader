@@ -68,7 +68,8 @@ const MainNavigator = () => {
     }
   }, [isOnboarded, refreshPlugins, updateLibraryOnLaunch]);
 
-  const { isNewVersion, latestRelease } = useGithubUpdateChecker();
+  const { isNewVersion, latestRelease, ignoreVersion } =
+    useGithubUpdateChecker();
 
   if (!isOnboarded) {
     return <OnboardingScreen />;
@@ -107,7 +108,12 @@ const MainNavigator = () => {
     >
       <LibraryContextProvider>
         <UpdateContextProvider>
-          {isNewVersion && <NewUpdateDialog newVersion={latestRelease} />}
+          {isNewVersion && latestRelease && (
+            <NewUpdateDialog
+              newVersion={latestRelease}
+              onIgnore={() => ignoreVersion(latestRelease.tag_name)}
+            />
+          )}
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="BottomNavigator" component={BottomNavigator} />
             <Stack.Screen name="ReaderStack" component={ReaderStack} />
