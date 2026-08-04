@@ -40,7 +40,13 @@ BEGIN
         totalChapters = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id),
         chaptersDownloaded = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.isDownloaded = 1),
         chaptersUnread = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1),
-        lastUpdatedAt = (SELECT MAX(updatedTime) FROM Chapter WHERE Chapter.novelId = Novel.id)
+        lastUpdatedAt = (
+            SELECT updatedTime
+            FROM Chapter
+            WHERE Chapter.novelId = Novel.id AND updatedTime IS NOT NULL
+            ORDER BY julianday(updatedTime) DESC
+            LIMIT 1
+        )
     WHERE id = NEW.novelId;
 END;
 
@@ -53,7 +59,13 @@ BEGIN
         chaptersDownloaded = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.isDownloaded = 1),
         chaptersUnread = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1),
         lastReadAt = (SELECT MAX(readTime) FROM Chapter WHERE Chapter.novelId = Novel.id),
-        lastUpdatedAt = (SELECT MAX(updatedTime) FROM Chapter WHERE Chapter.novelId = Novel.id)
+        lastUpdatedAt = (
+            SELECT updatedTime
+            FROM Chapter
+            WHERE Chapter.novelId = Novel.id AND updatedTime IS NOT NULL
+            ORDER BY julianday(updatedTime) DESC
+            LIMIT 1
+        )
     WHERE id = NEW.novelId;
 END;
 `;
@@ -66,7 +78,13 @@ BEGIN
         chaptersUnread = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1),
         totalChapters = (SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id),
         lastReadAt = (SELECT MAX(readTime) FROM Chapter WHERE Chapter.novelId = Novel.id),
-        lastUpdatedAt = (SELECT MAX(updatedTime) FROM Chapter WHERE Chapter.novelId = Novel.id)
+        lastUpdatedAt = (
+            SELECT updatedTime
+            FROM Chapter
+            WHERE Chapter.novelId = Novel.id AND updatedTime IS NOT NULL
+            ORDER BY julianday(updatedTime) DESC
+            LIMIT 1
+        )
     WHERE id = OLD.novelId;
 END;
 `;

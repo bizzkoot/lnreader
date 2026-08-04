@@ -27,7 +27,11 @@ export const getLibraryNovelsFromDb = (
   }
 
   if (sortOrder) {
-    query += ` ORDER BY ${sortOrder}`;
+    const dateAwareSortOrder = sortOrder.replace(
+      /^lastUpdatedAt (ASC|DESC)$/,
+      'julianday(lastUpdatedAt) $1',
+    );
+    query += ` ORDER BY ${dateAwareSortOrder}`;
   }
 
   return getAllSync<NovelInfo>([query, [searchText ?? '']]);
