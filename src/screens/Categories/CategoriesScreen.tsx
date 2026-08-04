@@ -91,7 +91,7 @@ const CategoriesScreen = () => {
           data={userCategories}
           contentContainerStyle={styles.contentCtn}
           renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
+          keyExtractor={item => item.id.toString()}
           onDragEnd={onDragEnd}
           activationDistance={10}
           autoscrollSpeed={100}
