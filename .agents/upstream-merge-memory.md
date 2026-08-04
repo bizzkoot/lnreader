@@ -66,7 +66,7 @@ applyTo: '**'
 **2026-08-04 - Independent Review + Corrections Applied**: 4 review subagents verified the analysis (all 6 live-bug claims CONFIRMED, 9/9 ALREADY-HAVE SOUND, trap commit correct, PRDs SOUND). Corrections applied to manifest/PRDs/analysis/README: (1) 0cb9da9027 reclassified SKIP->PORT-A2 (pre-Drizzle expo-sqlite tx fix); (2) 5 DIRECT labels -> MANUAL (31cb4b99, 93bc5e5e, 2a919ec0, f1fdafd3, a062beee - fork rewrote those files, hunks fail apply); (3) 9783c4d5e3 reclassified SKIP->PORT-A1/low; (4) c3c891cea0 relabeled SKIP-CI->SKIP-INFRA; PRD-C now requires BOTH surfaceContainerLow+High keys; PRD-A 45c4ea8ca0 now includes epub/import.ts hunk. Full report: specs/upstream-merge-analysis-2026-08/REVIEW-2026-08-04.md
 
 **Docs**: specs/upstream-merge-analysis-2026-08/ (README.md, analysis.md, commit-manifest.csv, batches/PRD-A..D, REVIEW-2026-08-04.md)
-**Status**: Batch A ✅ + Batch B ✅ COMPLETED 2026-08-04 on `merge/original-sync-batch-b` (head `275c106`, 32 commits ahead of master, PUSHED to origin 2026-08-04); Batch C/D pending. ✅ CORRECTED: dev has NO pending TTS work — TTS text-cleanup was merged to master via PR #18 (`a7c030a64`); the only dev-only commit is `6550a7884` (docs/merge review), already inside the batch branch history.
+**Status**: Batch A ✅ + Batch B ✅ COMPLETED 2026-08-04 on `merge/original-sync-batch-b` (head `275c106`, 32 commits ahead of master, PUSHED to origin 2026-08-04); Batch C ✅ COMPLETED 2026-08-05 on `merge/original-sync-batch-c` (pushed); Batch D pending. ✅ CORRECTED: dev has NO pending TTS work — TTS text-cleanup was merged to master via PR #18 (`a7c030a64`); the only dev-only commit is `6550a7884` (docs/merge review), already inside the batch branch history.
 
 **2026-08-04 - Batch A (Safety Fixes) ✅ COMPLETED**: 29/29 upstream fixes ported on `merge/original-sync-batch-b`. Validated: **73 suites / 1265 tests passing (zero regressions)**. Last item: `8f53550d2c` restore tracker search requests (commit `d61228002`).
 
@@ -80,6 +80,17 @@ applyTo: '**'
 - B-7 `5d996f1388` configurable download cooldown (`398ecb958`, modal adapted to fork scaling)
 - Validated: type-check ✅, lint ✅ (5 pre-existing warnings), format ✅, **75 suites / 1281 tests passing**, TTS wake-cycle 7/7 ✅, TTS refill ✅.
 - Stretch items (15) NOT ported — deferred.
+
+**2026-08-05 - Batch C (UX/Theme train, core 7/7) ✅ COMPLETED**: ported on `merge/original-sync-batch-c` (branch from batch-b head; sequential subagents, main agent checked each).
+- C-1 `8f47e8fd1e` theme-switcher refactor → context `ThemeProvider` + legacy-id migration 1-21→100-108 (`b07e701bb`; SKIPPED react-native-theme-switch-animation native dep)
+- C-2 `44c8e54ed8` dynamic Material You colors (`0f0dd626a`; ADDED @pchmn/expo-material3-theme dep + jest mock; Android 12+ only, graceful fallback)
+- C-3 `0c8546188e` MD3 Slider replacing @react-native-community/slider (`b1b08f7f2`; migrated 7 fork consumers incl. ReaderTTSTab/AccessibilityTab; dep removed)
+- C-4 `6d2a9f8e15` slider flicker fix (`2f27e8e`)
+- C-5 `3d34658d0f` M3 top tab indicators (`d7f25f94a`; new TopTabBar + SettingsReaderScreen TabView rework; used theme.surface since surfaceContainer keys absent then)
+- C-6 `17c891e133` bottom-sheet UX standardization (`a8e6a24ba`; added surfaceContainerLow+High to ThemeColors + computed colors; layout.ts; 9 consumers cleaned; upstream retains handleComponent={null})
+- C-7 `e9f6bdaa20` Menu modernization (`54d5d758a`; NativeModal outside-tap/back dismiss + M3 tokens, kept uiScale scaling)
+- Validated: type-check ✅, lint ✅ (0 errors; 7 warnings pre-existing/Slider-inline), format ✅, **78 suites / 1294 tests passing**, TTS wake-cycle 7/7 ✅, TTS refill ✅.
+- Optional C items (`098782d6aa`, `99c31d56bb`) NOT ported.
 
 ## 2025-12-30 - Upstream Merge Analysis (FAILED - DIVERGENCE DETECTED)
 
