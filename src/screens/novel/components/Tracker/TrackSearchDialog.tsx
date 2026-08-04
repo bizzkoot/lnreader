@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  TextInputSubmitEditingEvent,
+  View,
+} from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { TextInput, TouchableRipple } from 'react-native-paper';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
@@ -80,29 +86,40 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
   const [searchText, setSearchText] = useState(novelName);
   const [selectedNovel, setSelectedNovel] = useState<SearchResult>();
 
-  const getSearchResults = useCallback(async () => {
-    setLoading(true);
-    try {
-      const trackerObj = getTracker(tracker.name);
-      const results = await trackerObj.handleSearch(searchText, tracker.auth);
-      setSearchResults(results);
-    } catch (error) {
-      showToast(
-        `Failed to fetch search results from ${tracker.name}: ${getErrorMessage(
-          error,
-        )}`,
-      );
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchText, tracker.auth, tracker.name]);
+  const getSearchResults = useCallback(
+    async (text?: string) => {
+      setLoading(true);
+      try {
+        const trackerObj = getTracker(tracker.name);
+        const query = text ?? searchText;
+        const results = await trackerObj.handleSearch(query, tracker.auth);
+        setSearchResults(results);
+      } catch (error) {
+        showToast(
+          `Failed to fetch search results from ${tracker.name}: ${getErrorMessage(
+            error,
+          )}`,
+        );
+        setSearchResults([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [searchText, tracker.auth, tracker.name],
+  );
 
   useEffect(() => {
     if (visible) {
       getSearchResults();
     }
   }, [getSearchResults, visible]);
+
+  const handleSubmitSearch = useCallback(
+    (event: TextInputSubmitEditingEvent) => {
+      void getSearchResults(event.nativeEvent.text);
+    },
+    [getSearchResults],
+  );
 
   const handleSelectNovel = useCallback((item: SearchResult) => {
     setSelectedNovel(item);
@@ -180,7 +197,8 @@ const TrackSearchDialog: React.FC<TrackSearchDialogProps> = ({
       <TextInput
         value={searchText}
         onChangeText={setSearchText}
-        onSubmitEditing={getSearchResults}
+        onSubmitEditing={handleSubmitSearch}
+        returnKeyType="search"
         textColor={theme.onSurface}
         theme={{
           colors: {
