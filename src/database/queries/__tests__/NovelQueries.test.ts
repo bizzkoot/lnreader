@@ -89,7 +89,7 @@ jest.mock('@database/db', () => {
     getAllAsync: jest.fn(() => Promise.resolve([])),
     getFirstAsync: jest.fn(() => Promise.resolve(null)),
     execAsync: jest.fn(() => Promise.resolve()),
-    withTransactionAsync: jest.fn((fn: () => Promise<void>) => fn()),
+    withExclusiveTransactionAsync: jest.fn((fn: () => Promise<void>) => fn()),
   };
   return {
     db: mockDb,
@@ -925,7 +925,7 @@ describe('NovelQueries', () => {
 
       await NovelQueries._restoreNovelAndChapters(mockBackupNovel);
 
-      expect(db.withTransactionAsync).toHaveBeenCalled();
+      expect(db.withExclusiveTransactionAsync).toHaveBeenCalled();
       expect(db.runAsync).toHaveBeenCalledWith(
         'DELETE FROM Novel WHERE id = ?',
         [1],

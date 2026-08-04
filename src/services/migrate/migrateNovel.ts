@@ -74,7 +74,7 @@ export const migrateNovel = async (
     toChapters = await getNovelChapters(toNovel.id);
   }
 
-  await db.withTransactionAsync(async () => {
+  await db.withExclusiveTransactionAsync(async () => {
     await db.runAsync(
       migrateNovelMetaDataQuery,
       fromNovel.cover || toNovel!.cover || '',
