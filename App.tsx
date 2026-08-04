@@ -26,7 +26,12 @@ import AppErrorBoundary, {
   ErrorFallback,
 } from '@components/AppErrorBoundary/AppErrorBoundary';
 import { useDatabaseInitialization } from '@hooks';
-import { useAppSettings, useTheme, useAutoBackup } from '@hooks/persisted';
+import {
+  useAppSettings,
+  useTheme,
+  useAutoBackup,
+  ThemeProvider,
+} from '@hooks/persisted';
 import { getScaledFonts } from '@theme/fonts';
 
 import Main from './src/navigators/Main';
@@ -115,13 +120,15 @@ const App = () => {
     <GestureHandlerRootView style={styles.flex}>
       <AppErrorBoundary>
         <SafeAreaProvider>
-          <ThemedPaperProvider>
-            <BottomSheetModalProvider>
-              <StatusBar translucent={true} backgroundColor="transparent" />
-              <CloudflareWebView enabled={true} />
-              <Main />
-            </BottomSheetModalProvider>
-          </ThemedPaperProvider>
+          <ThemeProvider>
+            <ThemedPaperProvider>
+              <BottomSheetModalProvider>
+                <StatusBar translucent={true} backgroundColor="transparent" />
+                <CloudflareWebView enabled={true} />
+                <Main />
+              </BottomSheetModalProvider>
+            </ThemedPaperProvider>
+          </ThemeProvider>
         </SafeAreaProvider>
       </AppErrorBoundary>
     </GestureHandlerRootView>

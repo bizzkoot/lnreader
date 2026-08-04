@@ -16,6 +16,6 @@ export const setStatusBarColor = (color: ThemeColors | Color) => {
 };
 
 export const changeNavigationBarColor = (color: string, isDark = false) => {
-  NavigationBar.setBackgroundColorAsync(color);
+  //NavigationBar.setBackgroundColorAsync(color);
   NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
 };

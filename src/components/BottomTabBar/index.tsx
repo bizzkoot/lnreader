@@ -7,6 +7,7 @@ import { ThemeColors } from '@theme/types';
 import Animated from 'react-native-reanimated';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { useAppSettings } from '@hooks/persisted';
+import Color from 'color';
 
 interface CustomBottomTabBarProps extends BottomTabBarProps {
   theme: ThemeColors;
@@ -37,6 +38,7 @@ function CustomBottomTabBar({
     () => getStyles(padding, margin, iconSize, borderRadius, uiScale),
     [padding, margin, iconSize, borderRadius, uiScale],
   );
+  const transparentBg = Color(theme.primaryContainer).fade(1).rgb().toString();
   const getLabelText = useCallback(
     (route: any) => {
       if (!showLabelsInNav && route.name !== state.routeNames[state.index]) {
@@ -113,7 +115,7 @@ function CustomBottomTabBar({
                   width: isFocused ? iconSize.lg + 20 : iconSize.lg,
                   backgroundColor: isFocused
                     ? theme.primaryContainer
-                    : 'transparent',
+                    : transparentBg,
                 },
               ]}
             >

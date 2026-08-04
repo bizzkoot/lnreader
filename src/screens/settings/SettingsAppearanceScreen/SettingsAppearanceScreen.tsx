@@ -1,5 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Pressable,
+  Appearance,
+} from 'react-native';
 import AppText from '@components/AppText';
 import Slider from '@react-native-community/slider';
 
@@ -21,13 +27,17 @@ import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
 import { scaleDimension } from '@theme/scaling';
+import Color from 'color';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
 const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
   const theme = useTheme();
   const [, setThemeId] = useMMKVNumber('APP_THEME_ID');
-  const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE');
+  const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE') as [
+    ThemeMode,
+    (mode: ThemeMode) => void,
+  ];
   const [isAmoledBlack = false, setAmoledBlack] =
     useMMKVBoolean('AMOLED_BLACK');
   const [, setCustomAccentColor] = useMMKVString('CUSTOM_ACCENT_COLOR');
@@ -42,7 +52,13 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     setAppSettings,
   } = useAppSettings();
 
-  const currentMode = themeMode as ThemeMode;
+  const colorScheme = Appearance.getColorScheme() ?? 'light';
+  const actualThemeMode: Exclude<ThemeMode, 'system'> =
+    themeMode !== 'system'
+      ? themeMode
+      : colorScheme === 'unspecified'
+        ? 'light'
+        : colorScheme;
 
   // UI Scale slider local state
   const [localUiScale, setLocalUiScale] = useState(uiScale);
@@ -127,24 +143,10 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
 
   const handleModeChange = (mode: ThemeMode) => {
     setThemeMode(mode);
-
-    if (mode !== 'system') {
-      const themes = mode === 'dark' ? darkThemes : lightThemes;
-      const currentThemeInMode = themes.find(t => t.id === theme.id);
-
-      if (!currentThemeInMode) {
-        setThemeId(themes[0].id);
-      }
-    }
   };
 
   const handleThemeSelect = (selectedTheme: ThemeColors) => {
     setThemeId(selectedTheme.id);
-    setCustomAccentColor(undefined);
-
-    if (currentMode !== 'system') {
-      setThemeMode(selectedTheme.isDark ? 'dark' : 'light');
-    }
   };
 
   const styles = useMemo(
@@ -161,9 +163,15 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           paddingVertical: 8,
         },
         themePickerRow: {
-          paddingHorizontal: 16,
-          paddingVertical: 8,
+          borderRadius: 24,
+          paddingHorizontal: 4,
+          paddingTop: 8,
+          paddingBottom: 2,
           flexDirection: 'row',
+          alignItems: 'center',
+        },
+        scrollViewContainer: {
+          paddingHorizontal: 8,
         },
         segmentedControlContainer: {
           paddingHorizontal: 16,
@@ -244,55 +252,35 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           <View style={styles.segmentedControlContainer}>
             <SegmentedControl
               options={themeModeOptions}
-              value={currentMode}
+              value={themeMode}
               onChange={handleModeChange}
               theme={theme}
             />
           </View>
 
-          {/* Light Themes */}
-          <AppText
-            style={[{ color: theme.onSurface }, styles.themeSectionText]}
-          >
-            {getString('appearanceScreen.lightTheme')}
-          </AppText>
-          <ScrollView
-            contentContainerStyle={styles.themePickerRow}
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-          >
-            {lightThemes.map(item => (
-              <ThemePicker
-                horizontal
-                key={item.id}
-                currentTheme={theme}
-                theme={item}
-                onPress={() => handleThemeSelect(item)}
-              />
-            ))}
-          </ScrollView>
-
-          {/* Dark Themes */}
-          <AppText
-            style={[{ color: theme.onSurface }, styles.themeSectionText]}
-          >
-            {getString('appearanceScreen.darkTheme')}
-          </AppText>
-          <ScrollView
-            contentContainerStyle={styles.themePickerRow}
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-          >
-            {darkThemes.map(item => (
-              <ThemePicker
-                horizontal
-                key={item.id}
-                currentTheme={theme}
-                theme={item}
-                onPress={() => handleThemeSelect(item)}
-              />
-            ))}
-          </ScrollView>
+          {/* Current Mode Themes */}
+          <View style={styles.scrollViewContainer}>
+            <ScrollView
+              contentContainerStyle={[
+                styles.themePickerRow,
+                { backgroundColor: theme.surfaceVariant },
+              ]}
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+            >
+              {(actualThemeMode === 'light' ? lightThemes : darkThemes).map(
+                item => (
+                  <ThemePicker
+                    horizontal
+                    key={item.id}
+                    currentTheme={theme}
+                    theme={item}
+                    onPress={e => handleThemeSelect(item)}
+                  />
+                ),
+              )}
+            </ScrollView>
+          </View>
 
           {theme.isDark ? (
             <SettingSwitch
@@ -304,7 +292,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           ) : null}
           <List.ColorItem
             title={getString('appearanceScreen.accentColor')}
-            description={theme.primary.toUpperCase()}
+            color={Color(theme.primary)}
             onPress={showAccentColorModal}
             theme={theme}
           />
