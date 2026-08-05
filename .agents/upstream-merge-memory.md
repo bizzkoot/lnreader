@@ -277,3 +277,16 @@ The fork is no longer merge-compatible with upstream due to fundamental architec
 - **Validated**: type-check ✅, eslint 0 errors ✅, format ✅, **80 suites / 1304 tests passing** (+10 vs baseline). One transient Slider flake seen in an intermediate run, clean on 2 consecutive full runs.
 
 **Remaining open item**: Item 2 (julianday triggers inert on existing installs) → Batch D, own migration PR (highest blast radius: migration runner; needs upgrade-path test from user_version=2). Mitigation already documented in AGENTS.md divergence note.
+
+## 2026-08-05 - Batch D PR #1 (item #2) IMPLEMENTED ✅ (commit b6b367df6)
+
+**Item 2 (julianday triggers inert on existing installs) — FIXED** on `merge/original-sync-batch-c` (no PR, per workflow). Implemented via sequential chain of 2 subagents (migration worker → test worker) from the multi-POV scope review; main agent reviewed diffs + ran full gates.
+
+- **`src/database/migrations/004_recreate_novel_triggers.ts`** (new): column guard (PRAGMA table_info; SQLite does NOT validate trigger-body col refs at CREATE — throw, don't skip) → DROP ×4 → CREATE ×4 from shared NovelTable/CategoryTable constants → julianday lastUpdatedAt backfill (same subquery as triggers).
+- **`NovelTable.ts`**: update trigger now `AFTER UPDATE OF isDownloaded, unread, readTime, updatedTime ON Chapter` (was firing on every Chapter UPDATE incl. per-paragraph TTS progress saves; verified semantically safe). Single source of truth → fresh installs converge.
+- **`add_category`** included (pre-migration installs lacked it → NULL sort).
+- **db.ts untouched**: fresh installs stay user_version=2 (004 runs as idempotent no-op, 003 precedent). Registry = [002, 003, 004].
+- **Tests (28 new)**: better-sqlite3 devDep + `ExpoLikeDb` adapter + real MigrationRunner (NOT node:sqlite — CI pins Node 20). 004 test: drift invariant (sqlite_master.sql === exported constants), trigger fire, lexicographic-vs-chronological divergence (09:00 wins over 8:00), backfill, column-list non-firing on progress-only, idempotency, column guards. Upgrade-path test: fresh/v1/v2/v3/empty/large-novel. LibraryQueries sort-rewrite test.
+- **Validated**: type-check ✅, eslint 0 errors ✅, format ✅, **84 suites / 1332 tests passing** (+28 vs baseline).
+
+**Batch D remaining**: time tracking, in-chapter search, stats overhaul, reader perf sprint, scheduled updates. Deferred items from this PR documented: incremental insert trigger (30×), batch-op write amplification, bootstrap drop-recreate (→ stats-overhaul PR).
