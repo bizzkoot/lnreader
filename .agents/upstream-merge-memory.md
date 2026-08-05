@@ -265,3 +265,15 @@ The fork is no longer merge-compatible with upstream due to fundamental architec
 **Fork-integrity cross-cut — ✅ INTACT**: Zero TTS-pipeline / TTS-state-machine / TTS-native / DoH / per-novel-settings code touched. Only deletions: upstream's TabBar.tsx (replaced by TopTabBar) + MangaUpdatesLoginDialog→TrackerLoginDialog rename (92% preserved). Dependencies: -@react-native-community/slider +@pchmn/expo-material3-theme, all fork deps retained.
 
 **Outcome**: 42/43 commits verified good as intended. 1 real defect found & fixed (fa5e10b76). 5 low-severity non-blocking items tracked (4 deferred, 1 latent test-mock shape).
+
+## 2026-08-05 - Quick-Fix Batch IMPLEMENTED (items 1, 3, 4, 5 from audit) ✅
+
+**Committed**: ebea3c75a on `merge/original-sync-batch-c` (no PR created, per request). Implemented via sequential chain of 2 subagents (EPUB bundle → app/mock bundle), main agent reviewed diffs + ran full gates.
+
+- **Item 1 (EPUB range export) FIXED**: `getNovelDownloadedChapters` range branch → `LIMIT ? OFFSET ?` over flat (page, position) global order (was per-page position-window → wrong/duplicated chapters on multi-page novels). 6 tests in `ChapterQueries.range.test.ts`.
+- **Item 3 (EPUB toggle staleness) FIXED**: new `EpubExportOptions` payload + `buildEpubExportOptions()` pure helper; `ExportEpubModal` submits LIVE toggle values; `ExportNovelAsEpubButton` consumes `options.*` at export time (all 4 toggles; persistence call kept). 4 tests.
+- **Item 4 (ErrorFallback theming) FIXED**: dbError path wrapped in ThemeProvider; ThemeProvider moved ABOVE AppErrorBoundary (boundary-caught errors now themed; ThemeProvider is MMKV-only, safe during dbError).
+- **Item 5 (mock fidelity) FIXED**: `isDynamicThemeSupported` is plain boolean `false` in jest mock (was jest.fn → truthy → wrong branch in future dynamic-theme tests).
+- **Validated**: type-check ✅, eslint 0 errors ✅, format ✅, **80 suites / 1304 tests passing** (+10 vs baseline). One transient Slider flake seen in an intermediate run, clean on 2 consecutive full runs.
+
+**Remaining open item**: Item 2 (julianday triggers inert on existing installs) → Batch D, own migration PR (highest blast radius: migration runner; needs upgrade-path test from user_version=2). Mitigation already documented in AGENTS.md divergence note.
