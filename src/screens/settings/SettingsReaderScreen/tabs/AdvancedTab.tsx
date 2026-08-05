@@ -151,6 +151,10 @@ p {
 }`;
 
   const customJSPlaceholder = `// Custom JavaScript for your reader
+// Tip: for watermark / text replacements, prefer Settings → Reader →
+// Accessibility → TTS Text Cleanup ("Applies to: visible text"). Custom JS
+// runs raw and can break paragraph indexing — never remove or empty elements.
+//
 // Available variables:
 // - html, novelName, chapterName
 // - sourceId, chapterId, novelId

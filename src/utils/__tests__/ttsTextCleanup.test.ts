@@ -1,6 +1,9 @@
 import {
   cleanTtsText,
   applyTtsTextCleanup,
+  cleanVisibleText,
+  shouldCleanVisibleText,
+  VISIBLE_PAD_CHAR,
   createTtsCleanupRule,
   createTtsPhoneticPair,
   normalizeUnicodeText,
@@ -340,5 +343,148 @@ describe('applyTtsTextCleanup', () => {
 
   it('returns empty array unchanged', () => {
     expect(applyTtsTextCleanup([], settings)).toEqual([]);
+  });
+});
+
+describe('cleanVisibleText (issue #19 visible-text cleanup)', () => {
+  it('applies RULES ONLY — phonetic pairs and normalizeUnicode stay TTS-only', () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      normalizeUnicode: true,
+      rules: [createTtsCleanupRule('u2014', ' ')],
+      phoneticPairs: [createTtsPhoneticPair('Xianxia', 'Shee-an-shah')],
+    });
+    // 'é' would NFD-normalize to 'e' and 'Xianxia' would be swapped by the
+    // TTS-only phonetic pass — neither may touch visible text.
+    const texts = ['u2014 hello', 'Xianxia é'];
+    expect(cleanVisibleText(texts, settings)).toEqual(['  hello', 'Xianxia é']);
+  });
+
+  it('is count-preserving: pads paragraphs a rule would empty', () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      rules: [
+        createTtsCleanupRule('\\s*\\(Official version\\)\\s*', '', true, 'g'),
+      ],
+    });
+    const result = cleanVisibleText(['(Official version)', 'keep'], settings)!;
+    expect(result).toHaveLength(2);
+    expect(result[0]).toBe(VISIBLE_PAD_CHAR);
+    expect(result[1]).toBe('keep');
+    // Padded element stays "readable": trim() of ZWSP is non-empty.
+    expect(result[0].trim().length).toBeGreaterThan(0);
+  });
+
+  it('no-ops when applyTo is tts or missing (default)', () => {
+    const texts = ['a', 'b'];
+    const ttsOnly = buildSettings({
+      enabled: true,
+      applyTo: 'tts',
+      rules: [createTtsCleanupRule('a', 'b')],
+    });
+    expect(cleanVisibleText(texts, ttsOnly)).toBe(texts);
+    const missing = buildSettings({
+      enabled: true,
+      rules: [createTtsCleanupRule('a', 'b')],
+    });
+    expect(cleanVisibleText(texts, missing)).toBe(texts);
+  });
+
+  it('no-ops when disabled or when only phonetic pairs exist', () => {
+    const texts = ['a'];
+    expect(
+      cleanVisibleText(
+        texts,
+        buildSettings({ enabled: false, applyTo: 'both' }),
+      ),
+    ).toBe(texts);
+    const phoneticsOnly = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      phoneticPairs: [createTtsPhoneticPair('Xianxia', 'Shee-an-shah')],
+    });
+    expect(cleanVisibleText(texts, phoneticsOnly)).toBe(texts);
+  });
+
+  it('handles undefined/null input', () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      rules: [createTtsCleanupRule('a', 'b')],
+    });
+    expect(cleanVisibleText(undefined, settings)).toBeUndefined();
+    expect(cleanVisibleText(null, settings)).toBeNull();
+  });
+
+  it('reuses regex guardrails — invalid regex skipped silently', () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      rules: [
+        createTtsCleanupRule('(unclosed', '', true, 'g'),
+        createTtsCleanupRule('u2014', ' '),
+      ],
+    });
+    expect(cleanVisibleText(['unclosed u2014'], settings)).toEqual([
+      'unclosed  ',
+    ]);
+  });
+});
+
+describe('applyTo gating (issue #19)', () => {
+  it("'visible' mode: TTS pipeline no-ops, visible pipeline active", () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'visible',
+      rules: [createTtsCleanupRule('u2014', ' ')],
+    });
+    expect(cleanTtsText('u2014 x', settings)).toBe('u2014 x');
+    expect(applyTtsTextCleanup(['u2014 x'], settings)).toEqual(['u2014 x']);
+    expect(cleanVisibleText(['u2014 x'], settings)).toEqual(['  x']);
+  });
+
+  it("'both' mode: TTS pipeline AND visible pipeline active", () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      rules: [createTtsCleanupRule('u2014', ' ')],
+    });
+    expect(cleanTtsText('u2014 x', settings)).toBe('  x');
+    expect(applyTtsTextCleanup(['u2014 x'], settings)).toEqual(['  x']);
+    expect(cleanVisibleText(['u2014 x'], settings)).toEqual(['  x']);
+  });
+
+  it("'tts' (default) keeps historical behavior", () => {
+    const settings = buildSettings({
+      enabled: true,
+      rules: [createTtsCleanupRule('u2014', ' ')],
+    });
+    expect(cleanTtsText('u2014 x', settings)).toBe('  x');
+    expect(cleanVisibleText(['u2014 x'], settings)).toEqual(['u2014 x']);
+  });
+
+  it('shouldCleanVisibleText reflects the target mode', () => {
+    expect(
+      shouldCleanVisibleText(buildSettings({ enabled: true, applyTo: 'both' })),
+    ).toBe(true);
+    expect(
+      shouldCleanVisibleText(
+        buildSettings({ enabled: true, applyTo: 'visible' }),
+      ),
+    ).toBe(true);
+    expect(
+      shouldCleanVisibleText(buildSettings({ enabled: true, applyTo: 'tts' })),
+    ).toBe(false);
+    expect(shouldCleanVisibleText(buildSettings({ enabled: true }))).toBe(
+      false,
+    );
+    expect(
+      shouldCleanVisibleText(
+        buildSettings({ enabled: false, applyTo: 'both' }),
+      ),
+    ).toBe(false);
+    expect(shouldCleanVisibleText(undefined)).toBe(false);
   });
 });

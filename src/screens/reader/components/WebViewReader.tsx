@@ -68,6 +68,8 @@ import { useBoolean, useBackHandler } from '@hooks';
 import {
   extractParagraphs,
   applyTtsTextCleanup,
+  cleanVisibleText,
+  shouldCleanVisibleText,
   DEFAULT_TTS_CLEANUP_SETTINGS,
   type TtsTextCleanupSettings,
 } from '@utils/htmlParagraphExtractor';
@@ -776,6 +778,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'chapter-appended',
         'stitched-chapters-cleared',
         'chapter-transition',
+        'visible-cleanup',
       ] as const);
       if (!msg) {
         return;
@@ -1343,6 +1346,27 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               });
           }
           break;
+        case 'visible-cleanup':
+          // Declarative TTS ruleset applied to the reader DOM (issue #19).
+          // core.js posts the current readable texts once per chapter load /
+          // DOM rebuild; we clean them RN-side (rules-only, count-preserving)
+          // and write the result back via injectJavaScript.
+          if (Array.isArray(event.data)) {
+            const texts = event.data as string[];
+            const cleaned = cleanVisibleText(
+              texts,
+              chapterGeneralSettingsRef.current?.ttsTextCleanup,
+            );
+            if (cleaned && cleaned.length === texts.length) {
+              webViewRef.current?.injectJavaScript(
+                `if (window.reader && window.reader.applyVisibleCleanup) {
+                  window.reader.applyVisibleCleanup(${JSON.stringify(cleaned)});
+                }
+                true;`,
+              );
+            }
+          }
+          break;
       }
     },
     [
@@ -1421,6 +1445,18 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             if (window.reader) {
               window.reader.nextChapter = ${JSON.stringify(nextChapter ? { id: nextChapter.id, name: nextChapter.name } : null)};
               window.reader.prevChapter = ${JSON.stringify(prevChapter ? { id: prevChapter.id, name: prevChapter.name } : null)};
+            }
+            true;
+          `);
+
+          // Enable visible-text cleanup (issue #19) when the effective
+          // settings target the reader DOM. core.js then posts the readable
+          // texts; this handler cleans them and writes them back.
+          webViewRef.current?.injectJavaScript(`
+            if (window.reader && window.reader.setVisibleCleanup) {
+              window.reader.setVisibleCleanup(${shouldCleanVisibleText(
+                chapterGeneralSettingsRef.current?.ttsTextCleanup,
+              )});
             }
             true;
           `);

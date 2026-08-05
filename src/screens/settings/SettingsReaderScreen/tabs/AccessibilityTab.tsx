@@ -670,7 +670,13 @@ const AccessibilityTab: React.FC = () => {
               <List.SubHeader theme={theme}>TTS Text Cleanup</List.SubHeader>
               <SettingSwitch
                 label="Clean TTS text"
-                description="Strip watermarks & fix pronunciation before TTS reads"
+                description={
+                  ttsTextCleanup.applyTo === 'both'
+                    ? 'Strip watermarks from visible text & TTS audio'
+                    : ttsTextCleanup.applyTo === 'visible'
+                      ? 'Strip watermarks from visible reader text'
+                      : 'Strip watermarks & fix pronunciation before TTS reads'
+                }
                 value={ttsTextCleanup.enabled}
                 onPress={() =>
                   setChapterGeneralSettings({
@@ -684,7 +690,7 @@ const AccessibilityTab: React.FC = () => {
               />
               <List.Item
                 title="Cleanup rules & phonetic dictionary"
-                description={`${(ttsTextCleanup.rules ?? []).filter(r => r.enabled).length} active rules · ${(ttsTextCleanup.phoneticPairs ?? []).filter(p => p.enabled).length} phonetic`}
+                description={`${(ttsTextCleanup.rules ?? []).filter(r => r.enabled).length} active rules · ${(ttsTextCleanup.phoneticPairs ?? []).filter(p => p.enabled).length} phonetic${ttsTextCleanup.applyTo && ttsTextCleanup.applyTo !== 'tts' ? ` · applies to ${ttsTextCleanup.applyTo === 'both' ? 'visible text + audio' : 'visible text'}` : ''}`}
                 onPress={showTtsTextCleanupModal}
                 theme={theme}
               />

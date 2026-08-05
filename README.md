@@ -122,7 +122,7 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 | 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                 |
 | 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                         |
 | 🖱️ **Advanced Button Gestures**         | Tap to toggle playback, hold 0.5s + swipe to adjust highlight offset, hold 2s + drag to move   |
-| 🧹 **TTS Text Cleanup**                  | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export |
+| 🧹 **TTS Text Cleanup**                  | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export. **Also cleans visible reader text** (Applies to: TTS / Visible / Both) |
 
 </div>
 
@@ -203,7 +203,7 @@ Android devices can have multiple TTS engines installed. The default engine is o
 
 #### TTS Text Cleanup
 
-Sites like Novelight inject anti-scraper watermarks (spaced letters, unicode lookalikes, `u2014` corruption, "Do not rehost this novel" spam) that system TTS engines read aloud, and LN names/honorifics are commonly mispronounced. **Text Cleanup** fixes both with a declarative, **length-preserving** pipeline applied to every paragraph before it reaches the TTS engine — across all playback modes, including background playback.
+Sites like Novelight inject anti-scraper watermarks (spaced letters, unicode lookalikes, `u2014` corruption, "Do not rehost this novel" spam) that system TTS engines read aloud, and LN names/honorifics are commonly mispronounced. **Text Cleanup** fixes both with a declarative, **length-preserving** pipeline applied to every paragraph before it reaches the TTS engine — across all playback modes, including background playback. The **same ruleset can also clean the visible reader text** (Applies to: **TTS audio only** / **Visible text only** / **Both**), so you maintain ONE ruleset for reading and listening instead of juggling a separate Custom JS script.
 
 <div align="center">
 
@@ -213,6 +213,7 @@ flowchart LR
     classDef src fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1,font-weight:bold
     classDef clean fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100,font-weight:bold
     classDef out fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20,font-weight:bold
+    classDef vis fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#6a1b9a,font-weight:bold
 
     %% Nodes
     PARA["📄 Every Paragraph<br/>(any playback path)"]:::src
@@ -220,18 +221,21 @@ flowchart LR
     RULES["🧹 2. Find & Replace Rules<br/>(literal or regex, ordered)"]:::clean
     PHON["🗣️ 3. Phonetic Dictionary<br/>(whole-word or substring)"]:::clean
     TTS["🔈 Native TTS Engine"]:::out
+    VDOM["👁️ Visible Reader DOM<br/>(rules only — no phonetics/normalization)"]:::vis
 
     %% Flow
     PARA ==> NORM ==> RULES ==> PHON ==> TTS
+    PARA -. "Applies to: Both / Visible" .-> VDOM
 ```
 
 </div>
 
 - **Access**: Settings → Reader → Accessibility → **TTS Text Cleanup** (global), or Reader Bottom Sheet → TTS Tab → **Text Cleanup** (quick access, per-novel aware)
+- **Applies to**: inside the cleanup editor, choose **TTS audio only** (default), **Visible text only**, or **Both**. In visible modes the find/replace rules also clean the reader DOM (once per chapter load, never removing paragraphs — emptied ones are padded invisibly to keep highlight/scroll/progress in sync). **Phonetic dictionary and Unicode normalization always stay TTS-only** — they are audio-oriented and would corrupt visible text
 - **Presets (one-tap)**: Curated templates — Novelight spaced watermark, `u2014` corruption, "(Official version)" tags, "Do not rehost" spam, math-bold lookalikes, LN name pronunciations, and CJK substring pairs. Presets are UI data only; applying copies them into your editable rules
-- **Import / Export**: Share or restore your rule set as a versioned JSON envelope (`lnreader-tts-cleanup` v1)
-- **Per-novel overrides**: With per-novel TTS settings enabled, cleanup can be overridden per novel
-- **Safety**: Regex length cap + ReDoS-shape detection + invalid-regex skip; length-preserving (paragraph count never changes, so highlight/scroll stay in sync)
+- **Import / Export**: Share or restore your rule set as a versioned JSON envelope (`lnreader-tts-cleanup` v1; v2 when a non-default target is set — v1 files still import as "TTS audio only")
+- **Per-novel overrides**: With per-novel TTS settings enabled, cleanup (including the target mode) can be overridden per novel
+- **Safety**: Regex length cap + ReDoS-shape detection + invalid-regex skip; length-preserving (paragraph count never changes, so highlight/scroll stay in sync). Custom JS (`Settings → Reader → Advanced`) is NOT recommended for text cleanup — it runs raw and can break paragraph indexing
 
 ---
 
@@ -325,6 +329,7 @@ Robust backup system with multiple options and versioned schema.
 ### TTS Enhancements
 
 - **TTS Text Cleanup**: Declarative rule pipeline strips anti-scraper watermarks, corrupted text, and fixes LN name pronunciations before TTS reads (Settings → Reader → Accessibility → TTS Text Cleanup; quick access in the Reader TTS tab)
+- **Unified Text Cleanup**: The same declarative ruleset can clean the **visible reader text** too (Applies to: TTS audio / Visible text / Both) — one ruleset for reading and listening, no more parallel Custom JS scripts. Phonetics & Unicode normalization stay TTS-only
 - **Cleanup Presets**: One-tap curated templates (Novelight watermark, `u2014` corruption, LN/CJK pronunciations, and more) — UI data only, copied into your editable rules
 - **Cleanup Import/Export**: Share or restore cleanup rule sets as versioned JSON from the editor
 - **TTS Engine Picker**: Custom engine selection with native Android integration, quality badges, and persistent selection across sessions

@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, ScrollView, Dimensions, Share } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  Dimensions,
+  Share,
+  Pressable,
+} from 'react-native';
 import { Portal, TextInput } from 'react-native-paper';
 import Modal from '@components/Modal/Modal';
 import List from '@components/List/List';
@@ -13,6 +20,7 @@ import {
   TtsTextCleanupSettings,
   TtsCleanupRule,
   TtsPhoneticPair,
+  TtsCleanupTarget,
   createTtsCleanupRule,
   createTtsPhoneticPair,
   TTS_CLEANUP_MAX_REGEX_LENGTH,
@@ -26,6 +34,7 @@ import {
   parseCleanupSettingsImport,
   serializeCleanupSettings,
 } from './ttsCleanupPresets';
+import TTSScrollBehaviorModal from './TTSScrollBehaviorModal';
 
 interface TtsTextCleanupModalProps {
   visible: boolean;
@@ -111,6 +120,7 @@ const normalizeSettings = (
   normalizeUnicode: !!settings.normalizeUnicode,
   rules: settings.rules ?? [],
   phoneticPairs: settings.phoneticPairs ?? [],
+  applyTo: settings.applyTo ?? 'tts',
 });
 
 const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
@@ -135,6 +145,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
     kind: 'error' | 'success';
     message: string;
   } | null>(null);
+  const [applyToPickerVisible, setApplyToPickerVisible] = useState(false);
 
   // Re-sync draft whenever the modal opens or settings change externally.
   useEffect(() => {
@@ -147,6 +158,7 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
       setImportVisible(false);
       setImportText('');
       setImportFeedback(null);
+      setApplyToPickerVisible(false);
     }
   }, [visible, settings]);
 
@@ -431,6 +443,54 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
                 }
               />
             </View>
+
+            <Pressable
+              style={styles.toggleRow}
+              onPress={() => setApplyToPickerVisible(true)}
+            >
+              <View style={styles.toggleLabel}>
+                <AppText style={{ color: theme.onSurface }}>Applies to</AppText>
+                <AppText
+                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                >
+                  {draft.applyTo === 'visible'
+                    ? 'Visible text only'
+                    : draft.applyTo === 'both'
+                      ? 'TTS audio and visible text'
+                      : 'TTS audio only'}
+                </AppText>
+                <AppText
+                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                >
+                  Phonetic dictionary &amp; Unicode normalization stay TTS-only
+                </AppText>
+              </View>
+              <AppText style={{ color: theme.primary }}>Edit</AppText>
+            </Pressable>
+
+            <Pressable
+              style={styles.toggleRow}
+              onPress={() => setApplyToPickerVisible(true)}
+            >
+              <View style={styles.toggleLabel}>
+                <AppText style={{ color: theme.onSurface }}>Applies to</AppText>
+                <AppText
+                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                >
+                  {draft.applyTo === 'visible'
+                    ? 'Visible text only'
+                    : draft.applyTo === 'both'
+                      ? 'TTS audio and visible text'
+                      : 'TTS audio only'}
+                </AppText>
+                <AppText
+                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
+                >
+                  Phonetic dictionary &amp; Unicode normalization stay TTS-only
+                </AppText>
+              </View>
+              <AppText style={{ color: theme.primary }}>Edit</AppText>
+            </Pressable>
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleLabel}>
@@ -844,6 +904,21 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
           </View>
         </ScrollView>
       </Modal>
+      <TTSScrollBehaviorModal
+        visible={applyToPickerVisible}
+        onDismiss={() => setApplyToPickerVisible(false)}
+        theme={theme}
+        title="Cleanup applies to"
+        options={[
+          { label: 'TTS audio only', value: 'tts' },
+          { label: 'Visible text only', value: 'visible' },
+          { label: 'Both TTS audio and visible text', value: 'both' },
+        ]}
+        currentValue={draft.applyTo ?? 'tts'}
+        onSelect={value =>
+          setDraft(d => ({ ...d, applyTo: value as TtsCleanupTarget }))
+        }
+      />
     </Portal>
   );
 };

@@ -115,6 +115,15 @@ jest.mock('@utils/htmlParagraphExtractor', () => ({
   extractParagraphs: jest.fn(() => ['P1', 'P2', 'P3', 'P4', 'P5']),
   applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
   cleanTtsText: jest.fn((text: string) => text),
+  cleanVisibleText: jest.fn((paragraphs: string[]) => paragraphs),
+  shouldCleanVisibleText: jest.fn(() => false),
+  DEFAULT_TTS_CLEANUP_SETTINGS: {
+    enabled: false,
+    normalizeUnicode: false,
+    rules: [],
+    phoneticPairs: [],
+    applyTo: 'tts',
+  },
 }));
 
 jest.mock('../ttsHelpers', () => ({
@@ -207,7 +216,7 @@ jest.mock('react-native-paper', () => ({
 
 // Import test utilities
 import React from 'react';
-import { render, act } from '@testing-library/react-native';
+import { render, act, waitFor } from '@testing-library/react-native';
 import TTSHighlight from '@services/TTSHighlight';
 import { useChapterContext } from '../../ChapterContext';
 
@@ -297,14 +306,80 @@ describe('WebViewReader Integration - native restore on PREV', () => {
     // Re-render to simulate opening the reader for chapter 9
     await act(async () => {
       rerender(<WebViewReader onPress={jest.fn()} />);
-      await Promise.resolve();
+      // Flush microtasks AND a macrotask round so React's concurrent commit
+      // (and the mocked WebView ref's props update) fully settles before
+      // asserting. A single `await Promise.resolve()` only drains microtasks
+      // and can race the deferred commit under parallel test load.
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    // The webview ref should now be populated by the mocked webview
-    const webviewProps = webViewRefObject.current?.props;
+    // The webview ref should now be populated by the mocked webview.
+    // waitFor retries the SAME assertion (HTML contains savedParagraphIndex
+    // from MMKV) so a legitimately deferred commit/scheduler tick cannot turn
+    // into a flake, while still failing loudly if MMKV is never consulted.
+    await waitFor(() => {
+      const html = webViewRefObject.current?.props?.source?.html || '';
+      expect(html).toContain('"savedParagraphIndex":3');
+    });
+  });
 
-    // Verify that the HTML contains savedParagraphIndex from MMKV
-    const html = webviewProps?.source?.html || '';
-    expect(html).toContain('"savedParagraphIndex":3');
+  it('bridges visible-cleanup messages back to the WebView (issue #19)', async () => {
+    const {
+      shouldCleanVisibleText,
+      cleanVisibleText,
+    } = require('@utils/htmlParagraphExtractor');
+    (shouldCleanVisibleText as jest.Mock).mockReturnValue(true);
+    (cleanVisibleText as jest.Mock).mockImplementation((texts: string[]) =>
+      texts.map(t => t.toUpperCase()),
+    );
+
+    render(<WebViewReader onPress={jest.fn()} />);
+    await act(async () => {
+      await new Promise(resolve => setImmediate(resolve));
+    });
+
+    const onMessage = (webViewRefObject.current?.props as any).onMessage;
+    expect(onMessage).toBeDefined();
+
+    // Extract the nonce the same way the eventHandlers suite does
+    const injected = (webViewRefObject.current?.props as any)
+      .injectedJavaScriptBeforeContentLoaded as string;
+    const nonceMatch =
+      injected.match(/__LNREADER_NONCE__\s*=\s*("[^"]+"|[a-f0-9]{32})/i) || [];
+    const rawNonce = nonceMatch[1];
+    const nonce =
+      typeof rawNonce === 'string'
+        ? rawNonce.startsWith('"')
+          ? JSON.parse(rawNonce)
+          : rawNonce
+        : undefined;
+    expect(nonce).toBeTruthy();
+
+    const injectSpy = (webViewRefObject.current as any)
+      .injectJavaScript as jest.Mock;
+    injectSpy.mockClear();
+
+    await act(async () => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'visible-cleanup',
+            data: ['hello', 'world'],
+            nonce,
+          }),
+        },
+      });
+    });
+
+    expect(cleanVisibleText).toHaveBeenCalledWith(
+      ['hello', 'world'],
+      expect.anything(),
+    );
+    const applyScript = injectSpy.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .find(s => s.includes('applyVisibleCleanup'));
+    expect(applyScript).toBeDefined();
+    expect(applyScript).toContain('HELLO');
+    expect(applyScript).toContain('WORLD');
   });
 });

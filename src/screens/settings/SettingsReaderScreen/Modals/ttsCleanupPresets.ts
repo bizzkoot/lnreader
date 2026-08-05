@@ -145,16 +145,30 @@ export function applyPresetToSettings(
 // -----------------------------------------------------------------------------
 
 export const TTS_CLEANUP_IMPORT_FORMAT = 'lnreader-tts-cleanup';
+/**
+ * Default export/import version: base ruleset (TTS-only, no `applyTo`
+ * field). Still written when `applyTo` is the default so exports stay
+ * shareable with older app builds.
+ */
 export const TTS_CLEANUP_IMPORT_VERSION = 1;
+/**
+ * Version written when the envelope carries a non-default `applyTo` target
+ * (visible-text / both). Import accepts v1 and v2 and rejects newer versions.
+ */
+export const TTS_CLEANUP_APPLY_TO_VERSION = 2;
 
 /** Serialize settings to a versioned JSON envelope for sharing/backup. */
 export function serializeCleanupSettings(
   settings: TtsTextCleanupSettings,
 ): string {
+  const applyTo = settings.applyTo ?? 'tts';
   return JSON.stringify(
     {
       format: TTS_CLEANUP_IMPORT_FORMAT,
-      version: TTS_CLEANUP_IMPORT_VERSION,
+      version:
+        applyTo === 'tts'
+          ? TTS_CLEANUP_IMPORT_VERSION
+          : TTS_CLEANUP_APPLY_TO_VERSION,
       settings,
     },
     null,
@@ -198,10 +212,23 @@ export function parseCleanupSettingsImport(
   }
 
   const raw = payload as Record<string, unknown>;
+  const isEnvelope = raw.format === TTS_CLEANUP_IMPORT_FORMAT;
+  if (isEnvelope && raw.version !== undefined) {
+    const version = raw.version;
+    if (
+      typeof version !== 'number' ||
+      !Number.isInteger(version) ||
+      version < TTS_CLEANUP_IMPORT_VERSION ||
+      version > TTS_CLEANUP_APPLY_TO_VERSION
+    ) {
+      return {
+        ok: false,
+        error: `Unsupported export version (${String(version)}) — this app supports v${TTS_CLEANUP_IMPORT_VERSION}–v${TTS_CLEANUP_APPLY_TO_VERSION}.`,
+      };
+    }
+  }
   const settingsRaw =
-    raw.format === TTS_CLEANUP_IMPORT_FORMAT &&
-    typeof raw.settings === 'object' &&
-    raw.settings !== null
+    isEnvelope && typeof raw.settings === 'object' && raw.settings !== null
       ? (raw.settings as Record<string, unknown>)
       : raw;
 
@@ -234,6 +261,8 @@ export function parseCleanupSettingsImport(
     }
   }
 
+  const applyToRaw = settingsRaw.applyTo;
+
   const settings: TtsTextCleanupSettings = {
     enabled:
       typeof settingsRaw.enabled === 'boolean'
@@ -245,6 +274,8 @@ export function parseCleanupSettingsImport(
         : !!current.normalizeUnicode,
     rules,
     phoneticPairs,
+    applyTo:
+      applyToRaw === 'visible' || applyToRaw === 'both' ? applyToRaw : 'tts',
   };
 
   const skippedNote =

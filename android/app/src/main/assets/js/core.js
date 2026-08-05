@@ -441,6 +441,10 @@ window.reader = new (function () {
         );
       }
       this.invalidateCache();
+      // Visible cleanup: newly appended stitched content needs cleaning too
+      // (no-op when disabled; re-posts pristine snapshots for already-clean
+      // elements so the count contract stays intact).
+      this.requestVisibleCleanup();
       if (DEBUG) {
         console.log(
           `[receiveChapterContent] After invalidateCache: loadedChapters = ${JSON.stringify(this.loadedChapters)}, length = ${this.loadedChapters.length}`,
@@ -1283,6 +1287,79 @@ window.reader = new (function () {
 
   this.invalidateCache = () => {
     this._cacheInvalidated = true;
+  };
+
+  // ==========================================================================
+  // Visible-text cleanup (issue #19): the declarative TTS ruleset can also be
+  // applied to the READER DOM. core.js stays dumb — RN decides (reads the
+  // effective settings) and injects window.reader.applyVisibleCleanup().
+  // ==========================================================================
+
+  this._visibleCleanupEnabled = false;
+
+  /** Enable/disable the visible-text cleanup pass (called by RN on load). */
+  this.setVisibleCleanup = function (enabled) {
+    this._visibleCleanupEnabled = !!enabled;
+    if (this._visibleCleanupEnabled) {
+      this.requestVisibleCleanup();
+    }
+  };
+
+  /**
+   * Capture pristine text (dataset.originalText) for every readable element
+   * and post the current texts to RN. Pristine is always what TTS reads, so
+   * the full TTS ruleset applies exactly once on the RN side.
+   */
+  this.requestVisibleCleanup = function () {
+    if (!this._visibleCleanupEnabled || !this.chapterElement) {
+      return;
+    }
+    const elements = this.getReadableElements();
+    if (elements.length === 0) {
+      return;
+    }
+    const texts = [];
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
+      if (!el.dataset.originalText) {
+        el.dataset.originalText = el.textContent;
+      }
+      texts.push(el.dataset.originalText);
+    }
+    this.post({ type: 'visible-cleanup', data: texts });
+  };
+
+  /**
+   * Write cleaned texts back into the DOM. Aborts safely on count mismatch
+   * (paragraph-index contract). Element identity/count never changes.
+   */
+  this.applyVisibleCleanup = function (cleaned) {
+    if (!Array.isArray(cleaned) || !this.chapterElement) {
+      return;
+    }
+    const elements = this.getReadableElements();
+    if (cleaned.length !== elements.length) {
+      if (DEBUG) {
+        console.warn('[visible-cleanup] count mismatch — aborting write-back');
+      }
+      return;
+    }
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
+      if (!el.dataset.originalText) {
+        el.dataset.originalText = el.textContent;
+      }
+      el.textContent = cleaned[i];
+    }
+  };
+
+  /**
+   * Text to send to the native TTS engine: the pristine pre-cleanup snapshot
+   * when visible cleanup is active, otherwise the live textContent.
+   */
+  this.getCleanTextForTTS = function (el) {
+    if (!el) return '';
+    return (el.dataset && el.dataset.originalText) || el.textContent;
   };
 
   this.getReadableElements = () => {
@@ -2830,7 +2907,7 @@ window.tts = new (function () {
         }
         this.reading = true;
 
-        const text = this.currentElement.textContent;
+        const text = reader.getCleanTextForTTS(this.currentElement);
         if (text && text.trim().length > 0) {
           this.log('Speaking (locked)', text.substring(0, 20));
           reader.post({ type: 'speak', data: text });
@@ -2872,7 +2949,7 @@ window.tts = new (function () {
       }
 
       // Use textContent to ensure indices match for highlighting
-      const text = this.currentElement.textContent;
+      const text = reader.getCleanTextForTTS(this.currentElement);
       if (text && text.trim().length > 0) {
         this.log('Speaking', text.substring(0, 20));
         // Include paragraphIndex so RN can create utteranceId matching the batch format
@@ -2911,7 +2988,7 @@ window.tts = new (function () {
         ) {
           const el = readableElements[i];
           if (this.readable(el) && !this.isContainer(el)) {
-            nextTexts.push(el.textContent);
+            nextTexts.push(reader.getCleanTextForTTS(el));
           }
         }
         if (nextTexts.length > 0) {
@@ -4208,6 +4285,10 @@ document.addEventListener('message', __handleNativeMessage);
     }
 
     reader.chapterElement.innerHTML = html;
+
+    // Visible cleanup: the rebuild wiped datasets + cleaned text, so re-run
+    // the cleanup pass (no-op when disabled).
+    reader.requestVisibleCleanup();
 
     // CRITICAL: Restore TTS state after DOM rebuild
     if (savedTTSState && savedTTSState.paragraphIndex >= 0) {
