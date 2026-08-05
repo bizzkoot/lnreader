@@ -1,5 +1,5 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index ec86c517e8c904a9e9fb7ddcb5f10f2f4df16db1..74f267a504775866c8e1029f9982201efb8372a6 100644
+index ec86c517e8c904a9e9fb7ddcb5f10f2f4df16db1..0f9b19e9b3a926be1a093e72f1682a3fbb971993 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -51,6 +51,7 @@ afterEvaluate {
@@ -10,6 +10,15 @@ index ec86c517e8c904a9e9fb7ddcb5f10f2f4df16db1..74f267a504775866c8e1029f9982201e
    compileSdkVersion safeExtGet("compileSdkVersion", 34)
  
    def agpVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
+@@ -84,7 +85,7 @@ android {
+     versionName "0.1.0"
+   }
+   lintOptions {
+-    abortOnError false
++    abortOnError = false
+   }
+   publishing {
+    singleVariant("release") {
 diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
 index 96b3dda64b8fce7d472eaa57540db99c7aeac936..bdae66c8f5a82773eaadc8f7befc05437e27cf25 100644
 --- a/android/src/main/AndroidManifest.xml
