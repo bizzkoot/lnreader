@@ -52,7 +52,7 @@ END;
 
 `;
 export const createNovelTriggerQueryUpdate = `CREATE TRIGGER IF NOT EXISTS update_novel_stats_on_update 
-AFTER UPDATE ON Chapter
+AFTER UPDATE OF isDownloaded, unread, readTime, updatedTime ON Chapter
 BEGIN
     UPDATE Novel
     SET 

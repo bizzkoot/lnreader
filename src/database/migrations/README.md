@@ -56,3 +56,9 @@ Migration runs automatically on next app launch.
 - [SQLite ALTER TABLE](https://www.sqlite.org/lang_altertable.html)
 - [SQLite PRAGMA](https://www.sqlite.org/pragma.html)
 - [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
+
+## Lessons
+
+- Migration 004: SQLite does not validate trigger-body column references at
+  CREATE TRIGGER time (error only on first fire) — verify referenced columns
+  via PRAGMA table_info and throw before installing trigger DDL.
