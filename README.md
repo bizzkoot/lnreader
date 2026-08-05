@@ -49,6 +49,9 @@ This fork builds on the original LNReader with enhanced features focused on acce
 - **System-Wide UI Scaling**: Adjustable layout scaling for better accessibility and consistent experience across devices
 - **Enhanced Backup System**: Versioned schema with migration pipeline, multi-location support (Local, Google Drive, Self-Hosted)
 - **Improved App Updates**: In-app download with automatic backup before update
+- **Parallel Library Updates**: Concurrent multi-source updating (up to 3 sources at once) for significantly faster library refreshes
+- **Expanded Trackers**: Kitsu added alongside AniList, MyAnimeList, and MangaUpdates
+- **Material You & MD3 Design**: Dynamic wallpaper-derived color palettes and modern Material Design 3 components
 - **Better Android Compatibility**: Support for API 35+ with all deprecation warnings resolved
 
 ---
@@ -65,15 +68,15 @@ This fork builds on the original LNReader with enhanced features focused on acce
     - [TTS Engine Picker](#tts-engine-picker)
     - [TTS Text Cleanup](#tts-text-cleanup)
   - [Reader Experience](#reader-experience)
+  - [Library & Updates](#library--updates)
+  - [Trackers](#trackers)
   - [Network \& Security](#network--security)
   - [UI \& Accessibility](#ui--accessibility)
   - [Backup \& Sync](#backup--sync)
 - [What's New](#whats-new)
-  - [Network \& Security Enhancements](#network--security-enhancements)
-  - [UI \& Accessibility](#ui--accessibility-1)
-  - [TTS Enhancements](#tts-enhancements)
-  - [Stability \& Performance](#stability--performance)
+  - [Stability & Performance](#stability--performance)
   - [Platform Updates](#platform-updates)
+  - [Database & System Stability](#database--system-stability)
 - [Getting Started](#getting-started)
   - [First-Time Setup](#first-time-setup)
   - [Using TTS](#using-tts)
@@ -177,7 +180,7 @@ Android devices can have multiple TTS engines installed. The default engine is o
 
 <div align="center">
   <p align="center">
-    <img src="./.github/readme-images/TTS/TTS-Engine%20Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
+    <img src="./.github/readme-images/TTS/TTS-Engine Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
     <br />
     <em>Engine Picker showing detected TTS engines</em>
   </p>
@@ -250,8 +253,26 @@ Enhanced features for smoother, more immersive reading.
 | 📜 **Continuous Scrolling**          | Seamless chapter transitions with invisible DOM stitching   |
 | ✅ **Auto-Mark Short Chapters**      | Automatically mark short chapters as read to reduce clutter |
 | 🪡 **Configurable Stitch Threshold** | User-adjustable trigger for chapter merging                 |
+| 🚀 **Jump to First Unread**          | Read button & FAB navigate straight to the first unread chapter |
+| 📚 **EPUB Range Export**             | Export custom chapter ranges with chapter numbers preserved |
 | 🎨 **EPUB Style Preservation**       | `<span>` tags preserved for better styling                  |
 | 🧹 **EPUB Summary Improvements**     | Clean summaries with HTML tag/entity stripping              |
+
+</div>
+
+---
+
+### Library & Updates
+
+Efficient library management with parallel updates and rate-limit friendly downloads.
+
+<div align="center">
+
+| Feature                          | Description                                                              |
+| :------------------------------- | :----------------------------------------------------------------------- |
+| ⚡ **Parallel Library Updates**   | Update novels across multiple sources concurrently (up to 3 at once)     |
+| ⏱️ **Configurable Download Cooldown** | Adjustable delay between chapter downloads (Settings → General)     |
+| 🔔 **Skip-Version Updates**       | Dismiss update notifications for a specific version                      |
 
 </div>
 
@@ -286,6 +307,8 @@ System-wide improvements for better usability across devices.
 | 📏 **UI-Wide Scaling**     | Single `uiScale` setting affects icons, paddings, and component dimensions |
 | 🔠 **AppText Component**   | Text scaling support for better accessibility                              |
 | 🖼️ **Theme Customization** | Multiple theme options with consistent styling                             |
+| 🎨 **Dynamic Material You** | Wallpaper-derived Material 3 color palettes (Android 12+)                  |
+| 🎚️ **MD3 Sliders & Tabs**  | Flicker-free native sliders, M3 top tab indicators, standardized sheets    |
 
 </div>
 
@@ -312,40 +335,43 @@ Robust backup system with multiple options and versioned schema.
 
 ---
 
+### Trackers
+
+Synchronize your reading progress, status, and scores with popular tracking services.
+
+<div align="center">
+
+| Tracker             | Supported Features                                  |
+| :------------------ | :-------------------------------------------------- |
+| 🦊 **Kitsu**        | Search, status, chapter progress, and score sync    |
+| 🌸 **AniList**      | Search, status, chapter progress, and score sync    |
+| 🟦 **MyAnimeList**  | Search, status, chapter progress, and score sync    |
+| 📖 **MangaUpdates** | Search, status, chapter progress, and score sync    |
+
+</div>
+
+> [!NOTE]
+> **Kitsu** is the newest addition to the tracker lineup; all trackers share the same capabilities (search, status, chapter progress, and score).
+
+---
+
 ## What's New
 
-### Network & Security Enhancements
-
-- **Cookie Management**: Automatic persistence for authentication-required sources with WebView sync
-- **DNS-over-HTTPS**: Encrypted DNS queries via Cloudflare, Google, or AdGuard (Settings → Advanced)
-- **Cloudflare Bypass**: Automated challenge solving for protected novel sources
-- **Enhanced Network Resilience**: Infinite loop prevention (max 2 retry attempts), connection pooling, graceful timeout handling
-
-### UI & Accessibility
-
-- **Header Positioning Fix**: Resolved header overlap with Android status bar icons across all Settings and More screens
-- **SafeAreaView Enhancement**: Proper inset handling following React Native best practices
-
-### TTS Enhancements
-
-- **TTS Text Cleanup**: Declarative rule pipeline strips anti-scraper watermarks, corrupted text, and fixes LN name pronunciations before TTS reads (Settings → Reader → Accessibility → TTS Text Cleanup; quick access in the Reader TTS tab)
-- **Unified Text Cleanup**: The same declarative ruleset can clean the **visible reader text** too (Applies to: TTS audio / Visible text / Both) — one ruleset for reading and listening, no more parallel Custom JS scripts. Phonetics & Unicode normalization stay TTS-only
-- **Cleanup Presets**: One-tap curated templates (Novelight watermark, `u2014` corruption, LN/CJK pronunciations, and more) — UI data only, copied into your editable rules
-- **Cleanup Import/Export**: Share or restore cleanup rule sets as versioned JSON from the editor
-- **TTS Engine Picker**: Custom engine selection with native Android integration, quality badges, and persistent selection across sessions
-- **Per-Novel TTS Settings**: Isolated voice/speed/pitch per novel — changes no longer overwrite global defaults
-- **TTS Resume Reliability**: Fixed resume playback failure and wrong engine audio output after interruptions
-- **Engine Stability**: Improved engine stability, voice matching, and reactive live settings updates
-- **Auto Chapter Title Prepend**: TTS auto-announces the chapter title when not visibly present in content
+> [!NOTE]
+> **Feature highlights** mirror the tables above — this section lists what's new that isn't already covered there: bug fixes, platform/tooling upgrades, and database hardening. For the complete changelog, see [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Stability & Performance
 
-- **MainActivity Startup Crash**: Resolved critical crash on app launch
+- **MainActivity Startup Crash**: Resolved critical crash on app launch (`window.insetsController` accessed before `super.onCreate()`)
+- **Header Positioning Fix**: Resolved header overlap with Android status bar icons across all Settings and More screens
+- **SafeAreaView Enhancement**: Proper inset handling following React Native best practices
 - **TTS Progress Persistence**: Fixed stale closure preventing reliable saves
 - **Media Notification Sync**: Eliminated flicker and state desync during seeks
 - **Notification Position Restore**: Fixed position restoration when returning from pause
 - **Auto-Stop Reliability**: Resolved race conditions and state management issues
 - **TTS Position Restoration**: Fixed position when returning to reader after notification pause
+- **EPUB Toggles**: Toggle values (appTheme/CSS/JS/chapterNumber) now carry through export instead of reading a stale closure
+- **EPUB Range Export Correctness**: Fixed chapter-range export fetching wrong/duplicated chapters on multi-page novels
 
 ### Platform Updates
 
@@ -354,7 +380,11 @@ Robust backup system with multiple options and versioned schema.
 - **Modern Tooling**: Upgraded React Native to 0.82.1, Reanimated to 4.2.0
 - **Build System**: Gradle 9.2.0 upgrade with OkHttp 4.12.0 for DoH support
 
-View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
+### Database & System Stability
+
+- **Database Migration 004**: Recreates `julianday` triggers across all installs, fixing library sorting anomalies
+- **Exclusive DB Transactions**: Write operations wrapped in exclusive transactions to prevent database locks
+- **Ordering & Safety Fixes**: Date-correct library updates, numeric EPUB page ordering, and hardened native file operations
 
 ---
 
@@ -456,6 +486,12 @@ A custom scaling engine (`src/theme/scaling.ts`) ensures accessibility across al
 -   **Centralized Logic**: `scaleDimension(value, scale)` applies user preferences globally.
 -   **Safety Clamps**: Prevents broken layouts by clamping scale factors (0.8x - 1.3x).
 -   **Component-Level Support**: Custom components like `AppText` and `Icon` automatically consume scaling tokens.
+
+### Dynamic Material You Theme
+Dynamic theming (`src/theme/dynamic.ts`) generates Material 3 palettes from the Android wallpaper via `@pchmn/expo-material3-theme` when the system theme is set to "Dynamic" (`DYNAMIC_THEME_ID`), with an automatic fallback color when dynamic theming is unsupported (pre-Android 12).
+
+### Parallel Library Updater
+The library updater (`src/services/updates`) groups library novels by source and updates up to **3 sources concurrently** (`UPDATE_SOURCE_CONCURRENCY`). Within each source, novels update sequentially with a short cooldown — so a slow or rate-limited source never bottlenecks unrelated sources.
 
 ### Robust Backup System
 The backup system (`src/services/backup`) prioritizes data safety and portability:
