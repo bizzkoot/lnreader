@@ -178,8 +178,8 @@ export const restoreLibrary = async (novel: NovelInfo) => {
     throw e;
   });
   let novelId: number | undefined;
-  await db.withExclusiveTransactionAsync(async () => {
-    const data = await db.runAsync(restoreFromBackupQuery, [
+  await db.withExclusiveTransactionAsync(async tx => {
+    const data = await tx.runAsync(restoreFromBackupQuery, [
       sourceNovel.path,
       novel.name,
       novel.pluginId,
@@ -318,14 +318,14 @@ const restoreObjectQuery = (table: string, obj: Record<string, unknown>) => {
 
 export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
   const { chapters, ...novel } = backupNovel;
-  await db.withExclusiveTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM Novel WHERE id = ?', [novel.id]);
-    await db.runAsync(
+  await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync('DELETE FROM Novel WHERE id = ?', [novel.id]);
+    await tx.runAsync(
       restoreObjectQuery('Novel', novel),
       Object.values(novel) as string[] | number[],
     );
     for (const chapter of chapters) {
-      await db.runAsync(
+      await tx.runAsync(
         restoreObjectQuery(
           'Chapter',
           chapter as unknown as Record<string, unknown>,
