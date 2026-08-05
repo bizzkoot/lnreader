@@ -248,3 +248,20 @@ The fork is no longer merge-compatible with upstream due to fundamental architec
 - Merge Date: 2025-12-11 21:46:22 +0800
 - Post-merge Checks (local): lint: 17 warnings (no errors); type-check: passed; unit tests: all passed
 - Merge Branch Deleted: Yes (origin branch `merge/dev-into-master-20251211-ba60ecf9` removed)
+
+## 2026-08-05 - Post-Port Audit of Batches A/B/C (43 commits ahead of origin/master) + 1 FIX
+
+**Method**: 4 parallel read-only review subagents (Batch A / Batch B / Batch C / fork-integrity cross-cut) + main-agent verification of the one MED finding. Gates run independently: type-check ✅, lint 0 errors ✅, **78 suites / 1294 tests passing** ✅.
+
+**Batch A (21 code commits) — 19 ✅ CORRECT / 1 ⚠️ MED / 2 ⚠️ LOW**:
+- ✅ Faithful ports incl. edfdbaea6 (download-deletion scoping, exemplary tests), 261b379a1 (core.js TTS quote-strip, length-preserving, index-contract safe), b0b32fe28 (progress restore, no TTS interference), 969f088cb's await fix, d61228002 (tracker search submit).
+- ⚠️ **MED — FIXED (commit fa5e10b76)**: 969f088cb ported `withExclusiveTransactionAsync` but kept `db.runAsync` inside callbacks. expo-sqlite's `withExclusiveTransactionAsync` opens a NEW connection (`useNewConnection: true`); statements must run on the `txn` object. `db.runAsync` inside executed OUTSIDE the transaction → atomicity silently lost for `restoreLibrary`, `_restoreNovelAndChapters`, `transactionAsync` (helpers.tsx), `migrateNovel`. Fix: all 6 sites now use `tx` (4 fixed + ChapterQueries/LibraryUpdateQueries already correct). Test mock updated (tx proxies shared runAsync mock; all 54 DB tests still pass). Verified: grep shows zero `db.runAsync` inside transaction callbacks.
+- ⚠️ LOW (deferred): f4f8defdf (EPUB range export not reworked to LIMIT/OFFSET — pre-existing multi-page position-window quirk); cf5b5923e (julianday trigger half inert on existing installs — no trigger recreation on bootstrap).
+
+**Batch B (7 features) — all ✅ CORRECT, 0 regressions**: B-1 parallel updates (2 tests), B-2 Kitsu (byte-identical, 14 tests; upstream-inherited score-scale quirk noted), B-3 first-unread FAB, B-4 jump-to-chapter + drawer end-reach, B-5 EPUB chapter numbers (⚠️ minor: first-submit staleness reading setting from closure instead of payload — inherits pre-existing epubUseAppTheme pattern), B-6 skip-version (fork's richer dialog preserved; first-launch check bug fixed intentionally), B-7 download cooldown (service actually uses getChapterDownloadCooldownMs; no hard-coded sleep left). No TTS/DoH/MMKV files touched.
+
+**Batch C (7 theme/UX + 1 build patch) — all ✅ PASS, 0 regressions**: C-1 theme-ID migration 1-21→100-108 map verified complete, no stale consumers; C-2 Material You graceful fallback <Android 12 (⚠️ low/latent: jest mock exports fn instead of boolean false for isDynamicThemeSupported — harmless, no test renders those screens); C-3 MD3 Slider — zero @react-native-community/slider refs remain, all 7 fork consumers migrated, TTS min/max/step preserved; C-4 flicker fix; C-5 TopTabBar; C-6 surfaceContainerLow/High computed both modes; C-7 Menu keeps uiScale; 494ad9707 expo-material3-theme gradle patch verified applied in node_modules. ⚠️ low: ErrorFallback renders outside ThemeProvider (App.tsx dbError/AppErrorBoundary paths) → unstyled error screens; upstream wraps inside.
+
+**Fork-integrity cross-cut — ✅ INTACT**: Zero TTS-pipeline / TTS-state-machine / TTS-native / DoH / per-novel-settings code touched. Only deletions: upstream's TabBar.tsx (replaced by TopTabBar) + MangaUpdatesLoginDialog→TrackerLoginDialog rename (92% preserved). Dependencies: -@react-native-community/slider +@pchmn/expo-material3-theme, all fork deps retained.
+
+**Outcome**: 42/43 commits verified good as intended. 1 real defect found & fixed (fa5e10b76). 5 low-severity non-blocking items tracked (4 deferred, 1 latent test-mock shape).
