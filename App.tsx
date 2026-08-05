@@ -109,7 +109,11 @@ const App = () => {
   }, []);
 
   if (dbError) {
-    return <ErrorFallback error={dbError} resetError={retryInitialization} />;
+    return (
+      <ThemeProvider>
+        <ErrorFallback error={dbError} resetError={retryInitialization} />
+      </ThemeProvider>
+    );
   }
 
   if (!isDbReady) {
@@ -118,9 +122,9 @@ const App = () => {
 
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <AppErrorBoundary>
-        <SafeAreaProvider>
-          <ThemeProvider>
+      <ThemeProvider>
+        <AppErrorBoundary>
+          <SafeAreaProvider>
             <ThemedPaperProvider>
               <BottomSheetModalProvider>
                 <StatusBar translucent={true} backgroundColor="transparent" />
@@ -128,9 +132,9 @@ const App = () => {
                 <Main />
               </BottomSheetModalProvider>
             </ThemedPaperProvider>
-          </ThemeProvider>
-        </SafeAreaProvider>
-      </AppErrorBoundary>
+          </SafeAreaProvider>
+        </AppErrorBoundary>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 };

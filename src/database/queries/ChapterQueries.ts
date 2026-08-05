@@ -520,11 +520,14 @@ export const getNovelDownloadedChapters = (
   endPosition?: number,
 ) => {
   if (startPosition !== undefined && endPosition !== undefined) {
+    // Range positions are global ordinals over the flat (page, position)-ordered
+    // downloaded list. position alone is per-page (it resets in insertChapters),
+    // so a position-window query would match every page for multi-page novels.
     return db.getAllAsync<ChapterInfo>(
-      'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 AND position >= ? AND position <= ? ORDER BY CAST(page AS INTEGER) ASC, position ASC',
+      'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY CAST(page AS INTEGER) ASC, position ASC LIMIT ? OFFSET ?',
       novelId,
+      endPosition - startPosition + 1,
       startPosition - 1,
-      endPosition - 1,
     );
   }
 

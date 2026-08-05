@@ -15,10 +15,16 @@ import {
 import { scaleDimension } from '@theme/scaling';
 import { showToast } from '@utils/showToast';
 import AppText from '@components/AppText';
+import { buildEpubExportOptions, EpubExportOptions } from './ExportEpubOptions';
 
 interface ExportEpubModalProps {
   isVisible: boolean;
-  onSubmit?: (uri: string, startChapter?: number, endChapter?: number) => void;
+  onSubmit?: (
+    uri: string,
+    options: EpubExportOptions,
+    startChapter?: number,
+    endChapter?: number,
+  ) => void;
   hideModal: () => void;
 }
 
@@ -117,7 +123,21 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
     const start = exportAll.value ? undefined : parseInt(startChapter, 10);
     const end = exportAll.value ? undefined : parseInt(endChapter, 10);
 
-    onSubmitProp?.(uri, start, end);
+    // Carry the LIVE toggle values through the payload so the exporter does
+    // not read stale useChapterReaderSettings() values from a previous render
+    // (useMMKVObject re-renders are async/batched, so the first export after
+    // toggling was previously one submit behind).
+    onSubmitProp?.(
+      uri,
+      buildEpubExportOptions({
+        useAppTheme: useAppTheme.value,
+        useCustomCSS: useCustomCSS.value,
+        useCustomJS: useCustomJS.value,
+        includeChapterNumber: includeChapterNumber.value,
+      }),
+      start,
+      end,
+    );
     hideModal();
   };
 

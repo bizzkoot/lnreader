@@ -14,6 +14,7 @@ import { getString } from '@strings/translations';
 import { getNovelDownloadedChapters } from '@database/queries/ChapterQueries';
 
 import ExportEpubModal from './ExportEpubModal';
+import { EpubExportOptions } from './ExportEpubOptions';
 import { MaterialDesignIconName } from '@type/icon';
 
 interface ExportNovelAsEpubButtonProps {
@@ -39,20 +40,13 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
   } = useBoolean(false);
 
   const readerSettings = useChapterReaderSettings();
-  const {
-    epubUseAppTheme = false,
-    epubUseCustomCSS = false,
-    epubUseCustomJS = false,
-    epubIncludeChapterNumber = false,
-  } = readerSettings;
 
-  const epubStylesheet = useMemo(() => {
+  const { appThemeStyles, customStyles } = useMemo(() => {
     if (!novel) {
-      return '';
+      return { appThemeStyles: '', customStyles: '' };
     }
 
-    const appThemeStyles = epubUseAppTheme
-      ? `
+    const computedAppThemeStyles = `
       html {
         scroll-behavior: smooth;
         overflow-x: hidden;
@@ -82,17 +76,17 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
         width: auto;
         height: auto;
         max-width: 100%;
-      }`
-      : '';
+      }`;
 
-    const customStyles = epubUseCustomCSS
-      ? readerSettings.customCSS
-          .replace(RegExp(`#sourceId-${novel.pluginId}\\s*\\{`, 'g'), 'body {')
-          .replace(RegExp(`#sourceId-${novel.pluginId}[^.#A-Z]*`, 'gi'), '')
-      : '';
+    const computedCustomStyles = readerSettings.customCSS
+      .replace(RegExp(`#sourceId-${novel.pluginId}\\s*\\{`, 'g'), 'body {')
+      .replace(RegExp(`#sourceId-${novel.pluginId}[^.#A-Z]*`, 'gi'), '');
 
-    return appThemeStyles + customStyles;
-  }, [novel, epubUseAppTheme, epubUseCustomCSS, readerSettings, theme.primary]);
+    return {
+      appThemeStyles: computedAppThemeStyles,
+      customStyles: computedCustomStyles,
+    };
+  }, [novel, readerSettings, theme.primary]);
 
   const epubJavaScript = useMemo(() => {
     if (!novel) {
@@ -113,6 +107,7 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
 
   const exportNovelAsEpub = async (
     destinationUri: string,
+    options: EpubExportOptions,
     startChapter?: number,
     endChapter?: number,
   ) => {
@@ -135,6 +130,10 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
         return;
       }
 
+      const epubStylesheet =
+        (options.epubUseAppTheme ? appThemeStyles : '') +
+        (options.epubUseCustomCSS ? customStyles : '');
+
       epub = new EpubBuilder(
         {
           title: novel.name,
@@ -145,7 +144,7 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
           author: novel.author,
           bookId: novel.pluginId.toString(),
           stylesheet: epubStylesheet || undefined,
-          js: epubUseCustomJS ? epubJavaScript : undefined,
+          js: options.epubUseCustomJS ? epubJavaScript : undefined,
         },
         destinationUri,
       );
@@ -167,7 +166,7 @@ const ExportNovelAsEpubButton: React.FC<ExportNovelAsEpubButtonProps> = ({
 
           await epub.addChapter({
             title:
-              epubIncludeChapterNumber && sourceTitle
+              options.epubIncludeChapterNumber && sourceTitle
                 ? `${numberedTitle} — ${sourceTitle}`
                 : sourceTitle || numberedTitle,
             fileName: `Chapter${i}`,
