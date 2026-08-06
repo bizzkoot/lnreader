@@ -84,6 +84,12 @@ This fork builds on the original LNReader with enhanced features focused on acce
   - [Using Continuous Scrolling](#using-continuous-scrolling)
   - [Backup \& Restore](#backup--restore)
 - [Architecture](#architecture)
+  - [Advanced TTS System](#advanced-tts-system)
+  - [System-Wide UI Scaling](#system-wide-ui-scaling)
+  - [Dynamic Material You Theme](#dynamic-material-you-theme)
+  - [Parallel Library Updater](#parallel-library-updater)
+  - [Robust Backup System](#robust-backup-system)
+  - [Network \& Security Infrastructure](#network--security-infrastructure)
 - [Plugins](#plugins)
 - [Building \& Contributing](#building--contributing)
   - [Quick Start](#quick-start)
@@ -95,9 +101,14 @@ This fork builds on the original LNReader with enhanced features focused on acce
 
 <h2 align="center">Screenshots</h2>
 
+<details>
+<summary>📸 View screenshots</summary>
+
 <p align="center">
   <img src="./.github/readme-images/screenshots.png" align="center" />
 </p>
+
+</details>
 
 ---
 
@@ -131,6 +142,9 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 
 #### TTS Feature Demo
 
+<details>
+<summary>▶️ Watch the demo & feature showcase</summary>
+
 <h3 align="center">🎵 Text-to-Speech in Action</h3>
 
 <div align="center">
@@ -153,7 +167,12 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 
 </div>
 
+</details>
+
 #### Enhanced TTS Media Notification (Android)
+
+<details>
+<summary>🎛️ See the media notification</summary>
 
 This release introduces a 5-button Android MediaStyle notification for the TTS foreground service. It provides rich metadata (novel name, chapter title, and paragraph-based progress), lock-screen visibility, and a native ⇄ React Native TTS progress sync — all while preserving visibility of the 5 action buttons.
 
@@ -170,9 +189,14 @@ This release introduces a 5-button Android MediaStyle notification for the TTS f
   </p>
 </div>
 
+</details>
+
 ---
 
 #### TTS Engine Picker
+
+<details>
+<summary>🔊 Explore TTS engine options</summary>
 
 Android devices can have multiple TTS engines installed. The default engine is often your manufacturer's (Google on most phones, Samsung on Galaxy devices), but you can install better ones. The **Engine Picker** (Settings → Reader → Accessibility → TTS Engine) lets you choose which engine powers LNReader's TTS, independently of your system default.
 
@@ -202,11 +226,16 @@ Android devices can have multiple TTS engines installed. The default engine is o
 > [!TIP]
 > **Google TTS with Neural2 voices** is the current best recommendation. Install Google TTS, open your device's TTS settings (Settings → Accessibility → Text-to-Speech → Preferred Engine), select "Google Text-to-Speech", then install the Neural2 voice packs. Switch LNReader to use Google TTS and you'll get the highest quality reading experience.
 
+</details>
+
 ---
 
 #### TTS Text Cleanup
 
 Sites like Novelight inject anti-scraper watermarks (spaced letters, unicode lookalikes, `u2014` corruption, "Do not rehost this novel" spam) that system TTS engines read aloud, and LN names/honorifics are commonly mispronounced. **Text Cleanup** fixes both with a declarative, **length-preserving** pipeline applied to every paragraph before it reaches the TTS engine — across all playback modes, including background playback. The **same ruleset can also clean the visible reader text** (Applies to: **TTS audio only** / **Visible text only** / **Both**), so you maintain ONE ruleset for reading and listening instead of juggling a separate Custom JS script.
+
+<details>
+<summary>🧹 View the cleanup pipeline diagram</summary>
 
 <div align="center">
 
@@ -232,6 +261,8 @@ flowchart LR
 ```
 
 </div>
+
+</details>
 
 - **Access**: Settings → Reader → Accessibility → **TTS Text Cleanup** (global), or Reader Bottom Sheet → TTS Tab → **Text Cleanup** (quick access, per-novel aware)
 - **Applies to**: inside the cleanup editor, choose **TTS audio only** (default), **Visible text only**, or **Both**. In visible modes the find/replace rules also clean the reader DOM (once per chapter load, never removing paragraphs — emptied ones are padded invisibly to keep highlight/scroll/progress in sync). **Phonetic dictionary and Unicode normalization always stay TTS-only** — they are audio-oriented and would corrupt visible text
@@ -357,6 +388,9 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 
 ## What's New
 
+<details>
+<summary>📋 Expand the changelog</summary>
+
 > [!NOTE]
 > **Feature highlights** mirror the tables above — this section lists what's new that isn't already covered there: bug fixes, platform/tooling upgrades, and database hardening. For the complete changelog, see [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
@@ -385,6 +419,8 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 - **Database Migration 004**: Recreates `julianday` triggers across all installs, fixing library sorting anomalies
 - **Exclusive DB Transactions**: Write operations wrapped in exclusive transactions to prevent database locks
 - **Ordering & Safety Fixes**: Date-correct library updates, numeric EPUB page ordering, and hardened native file operations
+
+</details>
 
 ---
 
@@ -442,6 +478,9 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 ---
 
 ## Architecture
+
+<details>
+<summary>🏗️ Expand architecture deep-dive</summary>
 
 ### Advanced TTS System
 > [!NOTE]
@@ -588,6 +627,8 @@ The network stack has been enhanced to address three common challenges when acce
 - ❌ **CAPTCHA Challenge**: hCaptcha/reCAPTCHA (requires manual solve)
 
 **Cookie Lifetime**: `cf_clearance` typically valid for 15 min - 24 hours. After expiration, bypass re-triggers automatically.
+
+</details>
 
 ---
 
