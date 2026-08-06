@@ -438,10 +438,24 @@ export const getPageChaptersBatched = (
   );
 };
 
-export const getNovelChaptersByNumber = (
+export const getNovelChaptersByNumber = async (
   novelId: number,
   chapterNumber: number,
 ) => {
+  // Prefer a real chapterNumber match: sources with dense 1..N numbering set
+  // it, and it stays correct across gaps/renumbering. Sources that leave
+  // chapterNumber NULL fall back to the historical position heuristic
+  // (position === chapterNumber - 1 in dense numbering).
+  if (Number.isFinite(chapterNumber) && chapterNumber > 0) {
+    const byNumber = await db.getAllAsync<ChapterInfo>(
+      'SELECT * FROM Chapter WHERE novelId = ? AND chapterNumber = ? ORDER BY position ASC',
+      novelId,
+      chapterNumber,
+    );
+    if (byNumber.length > 0) {
+      return byNumber;
+    }
+  }
   return db.getAllAsync<ChapterInfo>(
     'SELECT * FROM Chapter WHERE novelId = ? AND position = ?',
     novelId,

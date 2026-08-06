@@ -4,6 +4,7 @@ import {
   I18nManager,
   LayoutChangeEvent,
   PanResponder,
+  Pressable,
   StyleProp,
   StyleSheet,
   Text,
@@ -22,6 +23,33 @@ const PRESSED_HANDLE_WIDTH = 2;
 const HANDLE_TRACK_GAP = 6;
 const INSIDE_CORNER_RADIUS = 2;
 const STOP_SIZE = 4;
+
+/**
+ * Minimum horizontal travel (px) before the slider claims a drag gesture.
+ * Below this, the gesture is treated as a tap or jitter and the parent
+ * ScrollView is free to take it (vertical swipes scroll the page).
+ */
+const HORIZONTAL_CLAIM_THRESHOLD = 6;
+
+/**
+ * Responder-claim decision for the slider's PanResponder.
+ *
+ * The slider never claims a touch at start: on Android a JS responder claim
+ * at touch-start blocks the parent native ScrollView from scrolling, so a
+ * vertical swipe that begins on the track would be swallowed. Instead we only
+ * claim once the gesture is clearly horizontal-dominant, letting vertical
+ * swipes pass through to the parent and taps fall through to the Pressable
+ * wrapper (which jumps the handle).
+ */
+export const shouldClaimPanResponder = (
+  dx: number,
+  dy: number,
+  disabled = false,
+): boolean => {
+  if (disabled) return false;
+  if (Math.abs(dx) < HORIZONTAL_CLAIM_THRESHOLD) return false;
+  return Math.abs(dx) > Math.abs(dy);
+};
 
 export type SliderSize = 'xs' | 's' | 'm' | 'l' | 'xl';
 
@@ -170,27 +198,45 @@ const Slider: React.FC<SliderProps> = ({
     [disabled, displayedValue, min, normalizeValue, onValueChange, span, width],
   );
 
+  const completeAtLocation = useCallback(
+    (locationX: number) => {
+      const completedValue = updateFromPosition(locationX);
+      setIsActive(false);
+      if (completedValue === boundedValue) {
+        setDragValue(null);
+      }
+      onSlidingComplete?.(completedValue);
+    },
+    [boundedValue, onSlidingComplete, updateFromPosition],
+  );
+
+  const handleTap = useCallback(
+    (locationX: number) => {
+      if (disabled) return;
+      completeAtLocation(locationX);
+    },
+    [completeAtLocation, disabled],
+  );
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabled,
-        onMoveShouldSetPanResponder: () => !disabled,
+        // Never claim at touch start: the parent vertical ScrollView must win
+        // vertical gestures (otherwise vertical swipes starting on the track
+        // are swallowed and cannot scroll the page).
+        onStartShouldSetPanResponder: () => false,
+        // Claim only once the gesture is clearly horizontal-dominant; taps
+        // (no move) fall through to the Pressable wrapper's onPress.
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          shouldClaimPanResponder(gestureState.dx, gestureState.dy, disabled),
         onPanResponderGrant: event => {
           setIsActive(true);
           updateFromPosition(event.nativeEvent.locationX);
         },
         onPanResponderMove: event =>
           updateFromPosition(event.nativeEvent.locationX),
-        onPanResponderRelease: event => {
-          const completedValue = updateFromPosition(
-            event.nativeEvent.locationX,
-          );
-          setIsActive(false);
-          if (completedValue === boundedValue) {
-            setDragValue(null);
-          }
-          onSlidingComplete?.(completedValue);
-        },
+        onPanResponderRelease: event =>
+          completeAtLocation(event.nativeEvent.locationX),
         onPanResponderTerminate: () => {
           setIsActive(false);
           if (displayedValue === boundedValue) {
@@ -201,6 +247,7 @@ const Slider: React.FC<SliderProps> = ({
       }),
     [
       boundedValue,
+      completeAtLocation,
       disabled,
       displayedValue,
       onSlidingComplete,
@@ -239,159 +286,166 @@ const Slider: React.FC<SliderProps> = ({
   }, [showStops, span, step]);
 
   return (
-    <View
-      {...viewProps}
-      {...panResponder.panHandlers}
-      testID={testID}
-      accessible
-      accessibilityRole="adjustable"
-      accessibilityActions={[
-        { name: 'increment', label: 'Increase' },
-        { name: 'decrement', label: 'Decrease' },
-      ]}
-      accessibilityState={{ disabled }}
-      accessibilityValue={{
-        min,
-        max: safeMax,
-        now: displayedValue,
-        text: formatValue(displayedValue),
-      }}
-      onAccessibilityAction={handleAccessibilityAction}
-      onLayout={handleLayout}
-      style={[styles.container, { height: containerHeight }, style]}
+    <Pressable
+      accessible={false}
+      disabled={disabled}
+      testID={`${testID}-press-surface`}
+      onPress={event => handleTap(event.nativeEvent.locationX)}
     >
-      {showValueIndicator && isActive ? (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.valueIndicator,
-            {
-              backgroundColor: theme.inverseSurface,
-              bottom: centerY + sizeTokens.handleHeight / 2 + 12,
-              left: handlePosition,
-            },
-          ]}
-        >
-          <Text
+      <View
+        {...viewProps}
+        {...panResponder.panHandlers}
+        testID={testID}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityActions={[
+          { name: 'increment', label: 'Increase' },
+          { name: 'decrement', label: 'Decrease' },
+        ]}
+        accessibilityState={{ disabled }}
+        accessibilityValue={{
+          min,
+          max: safeMax,
+          now: displayedValue,
+          text: formatValue(displayedValue),
+        }}
+        onAccessibilityAction={handleAccessibilityAction}
+        onLayout={handleLayout}
+        style={[styles.container, { height: containerHeight }, style]}
+      >
+        {showValueIndicator && isActive ? (
+          <View
+            pointerEvents="none"
             style={[
-              styles.valueIndicatorText,
-              { color: theme.inverseOnSurface },
+              styles.valueIndicator,
+              {
+                backgroundColor: theme.inverseSurface,
+                bottom: centerY + sizeTokens.handleHeight / 2 + 12,
+                left: handlePosition,
+              },
             ]}
           >
-            {formatValue(displayedValue)}
-          </Text>
-        </View>
-      ) : null}
+            <Text
+              style={[
+                styles.valueIndicatorText,
+                { color: theme.inverseOnSurface },
+              ]}
+            >
+              {formatValue(displayedValue)}
+            </Text>
+          </View>
+        ) : null}
 
-      <>
+        <>
+          <View
+            pointerEvents="none"
+            testID={`${testID}-active-track`}
+            style={[
+              styles.trackSegment,
+              {
+                backgroundColor: disabled
+                  ? disabledActiveColor
+                  : resolvedActiveColor,
+                borderTopLeftRadius: I18nManager.isRTL
+                  ? INSIDE_CORNER_RADIUS
+                  : sizeTokens.trackRadius,
+                borderBottomLeftRadius: I18nManager.isRTL
+                  ? INSIDE_CORNER_RADIUS
+                  : sizeTokens.trackRadius,
+                borderTopRightRadius: I18nManager.isRTL
+                  ? sizeTokens.trackRadius
+                  : INSIDE_CORNER_RADIUS,
+                borderBottomRightRadius: I18nManager.isRTL
+                  ? sizeTokens.trackRadius
+                  : INSIDE_CORNER_RADIUS,
+                height: sizeTokens.trackHeight,
+                left: I18nManager.isRTL ? afterHandleStart : 0,
+                top: trackTop,
+                width: I18nManager.isRTL ? afterHandleWidth : beforeHandleWidth,
+              },
+            ]}
+          />
+          <View
+            pointerEvents="none"
+            testID={`${testID}-inactive-track`}
+            style={[
+              styles.trackSegment,
+              {
+                backgroundColor: disabled
+                  ? disabledInactiveColor
+                  : resolvedInactiveColor,
+                borderTopLeftRadius: I18nManager.isRTL
+                  ? sizeTokens.trackRadius
+                  : INSIDE_CORNER_RADIUS,
+                borderBottomLeftRadius: I18nManager.isRTL
+                  ? sizeTokens.trackRadius
+                  : INSIDE_CORNER_RADIUS,
+                borderTopRightRadius: I18nManager.isRTL
+                  ? INSIDE_CORNER_RADIUS
+                  : sizeTokens.trackRadius,
+                borderBottomRightRadius: I18nManager.isRTL
+                  ? INSIDE_CORNER_RADIUS
+                  : sizeTokens.trackRadius,
+                height: sizeTokens.trackHeight,
+                left: I18nManager.isRTL ? 0 : afterHandleStart,
+                top: trackTop,
+                width: I18nManager.isRTL ? beforeHandleWidth : afterHandleWidth,
+              },
+            ]}
+          />
+          {stops.map(stop => {
+            const stopPosition =
+              sizeTokens.trackRadius +
+              (width - sizeTokens.trackRadius * 2) *
+                (I18nManager.isRTL ? 1 - stop : stop);
+            const isInHandleGap =
+              Math.abs(stopPosition - handlePosition) <= gapFromHandleCenter;
+            if (isInHandleGap) return null;
+
+            const isActiveStop = stop <= fraction;
+            return (
+              <View
+                key={stop}
+                pointerEvents="none"
+                style={[
+                  styles.stop,
+                  {
+                    backgroundColor: disabled
+                      ? disabledActiveColor
+                      : showStops
+                        ? isActiveStop
+                          ? theme.onPrimary
+                          : theme.onSecondaryContainer
+                        : resolvedActiveColor,
+                    left: stopPosition,
+                    top: stopTop,
+                  },
+                ]}
+              />
+            );
+          })}
+        </>
+
         <View
           pointerEvents="none"
-          testID={`${testID}-active-track`}
+          testID={`${testID}-handle`}
           style={[
-            styles.trackSegment,
+            styles.handle,
             {
               backgroundColor: disabled
                 ? disabledActiveColor
-                : resolvedActiveColor,
-              borderTopLeftRadius: I18nManager.isRTL
-                ? INSIDE_CORNER_RADIUS
-                : sizeTokens.trackRadius,
-              borderBottomLeftRadius: I18nManager.isRTL
-                ? INSIDE_CORNER_RADIUS
-                : sizeTokens.trackRadius,
-              borderTopRightRadius: I18nManager.isRTL
-                ? sizeTokens.trackRadius
-                : INSIDE_CORNER_RADIUS,
-              borderBottomRightRadius: I18nManager.isRTL
-                ? sizeTokens.trackRadius
-                : INSIDE_CORNER_RADIUS,
-              height: sizeTokens.trackHeight,
-              left: I18nManager.isRTL ? afterHandleStart : 0,
-              top: trackTop,
-              width: I18nManager.isRTL ? afterHandleWidth : beforeHandleWidth,
+                : resolvedHandleColor,
+              borderRadius: HANDLE_WIDTH / 2,
+              height: sizeTokens.handleHeight,
+              left: handlePosition,
+              marginLeft: -(isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH) / 2,
+              top: handleTop,
+              width: isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH,
             },
           ]}
         />
-        <View
-          pointerEvents="none"
-          testID={`${testID}-inactive-track`}
-          style={[
-            styles.trackSegment,
-            {
-              backgroundColor: disabled
-                ? disabledInactiveColor
-                : resolvedInactiveColor,
-              borderTopLeftRadius: I18nManager.isRTL
-                ? sizeTokens.trackRadius
-                : INSIDE_CORNER_RADIUS,
-              borderBottomLeftRadius: I18nManager.isRTL
-                ? sizeTokens.trackRadius
-                : INSIDE_CORNER_RADIUS,
-              borderTopRightRadius: I18nManager.isRTL
-                ? INSIDE_CORNER_RADIUS
-                : sizeTokens.trackRadius,
-              borderBottomRightRadius: I18nManager.isRTL
-                ? INSIDE_CORNER_RADIUS
-                : sizeTokens.trackRadius,
-              height: sizeTokens.trackHeight,
-              left: I18nManager.isRTL ? 0 : afterHandleStart,
-              top: trackTop,
-              width: I18nManager.isRTL ? beforeHandleWidth : afterHandleWidth,
-            },
-          ]}
-        />
-        {stops.map(stop => {
-          const stopPosition =
-            sizeTokens.trackRadius +
-            (width - sizeTokens.trackRadius * 2) *
-              (I18nManager.isRTL ? 1 - stop : stop);
-          const isInHandleGap =
-            Math.abs(stopPosition - handlePosition) <= gapFromHandleCenter;
-          if (isInHandleGap) return null;
-
-          const isActiveStop = stop <= fraction;
-          return (
-            <View
-              key={stop}
-              pointerEvents="none"
-              style={[
-                styles.stop,
-                {
-                  backgroundColor: disabled
-                    ? disabledActiveColor
-                    : showStops
-                      ? isActiveStop
-                        ? theme.onPrimary
-                        : theme.onSecondaryContainer
-                      : resolvedActiveColor,
-                  left: stopPosition,
-                  top: stopTop,
-                },
-              ]}
-            />
-          );
-        })}
-      </>
-
-      <View
-        pointerEvents="none"
-        testID={`${testID}-handle`}
-        style={[
-          styles.handle,
-          {
-            backgroundColor: disabled
-              ? disabledActiveColor
-              : resolvedHandleColor,
-            borderRadius: HANDLE_WIDTH / 2,
-            height: sizeTokens.handleHeight,
-            left: handlePosition,
-            marginLeft: -(isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH) / 2,
-            top: handleTop,
-            width: isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH,
-          },
-        ]}
-      />
-    </View>
+      </View>
+    </Pressable>
   );
 };
 

@@ -61,6 +61,12 @@ const JumpToChapterModal = ({
   const [inputFocused, setInputFocused] = useState(false);
   const { uiScale = 1.0 } = useAppSettings();
 
+  // Always-fresh mirror of the `chapters` prop so post-batch-load scroll
+  // targets resolve against the newest rendered list (the callback closure
+  // captures a stale snapshot until the re-render commits).
+  const loadedChaptersRef = useRef(loadedChapters);
+  loadedChaptersRef.current = loadedChapters;
+
   const styles = React.useMemo(
     () =>
       StyleSheet.create({
@@ -136,9 +142,23 @@ const JumpToChapterModal = ({
       const targetBatch = Math.floor(chap.position! / 300);
       await loadUpToBatch(targetBatch);
       setTimeout(() => {
+        // Re-resolve against the freshly loaded list: raw `position` is only a
+        // valid index for an unfiltered ascending list, but the rendered index
+        // under an active filter (unread/downloaded-only) differs. Fall back
+        // to a clamped position when the chapter is still absent (e.g. it was
+        // filtered out of the loaded batches).
+        const freshChapters = loadedChaptersRef.current;
+        if (freshChapters.length === 0) {
+          return;
+        }
+        const freshIndex = freshChapters.findIndex(c => c.id === chap.id);
+        const targetIndex =
+          freshIndex >= 0
+            ? freshIndex
+            : Math.min(chap.position!, freshChapters.length - 1);
         chapterListRef.current?.scrollToIndex({
           animated: true,
-          index: chap.position!,
+          index: targetIndex,
           viewPosition: 0.5,
         });
       }, 0);

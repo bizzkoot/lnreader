@@ -468,30 +468,6 @@ const TtsTextCleanupModal: React.FC<TtsTextCleanupModalProps> = ({
               <AppText style={{ color: theme.primary }}>Edit</AppText>
             </Pressable>
 
-            <Pressable
-              style={styles.toggleRow}
-              onPress={() => setApplyToPickerVisible(true)}
-            >
-              <View style={styles.toggleLabel}>
-                <AppText style={{ color: theme.onSurface }}>Applies to</AppText>
-                <AppText
-                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
-                >
-                  {draft.applyTo === 'visible'
-                    ? 'Visible text only'
-                    : draft.applyTo === 'both'
-                      ? 'TTS audio and visible text'
-                      : 'TTS audio only'}
-                </AppText>
-                <AppText
-                  style={[styles.hint, { color: theme.onSurfaceVariant }]}
-                >
-                  Phonetic dictionary &amp; Unicode normalization stay TTS-only
-                </AppText>
-              </View>
-              <AppText style={{ color: theme.primary }}>Edit</AppText>
-            </Pressable>
-
             <View style={styles.toggleRow}>
               <View style={styles.toggleLabel}>
                 <AppText style={{ color: theme.onSurface }}>

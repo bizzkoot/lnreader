@@ -246,7 +246,7 @@ const NovelScreenList = ({
     });
   };
 
-  const continueReadingChapter = lastRead ?? firstUnreadChapter;
+  const continueReadingChapter = lastRead ?? firstUnreadChapter ?? chapters[0];
 
   const scrollToTop = () => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });

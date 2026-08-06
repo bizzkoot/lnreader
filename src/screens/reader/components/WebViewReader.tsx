@@ -222,6 +222,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   const readerSettingsRef = useRef(readerSettings);
   const chapterGeneralSettingsRef = useRef(chapterGeneralSettings);
 
+  // True once the WebView finished a load, so runtime re-injects of the
+  // visible-cleanup state only target a live `window.reader`.
+  const webViewLoadedRef = useRef(false);
+  // Last `shouldCleanVisibleText` value pushed into the WebView via
+  // setVisibleCleanup. Prevents no-op re-injects on unrelated changes.
+  const lastVisibleCleanupInjectedRef = useRef<boolean | null>(null);
+
   // Mirror novel.id in a ref so mount-once listeners (e.g. the MMKV
   // CHAPTER_GENERAL_SETTINGS listener) can resolve per-novel cleanup even
   // though the reader screen is mounted per-novel.
@@ -241,6 +248,30 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     },
     [],
   );
+
+  // Push the current effective visible-cleanup state into the WebView when it
+  // actually changed. Called from every effective-settings convergence point
+  // (prop effect, per-novel effect, MMKV listener) so applyTo changes apply to
+  // the visible DOM immediately — no reload needed. When the pass is turned
+  // OFF, core.js restores the pristine text from its dataset snapshots.
+  const injectVisibleCleanupState = useCallback(() => {
+    if (!webViewLoadedRef.current) {
+      return;
+    }
+    const shouldClean = shouldCleanVisibleText(
+      chapterGeneralSettingsRef.current?.ttsTextCleanup,
+    );
+    if (shouldClean === lastVisibleCleanupInjectedRef.current) {
+      return;
+    }
+    lastVisibleCleanupInjectedRef.current = shouldClean;
+    webViewRef.current?.injectJavaScript(`
+      if (window.reader && window.reader.setVisibleCleanup) {
+        window.reader.setVisibleCleanup(${shouldClean});
+      }
+      true;
+    `);
+  }, [webViewRef]);
 
   // Apply per-novel TTS overrides (if enabled) on chapter/novel changes.
   // Updates ref + WebView — does NOT write to global ChapterReaderSettings.
@@ -301,7 +332,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
     readerSettingsRef.current = readerSettings;
     chapterGeneralSettingsRef.current = chapterGeneralSettings;
     syncEffectiveTtsCleanup(chapterGeneralSettings.ttsTextCleanup);
-  }, [readerSettings, chapterGeneralSettings, syncEffectiveTtsCleanup]);
+    injectVisibleCleanupState();
+  }, [
+    readerSettings,
+    chapterGeneralSettings,
+    syncEffectiveTtsCleanup,
+    injectVisibleCleanupState,
+  ]);
 
   // Calculate initial saved paragraph index - MMKV is single source of truth
   const initialSavedParagraphIndex = useMemo(() => {
@@ -390,11 +427,13 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // settings change (the MMKV listener + ref-sync effect cover other paths).
   useEffect(() => {
     syncEffectiveTtsCleanup(chapterGeneralSettings.ttsTextCleanup);
+    injectVisibleCleanupState();
   }, [
     chapterGeneralSettings.ttsTextCleanup,
     novel?.id,
     novelTtsSettings,
     syncEffectiveTtsCleanup,
+    injectVisibleCleanupState,
   ]);
 
   const liveReaderTts =
@@ -501,6 +540,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
             chapterGeneralSettingsRef.current = merged;
             syncEffectiveTtsCleanup(merged.ttsTextCleanup);
+            injectVisibleCleanupState();
 
             readerLog.debug(
               'mmkv-general-settings-ref-updated',
@@ -582,7 +622,12 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       subscription.remove();
       mmkvListener.remove();
     };
-  }, [webViewRef, showToastMessage, syncEffectiveTtsCleanup]);
+  }, [
+    webViewRef,
+    showToastMessage,
+    syncEffectiveTtsCleanup,
+    injectVisibleCleanupState,
+  ]);
 
   // ============================================================================
   // HTML Generation
@@ -1352,12 +1397,31 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           // DOM rebuild; we clean them RN-side (rules-only, count-preserving)
           // and write the result back via injectJavaScript.
           if (Array.isArray(event.data)) {
+            const settings = chapterGeneralSettingsRef.current?.ttsTextCleanup;
+            // Bail unless the effective settings target the DOM. Rule-less /
+            // phonetic-only configs are handled below: cleanVisibleText
+            // leaves them untouched, and the no-change check skips the
+            // write-back entirely.
+            if (!shouldCleanVisibleText(settings)) {
+              break;
+            }
             const texts = event.data as string[];
-            const cleaned = cleanVisibleText(
-              texts,
-              chapterGeneralSettingsRef.current?.ttsTextCleanup,
-            );
+            const cleaned = cleanVisibleText(texts, settings);
             if (cleaned && cleaned.length === texts.length) {
+              // Skip the write-back when nothing actually changed — avoids
+              // flattening inline markup (<span>/<em>/<ruby>...) for a no-op
+              // pass. (cleanVisibleText returns the input unchanged when no
+              // rules apply, so this also covers the rule-less case.)
+              let changed = false;
+              for (let i = 0; i < texts.length; i += 1) {
+                if (texts[i] !== cleaned[i]) {
+                  changed = true;
+                  break;
+                }
+              }
+              if (!changed) {
+                break;
+              }
               webViewRef.current?.injectJavaScript(
                 `if (window.reader && window.reader.applyVisibleCleanup) {
                   window.reader.applyVisibleCleanup(${JSON.stringify(cleaned)});
@@ -1422,6 +1486,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         javaScriptEnabled={true}
         webviewDebuggingEnabled={__DEV__}
         onShouldStartLoadWithRequest={shouldAllowReaderWebViewRequest}
+        onLoadStart={() => {
+          // A new load cycle starts (chapter change / reload): drop the loaded
+          // flag so runtime visible-cleanup re-injects wait for onLoadEnd.
+          webViewLoadedRef.current = false;
+        }}
         injectedJavaScriptBeforeContentLoaded={`
           (function(){
             try { window.__LNREADER_NONCE__ = ${JSON.stringify(
@@ -1451,12 +1520,17 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
           // Enable visible-text cleanup (issue #19) when the effective
           // settings target the reader DOM. core.js then posts the readable
-          // texts; this handler cleans them and writes them back.
+          // texts; this handler cleans them and writes them back. Track the
+          // injected value so runtime re-injects (injectVisibleCleanupState)
+          // can detect real changes.
+          webViewLoadedRef.current = true;
+          const shouldCleanVisible = shouldCleanVisibleText(
+            chapterGeneralSettingsRef.current?.ttsTextCleanup,
+          );
+          lastVisibleCleanupInjectedRef.current = shouldCleanVisible;
           webViewRef.current?.injectJavaScript(`
             if (window.reader && window.reader.setVisibleCleanup) {
-              window.reader.setVisibleCleanup(${shouldCleanVisibleText(
-                chapterGeneralSettingsRef.current?.ttsTextCleanup,
-              )});
+              window.reader.setVisibleCleanup(${shouldCleanVisible});
             }
             true;
           `);

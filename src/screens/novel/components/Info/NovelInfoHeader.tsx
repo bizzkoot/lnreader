@@ -264,6 +264,7 @@ const NovelInfoHeader = ({
         )}
         <ReadButton
           navigateToChapter={navigateToChapter}
+          chapters={chapters}
           firstUnreadChapter={firstUnreadChapter}
           lastRead={lastRead}
         />

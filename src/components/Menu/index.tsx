@@ -250,10 +250,10 @@ const MenuItem: React.FC<MenuItemProps> = ({
           justifyContent: 'center',
         },
         menuItemText: {
-          fontSize: 14,
+          fontSize: scaleDimension(16, uiScale),
           fontWeight: '500',
           letterSpacing: 0.1,
-          lineHeight: 20,
+          lineHeight: scaleDimension(20, uiScale),
         },
       }),
     [uiScale],

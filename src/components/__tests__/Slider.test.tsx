@@ -1,13 +1,27 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
-import Slider from '../Slider/Slider';
+import Slider, { shouldClaimPanResponder } from '../Slider/Slider';
 
 const mockUseTheme = jest.fn();
 
 jest.mock('@hooks/persisted', () => ({
   useTheme: () => mockUseTheme(),
 }));
+
+const responderEvent = (locationX: number) => ({
+  nativeEvent: { locationX },
+  touchHistory: {
+    indexOfSingleActiveTouch: -1,
+    mostRecentTimeStamp: 0,
+    numberActiveTouches: 0,
+    touchBank: [],
+  },
+});
+
+const accessibilityActionEvent = (actionName: string) => ({
+  nativeEvent: { actionName },
+});
 
 describe('Slider', () => {
   beforeEach(() => {
@@ -26,12 +40,43 @@ describe('Slider', () => {
 
   const layoutSlider = () => {
     const slider = screen.getByTestId('slider');
-    fireEvent(slider, 'layout', {
-      nativeEvent: {
-        layout: { width: 200, height: 48, x: 0, y: 0 },
-      },
+    act(() => {
+      slider.props.onLayout({
+        nativeEvent: {
+          layout: { width: 200, height: 48, x: 0, y: 0 },
+        },
+      });
     });
     return slider;
+  };
+
+  // The slider's PanResponder never claims a touch at start
+  // (onStartShouldSetPanResponder => false), which makes RNTL treat it as
+  // non-interactive (fireEvent silently no-ops). We therefore drive the
+  // responder/layout/a11y handlers directly — they are the same props fireEvent
+  // would dispatch to.
+  const grant = (slider: ReturnType<typeof screen.getByTestId>, x: number) => {
+    act(() => {
+      slider.props.onResponderGrant(responderEvent(x));
+    });
+  };
+
+  const release = (
+    slider: ReturnType<typeof screen.getByTestId>,
+    x: number,
+  ) => {
+    act(() => {
+      slider.props.onResponderRelease(responderEvent(x));
+    });
+  };
+
+  const accessibilityAction = (
+    slider: ReturnType<typeof screen.getByTestId>,
+    actionName: string,
+  ) => {
+    act(() => {
+      slider.props.onAccessibilityAction(accessibilityActionEvent(actionName));
+    });
   };
 
   it('exposes the current range to accessibility services', () => {
@@ -60,15 +105,7 @@ describe('Slider', () => {
     );
     const slider = layoutSlider();
 
-    fireEvent(slider, 'responderGrant', {
-      nativeEvent: { locationX: 142 },
-      touchHistory: {
-        indexOfSingleActiveTouch: -1,
-        mostRecentTimeStamp: 0,
-        numberActiveTouches: 0,
-        touchBank: [],
-      },
-    });
+    grant(slider, 142);
 
     expect(onValueChange).toHaveBeenLastCalledWith(8);
   });
@@ -113,12 +150,8 @@ describe('Slider', () => {
     );
     const slider = screen.getByTestId('slider');
 
-    fireEvent(slider, 'accessibilityAction', {
-      nativeEvent: { actionName: 'increment' },
-    });
-    fireEvent(slider, 'accessibilityAction', {
-      nativeEvent: { actionName: 'decrement' },
-    });
+    accessibilityAction(slider, 'increment');
+    accessibilityAction(slider, 'decrement');
 
     expect(onValueChange).toHaveBeenNthCalledWith(1, 6);
     expect(onValueChange).toHaveBeenNthCalledWith(2, 2);
@@ -136,18 +169,9 @@ describe('Slider', () => {
       />,
     );
     const slider = layoutSlider();
-    const responderEvent = {
-      nativeEvent: { locationX: 100 },
-      touchHistory: {
-        indexOfSingleActiveTouch: -1,
-        mostRecentTimeStamp: 0,
-        numberActiveTouches: 0,
-        touchBank: [],
-      },
-    };
 
-    fireEvent(slider, 'responderGrant', responderEvent);
-    fireEvent(slider, 'responderRelease', responderEvent);
+    grant(slider, 100);
+    release(slider, 100);
 
     expect(onSlidingComplete).toHaveBeenCalledWith(5);
   });
@@ -164,18 +188,9 @@ describe('Slider', () => {
       />,
     );
     const slider = layoutSlider();
-    const responderEvent = {
-      nativeEvent: { locationX: 2 },
-      touchHistory: {
-        indexOfSingleActiveTouch: -1,
-        mostRecentTimeStamp: 0,
-        numberActiveTouches: 0,
-        touchBank: [],
-      },
-    };
 
-    fireEvent(slider, 'responderGrant', responderEvent);
-    fireEvent(slider, 'responderRelease', responderEvent);
+    grant(slider, 2);
+    release(slider, 2);
 
     expect(onSlidingComplete).toHaveBeenCalledWith(1);
     expect(screen.getByTestId('slider-handle')).toHaveStyle({ left: 2 });
@@ -206,19 +221,159 @@ describe('Slider', () => {
     );
     const slider = layoutSlider();
 
-    fireEvent(slider, 'responderGrant', {
-      nativeEvent: { locationX: 150 },
-      touchHistory: {
-        indexOfSingleActiveTouch: -1,
-        mostRecentTimeStamp: 0,
-        numberActiveTouches: 0,
-        touchBank: [],
-      },
+    grant(slider, 150);
+    accessibilityAction(slider, 'increment');
+
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it('jumps the handle on track tap and reports completion', () => {
+    const onValueChange = jest.fn();
+    const onSlidingComplete = jest.fn();
+    render(
+      <Slider
+        value={0}
+        min={0}
+        max={10}
+        step={2}
+        onValueChange={onValueChange}
+        onSlidingComplete={onSlidingComplete}
+      />,
+    );
+    layoutSlider();
+
+    fireEvent(screen.getByTestId('slider-press-surface'), 'click', {
+      nativeEvent: { locationX: 142 },
     });
-    fireEvent(slider, 'accessibilityAction', {
-      nativeEvent: { actionName: 'increment' },
+
+    expect(onValueChange).toHaveBeenLastCalledWith(8);
+    expect(onSlidingComplete).toHaveBeenCalledWith(8);
+  });
+
+  it('does not respond to taps while disabled', () => {
+    const onValueChange = jest.fn();
+    const onSlidingComplete = jest.fn();
+    render(
+      <Slider
+        disabled
+        value={0}
+        min={0}
+        max={10}
+        onValueChange={onValueChange}
+        onSlidingComplete={onSlidingComplete}
+      />,
+    );
+    layoutSlider();
+
+    fireEvent(screen.getByTestId('slider-press-surface'), 'click', {
+      nativeEvent: { locationX: 142 },
     });
 
     expect(onValueChange).not.toHaveBeenCalled();
+    expect(onSlidingComplete).not.toHaveBeenCalled();
+  });
+
+  it('does not claim responder at touch start, so vertical swipes reach the parent ScrollView', () => {
+    render(<Slider value={5} min={0} max={10} />);
+    const slider = screen.getByTestId('slider');
+
+    const startShouldSet = slider.props.onStartShouldSetResponder as
+      | ((event?: object) => boolean)
+      | undefined;
+    expect(startShouldSet).toBeDefined();
+    expect(
+      startShouldSet!({
+        nativeEvent: {},
+        touchHistory: {
+          indexOfSingleActiveTouch: -1,
+          mostRecentTimeStamp: 0,
+          numberActiveTouches: 1,
+          touchBank: [],
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('claims only horizontal-dominant drags through the responder system', () => {
+    render(<Slider value={5} min={0} max={10} />);
+    const slider = screen.getByTestId('slider');
+
+    const moveCapture = slider.props.onMoveShouldSetResponderCapture as
+      | ((event?: object) => boolean)
+      | undefined;
+    const moveShouldSet = slider.props.onMoveShouldSetResponder as
+      | ((event?: object) => boolean)
+      | undefined;
+    expect(moveCapture).toBeDefined();
+    expect(moveShouldSet).toBeDefined();
+
+    // Build touchHistory entries whose current-vs-previous delta is the
+    // gesture movement between two events. PanResponder accumulates dx/dy
+    // across moves (capture phase), then the bubbling handler consults our
+    // predicate with the accumulated values.
+    const moveEvent = (
+      curX: number,
+      curY: number,
+      prevX: number,
+      prevY: number,
+      ts: number,
+    ) => ({
+      nativeEvent: { touches: [{ identifier: 0 }] },
+      touchHistory: {
+        numberActiveTouches: 1,
+        indexOfSingleActiveTouch: 0,
+        mostRecentTimeStamp: ts,
+        touchBank: [
+          {
+            touchActive: true,
+            startPageX: 100,
+            startPageY: 100,
+            startTimeStamp: 0,
+            currentPageX: curX,
+            currentPageY: curY,
+            currentTimeStamp: ts,
+            previousPageX: prevX,
+            previousPageY: prevY,
+            previousTimeStamp: ts - 1,
+          },
+        ],
+      },
+    });
+
+    // Horizontal move: delta (25, 0) => accumulated (25, 0) => claimed.
+    moveCapture!(moveEvent(125, 100, 100, 100, 100));
+    expect(moveShouldSet!(moveEvent(125, 100, 100, 100, 100))).toBe(true);
+
+    // Mostly-vertical move: delta (-23, 25) => accumulated (2, 25) => not
+    // claimed, so the parent ScrollView can scroll.
+    moveCapture!(moveEvent(102, 125, 125, 100, 200));
+    expect(moveShouldSet!(moveEvent(102, 125, 125, 100, 200))).toBe(false);
+  });
+});
+
+describe('shouldClaimPanResponder', () => {
+  it('does not claim vertical gestures (parent ScrollView scrolls)', () => {
+    expect(shouldClaimPanResponder(0, 20)).toBe(false);
+    expect(shouldClaimPanResponder(-3, 30)).toBe(false);
+  });
+
+  it('claims horizontal-dominant drags once past the threshold', () => {
+    expect(shouldClaimPanResponder(20, 0)).toBe(true);
+    expect(shouldClaimPanResponder(-18, 4)).toBe(true);
+  });
+
+  it('ignores taps and small jitter below the threshold', () => {
+    expect(shouldClaimPanResponder(0, 0)).toBe(false);
+    expect(shouldClaimPanResponder(5, 0)).toBe(false);
+  });
+
+  it('does not claim diagonal gestures that are not clearly horizontal', () => {
+    expect(shouldClaimPanResponder(20, 25)).toBe(false);
+    expect(shouldClaimPanResponder(20, 20)).toBe(false);
+  });
+
+  it('never claims while disabled', () => {
+    expect(shouldClaimPanResponder(20, 0, true)).toBe(false);
+    expect(shouldClaimPanResponder(0, 0, true)).toBe(false);
   });
 });

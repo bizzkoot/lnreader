@@ -92,7 +92,7 @@ describe('Menu', () => {
       paddingVertical: 8,
     });
     expect(screen.getByText('Open')).toHaveStyle({
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '500',
       letterSpacing: 0.1,
       lineHeight: 20,

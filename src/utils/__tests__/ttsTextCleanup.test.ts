@@ -3,12 +3,14 @@ import {
   applyTtsTextCleanup,
   cleanVisibleText,
   shouldCleanVisibleText,
+  resolveTtsCleanupTarget,
   VISIBLE_PAD_CHAR,
   createTtsCleanupRule,
   createTtsPhoneticPair,
   normalizeUnicodeText,
   DEFAULT_TTS_CLEANUP_SETTINGS,
   TtsTextCleanupSettings,
+  TtsCleanupTarget,
   TTS_CLEANUP_MAX_REGEX_LENGTH,
   isPotentiallyCatastrophic,
   normalizeRegExpFlags,
@@ -486,5 +488,47 @@ describe('applyTo gating (issue #19)', () => {
       ),
     ).toBe(false);
     expect(shouldCleanVisibleText(undefined)).toBe(false);
+  });
+
+  it('garbage persisted applyTo values are treated as tts everywhere', () => {
+    for (const garbage of [
+      'sideways',
+      '',
+      'BOTH',
+      'none',
+      'visible-text',
+    ] as const) {
+      const settings = buildSettings({
+        enabled: true,
+        applyTo: garbage as TtsCleanupTarget,
+        rules: [createTtsCleanupRule('u2014', ' ')],
+      });
+      // Audio pipeline still cleans (garbage -> 'tts').
+      expect(cleanTtsText('u2014 x', settings)).toBe('  x');
+      expect(applyTtsTextCleanup(['u2014 x'], settings)).toEqual(['  x']);
+      // Visible pipeline stays off for garbage values.
+      expect(cleanVisibleText(['u2014 x'], settings)).toEqual(['u2014 x']);
+      expect(shouldCleanVisibleText(settings)).toBe(false);
+    }
+  });
+
+  it('resolveTtsCleanupTarget maps only valid values, everything else to tts', () => {
+    expect(resolveTtsCleanupTarget(buildSettings({ applyTo: 'visible' }))).toBe(
+      'visible',
+    );
+    expect(resolveTtsCleanupTarget(buildSettings({ applyTo: 'both' }))).toBe(
+      'both',
+    );
+    expect(resolveTtsCleanupTarget(buildSettings({ applyTo: 'tts' }))).toBe(
+      'tts',
+    );
+    expect(
+      resolveTtsCleanupTarget(
+        buildSettings({ applyTo: 'garbage' as TtsCleanupTarget }),
+      ),
+    ).toBe('tts');
+    expect(resolveTtsCleanupTarget(buildSettings({}))).toBe('tts');
+    expect(resolveTtsCleanupTarget(undefined)).toBe('tts');
+    expect(resolveTtsCleanupTarget(null)).toBe('tts');
   });
 });

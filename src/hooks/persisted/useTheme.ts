@@ -100,7 +100,7 @@ const findThemeById = (
 };
 
 // transforms legacy theme IDs to new IDs
-function transformThemeId(themeId: number, isDark: boolean): number {
+export function transformThemeId(themeId: number, isDark: boolean): number {
   if (themeId > 99) return themeId;
   const lightIdMap: Record<number, number> = {
     '1': 100,

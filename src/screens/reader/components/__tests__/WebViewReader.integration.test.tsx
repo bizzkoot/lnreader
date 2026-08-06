@@ -382,4 +382,63 @@ describe('WebViewReader Integration - native restore on PREV', () => {
     expect(applyScript).toContain('HELLO');
     expect(applyScript).toContain('WORLD');
   });
+
+  it('re-injects setVisibleCleanup when effective cleanup settings change at runtime (audit #2)', async () => {
+    const { shouldCleanVisibleText } = require('@utils/htmlParagraphExtractor');
+    const {
+      getNovelTtsSettings,
+      useNovelTtsSettings,
+    } = require('@services/tts/novelTtsSettings');
+
+    // Phase 1: effective settings keep visible cleanup OFF.
+    (shouldCleanVisibleText as jest.Mock).mockReturnValue(false);
+
+    const res = render(<WebViewReader onPress={jest.fn()} />);
+    await act(async () => {
+      await new Promise(resolve => setImmediate(resolve));
+    });
+    const rerender = res.rerender;
+
+    // A finished load pushes setVisibleCleanup(false) into the WebView.
+    await act(async () => {
+      (webViewRefObject.current as any).props.onLoadEnd({ nativeEvent: {} });
+    });
+    // NOTE: the mocked WebView replaces ref.current (and its injectJavaScript
+    // spy) on every render, so always re-read the CURRENT spy after actions.
+    let injectSpy = (webViewRefObject.current as any)
+      .injectJavaScript as jest.Mock;
+    expect(
+      injectSpy.mock.calls.some((c: unknown[]) =>
+        String(c[0]).includes('setVisibleCleanup(false)'),
+      ),
+    ).toBe(true);
+
+    // Phase 2: a per-novel override turns visible cleanup ON while the reader
+    // is open. The per-novel effect must re-inject immediately (no reload).
+    (shouldCleanVisibleText as jest.Mock).mockReturnValue(true);
+    const perNovel = {
+      enabled: true,
+      ttsTextCleanup: {
+        enabled: true,
+        applyTo: 'both',
+        normalizeUnicode: false,
+        rules: [],
+        phoneticPairs: [],
+      },
+    };
+    (getNovelTtsSettings as jest.Mock).mockReturnValue(perNovel);
+    (useNovelTtsSettings as jest.Mock).mockReturnValue([perNovel]);
+
+    await act(async () => {
+      rerender(<WebViewReader onPress={jest.fn()} />);
+      await new Promise(resolve => setImmediate(resolve));
+    });
+
+    injectSpy = (webViewRefObject.current as any).injectJavaScript as jest.Mock;
+    expect(
+      injectSpy.mock.calls.some((c: unknown[]) =>
+        String(c[0]).includes('setVisibleCleanup(true)'),
+      ),
+    ).toBe(true);
+  });
 });

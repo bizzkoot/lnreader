@@ -467,7 +467,7 @@ export function cleanTtsText(
     typeof text !== 'string' ||
     !text ||
     !settings?.enabled ||
-    settings.applyTo === 'visible'
+    resolveTtsCleanupTarget(settings) === 'visible'
   ) {
     return text;
   }
@@ -517,7 +517,7 @@ export function applyTtsTextCleanup(
 ): string[] | undefined | null {
   if (
     !settings?.enabled ||
-    settings.applyTo === 'visible' ||
+    resolveTtsCleanupTarget(settings) === 'visible' ||
     !Array.isArray(paragraphs) ||
     paragraphs.length === 0
   ) {
@@ -546,17 +546,26 @@ export function applyTtsTextCleanup(
 export const VISIBLE_PAD_CHAR = '\u200B';
 
 /**
+ * Normalize the persisted `applyTo` value to one of the three valid targets.
+ * Any missing or invalid value (e.g. a corrupted/garbage string persisted to
+ * MMKV) maps to the historical 'tts' default so every consumption site agrees
+ * on the same behavior: audio cleans, the visible DOM does not.
+ */
+export function resolveTtsCleanupTarget(
+  settings?: TtsTextCleanupSettings | null,
+): TtsCleanupTarget {
+  const target = settings?.applyTo;
+  return target === 'visible' || target === 'both' ? target : 'tts';
+}
+
+/**
  * True when visible-text (reader DOM) cleanup is active for the given
  * effective settings.
  */
 export function shouldCleanVisibleText(
   settings?: TtsTextCleanupSettings | null,
 ): boolean {
-  return (
-    !!settings?.enabled &&
-    settings.applyTo !== undefined &&
-    settings.applyTo !== 'tts'
-  );
+  return !!settings?.enabled && resolveTtsCleanupTarget(settings) !== 'tts';
 }
 
 /**

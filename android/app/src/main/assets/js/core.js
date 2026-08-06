@@ -1302,6 +1302,18 @@ window.reader = new (function () {
     this._visibleCleanupEnabled = !!enabled;
     if (this._visibleCleanupEnabled) {
       this.requestVisibleCleanup();
+    } else {
+      // Restore pristine pre-cleanup text for every element that was written
+      // back, so toggling the visible pass OFF reverts the DOM immediately
+      // (no stale cleaned text left behind until the next reload).
+      const elements = this.chapterElement ? this.getReadableElements() : [];
+      for (let i = 0; i < elements.length; i++) {
+        const el = elements[i];
+        if (el.dataset && el.dataset.originalText) {
+          el.textContent = el.dataset.originalText;
+          delete el.dataset.originalText;
+        }
+      }
     }
   };
 
@@ -1346,6 +1358,11 @@ window.reader = new (function () {
     }
     for (let i = 0; i < elements.length; i++) {
       const el = elements[i];
+      if (el.textContent === cleaned[i]) {
+        // No-op: never flatten inline markup (<span>/<em>/<ruby>...) when the
+        // clean pass produced no change for this element.
+        continue;
+      }
       if (!el.dataset.originalText) {
         el.dataset.originalText = el.textContent;
       }

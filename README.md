@@ -52,7 +52,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
 - **Parallel Library Updates**: Concurrent multi-source updating (up to 3 sources at once) for significantly faster library refreshes
 - **Expanded Trackers**: Kitsu added alongside AniList, MyAnimeList, and MangaUpdates
 - **Material You & MD3 Design**: Dynamic wallpaper-derived color palettes and modern Material Design 3 components
-- **Better Android Compatibility**: Support for API 35+ with all deprecation warnings resolved
+- **Better Android Compatibility**: Support for API 35+ (Android 15+); third-party Gradle/deprecation issues addressed via patches — remaining in-app Kotlin deprecation warnings tracked in plan.md
 
 ---
 
@@ -376,7 +376,7 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 ### Platform Updates
 
 - **EPUB Improvements**: Adopted upstream PRs for better EPUB rendering and summaries
-- **Android SDK 35+ Support**: Resolved all Gradle deprecation warnings and API compatibility issues
+- **Android SDK 35+ Support**: Targets API 35 with compile-time compatibility fixes; Gradle deprecation warnings resolved for third-party modules via pnpm patches — remaining in-app Kotlin deprecation warnings tracked in plan.md
 - **Modern Tooling**: Upgraded React Native to 0.82.1, Reanimated to 4.2.0
 - **Build System**: Gradle 9.2.0 upgrade with OkHttp 4.12.0 for DoH support
 
