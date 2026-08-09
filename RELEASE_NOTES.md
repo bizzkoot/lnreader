@@ -1,26 +1,28 @@
 ## What's New
 
-This release introduces the **TTS Text Cleanup Pipeline** — a declarative, length-preserving text transformation system that refines every paragraph before it reaches the native TTS engine across all playback paths. Readers can now define ordered find/replace and regex strip rules, build a phonetic pronunciation dictionary with whole-word or substring matching, apply optional Unicode normalization, and configure per-novel overrides — all surfaced through a brand-new cleanup editor with built-in presets and JSON import/export.
+This release delivers the **Unified Visible Text & TTS Cleanup** (issue #19) — one declarative ruleset now governs both the on-screen text and TTS audio, eliminating the need to maintain two separate cleanup configs. It also brings a sweeping **Material 3 UI modernization** (dynamic Material You colors, MD3 sliders, M3 top tab indicators, standardized bottom sheets), new **Kitsu tracker support**, faster library updates, smarter reader navigation, and a major round of **database reliability fixes** hardened during the 52-commit merge verification.
 
 ### ✨ Features
 
-- **Declarative Text Cleanup Pipeline:** Ordered find/replace + regex strip rules, phonetic pronunciation dictionary (whole-word/substring match), optional Unicode normalization (NFD + strip combining marks) — applied across ALL playback paths (initial queue, WebView tts-queue refills, fallback single-speak)
-- **Per-Novel Overrides:** Novels can define their own cleanup rules that take precedence over global settings when per-novel TTS is enabled, with effective settings resolved automatically via `resolveEffectiveTtsCleanup()`
-- **Cleanup Editor Enhancements:** Rule reordering, substring match mode, built-in presets, and JSON import/export for easy rule sharing and backup
-- **New TTS Text Cleanup Modal:** Full management UI in Reader Bottom Sheet → TTS Tab ("Text Cleanup" section) and global Settings → Reader → Accessibility Tab
+- **Unified Visible Text & TTS Cleanup (issue #19):** The declarative JSON ruleset now applies to the visible DOM as well as TTS audio — cleaned display text while keeping paragraph indexing count-preserving so TTS always reads pristine, fully-cleaned text
+- **Material 3 UI Overhaul:** Dynamic Material You color theming, MD3 slider replacing the community slider (no more post-release flicker), M3 top tab indicators, and standardized bottom sheet UX with modernized menu styling
+- **Kitsu Tracker Support:** New tracker integration with request restoration on submit and null-safe chapter progress handling
+- **Faster Library Updates:** Parallel updates across sources, configurable chapter download cooldown, and skip-version update notifications
+- **Reader & Novel Enhancements:** Jump to first unread chapter via the read button and FAB, unloaded chapters load on demand in the jump modal and drawer, more novel statuses and icons
+- **EPUB Improvements:** Chapter numbers in EPUB chapter titles, range export fixes, and sanitized EPUB filenames
 
-### 🛡️ Robustness & Safety
+### 🛡️ Robustness & Reliability
 
-- **Regex Safety Hardening:** 200-char length cap, catastrophic-backtracking shape detection, compile-time try/catch, literal replacement semantics (`$&` stays literal), sticky `y` flag dropped
-- **Length-Preserving Design:** Cleanup never alters paragraph counts, keeping the RN ↔ WebView paragraph index contract fully intact
-- **Stable Sync Wiring:** MMKV listener deps include a stable sync callback; cleanup wiring verified via controller integration tests
+- **Database Hardening:** Exclusive transactions with awaited `runAsync`, julianday trigger migration (004), date-correct library updates and sorting, numerically stable chapter page ordering, scoped download deletion, and preserved default categories after reordering
+- **Build System Fixes:** `expo-material3-theme` patched for AGP deprecations (Gradle namespace + `abortOnError`)
+- **Stability Fixes:** Reader table overflow and white drawer seam prevention, bottom nav alignment with M3, crash-free native file operations, corrected notification throttling, and TTS quote-stripping in normalized text
 
 ### 📜 Commits
 
-- **Core Updates**: Implemented the declarative, length-preserving TTS text cleanup pipeline in `htmlParagraphExtractor.ts` (+350 lines), applied uniformly across initial queue, WebView tts-queue refills, and fallback single-speak paths
-- **Rule Engine**: Added ordered find/replace + regex strip rules with literal or regex matching, phonetic pronunciation dictionary (whole-word/substring), optional Unicode normalization, and regex safety hardening (length caps, backtracking detection, literal replacement semantics)
-- **Per-Novel Overrides**: Added per-novel text cleanup overrides with automatic effective-settings resolution, keeping the global ↔ per-novel hierarchy predictable
-- **Editor & Presets**: Built the TtsTextCleanupModal (+851 lines) with rule reordering, substring mode, built-in presets (+312 lines), and JSON import/export
-- **Testing & Quality**: Added wiring assertions in controller integration tests (+29 lines), cleanup preset tests (+322 lines), and text cleanup unit tests (+344 lines); resolved remaining exhaustive-deps warnings and addressed audit findings
+- **Core Updates**: Unified the visible-text and TTS cleanup rulesets (issue #19), resolving 9 audit findings from the 52-commit merge verification; refactored the theme layer to a context-based provider with ID migration
+- **UI Polishing**: Rolled out Material 3 across the app — dynamic Material You colors, MD3 slider (flicker-free), M3 top tab indicators, standardized bottom sheets, modernized menus, and stable browse tab bar with capped modal height
+- **New Features**: Added Kitsu tracker support, parallel library updates, skip-version update notifications, configurable download cooldown, jump-to-first-unread via read button/FAB, on-demand chapter loading in jump modal/drawer, chapter numbers in EPUB titles, and additional novel statuses/icons
+- **Bug Fixes**: Hardened the database layer (exclusive transactions, julianday trigger migration, date-correct updates/sorting, order-stable chapter pages, download deletion scoping, category preservation); fixed reader table overflow, white drawer seam, slider flicker, tracker search restoration, and crash-prone native file operations
+- **Build & Testing**: Patched `expo-material3-theme` for AGP deprecations, added type-safe fixtures for download deletion tests, and restored chapter progress from the database on reader open
 
-**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.1.2...v2.1.3
+**Full Changelog**: https://github.com/bizzkoot/lnreader/compare/v2.1.3...v2.1.4
