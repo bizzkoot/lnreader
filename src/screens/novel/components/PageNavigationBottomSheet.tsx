@@ -8,8 +8,6 @@ import color from 'color';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { ThemeColors } from '@theme/types';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { overlay } from 'react-native-paper';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 
@@ -28,8 +26,6 @@ export default function PageNavigationBottomSheet({
   pageIndex,
   openPage,
 }: PageNavigationBottomSheetProps) {
-  const insets = useSafeAreaInsets();
-  const { left, right } = insets;
   const { uiScale = 1.0 } = useAppSettings();
   const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
@@ -85,19 +81,8 @@ export default function PageNavigationBottomSheet({
             scaleDimension(100, uiScale),
         ),
       ]}
-      backgroundStyle={styles.transparent}
     >
-      <BottomSheetView
-        style={[
-          styles.contentContainer,
-          {
-            backgroundColor: overlay(2, theme.surface),
-            marginLeft: left,
-            marginRight: right,
-            paddingBottom: insets.bottom,
-          },
-        ]}
-      >
+      <BottomSheetView style={styles.contentContainer}>
         <BottomSheetScrollView>
           <LegendList
             data={pages}
@@ -117,8 +102,6 @@ export default function PageNavigationBottomSheet({
 const createStyles = (uiScale: number) =>
   StyleSheet.create({
     contentContainer: {
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
       flex: 1,
       maxHeight: scaleDimension(400, uiScale),
     },
@@ -150,8 +133,5 @@ const createStyles = (uiScale: number) =>
       borderRadius: 2,
       height: scaleDimension(20, uiScale),
       width: scaleDimension(3, uiScale),
-    },
-    transparent: {
-      backgroundColor: 'transparent',
     },
   });

@@ -221,6 +221,9 @@ export interface TtsPhoneticPair {
   matchMode?: 'whole-word' | 'substring';
 }
 
+/** Where TTS cleanup rules apply. */
+export type TtsCleanupTarget = 'tts' | 'visible' | 'both';
+
 /** Full user-configurable TTS text cleanup settings. */
 export interface TtsTextCleanupSettings {
   /** Master switch: apply cleanup to TTS text. */
@@ -231,6 +234,14 @@ export interface TtsTextCleanupSettings {
   rules: TtsCleanupRule[];
   /** Ordered phonetic pronunciation swaps. */
   phoneticPairs: TtsPhoneticPair[];
+  /**
+   * Where the ruleset applies. Defaults to 'tts' (audio only, historical
+   * behavior). 'visible' = reader DOM text only (rules-only pass); 'both'
+   * = visible text AND TTS audio. Phonetic pairs + Unicode normalization
+   * always stay TTS-only regardless. Optional so persisted settings that
+   * predate the field keep working unchanged (missing = 'tts').
+   */
+  applyTo?: TtsCleanupTarget;
 }
 
 export const DEFAULT_TTS_CLEANUP_SETTINGS: TtsTextCleanupSettings = {
@@ -238,6 +249,7 @@ export const DEFAULT_TTS_CLEANUP_SETTINGS: TtsTextCleanupSettings = {
   normalizeUnicode: false,
   rules: [],
   phoneticPairs: [],
+  applyTo: 'tts',
 };
 
 /**
@@ -451,7 +463,12 @@ export function cleanTtsText(
   text: string,
   settings?: TtsTextCleanupSettings | null,
 ): string {
-  if (typeof text !== 'string' || !text || !settings?.enabled) {
+  if (
+    typeof text !== 'string' ||
+    !text ||
+    !settings?.enabled ||
+    resolveTtsCleanupTarget(settings) === 'visible'
+  ) {
     return text;
   }
 
@@ -500,6 +517,7 @@ export function applyTtsTextCleanup(
 ): string[] | undefined | null {
   if (
     !settings?.enabled ||
+    resolveTtsCleanupTarget(settings) === 'visible' ||
     !Array.isArray(paragraphs) ||
     paragraphs.length === 0
   ) {
@@ -516,4 +534,87 @@ export function applyTtsTextCleanup(
   }
 
   return paragraphs.map(paragraph => cleanTtsText(paragraph, settings));
+}
+
+/**
+ * Zero-width space used to pad paragraphs that a display rule would otherwise
+ * empty. Keeps the paragraph COUNT invariant intact: core.js `readable()`
+ * filters out elements whose trimmed text is empty, so emptying an element's
+ * text entirely would drop it and shift every downstream paragraph index
+ * (highlight, scroll, progress).
+ */
+export const VISIBLE_PAD_CHAR = '\u200B';
+
+/**
+ * Normalize the persisted `applyTo` value to one of the three valid targets.
+ * Any missing or invalid value (e.g. a corrupted/garbage string persisted to
+ * MMKV) maps to the historical 'tts' default so every consumption site agrees
+ * on the same behavior: audio cleans, the visible DOM does not.
+ */
+export function resolveTtsCleanupTarget(
+  settings?: TtsTextCleanupSettings | null,
+): TtsCleanupTarget {
+  const target = settings?.applyTo;
+  return target === 'visible' || target === 'both' ? target : 'tts';
+}
+
+/**
+ * True when visible-text (reader DOM) cleanup is active for the given
+ * effective settings.
+ */
+export function shouldCleanVisibleText(
+  settings?: TtsTextCleanupSettings | null,
+): boolean {
+  return !!settings?.enabled && resolveTtsCleanupTarget(settings) !== 'tts';
+}
+
+/**
+ * Clean paragraph texts for VISIBLE display (reader DOM). RULES ONLY: the
+ * phonetic dictionary and Unicode normalization stay TTS-only because they
+ * are audio-oriented — pronunciation spellings would corrupt visible text
+ * and NFD-stripping visibly mutates glyphs.
+ *
+ * COUNT-PRESERVING: the returned array always has the same length as the
+ * input; paragraphs a rule would empty are padded with a zero-width space so
+ * the DOM element stays readable and paragraph indices never shift. Reuses
+ * the exact rule engine + regex guardrails from the TTS pipeline (length
+ * cap, catastrophic-shape detection, compile-time try/catch, literal
+ * replacement semantics).
+ */
+export function cleanVisibleText(
+  paragraphs: string[] | undefined | null,
+  settings?: TtsTextCleanupSettings | null,
+): string[] | undefined | null {
+  if (
+    !shouldCleanVisibleText(settings) ||
+    !Array.isArray(paragraphs) ||
+    paragraphs.length === 0 ||
+    !settings
+  ) {
+    return paragraphs;
+  }
+
+  const hasRules = settings.rules?.some(rule => rule.enabled) ?? false;
+  if (!hasRules) {
+    return paragraphs;
+  }
+
+  return paragraphs.map(paragraph => {
+    if (typeof paragraph !== 'string' || !paragraph) {
+      return paragraph;
+    }
+    let result = paragraph;
+    for (const rule of settings.rules ?? []) {
+      if (!rule.enabled) {
+        continue;
+      }
+      // normalizePattern=false: visible text is never NFD-normalized, so
+      // literal patterns match verbatim.
+      result = applyCleanupRule(result, rule, false);
+    }
+    if (!result || result.trim().length === 0) {
+      return VISIBLE_PAD_CHAR;
+    }
+    return result;
+  });
 }

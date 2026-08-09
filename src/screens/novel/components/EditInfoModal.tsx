@@ -20,6 +20,7 @@ import { translateNovelStatus } from '@utils/translateEnum';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import AppText from '@components/AppText';
+import { parseGenres } from '../utils/genres';
 
 interface EditInfoModalProps {
   theme: ThemeColors;
@@ -107,10 +108,9 @@ const EditInfoModal = ({
   const removeTag = (t: string) => {
     setNovelInfo({
       ...novel,
-      genres: novelInfo.genres
-        ?.split(',')
+      genres: parseGenres(novelInfo.genres)
         .filter(item => item !== t)
-        ?.join(','),
+        .join(','),
     });
   };
 
@@ -235,9 +235,9 @@ const EditInfoModal = ({
 
             setNovelInfo(prevVal => ({
               ...prevVal,
-              genres: novelInfo.genres
-                ? `${novelInfo.genres},` + newGenreTrimmed
-                : newGenreTrimmed,
+              genres: [...parseGenres(prevVal.genres), newGenreTrimmed].join(
+                ',',
+              ),
             }));
             setNewGenre('');
           }}
@@ -246,11 +246,11 @@ const EditInfoModal = ({
           style={styles.inputWrapper}
         />
 
-        {novelInfo.genres !== undefined && novelInfo.genres !== '' ? (
+        {parseGenres(novelInfo.genres).length > 0 ? (
           <FlatList
             style={styles.genreList}
             horizontal
-            data={novelInfo.genres?.split(',')}
+            data={parseGenres(novelInfo.genres)}
             keyExtractor={(_, index) => 'novelTag' + index}
             renderItem={({ item }) => (
               <View

@@ -2,7 +2,7 @@ module.exports = {
   preset: 'react-native',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transformIgnorePatterns: [
-    'node_modules/(?!(.pnpm|jest-?|react-native|@react-native|@react-native-community|@react-native-google-signin|expo(nent)?|@expo(nent)?|@expo-google-fonts|react-navigation|@react-navigation|@unimodules|unimodules|sentry-expo|native-base|react-native-svg|react-native-background-actions|color|lodash-es)/)',
+    'node_modules/(?!(.pnpm|jest-?|react-native|@react-native|@react-native-community|@react-native-google-signin|expo(nent)?|@expo(nent)?|@expo-google-fonts|react-navigation|@react-navigation|@unimodules|unimodules|sentry-expo|native-base|react-native-svg|react-native-background-actions|color|lodash-es|@pchmn)/)',
   ],
   moduleNameMapper: {
     '^expo-localization$': '<rootDir>/__mocks__/expo-localization.js',
@@ -22,5 +22,7 @@ module.exports = {
     '.*specs/NativeZipArchive$': '<rootDir>/__mocks__/NativeZipArchive.js',
     '.*specs/NativeEpub$': '<rootDir>/__mocks__/NativeEpub.js',
     '^react-native-mmkv$': '<rootDir>/__mocks__/react-native-mmkv.js',
+    '^@pchmn/expo-material3-theme$':
+      '<rootDir>/__mocks__/@pchmn/expo-material3-theme.js',
   },
 };

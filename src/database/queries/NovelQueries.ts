@@ -21,6 +21,7 @@ import { getPlugin } from '@plugins/pluginManager';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
 import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
+import { BUILT_IN_CATEGORY_IDS } from '@database/constants';
 
 export const insertNovelAndChapters = async (
   pluginId: string,
@@ -111,14 +112,14 @@ export const switchNovelToLibraryQuery = async (
             () => showToast(getString('browseScreen.removeFromLibrary')),
           ]
         : [
-            'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
+            `INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, ${BUILT_IN_CATEGORY_IDS.default})`,
             [novel.id],
             () => showToast(getString('browseScreen.addedToLibrary')),
           ],
     ];
     if (novel.pluginId === 'local') {
       queries.push([
-        'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, 2)',
+        `INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, ${BUILT_IN_CATEGORY_IDS.local})`,
         [novel.id],
       ]);
     }
@@ -135,7 +136,7 @@ export const switchNovelToLibraryQuery = async (
           () => showToast(getString('browseScreen.addedToLibrary')),
         ],
         [
-          'INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
+          `INSERT INTO NovelCategory (novelId, categoryId) VALUES (?, ${BUILT_IN_CATEGORY_IDS.default})`,
           [novelId],
         ],
       ]);
@@ -177,8 +178,8 @@ export const restoreLibrary = async (novel: NovelInfo) => {
     throw e;
   });
   let novelId: number | undefined;
-  await db.withTransactionAsync(async () => {
-    db.runAsync(restoreFromBackupQuery, [
+  await db.withExclusiveTransactionAsync(async tx => {
+    const data = await tx.runAsync(restoreFromBackupQuery, [
       sourceNovel.path,
       novel.name,
       novel.pluginId,
@@ -189,16 +190,15 @@ export const restoreLibrary = async (novel: NovelInfo) => {
       novel.status || '',
       novel.genres || '',
       sourceNovel.totalPages || 0,
-    ]).then(data => {
-      novelId = data.lastInsertRowId;
-    });
+    ]);
+    novelId = data.lastInsertRowId;
   });
 
   if (novelId && novelId > 0) {
     await new Promise((resolve, reject) => {
       runAsync([
         [
-          'INSERT OR REPLACE INTO NovelCategory (novelId, categoryId) VALUES (?, (SELECT DISTINCT id FROM Category WHERE sort = 1))',
+          `INSERT OR REPLACE INTO NovelCategory (novelId, categoryId) VALUES (?, ${BUILT_IN_CATEGORY_IDS.default})`,
           [novelId!],
           () => {
             db.runAsync('UPDATE Novel SET inLibrary = 1 WHERE id = ?', [
@@ -280,7 +280,7 @@ export const updateNovelCategories = async (
   queries.push([
     `DELETE FROM NovelCategory WHERE novelId IN (${novelIds.join(
       ',',
-    )}) AND categoryId != 2`,
+    )}) AND categoryId != ${BUILT_IN_CATEGORY_IDS.local}`,
   ]);
   // if no category is selected => set to the default category
   if (categoryIds.length) {
@@ -298,7 +298,7 @@ export const updateNovelCategories = async (
         `INSERT OR IGNORE INTO NovelCategory (novelId, categoryId) 
          VALUES (
           ${novelId}, 
-          IFNULL((SELECT categoryId FROM NovelCategory WHERE novelId = ${novelId}), (SELECT id FROM Category WHERE sort = 1))
+          IFNULL((SELECT categoryId FROM NovelCategory WHERE novelId = ${novelId}), ${BUILT_IN_CATEGORY_IDS.default})
         )`,
       ]);
     });
@@ -318,14 +318,14 @@ const restoreObjectQuery = (table: string, obj: Record<string, unknown>) => {
 
 export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
   const { chapters, ...novel } = backupNovel;
-  await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM Novel WHERE id = ?', [novel.id]);
-    await db.runAsync(
+  await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync('DELETE FROM Novel WHERE id = ?', [novel.id]);
+    await tx.runAsync(
       restoreObjectQuery('Novel', novel),
       Object.values(novel) as string[] | number[],
     );
     for (const chapter of chapters) {
-      await db.runAsync(
+      await tx.runAsync(
         restoreObjectQuery(
           'Chapter',
           chapter as unknown as Record<string, unknown>,

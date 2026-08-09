@@ -1,5 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  GestureResponderEvent,
+} from 'react-native';
 import { Text } from '@components/AppText';
 import { overlay } from 'react-native-paper';
 import color from 'color';
@@ -11,8 +16,9 @@ import { scaleDimension } from '@theme/scaling';
 interface ThemePickerProps {
   theme: ThemeColors;
   currentTheme: ThemeColors;
-  onPress: () => void;
+  onPress: (event: GestureResponderEvent) => void;
   horizontal?: boolean;
+  isDark?: boolean;
 }
 
 export const ThemePicker = ({
@@ -48,7 +54,7 @@ export const ThemePicker = ({
           shadowOpacity: 0.2,
           shadowRadius: 4,
           // Elevation for Android
-          elevation: 2,
+          //elevation: 2,
         },
         flex1: {
           flex: 1,

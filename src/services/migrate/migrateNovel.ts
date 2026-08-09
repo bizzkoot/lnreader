@@ -74,8 +74,8 @@ export const migrateNovel = async (
     toChapters = await getNovelChapters(toNovel.id);
   }
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync(
+  await db.withExclusiveTransactionAsync(async tx => {
+    await tx.runAsync(
       migrateNovelMetaDataQuery,
       fromNovel.cover || toNovel!.cover || '',
       fromNovel.summary || toNovel!.summary || '',
@@ -86,12 +86,12 @@ export const migrateNovel = async (
       toNovel!.id,
     );
 
-    await db.runAsync(
+    await tx.runAsync(
       'UPDATE OR IGNORE NovelCategory SET novelId = ? WHERE novelId = ?',
       toNovel!.id,
       fromNovel.id,
     );
-    await db.runAsync('DELETE FROM Novel WHERE id = ?', fromNovel.id);
+    await tx.runAsync('DELETE FROM Novel WHERE id = ?', fromNovel.id);
   });
 
   // When the old novel row is deleted, remove any novel-scoped overrides.

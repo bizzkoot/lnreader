@@ -1,7 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Pressable,
+  Appearance,
+} from 'react-native';
 import AppText from '@components/AppText';
-import Slider from '@react-native-community/slider';
 
 import { ThemePicker } from '@components/ThemePicker/ThemePicker';
 import type { SegmentedControlOption } from '@components/SegmentedControl';
@@ -15,19 +20,35 @@ import {
   useMMKVNumber,
   useMMKVString,
 } from 'react-native-mmkv';
-import { Appbar, List, SafeAreaView, SegmentedControl } from '@components';
+import {
+  Appbar,
+  List,
+  SafeAreaView,
+  SegmentedControl,
+  Slider,
+} from '@components';
 import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
 import { scaleDimension } from '@theme/scaling';
+import {
+  DYNAMIC_THEME_ID,
+  getSystemDynamicTheme,
+  isDynamicThemeAvailable,
+  toDynamicThemeColors,
+} from '@theme/dynamic';
+import Color from 'color';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
 const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
   const theme = useTheme();
   const [, setThemeId] = useMMKVNumber('APP_THEME_ID');
-  const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE');
+  const [themeMode = 'system', setThemeMode] = useMMKVString('THEME_MODE') as [
+    ThemeMode,
+    (mode: ThemeMode) => void,
+  ];
   const [isAmoledBlack = false, setAmoledBlack] =
     useMMKVBoolean('AMOLED_BLACK');
   const [, setCustomAccentColor] = useMMKVString('CUSTOM_ACCENT_COLOR');
@@ -42,7 +63,29 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     setAppSettings,
   } = useAppSettings();
 
-  const currentMode = themeMode as ThemeMode;
+  const colorScheme = Appearance.getColorScheme() ?? 'light';
+  const actualThemeMode: Exclude<ThemeMode, 'system'> =
+    themeMode !== 'system'
+      ? themeMode
+      : colorScheme === 'unspecified'
+        ? 'light'
+        : colorScheme;
+
+  const availableThemes = useMemo(() => {
+    const themes = actualThemeMode === 'light' ? lightThemes : darkThemes;
+    if (!isDynamicThemeAvailable) {
+      return themes;
+    }
+
+    const dynamicTheme =
+      theme.id === DYNAMIC_THEME_ID
+        ? theme
+        : toDynamicThemeColors(
+            getSystemDynamicTheme(),
+            actualThemeMode === 'dark',
+          );
+    return [dynamicTheme, ...themes];
+  }, [actualThemeMode, theme]);
 
   // UI Scale slider local state
   const [localUiScale, setLocalUiScale] = useState(uiScale);
@@ -127,24 +170,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
 
   const handleModeChange = (mode: ThemeMode) => {
     setThemeMode(mode);
-
-    if (mode !== 'system') {
-      const themes = mode === 'dark' ? darkThemes : lightThemes;
-      const currentThemeInMode = themes.find(t => t.id === theme.id);
-
-      if (!currentThemeInMode) {
-        setThemeId(themes[0].id);
-      }
-    }
   };
 
   const handleThemeSelect = (selectedTheme: ThemeColors) => {
-    setThemeId(selectedTheme.id);
     setCustomAccentColor(undefined);
-
-    if (currentMode !== 'system') {
-      setThemeMode(selectedTheme.isDark ? 'dark' : 'light');
-    }
+    setThemeId(selectedTheme.id);
   };
 
   const styles = useMemo(
@@ -161,9 +191,15 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           paddingVertical: 8,
         },
         themePickerRow: {
-          paddingHorizontal: 16,
-          paddingVertical: 8,
+          borderRadius: 24,
+          paddingHorizontal: 4,
+          paddingTop: 8,
+          paddingBottom: 2,
           flexDirection: 'row',
+          alignItems: 'center',
+        },
+        scrollViewContainer: {
+          paddingHorizontal: 8,
         },
         segmentedControlContainer: {
           paddingHorizontal: 16,
@@ -196,7 +232,6 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
         },
         slider: {
           flex: 1,
-          height: 48,
         },
         sliderButton: {
           width: 40,
@@ -244,55 +279,33 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
           <View style={styles.segmentedControlContainer}>
             <SegmentedControl
               options={themeModeOptions}
-              value={currentMode}
+              value={themeMode}
               onChange={handleModeChange}
               theme={theme}
             />
           </View>
 
-          {/* Light Themes */}
-          <AppText
-            style={[{ color: theme.onSurface }, styles.themeSectionText]}
-          >
-            {getString('appearanceScreen.lightTheme')}
-          </AppText>
-          <ScrollView
-            contentContainerStyle={styles.themePickerRow}
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-          >
-            {lightThemes.map(item => (
-              <ThemePicker
-                horizontal
-                key={item.id}
-                currentTheme={theme}
-                theme={item}
-                onPress={() => handleThemeSelect(item)}
-              />
-            ))}
-          </ScrollView>
-
-          {/* Dark Themes */}
-          <AppText
-            style={[{ color: theme.onSurface }, styles.themeSectionText]}
-          >
-            {getString('appearanceScreen.darkTheme')}
-          </AppText>
-          <ScrollView
-            contentContainerStyle={styles.themePickerRow}
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-          >
-            {darkThemes.map(item => (
-              <ThemePicker
-                horizontal
-                key={item.id}
-                currentTheme={theme}
-                theme={item}
-                onPress={() => handleThemeSelect(item)}
-              />
-            ))}
-          </ScrollView>
+          {/* Current Mode Themes */}
+          <View style={styles.scrollViewContainer}>
+            <ScrollView
+              contentContainerStyle={[
+                styles.themePickerRow,
+                { backgroundColor: theme.surfaceVariant },
+              ]}
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+            >
+              {availableThemes.map(item => (
+                <ThemePicker
+                  horizontal
+                  key={item.id}
+                  currentTheme={theme}
+                  theme={item}
+                  onPress={e => handleThemeSelect(item)}
+                />
+              ))}
+            </ScrollView>
+          </View>
 
           {theme.isDark ? (
             <SettingSwitch
@@ -302,12 +315,14 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               theme={theme}
             />
           ) : null}
-          <List.ColorItem
-            title={getString('appearanceScreen.accentColor')}
-            description={theme.primary.toUpperCase()}
-            onPress={showAccentColorModal}
-            theme={theme}
-          />
+          {theme.id === DYNAMIC_THEME_ID ? null : (
+            <List.ColorItem
+              title={getString('appearanceScreen.accentColor')}
+              color={Color(theme.primary)}
+              onPress={showAccentColorModal}
+              theme={theme}
+            />
+          )}
           <List.Item
             title={getString('appearanceScreen.appLanguage')}
             description={getCurrentLanguageName()}
@@ -346,14 +361,16 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               <Slider
                 style={styles.slider}
                 value={localUiScale}
-                minimumValue={0.8}
-                maximumValue={1.3}
+                min={0.8}
+                max={1.3}
                 step={0.05}
-                minimumTrackTintColor={theme.primary}
-                maximumTrackTintColor={theme.surfaceVariant}
-                thumbTintColor={theme.primary}
-                onSlidingStart={() => setIsDraggingScale(true)}
-                onValueChange={setLocalUiScale}
+                showValueIndicator
+                formatValue={value => `${Math.round(value * 100)}%`}
+                accessibilityLabel="UI Scale"
+                onValueChange={value => {
+                  setIsDraggingScale(true);
+                  setLocalUiScale(value);
+                }}
                 onSlidingComplete={value => {
                   setIsDraggingScale(false);
                   setAppSettings({ uiScale: value });

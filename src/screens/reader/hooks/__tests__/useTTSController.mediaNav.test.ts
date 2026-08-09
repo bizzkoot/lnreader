@@ -115,6 +115,8 @@ jest.mock('@utils/htmlParagraphExtractor', () => ({
   extractParagraphs: jest.fn(() => ['Para 1', 'Para 2', 'Para 3']),
   applyTtsTextCleanup: jest.fn((paragraphs: string[]) => paragraphs),
   cleanTtsText: jest.fn((text: string) => text),
+  cleanVisibleText: jest.fn((paragraphs: string[]) => paragraphs),
+  shouldCleanVisibleText: jest.fn(() => false),
 }));
 
 jest.mock('@utils/Storages', () => ({

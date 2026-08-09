@@ -11,8 +11,28 @@ import {
   TtsTextCleanupSettings,
   DEFAULT_TTS_CLEANUP_SETTINGS,
 } from '@utils/htmlParagraphExtractor';
+import { getMMKVObject } from '@utils/mmkv/mmkv';
 
 export const APP_SETTINGS = 'APP_SETTINGS';
+
+/**
+ * Cooldown applied between sequential chapter downloads when no override
+ * is configured. Matches the historical hard-coded sleep so installs
+ * upgrading from earlier builds keep the same behaviour.
+ */
+export const DEFAULT_CHAPTER_DOWNLOAD_COOLDOWN_MS = 1000;
+
+/**
+ * Resolve the cooldown without subscribing to changes. Safe to call from
+ * background services and the headless task runner.
+ */
+export const getChapterDownloadCooldownMs = (): number => {
+  const settings = getMMKVObject<AppSettings>(APP_SETTINGS);
+  const ms = settings?.chapterDownloadCooldownMs;
+  return typeof ms === 'number' && Number.isFinite(ms) && ms >= 0
+    ? ms
+    : DEFAULT_CHAPTER_DOWNLOAD_COOLDOWN_MS;
+};
 export const BROWSE_SETTINGS = 'BROWSE_SETTINGS';
 export const LIBRARY_SETTINGS = 'LIBRARY_SETTINGS';
 export const CHAPTER_GENERAL_SETTINGS = 'CHAPTER_GENERAL_SETTINGS';
@@ -79,6 +99,10 @@ export interface AppSettings {
    * Number of chapters to download when auto-download triggers
    */
   autoDownloadAmount: '5' | '10' | '15' | '20';
+  /**
+   * Cooldown between sequential chapter downloads in milliseconds.
+   */
+  chapterDownloadCooldownMs?: number;
 
   /**
    * Automatic backup settings
@@ -284,6 +308,7 @@ export interface ChapterReaderSettings {
   epubUseAppTheme: boolean;
   epubUseCustomCSS: boolean;
   epubUseCustomJS: boolean;
+  epubIncludeChapterNumber: boolean;
 }
 
 const initialAppSettings: AppSettings = {
@@ -416,6 +441,7 @@ export const initialChapterReaderSettings: ChapterReaderSettings = {
   epubUseAppTheme: false,
   epubUseCustomCSS: false,
   epubUseCustomJS: false,
+  epubIncludeChapterNumber: false,
 };
 
 export const useAppSettings = () => {

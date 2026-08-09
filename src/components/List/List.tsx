@@ -13,6 +13,7 @@ import { List as PaperList, Divider as PaperDivider } from 'react-native-paper';
 import { ThemeColors } from '../../theme/types';
 import { scaleDimension } from '@theme/scaling';
 import { useAppSettings } from '@hooks/persisted';
+import Color from 'color';
 
 interface ListItemProps {
   title: string;
@@ -188,12 +189,12 @@ const Icon = ({ icon, theme }: { icon: string; theme: ThemeColors }) => {
 
 interface ColorItemProps {
   title: string;
-  description: string;
+  color: Color;
   theme: ThemeColors;
   onPress: () => void;
 }
 
-const ColorItem = ({ title, description, theme, onPress }: ColorItemProps) => {
+const ColorItem = ({ title, color, theme, onPress }: ColorItemProps) => {
   const { uiScale = 1.0 } = useAppSettings();
 
   const dynamicStyles = useMemo(
@@ -225,13 +226,13 @@ const ColorItem = ({ title, description, theme, onPress }: ColorItemProps) => {
           {title}
         </AppText>
         <AppText style={{ color: theme.onSurfaceVariant }}>
-          {description}
+          {color.rgb().toString().toUpperCase()}
         </AppText>
       </View>
       <View
         style={[
           {
-            backgroundColor: description,
+            backgroundColor: color.hex(),
           },
           dynamicStyles.descriptionView,
         ]}

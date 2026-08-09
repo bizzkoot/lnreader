@@ -3,16 +3,18 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@components/AppText';
 
 import { Portal, TextInput } from 'react-native-paper';
-import { Modal } from '@components';
+import { Button, Modal } from '@components';
 import { ThemeColors } from '../../theme/types';
+import { Row } from '@components/Common';
 import { useAppSettings } from '@hooks/persisted/useSettings';
+import { getString } from '@strings/translations';
 import { scaleDimension } from '@theme/scaling';
 
 interface ColorPickerModalProps {
   visible: boolean;
   title: string;
   color: string;
-  onSubmit: (val: string) => void;
+  onSubmit: (val: string | undefined) => void;
   closeModal: () => void;
   theme: ThemeColors;
   showAccentColors?: boolean;
@@ -52,6 +54,9 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
         },
         flex: { flex: 1 },
         marginBottom: { marginBottom: scaleDimension(8, uiScale) },
+        row: {
+          justifyContent: 'flex-end',
+        },
       }),
     [uiScale],
   );
@@ -75,6 +80,10 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
     } else {
       setError('Enter a valid hex color code');
     }
+  };
+  const onReset = () => {
+    onSubmit(undefined);
+    closeModal();
   };
 
   const accentColors = [
@@ -141,6 +150,10 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
           error={Boolean(error)}
         />
         <Text style={styles.errorText}>{error}</Text>
+        <Row style={styles.row}>
+          <Button title={getString('common.reset')} onPress={onReset} />
+          <Button title={getString('common.save')} onPress={onSubmitEditing} />
+        </Row>
       </Modal>
     </Portal>
   );

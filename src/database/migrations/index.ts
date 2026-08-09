@@ -21,4 +21,10 @@ import { migration003 } from './003_add_tts_state';
  * 3. Import and add it to the migrations array below
  * 4. Ensure version numbers are sequential
  */
-export const migrations: Migration[] = [migration002, migration003];
+import { migration004 } from './004_recreate_novel_triggers';
+
+export const migrations: Migration[] = [
+  migration002,
+  migration003,
+  migration004,
+];

@@ -5,6 +5,7 @@ import {
   parseCleanupSettingsImport,
   TTS_CLEANUP_IMPORT_FORMAT,
   TTS_CLEANUP_IMPORT_VERSION,
+  TTS_CLEANUP_APPLY_TO_VERSION,
 } from '../ttsCleanupPresets';
 import {
   TtsTextCleanupSettings,
@@ -318,5 +319,113 @@ describe('parseCleanupSettingsImport', () => {
     }
     expect(result.settings.rules[0].id).not.toBe('evil-id');
     expect(result.settings.phoneticPairs[0].id).not.toBe('evil-id-2');
+  });
+});
+
+describe('applyTo / envelope versioning (issue #19)', () => {
+  it('exports v1 envelope when applyTo is default (tts)', () => {
+    const settings = buildSettings({ enabled: true });
+    const parsed = JSON.parse(serializeCleanupSettings(settings));
+    expect(parsed.version).toBe(TTS_CLEANUP_IMPORT_VERSION);
+    expect(parsed.version).toBe(1);
+  });
+
+  it('exports v2 envelope when applyTo is non-default', () => {
+    const settings = buildSettings({ enabled: true, applyTo: 'both' });
+    const parsed = JSON.parse(serializeCleanupSettings(settings));
+    expect(parsed.version).toBe(TTS_CLEANUP_APPLY_TO_VERSION);
+    expect(parsed.version).toBe(2);
+    expect(parsed.settings.applyTo).toBe('both');
+  });
+
+  it('round-trips applyTo through a v2 export/import', () => {
+    const settings = buildSettings({
+      enabled: true,
+      applyTo: 'both',
+      rules: [createTtsCleanupRule('u2014', ' ')],
+    });
+    const result = parseCleanupSettingsImport(
+      serializeCleanupSettings(settings),
+      buildSettings(),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.settings.applyTo).toBe('both');
+    expect(result.settings.rules).toHaveLength(1);
+  });
+
+  it('maps missing/invalid applyTo to tts on import', () => {
+    const v1 = JSON.stringify({
+      format: TTS_CLEANUP_IMPORT_FORMAT,
+      version: 1,
+      settings: {
+        enabled: true,
+        normalizeUnicode: false,
+        rules: [],
+        phoneticPairs: [],
+      },
+    });
+    const result = parseCleanupSettingsImport(v1, buildSettings());
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.settings.applyTo).toBe('tts');
+
+    const bogus = JSON.stringify({
+      format: TTS_CLEANUP_IMPORT_FORMAT,
+      version: 1,
+      settings: {
+        enabled: true,
+        applyTo: 'sideways',
+        rules: [],
+        phoneticPairs: [],
+      },
+    });
+    const bogusResult = parseCleanupSettingsImport(bogus, buildSettings());
+    expect(bogusResult.ok).toBe(true);
+    if (!bogusResult.ok) {
+      return;
+    }
+    expect(bogusResult.settings.applyTo).toBe('tts');
+  });
+
+  it('rejects unknown envelope versions with a clear error', () => {
+    const v99 = JSON.stringify({
+      format: TTS_CLEANUP_IMPORT_FORMAT,
+      version: 99,
+      settings: {
+        enabled: true,
+        normalizeUnicode: false,
+        rules: [],
+        phoneticPairs: [],
+      },
+    });
+    const result = parseCleanupSettingsImport(v99, buildSettings());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.toLowerCase()).toContain('version');
+    }
+  });
+
+  it('keeps accepting bare settings objects (no envelope) with applyTo', () => {
+    const bare = {
+      enabled: true,
+      normalizeUnicode: false,
+      rules: [],
+      phoneticPairs: [],
+      applyTo: 'visible',
+    };
+    const result = parseCleanupSettingsImport(
+      JSON.stringify(bare),
+      buildSettings(),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.settings.applyTo).toBe('visible');
   });
 });

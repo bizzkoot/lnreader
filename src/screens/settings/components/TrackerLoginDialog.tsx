@@ -6,16 +6,20 @@ import { Modal } from '@components';
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 
-interface MangaUpdatesLoginDialogProps {
+interface TrackerLoginDialogProps {
   visible: boolean;
+  trackerName: string;
   onDismiss: () => void;
   onSubmit: (username: string, password: string) => Promise<void>;
+  usernameLabel?: string;
 }
 
-const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
+const TrackerLoginDialog: React.FC<TrackerLoginDialogProps> = ({
   visible,
+  trackerName,
   onDismiss,
   onSubmit,
+  usernameLabel = 'Username',
 }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
@@ -67,7 +71,7 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
 
   const handleSubmit = async () => {
     if (!username.trim() || !password.trim()) {
-      setError('Username and password are required');
+      setError(`${usernameLabel} and password are required`);
       return;
     }
 
@@ -97,7 +101,7 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
     <Modal visible={visible} onDismiss={handleCancel}>
       <View style={styles.container}>
         <AppText style={[styles.title, { color: theme.onSurface }]}>
-          Login to MangaUpdates
+          Login to {trackerName}
         </AppText>
 
         <TextInput
@@ -109,7 +113,7 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
               borderColor: theme.outline,
             },
           ]}
-          placeholder="Username"
+          placeholder={usernameLabel}
           placeholderTextColor={theme.onSurfaceVariant}
           value={username}
           onChangeText={setUsername}
@@ -167,4 +171,4 @@ const MangaUpdatesLoginDialog: React.FC<MangaUpdatesLoginDialogProps> = ({
   );
 };
 
-export default MangaUpdatesLoginDialog;
+export default TrackerLoginDialog;

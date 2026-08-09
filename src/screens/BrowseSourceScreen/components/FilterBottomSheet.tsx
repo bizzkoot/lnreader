@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import BottomSheet from '@components/BottomSheet/BottomSheet';
-import { BottomSheetFlatList, BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import {
@@ -18,7 +19,6 @@ import { Menu, TextInput, overlay } from 'react-native-paper';
 import { getValueFor } from './filterUtils';
 import { getString } from '@strings/translations';
 import { ThemeColors } from '@theme/types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Switch from '@components/Switch/Switch';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
@@ -376,7 +376,7 @@ const FilterItem: React.FC<FilterItemProps> = ({
 };
 
 interface BottomSheetProps {
-  filterSheetRef: React.RefObject<BottomSheetModal | null>;
+  filterSheetRef: React.RefObject<BottomSheetModalMethods | null>;
   filters: Filters;
   setFilters: (filters?: SelectedFilters) => void;
   clearFilters: (filters: Filters) => void;
@@ -389,25 +389,16 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
   setFilters,
 }) => {
   const theme = useTheme();
-  const { bottom } = useSafeAreaInsets();
   const [selectedFilters, setSelectedFilters] =
     useState<SelectedFilters>(filters);
 
   return (
-    <BottomSheet
-      bottomSheetRef={filterSheetRef}
-      snapPoints={[400, 600]}
-      bottomInset={bottom}
-      backgroundStyle={bottomSheetStyles.transparent}
-      style={[
-        bottomSheetStyles.container,
-        { backgroundColor: overlay(2, theme.surface) },
-      ]}
-      handleComponent={() => (
+    <BottomSheet bottomSheetRef={filterSheetRef} snapPoints={[400, 600]}>
+      <View style={bottomSheetStyles.flex}>
         <View
           style={[
             bottomSheetStyles.buttonContainer,
-            { borderBottomColor: theme.outline },
+            { borderBottomColor: theme.outlineVariant },
           ]}
         >
           <Button
@@ -427,21 +418,20 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
             mode="contained"
           />
         </View>
-      )}
-    >
-      <BottomSheetFlatList
-        data={filters && Object.entries(filters)}
-        keyExtractor={(item: [string, Filters[string]]) => 'filter' + item[0]}
-        renderItem={({ item }: { item: [string, Filters[string]] }) => (
-          <FilterItem
-            theme={theme}
-            filter={item[1]}
-            filterKey={item[0]}
-            selectedFilters={selectedFilters}
-            setSelectedFilters={setSelectedFilters}
-          />
-        )}
-      />
+        <BottomSheetFlatList
+          data={filters && Object.entries(filters)}
+          keyExtractor={(item: [string, Filters[string]]) => 'filter' + item[0]}
+          renderItem={({ item }: { item: [string, Filters[string]] }) => (
+            <FilterItem
+              theme={theme}
+              filter={item[1]}
+              filterKey={item[0]}
+              selectedFilters={selectedFilters}
+              setSelectedFilters={setSelectedFilters}
+            />
+          )}
+        />
+      </View>
     </BottomSheet>
   );
 };
@@ -449,9 +439,6 @@ const FilterBottomSheet: React.FC<BottomSheetProps> = ({
 export default FilterBottomSheet;
 
 const bottomSheetStyles = StyleSheet.create({
-  transparent: {
-    backgroundColor: 'transparent',
-  },
   buttonContainer: {
     alignItems: 'center',
     borderBottomWidth: 1,
@@ -461,9 +448,7 @@ const bottomSheetStyles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 8,
   },
-  container: {
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+  flex: {
     flex: 1,
   },
 });

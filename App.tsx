@@ -26,7 +26,12 @@ import AppErrorBoundary, {
   ErrorFallback,
 } from '@components/AppErrorBoundary/AppErrorBoundary';
 import { useDatabaseInitialization } from '@hooks';
-import { useAppSettings, useTheme, useAutoBackup } from '@hooks/persisted';
+import {
+  useAppSettings,
+  useTheme,
+  useAutoBackup,
+  ThemeProvider,
+} from '@hooks/persisted';
 import { getScaledFonts } from '@theme/fonts';
 
 import Main from './src/navigators/Main';
@@ -104,7 +109,13 @@ const App = () => {
   }, []);
 
   if (dbError) {
-    return <ErrorFallback error={dbError} resetError={retryInitialization} />;
+    return (
+      <ThemeProvider>
+        <ErrorFallbackPaperProvider>
+          <ErrorFallback error={dbError} resetError={retryInitialization} />
+        </ErrorFallbackPaperProvider>
+      </ThemeProvider>
+    );
   }
 
   if (!isDbReady) {
@@ -113,19 +124,69 @@ const App = () => {
 
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <AppErrorBoundary>
-        <SafeAreaProvider>
-          <ThemedPaperProvider>
-            <BottomSheetModalProvider>
-              <StatusBar translucent={true} backgroundColor="transparent" />
-              <CloudflareWebView enabled={true} />
-              <Main />
-            </BottomSheetModalProvider>
-          </ThemedPaperProvider>
-        </SafeAreaProvider>
-      </AppErrorBoundary>
+      <ThemeProvider>
+        <AppErrorBoundary>
+          <SafeAreaProvider>
+            <ThemedPaperProvider>
+              <BottomSheetModalProvider>
+                <StatusBar translucent={true} backgroundColor="transparent" />
+                <CloudflareWebView enabled={true} />
+                <Main />
+              </BottomSheetModalProvider>
+            </ThemedPaperProvider>
+          </SafeAreaProvider>
+        </AppErrorBoundary>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
+};
+
+/**
+ * Builds the react-native-paper theme from the app theme + uiScale.
+ * Pure function (no hooks, no side effects) so it can also be used on the
+ * dbError path where DB-dependent hooks must not run.
+ */
+const buildPaperTheme = (
+  appTheme: ReturnType<typeof useTheme>,
+  uiScale: number,
+) => {
+  const baseTheme = appTheme.isDark ? MD3DarkTheme : MD3LightTheme;
+  const scaledFonts = getScaledFonts(uiScale);
+
+  return {
+    ...baseTheme,
+    fonts: scaledFonts,
+    colors: {
+      ...baseTheme.colors,
+      primary: appTheme.primary,
+      onPrimary: appTheme.onPrimary,
+      primaryContainer: appTheme.primaryContainer,
+      onPrimaryContainer: appTheme.onPrimaryContainer,
+      secondary: appTheme.secondary,
+      onSecondary: appTheme.onSecondary,
+      secondaryContainer: appTheme.secondaryContainer,
+      onSecondaryContainer: appTheme.onSecondaryContainer,
+      tertiary: appTheme.tertiary,
+      onTertiary: appTheme.onTertiary,
+      tertiaryContainer: appTheme.tertiaryContainer,
+      onTertiaryContainer: appTheme.onTertiaryContainer,
+      error: appTheme.error,
+      onError: appTheme.onError,
+      errorContainer: appTheme.errorContainer,
+      onErrorContainer: appTheme.onErrorContainer,
+      background: appTheme.background,
+      onBackground: appTheme.onBackground,
+      surface: appTheme.surface,
+      onSurface: appTheme.onSurface,
+      surfaceVariant: appTheme.surfaceVariant,
+      onSurfaceVariant: appTheme.onSurfaceVariant,
+      outline: appTheme.outline,
+      outlineVariant: appTheme.outlineVariant,
+      inverseSurface: appTheme.inverseSurface,
+      inverseOnSurface: appTheme.inverseOnSurface,
+      inversePrimary: appTheme.inversePrimary,
+    },
+  };
 };
 
 /**
@@ -144,45 +205,32 @@ const ThemedPaperProvider: React.FC<{ children: React.ReactNode }> = ({
     checkAndTriggerBackup();
   }, [checkAndTriggerBackup]);
 
-  const paperTheme = useMemo(() => {
-    const baseTheme = appTheme.isDark ? MD3DarkTheme : MD3LightTheme;
-    const scaledFonts = getScaledFonts(uiScale);
+  const paperTheme = useMemo(
+    () => buildPaperTheme(appTheme, uiScale),
+    [appTheme, uiScale],
+  );
 
-    return {
-      ...baseTheme,
-      fonts: scaledFonts,
-      colors: {
-        ...baseTheme.colors,
-        primary: appTheme.primary,
-        onPrimary: appTheme.onPrimary,
-        primaryContainer: appTheme.primaryContainer,
-        onPrimaryContainer: appTheme.onPrimaryContainer,
-        secondary: appTheme.secondary,
-        onSecondary: appTheme.onSecondary,
-        secondaryContainer: appTheme.secondaryContainer,
-        onSecondaryContainer: appTheme.onSecondaryContainer,
-        tertiary: appTheme.tertiary,
-        onTertiary: appTheme.onTertiary,
-        tertiaryContainer: appTheme.tertiaryContainer,
-        onTertiaryContainer: appTheme.onTertiaryContainer,
-        error: appTheme.error,
-        onError: appTheme.onError,
-        errorContainer: appTheme.errorContainer,
-        onErrorContainer: appTheme.onErrorContainer,
-        background: appTheme.background,
-        onBackground: appTheme.onBackground,
-        surface: appTheme.surface,
-        onSurface: appTheme.onSurface,
-        surfaceVariant: appTheme.surfaceVariant,
-        onSurfaceVariant: appTheme.onSurfaceVariant,
-        outline: appTheme.outline,
-        outlineVariant: appTheme.outlineVariant,
-        inverseSurface: appTheme.inverseSurface,
-        inverseOnSurface: appTheme.inverseOnSurface,
-        inversePrimary: appTheme.inversePrimary,
-      },
-    };
-  }, [uiScale, appTheme]);
+  return <PaperProvider theme={paperTheme}>{children}</PaperProvider>;
+};
+
+/**
+ * ErrorFallbackPaperProvider - PaperProvider for the pre-DB error screen.
+ * Uses the SAME scaled/full-color theme as the main tree via buildPaperTheme,
+ * but deliberately does NOT run ThemedPaperProvider's auto-backup hook (which
+ * triggers ServiceManager backup flows and must only mount after DB init).
+ * Hooks used here (useAppSettings/useTheme) are MMKV/context-only and safe
+ * before DB initialization — ErrorFallback itself already uses them.
+ */
+const ErrorFallbackPaperProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { uiScale = 1.0 } = useAppSettings();
+  const appTheme = useTheme();
+
+  const paperTheme = useMemo(
+    () => buildPaperTheme(appTheme, uiScale),
+    [appTheme, uiScale],
+  );
 
   return <PaperProvider theme={paperTheme}>{children}</PaperProvider>;
 };

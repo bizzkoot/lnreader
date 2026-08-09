@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import Slider from '@react-native-community/slider';
 import { Voice, VoiceQuality } from 'expo-speech';
 import TTSHighlight, { TTSVoice } from '@services/TTSHighlight';
 import {
@@ -12,7 +11,7 @@ import {
 } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
-import { List, Button } from '@components/index';
+import { List, Button, Slider } from '@components/index';
 import AppText from '@components/AppText';
 import SettingSwitch from '../../components/SettingSwitch';
 import Switch from '@components/Switch/Switch';
@@ -243,7 +242,6 @@ const AccessibilityTab: React.FC = () => {
         },
         slider: {
           flex: 1,
-          height: 48,
         },
         sliderButton: {
           width: 40,
@@ -478,14 +476,16 @@ const AccessibilityTab: React.FC = () => {
                   <Slider
                     style={styles.slider}
                     value={localRate}
-                    minimumValue={0.1}
-                    maximumValue={3}
+                    min={0.1}
+                    max={3}
                     step={0.1}
-                    minimumTrackTintColor={theme.primary}
-                    maximumTrackTintColor={theme.surfaceVariant}
-                    thumbTintColor={theme.primary}
-                    onSlidingStart={() => setIsDraggingRate(true)}
-                    onValueChange={setLocalRate}
+                    showValueIndicator
+                    formatValue={value => `${value.toFixed(1)}x`}
+                    accessibilityLabel="Text to speech speed"
+                    onValueChange={value => {
+                      setIsDraggingRate(true);
+                      setLocalRate(value);
+                    }}
                     onSlidingComplete={value => {
                       setIsDraggingRate(false);
                       setChapterReaderSettings({
@@ -578,14 +578,16 @@ const AccessibilityTab: React.FC = () => {
                   <Slider
                     style={styles.slider}
                     value={localPitch}
-                    minimumValue={0.1}
-                    maximumValue={2}
+                    min={0.1}
+                    max={2}
                     step={0.1}
-                    minimumTrackTintColor={theme.primary}
-                    maximumTrackTintColor={theme.surfaceVariant}
-                    thumbTintColor={theme.primary}
-                    onSlidingStart={() => setIsDraggingPitch(true)}
-                    onValueChange={setLocalPitch}
+                    showValueIndicator
+                    formatValue={value => value.toFixed(1)}
+                    accessibilityLabel="Text to speech pitch"
+                    onValueChange={value => {
+                      setIsDraggingPitch(true);
+                      setLocalPitch(value);
+                    }}
                     onSlidingComplete={value => {
                       setIsDraggingPitch(false);
                       setChapterReaderSettings({
@@ -668,7 +670,13 @@ const AccessibilityTab: React.FC = () => {
               <List.SubHeader theme={theme}>TTS Text Cleanup</List.SubHeader>
               <SettingSwitch
                 label="Clean TTS text"
-                description="Strip watermarks & fix pronunciation before TTS reads"
+                description={
+                  ttsTextCleanup.applyTo === 'both'
+                    ? 'Strip watermarks from visible text & TTS audio'
+                    : ttsTextCleanup.applyTo === 'visible'
+                      ? 'Strip watermarks from visible reader text'
+                      : 'Strip watermarks & fix pronunciation before TTS reads'
+                }
                 value={ttsTextCleanup.enabled}
                 onPress={() =>
                   setChapterGeneralSettings({
@@ -682,7 +690,7 @@ const AccessibilityTab: React.FC = () => {
               />
               <List.Item
                 title="Cleanup rules & phonetic dictionary"
-                description={`${(ttsTextCleanup.rules ?? []).filter(r => r.enabled).length} active rules · ${(ttsTextCleanup.phoneticPairs ?? []).filter(p => p.enabled).length} phonetic`}
+                description={`${(ttsTextCleanup.rules ?? []).filter(r => r.enabled).length} active rules · ${(ttsTextCleanup.phoneticPairs ?? []).filter(p => p.enabled).length} phonetic${ttsTextCleanup.applyTo && ttsTextCleanup.applyTo !== 'tts' ? ` · applies to ${ttsTextCleanup.applyTo === 'both' ? 'visible text + audio' : 'visible text'}` : ''}`}
                 onPress={showTtsTextCleanupModal}
                 theme={theme}
               />

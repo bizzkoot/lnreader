@@ -17,6 +17,12 @@ export const translateNovelStatus = (status?: NovelStatus | string) => {
       return getString('novelScreen.status.licensed');
     case NovelStatus.PublishingFinished:
       return getString('novelScreen.status.publishingFinished');
+    // New statuses are displayed verbatim; i18n keys intentionally not added
+    // to keep translation files untouched (see batch constraints).
+    case NovelStatus.STUB:
+      return 'STUB';
+    case NovelStatus.Inactive:
+      return 'Inactive';
     default:
       return status ?? '';
   }

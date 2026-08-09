@@ -50,6 +50,7 @@ export interface StringMap {
   'appearanceScreen.appLanguageDefault': 'string';
   'appearanceScreen.appTheme': 'string';
   'appearanceScreen.darkTheme': 'string';
+  'appearanceScreen.dynamicColors': 'string';
   'appearanceScreen.hideBackdrop': 'string';
   'appearanceScreen.lightTheme': 'string';
   'appearanceScreen.navbar': 'string';
@@ -257,6 +258,7 @@ export interface StringMap {
   'common.show': 'string';
   'common.signIn': 'string';
   'common.signOut': 'string';
+  'common.skipVersion': 'string';
   'common.sort': 'string';
   'common.submit': 'string';
   'common.loading': 'string';
@@ -300,6 +302,10 @@ export interface StringMap {
   'generalSettingsScreen.autoDownloadAmount': 'string';
   'generalSettingsScreen.autoDownloadAmountDesc': 'string';
   'generalSettingsScreen.bySource': 'string';
+  'generalSettingsScreen.chapterDownloadCooldown': 'string';
+  'generalSettingsScreen.chapterDownloadCooldownDesc': 'string';
+  'generalSettingsScreen.chapterDownloadCooldownPlaceholder': 'string';
+  'generalSettingsScreen.chapterDownloadCooldownWarning': 'string';
   'generalSettingsScreen.chapterSort': 'string';
   'generalSettingsScreen.desc': 'string';
   'generalSettingsScreen.disableLoadingAnimations': 'string';
@@ -388,6 +394,7 @@ export interface StringMap {
   'novelScreen.exportEpubModal.downloadedChaptersOnly': 'string';
   'novelScreen.exportEpubModal.endChapter': 'string';
   'novelScreen.exportEpubModal.exportAll': 'string';
+  'novelScreen.exportEpubModal.includeChapterNumber': 'string';
   'novelScreen.exportEpubModal.includeCustomCSS': 'string';
   'novelScreen.exportEpubModal.includeCustomJS': 'string';
   'novelScreen.exportEpubModal.invalidRange': 'string';

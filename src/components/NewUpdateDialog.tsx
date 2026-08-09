@@ -28,6 +28,7 @@ interface NewUpdateDialogProps {
   };
   type?: 'update' | 'whatsNew';
   onDismiss?: () => void;
+  onIgnore?: () => void;
 }
 
 type DialogState =
@@ -40,6 +41,7 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({
   newVersion,
   type = 'update',
   onDismiss,
+  onIgnore,
 }) => {
   const [visible, setVisible] = useState(true);
   const [state, setState] = useState<DialogState>({ status: 'idle' });
@@ -279,6 +281,9 @@ const NewUpdateDialog: React.FC<NewUpdateDialogProps> = ({
 
     return (
       <View style={styles.buttonCtn}>
+        {onIgnore ? (
+          <Button title={getString('common.skipVersion')} onPress={onIgnore} />
+        ) : null}
         <Button title={getString('common.later')} onPress={handleDismiss} />
         <Button
           title={getString('common.viewOnGithub')}

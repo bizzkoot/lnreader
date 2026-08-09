@@ -131,9 +131,9 @@ type params = SQLiteBindValue[];
 type TransactionObject = [query, ...params];
 
 export async function transactionAsync(transactionObject: TransactionObject[]) {
-  await db.withTransactionAsync(async () => {
+  await db.withExclusiveTransactionAsync(async tx => {
     const promises = transactionObject.map(([query, ...params]) => {
-      return db.runAsync(query, ...params);
+      return tx.runAsync(query, ...params);
     });
     await Promise.all(promises);
   });

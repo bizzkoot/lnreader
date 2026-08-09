@@ -15,10 +15,11 @@ import React, {
 } from 'react';
 import Color from 'color';
 
+import { TopTabBar } from '@components';
 import { BottomSheetFlashList, BottomSheetView } from '@gorhom/bottom-sheet';
 import BottomSheet from '@components/BottomSheet/BottomSheet';
 import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
-import { TabBar, TabView } from 'react-native-tab-view';
+import { TabView } from 'react-native-tab-view';
 import { getString } from '@strings/translations';
 import { useAppSettings } from '@hooks/persisted/useSettings';
 import { scaleDimension } from '@theme/scaling';
@@ -30,8 +31,6 @@ import ReaderTextAlignSelector from './ReaderTextAlignSelector';
 import ReaderValueChange from './ReaderValueChange';
 import ReaderFontPicker from './ReaderFontPicker';
 import ReaderTTSTab from './ReaderTTSTab';
-import { overlay } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { StringMap } from '@strings/types';
 import { NovelInfo } from '@database/types';
@@ -150,12 +149,10 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   resetHighlightOffset,
 }) => {
   const theme = useTheme();
-  const { bottom, left, right } = useSafeAreaInsets();
   const { uiScale = 1.0 } = useAppSettings();
   const layout = useWindowDimensions();
 
-  const tabHeaderColor = overlay(2, theme.surface);
-  const backgroundColor = tabHeaderColor;
+  const tabHeaderColor = theme.surfaceContainerLow ?? theme.surface;
 
   const renderScene = useCallback(
     ({ route }: { route: { key: string } }) => {
@@ -190,7 +187,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
 
   const renderTabBar = useCallback(
     (props: any) => (
-      <TabBar
+      <TopTabBar
         {...props}
         indicatorStyle={{ backgroundColor: theme.primary }}
         style={[styles(uiScale).tabBar, { backgroundColor: tabHeaderColor }]}
@@ -210,12 +207,6 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
     <BottomSheet
       bottomSheetRef={bottomSheetRef}
       snapPoints={[scaleDimension(360, uiScale), scaleDimension(600, uiScale)]}
-      backgroundStyle={{ backgroundColor }}
-      bottomInset={bottom}
-      containerStyle={[
-        styles(uiScale).container,
-        { marginLeft: left, marginRight: right },
-      ]}
     >
       <BottomSheetView style={styles(uiScale).flex}>
         <TabView
@@ -238,9 +229,6 @@ export default React.memo(ReaderBottomSheetV2);
 
 const styles = (uiScale: number) =>
   StyleSheet.create({
-    container: {
-      borderRadius: 8,
-    },
     readerTab: {
       paddingVertical: 8,
     },
@@ -249,8 +237,6 @@ const styles = (uiScale: number) =>
       elevation: 0,
     },
     tabView: {
-      borderTopLeftRadius: 8,
-      borderTopRightRadius: 8,
       height: scaleDimension(600, uiScale),
     },
     flex: { flex: 1 },

@@ -21,6 +21,7 @@ import {
   insertChapters,
   getCustomPages,
   getChapterCount,
+  getFirstUnreadChapter as _getFirstUnreadChapter,
   getPageChaptersBatched,
   updateChapterProgress as _updateChapterProgress,
 } from '@database/queries/ChapterQueries';
@@ -93,6 +94,9 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
     );
 
   const [chapters, _setChapters] = useState<ChapterInfo[]>([]);
+  const [firstUnreadChapter, setFirstUnreadChapter] = useState<
+    ChapterInfo | undefined
+  >();
   const [batchInformation, setBatchInformation] = useState<{
     batch: number;
     total: number;
@@ -297,6 +301,13 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
         totalChapters: chapterCount,
       });
       setChapters(newChapters);
+
+      const unread = await _getFirstUnreadChapter(
+        novel.id,
+        novelSettings.filter,
+        page,
+      );
+      setFirstUnreadChapter(unread ?? undefined);
     }
   }, [
     novel,
@@ -339,6 +350,46 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
     pages,
     settingsSort,
   ]);
+
+  const loadUpToBatch = useCallback(
+    async (targetBatch: number) => {
+      const page = pages[pageIndex];
+      if (!novel || !page || targetBatch <= batchInformation.batch) {
+        return;
+      }
+      for (
+        let batch = batchInformation.batch + 1;
+        batch <= targetBatch;
+        batch++
+      ) {
+        if (batch > batchInformation.total) break;
+        let newChapters: ChapterInfo[] = [];
+        try {
+          newChapters =
+            getPageChaptersBatched(
+              novel.id,
+              settingsSort,
+              novelSettings.filter,
+              page,
+              batch,
+            ) || [];
+        } catch (error) {
+          novelLog.error('load-up-to-batch', 'Error loading batch', error);
+        }
+        setBatchInformation(prev => ({ ...prev, batch }));
+        extendChapters(newChapters);
+      }
+    },
+    [
+      batchInformation,
+      extendChapters,
+      novel,
+      novelSettings.filter,
+      pageIndex,
+      pages,
+      settingsSort,
+    ],
+  );
 
   // #endregion
   // #region Mark chapters
@@ -574,9 +625,11 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
       novel,
       lastRead,
       chapters,
+      firstUnreadChapter,
       novelSettings,
       batchInformation,
       getNextChapterBatch,
+      loadUpToBatch,
       getNovel,
       setPageIndex,
       openPage,
@@ -605,9 +658,11 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
       novel,
       lastRead,
       chapters,
+      firstUnreadChapter,
       novelSettings,
       batchInformation,
       getNextChapterBatch,
+      loadUpToBatch,
       getNovel,
       setPageIndex,
       openPage,

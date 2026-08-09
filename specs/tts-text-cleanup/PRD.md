@@ -207,9 +207,43 @@ All on branch `dev` (not yet pushed at time of writing).
 - **Unicode normalization + regex patterns**: when `normalizeUnicode` is enabled, text is NFD-normalized FIRST; regex patterns are matched verbatim against the already-normalized text. A regex containing precomposed characters (e.g. `é`) will NOT match the normalized form (`e` + combining accent). Literal (non-regex) patterns are NFD-normalized to match. This is by design — document it for users.
 - **Partial-object robustness**: the runtime (`cleanTtsText`) guards `settings.rules ?? []` / `settings.phoneticPairs ?? []` so partial legacy objects degrade safely. Settings written by this feature always include both arrays.
 - **Length preservation is contractual**: never drop or merge paragraphs in cleanup — the RN ↔ WebView paragraph index contract depends on it.
+- **Visible-text cleanup (issue #19)**: applied via a one-time WebView → RN → WebView bridge per chapter load. core.js captures `dataset.originalText` BEFORE mutating; the three TTS text-read sites (`speak`, locked dialog, `tts-queue` lookahead) prefer the pristine snapshot so the full TTS ruleset applies exactly once. DOM rebuilds (bionic reading / `removeExtraParagraphSpacing`, stitched chapter append) wipe datasets — `requestVisibleCleanup()` re-runs there. Never remove/empty readable elements (count contract); emptied paragraphs are padded with `\u200B`. `el.textContent` write-back flattens inline markup (`<span>/<em>/<strong>`) — accepted limitation.
 
 ---
 
-**Last Updated**: 2026-08-02
+## 10. Visible Text Unification (issue #19)
+
+**Status**: ✅ IMPLEMENTED
+**Issue**: [bizzkoot/lnreader#19](https://github.com/bizzkoot/lnreader/issues/19) — "Feature Request: Unify Visible Text and TTS Cleanup Logic" (filed against v2.1.3)
+
+### What it does
+
+Adds `applyTo: 'tts' | 'visible' | 'both'` (default `'tts'`) to `TtsTextCleanupSettings`. In `'visible'`/`'both'` the find/replace rules ALSO clean the visible reader DOM. Users retire their Custom JS TreeWalker scripts and keep ONE ruleset.
+
+### Design decisions
+
+- **Option A** (TTS ruleset → visible text) chosen; **Option B** (custom JS → TTS) rejected — DOM-context scripts cannot run against the RN string stream, and arbitrary JS violates the no-eval design constraint.
+- **Rules-only visible pass**: phonetic pairs + Unicode normalization stay TTS-only (`cleanVisibleText` in `htmlParagraphExtractor.ts`).
+- **Centralized gating**: `cleanTtsText`/`applyTtsTextCleanup` no-op when `applyTo === 'visible'` — all existing call sites inherit correct behavior.
+- **Count preservation**: visible pass never drops/merges/empties readable elements; emptied text is padded with `VISIBLE_PAD_CHAR` (`\u200B`) which survives `.trim()` so `readable()` keeps the element.
+- **Pristine snapshot**: `dataset.originalText` is captured pre-mutation; TTS always reads pristine + full ruleset (single application, no double-clean).
+- **Envelope**: exports `lnreader-tts-cleanup` v1 for default targets, v2 when `applyTo` is non-default; import validates versions (accepts 1–2, rejects others) and maps missing/invalid `applyTo` → `'tts'`. Bare-settings-object imports keep working.
+
+### Files
+
+- `src/utils/htmlParagraphExtractor.ts` — `applyTo` type + default, `cleanVisibleText`, `shouldCleanVisibleText`, `VISIBLE_PAD_CHAR`, centralized gating
+- `src/screens/reader/components/WebViewReader.tsx` — `visible-cleanup` message allowlist + handler (RN cleans + writes back), `setVisibleCleanup` inject on load
+- `android/app/src/main/assets/js/core.js` — `setVisibleCleanup`/`requestVisibleCleanup`/`applyVisibleCleanup`/`getCleanTextForTTS`, re-run hooks after DOM rebuild + stitched append
+- `src/screens/settings/SettingsReaderScreen/Modals/TtsTextCleanupModal.tsx` — "Applies to" picker + `normalizeSettings` carry-through
+- `src/screens/settings/SettingsReaderScreen/Modals/ttsCleanupPresets.ts` — envelope v1/v2 + version validation
+- UI copy: `AccessibilityTab.tsx`, `ReaderTTSTab.tsx`, `AdvancedTab.tsx` (hint in Custom JS editor)
+
+### Tests
+
+`cleanVisibleText` rules-only gating, count preservation, applyTo gating matrix, envelope version matrix, WebView bridge integration test (new message type + nonce).
+
+---
+
+**Last Updated**: 2026-08-04 (issue #19 visible-text unification)
 **Session Utilization**: 100%
 **Completion**: 6/6 commits (100%)

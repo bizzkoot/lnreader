@@ -18,8 +18,9 @@ import { scaleDimension } from '@theme/scaling';
 import { Appbar, List, Modal, SafeAreaView } from '@components';
 import { TrackerSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
-import MangaUpdatesLoginDialog from './components/MangaUpdatesLoginDialog';
-import { authenticateWithCredentials } from '@services/Trackers/mangaUpdates';
+import TrackerLoginDialog from './components/TrackerLoginDialog';
+import { authenticateWithCredentials as mangaUpdatesAuth } from '@services/Trackers/mangaUpdates';
+import { authenticateWithCredentials as kitsuAuth } from '@services/Trackers/kitsu';
 import { showToast } from '@utils/showToast';
 
 interface TrackerStyles {
@@ -49,6 +50,15 @@ const MangaUpdatesLogo = ({ styles }: { styles: TrackerStyles }) => (
   <View style={styles.logoContainer}>
     <Image
       source={require('../../../assets/mangaupdates.png')}
+      style={styles.trackerLogo}
+    />
+  </View>
+);
+
+const KitsuLogo = ({ styles }: { styles: TrackerStyles }) => (
+  <View style={styles.logoContainer}>
+    <Image
+      source={require('../../../assets/kitsu.png')}
       style={styles.trackerLogo}
     />
   </View>
@@ -115,26 +125,37 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
     setLogoutTrackerName('');
   };
 
-  // MangaUpdates Login Dialog
-  const [mangaUpdatesLoginVisible, setMangaUpdatesLoginVisible] =
-    useState(false);
-  const showMangaUpdatesLogin = () => setMangaUpdatesLoginVisible(true);
-  const hideMangaUpdatesLogin = () => setMangaUpdatesLoginVisible(false);
+  // Credential-based Login Dialog (MangaUpdates, Kitsu)
+  const [credentialLoginTracker, setCredentialLoginTracker] = useState<
+    'MangaUpdates' | 'Kitsu' | null
+  >(null);
+  const showCredentialLogin = (tracker: 'MangaUpdates' | 'Kitsu') =>
+    setCredentialLoginTracker(tracker);
+  const hideCredentialLogin = () => setCredentialLoginTracker(null);
 
-  const handleMangaUpdatesLogin = async (
-    username: string,
-    password: string,
-  ) => {
+  const handleCredentialLogin = async (username: string, password: string) => {
+    if (!credentialLoginTracker) {
+      return;
+    }
+
     try {
-      const auth = await authenticateWithCredentials(username, password);
-      setTracker('MangaUpdates', auth);
-      hideMangaUpdatesLogin();
-      showToast('Successfully logged in to MangaUpdates');
+      let auth;
+      if (credentialLoginTracker === 'MangaUpdates') {
+        auth = await mangaUpdatesAuth(username, password);
+      } else if (credentialLoginTracker === 'Kitsu') {
+        auth = await kitsuAuth(username, password);
+      } else {
+        throw new Error('Unknown tracker');
+      }
+
+      setTracker(credentialLoginTracker, auth);
+      hideCredentialLogin();
+      showToast(`Successfully logged in to ${credentialLoginTracker}`);
     } catch (error) {
       if (error instanceof Error) {
         throw error; // Let the dialog handle the error display
       }
-      throw new Error('Failed to authenticate with MangaUpdates');
+      throw new Error(`Failed to authenticate with ${credentialLoginTracker}`);
     }
   };
 
@@ -232,35 +253,95 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
                 if (isTrackerAuthenticated('MangaUpdates')) {
                   showModal('MangaUpdates');
                 } else {
-                  showMangaUpdatesLogin();
+                  showCredentialLogin('MangaUpdates');
                 }
               }}
               rippleColor={theme.rippleColor}
               style={styles.listItem}
             />
-            {isTrackerAuthenticated('MyAnimeList') &&
-            getTrackerAuth('MyAnimeList')?.auth?.expiresAt &&
-            getTrackerAuth('MyAnimeList')!.auth.expiresAt <
-              new Date(Date.now()) ? (
+            <PaperList.Item
+              title="Kitsu"
+              titleStyle={{ color: theme.onSurface }}
+              left={() => <KitsuLogo styles={styles} />}
+              right={
+                isTrackerAuthenticated('Kitsu')
+                  ? () => (
+                      <PaperList.Icon
+                        color={theme.primary}
+                        icon="check"
+                        style={styles.iconStyle}
+                      />
+                    )
+                  : undefined
+              }
+              onPress={() => {
+                if (isTrackerAuthenticated('Kitsu')) {
+                  showModal('Kitsu');
+                } else {
+                  showCredentialLogin('Kitsu');
+                }
+              }}
+              rippleColor={theme.rippleColor}
+              style={styles.listItem}
+            />
+            {(isTrackerAuthenticated('MyAnimeList') &&
+              getTrackerAuth('MyAnimeList')?.auth?.expiresAt &&
+              getTrackerAuth('MyAnimeList')!.auth.expiresAt <
+                new Date(Date.now())) ||
+            (isTrackerAuthenticated('Kitsu') &&
+              getTrackerAuth('Kitsu')?.auth?.expiresAt &&
+              getTrackerAuth('Kitsu')!.auth.expiresAt <
+                new Date(Date.now())) ? (
               <>
                 <List.Divider theme={theme} />
                 <List.SubHeader theme={theme}>
                   {getString('common.settings')}
                 </List.SubHeader>
-                <List.Item
-                  title={
-                    getString('trackingScreen.revalidate') + ' Myanimelist'
-                  }
-                  onPress={async () => {
-                    const trackerAuth = getTrackerAuth('MyAnimeList');
-                    const revalidate = getTracker('MyAnimeList')?.revalidate;
-                    if (revalidate && trackerAuth) {
-                      const auth = await revalidate(trackerAuth.auth);
-                      setTracker('MyAnimeList', auth);
-                    }
-                  }}
-                  theme={theme}
-                />
+                {isTrackerAuthenticated('MyAnimeList') &&
+                  getTrackerAuth('MyAnimeList')?.auth?.expiresAt &&
+                  getTrackerAuth('MyAnimeList')!.auth.expiresAt <
+                    new Date(Date.now()) && (
+                    <List.Item
+                      title={
+                        getString('trackingScreen.revalidate') + ' MyAnimeList'
+                      }
+                      onPress={async () => {
+                        const trackerAuth = getTrackerAuth('MyAnimeList');
+                        const revalidate =
+                          getTracker('MyAnimeList')?.revalidate;
+                        if (revalidate && trackerAuth) {
+                          const auth = await revalidate(trackerAuth.auth);
+                          setTracker('MyAnimeList', auth);
+                        }
+                      }}
+                      theme={theme}
+                    />
+                  )}
+                {isTrackerAuthenticated('Kitsu') &&
+                  getTrackerAuth('Kitsu')?.auth?.expiresAt &&
+                  getTrackerAuth('Kitsu')!.auth.expiresAt <
+                    new Date(Date.now()) && (
+                    <List.Item
+                      title={getString('trackingScreen.revalidate') + ' Kitsu'}
+                      onPress={async () => {
+                        const trackerAuth = getTrackerAuth('Kitsu');
+                        const revalidate = getTracker('Kitsu')?.revalidate;
+                        if (revalidate && trackerAuth) {
+                          try {
+                            const auth = await revalidate(trackerAuth.auth);
+                            setTracker('Kitsu', auth);
+                            showToast('Successfully refreshed Kitsu session');
+                          } catch (error) {
+                            showToast(
+                              'Failed to refresh Kitsu session. Please log in again.',
+                            );
+                            removeTracker('Kitsu');
+                          }
+                        }
+                      }}
+                      theme={theme}
+                    />
+                  )}
               </>
             ) : null}
           </List.Section>
@@ -294,7 +375,8 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
                       logoutTrackerName as
                         | 'AniList'
                         | 'MyAnimeList'
-                        | 'MangaUpdates',
+                        | 'MangaUpdates'
+                        | 'Kitsu',
                     );
                     hideModal();
                   }}
@@ -303,10 +385,14 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
                 </Button>
               </View>
             </Modal>
-            <MangaUpdatesLoginDialog
-              visible={mangaUpdatesLoginVisible}
-              onDismiss={hideMangaUpdatesLogin}
-              onSubmit={handleMangaUpdatesLogin}
+            <TrackerLoginDialog
+              visible={credentialLoginTracker !== null}
+              trackerName={credentialLoginTracker || ''}
+              onDismiss={hideCredentialLogin}
+              onSubmit={handleCredentialLogin}
+              usernameLabel={
+                credentialLoginTracker === 'Kitsu' ? 'Email' : 'Username'
+              }
             />
           </Portal>
         </View>

@@ -15,10 +15,16 @@ import {
 import { scaleDimension } from '@theme/scaling';
 import { showToast } from '@utils/showToast';
 import AppText from '@components/AppText';
+import { buildEpubExportOptions, EpubExportOptions } from './ExportEpubOptions';
 
 interface ExportEpubModalProps {
   isVisible: boolean;
-  onSubmit?: (uri: string, startChapter?: number, endChapter?: number) => void;
+  onSubmit?: (
+    uri: string,
+    options: EpubExportOptions,
+    startChapter?: number,
+    endChapter?: number,
+  ) => void;
   hideModal: () => void;
 }
 
@@ -34,6 +40,7 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
     epubUseAppTheme = false,
     epubUseCustomCSS = false,
     epubUseCustomJS = false,
+    epubIncludeChapterNumber = false,
     setChapterReaderSettings,
   } = useChapterReaderSettings();
 
@@ -71,6 +78,7 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
   const useAppTheme = useBoolean(epubUseAppTheme);
   const useCustomCSS = useBoolean(epubUseCustomCSS);
   const useCustomJS = useBoolean(epubUseCustomJS);
+  const includeChapterNumber = useBoolean(epubIncludeChapterNumber);
   const exportAll = useBoolean(true);
   const [startChapter, setStartChapter] = useState('');
   const [endChapter, setEndChapter] = useState('');
@@ -109,12 +117,27 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
       epubUseAppTheme: useAppTheme.value,
       epubUseCustomCSS: useCustomCSS.value,
       epubUseCustomJS: useCustomJS.value,
+      epubIncludeChapterNumber: includeChapterNumber.value,
     });
 
     const start = exportAll.value ? undefined : parseInt(startChapter, 10);
     const end = exportAll.value ? undefined : parseInt(endChapter, 10);
 
-    onSubmitProp?.(uri, start, end);
+    // Carry the LIVE toggle values through the payload so the exporter does
+    // not read stale useChapterReaderSettings() values from a previous render
+    // (useMMKVObject re-renders are async/batched, so the first export after
+    // toggling was previously one submit behind).
+    onSubmitProp?.(
+      uri,
+      buildEpubExportOptions({
+        useAppTheme: useAppTheme.value,
+        useCustomCSS: useCustomCSS.value,
+        useCustomJS: useCustomJS.value,
+        includeChapterNumber: includeChapterNumber.value,
+      }),
+      start,
+      end,
+    );
     hideModal();
   };
 
@@ -158,6 +181,12 @@ const ExportEpubModal: React.FC<ExportEpubModalProps> = ({
           label={getString('novelScreen.exportEpubModal.exportAll')}
           value={exportAll.value}
           onPress={exportAll.toggle}
+          theme={theme}
+        />
+        <SwitchItem
+          label={getString('novelScreen.exportEpubModal.includeChapterNumber')}
+          value={includeChapterNumber.value}
+          onPress={includeChapterNumber.toggle}
           theme={theme}
         />
         {!exportAll.value && (

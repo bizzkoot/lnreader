@@ -20,6 +20,7 @@ import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import AppText from '@components/AppText';
+import { parseGenres } from '../../utils/genres';
 
 interface CoverImageProps {
   children: React.ReactNode;
@@ -391,7 +392,7 @@ const NovelGenres = ({
   genres,
 }: {
   theme: ThemeColors;
-  genres: string;
+  genres?: string | null;
 }) => {
   const { uiScale = 1.0 } = useAppSettings();
 
@@ -406,7 +407,7 @@ const NovelGenres = ({
     [uiScale],
   );
 
-  const data = genres.split(/,\s*/);
+  const data = parseGenres(genres);
 
   return (
     <FlatList

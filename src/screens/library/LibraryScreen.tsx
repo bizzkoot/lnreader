@@ -13,16 +13,20 @@ import {
   View,
 } from 'react-native';
 import AppText from '@components/AppText';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import {
   NavigationState,
   SceneRendererProps,
-  TabBar,
   TabView,
 } from 'react-native-tab-view';
 import Color from 'color';
 
-import { SearchbarV2, Button, SafeAreaView } from '@components/index';
+import {
+  SearchbarV2,
+  Button,
+  SafeAreaView,
+  TopTabBar,
+} from '@components/index';
 import { LibraryView } from './components/LibraryListView';
 import LibraryBottomSheet from './components/LibraryBottomSheet/LibraryBottomSheet';
 import { Banner } from './components/Banner';
@@ -96,7 +100,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
 
   const layout = useWindowDimensions();
 
-  const bottomSheetRef = useRef<BottomSheetModal | null>(null);
+  const bottomSheetRef = useRef<BottomSheetModalMethods | null>(null);
 
   const [index, setIndex] = useState(0);
 
@@ -178,7 +182,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
   const renderTabBar = useCallback(
     (props: SceneRendererProps & { navigationState: State }) => {
       return categories.length ? (
-        <TabBar
+        <TopTabBar
           {...props}
           scrollEnabled
           indicatorStyle={styles.tabBarIndicator}

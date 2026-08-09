@@ -49,6 +49,7 @@ interface NovelInfoHeaderProps {
   deleteDownloadsSnackbar: UseBooleanReturnType;
   fetching: boolean;
   filter: string;
+  firstUnreadChapter?: ChapterInfo;
   isLoading: boolean;
   lastRead?: ChapterInfo;
   navigateToChapter: (chapter: ChapterInfo) => void;
@@ -69,21 +70,27 @@ interface NovelInfoHeaderProps {
   trackerSheetRef: React.RefObject<BottomSheetModalMethods | null>;
 }
 
-const getStatusIcon = (status?: string) => {
-  if (status === NovelStatus.Ongoing) {
-    return 'clock-outline';
-  }
-  if (status === NovelStatus.Completed) {
-    return 'check-all';
-  }
-  return 'help';
-};
+const STATUS_ICON_MAP = {
+  [NovelStatus.Ongoing]: 'clock-outline',
+  [NovelStatus.Completed]: 'check-all',
+  [NovelStatus.OnHiatus]: 'pause-circle-outline',
+  [NovelStatus.Cancelled]: 'cancel',
+  [NovelStatus.Licensed]: 'copyright',
+  [NovelStatus.PublishingFinished]: 'book-check-outline',
+  [NovelStatus.Unknown]: 'help-circle-outline',
+  [NovelStatus.STUB]: 'book-off-outline',
+  [NovelStatus.Inactive]: 'sleep',
+} as const;
+
+const getStatusIcon = (status?: string) =>
+  STATUS_ICON_MAP[status as keyof typeof STATUS_ICON_MAP] ?? 'help';
 
 const NovelInfoHeader = ({
   chapters,
   deleteDownloadsSnackbar,
   fetching,
   filter,
+  firstUnreadChapter,
   isLoading = false,
   lastRead,
   navigateToChapter,
@@ -258,6 +265,7 @@ const NovelInfoHeader = ({
         <ReadButton
           navigateToChapter={navigateToChapter}
           chapters={chapters}
+          firstUnreadChapter={firstUnreadChapter}
           lastRead={lastRead}
         />
         {isLoading && (!novel.genres || !novel.summary) ? (

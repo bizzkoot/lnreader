@@ -3,10 +3,8 @@ import React from 'react';
 import AppText from '@components/AppText';
 
 import { useChapterReaderSettings, useTheme } from '@hooks/persisted';
-import Slider from '@react-native-community/slider';
+import { Slider } from '@components';
 import { getString } from '@strings/translations';
-
-const TRACK_TINT_COLOR = '#000000';
 
 const TextSizeSlider: React.FC = () => {
   const theme = useTheme();
@@ -21,12 +19,12 @@ const TextSizeSlider: React.FC = () => {
       <Slider
         style={styles.slider}
         value={textSize}
-        minimumValue={12}
-        maximumValue={20}
+        min={12}
+        max={20}
         step={1}
-        minimumTrackTintColor={theme.primary}
-        maximumTrackTintColor={TRACK_TINT_COLOR}
-        thumbTintColor={theme.primary}
+        showStops
+        showValueIndicator
+        accessibilityLabel={getString('readerScreen.bottomSheet.textSize')}
         onSlidingComplete={value =>
           setChapterReaderSettings({ textSize: value })
         }
@@ -49,6 +47,5 @@ const styles = StyleSheet.create({
   },
   slider: {
     flex: 1,
-    height: 40,
   },
 });

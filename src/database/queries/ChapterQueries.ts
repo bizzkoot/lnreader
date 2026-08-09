@@ -165,25 +165,33 @@ export const deleteChapters = async (
 };
 
 export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
+  if (!chapters?.length) {
+    return;
+  }
   await Promise.all(
     chapters?.map(chapter => {
       deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
     }),
   );
-  await db.execAsync('UPDATE Chapter SET isDownloaded = 0');
+  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
+  await db.execAsync(
+    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
+  );
 };
 
 export const deleteReadChaptersFromDb = async () => {
   const chapters = await getReadDownloadedChapters();
   await Promise.all(
     chapters?.map(chapter => {
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.novelId);
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
     }),
   );
   const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
-  db.execAsync(
-    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-  );
+  if (chapterIdsString) {
+    await db.execAsync(
+      `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
+    );
+  }
   showToast(getString('novelScreen.readChaptersDeleted'));
 };
 
@@ -336,7 +344,7 @@ export const getRecentReadingChapters = (novelId: number, limit: number = 4) =>
 
 export const getCustomPages = (novelId: number) =>
   db.getAllSync<{ page: string }>(
-    'SELECT DISTINCT page from Chapter WHERE novelId = ?',
+    'SELECT DISTINCT page from Chapter WHERE novelId = ? ORDER BY CAST(page AS INTEGER) ASC',
     novelId,
   );
 
@@ -405,6 +413,17 @@ export const getChapterCount = (novelId: number, page: string = '1') =>
     page,
   )?.['COUNT(*)'] ?? 0;
 
+export const getFirstUnreadChapter = (
+  novelId: number,
+  filter?: string,
+  page?: string,
+) =>
+  db.getFirstAsync<ChapterInfo>(
+    `SELECT * FROM Chapter WHERE novelId = ? AND page = ? AND unread = 1 ${filter || ''} ORDER BY position ASC LIMIT 1`,
+    novelId,
+    page || '1',
+  );
+
 export const getPageChaptersBatched = (
   novelId: number,
   sort?: string,
@@ -419,19 +438,52 @@ export const getPageChaptersBatched = (
   );
 };
 
+export const getNovelChaptersByNumber = async (
+  novelId: number,
+  chapterNumber: number,
+) => {
+  // Prefer a real chapterNumber match: sources with dense 1..N numbering set
+  // it, and it stays correct across gaps/renumbering. Sources that leave
+  // chapterNumber NULL fall back to the historical position heuristic
+  // (position === chapterNumber - 1 in dense numbering).
+  if (Number.isFinite(chapterNumber) && chapterNumber > 0) {
+    const byNumber = await db.getAllAsync<ChapterInfo>(
+      'SELECT * FROM Chapter WHERE novelId = ? AND chapterNumber = ? ORDER BY position ASC',
+      novelId,
+      chapterNumber,
+    );
+    if (byNumber.length > 0) {
+      return byNumber;
+    }
+  }
+  return db.getAllAsync<ChapterInfo>(
+    'SELECT * FROM Chapter WHERE novelId = ? AND position = ?',
+    novelId,
+    chapterNumber - 1,
+  );
+};
+
+export const getNovelChaptersByName = (novelId: number, searchText: string) => {
+  return db.getAllAsync<ChapterInfo>(
+    'SELECT * FROM Chapter WHERE novelId = ? AND name LIKE ?',
+    novelId,
+    `%${searchText}%`,
+  );
+};
+
 export const getPrevChapter = (
   novelId: number,
   chapterPosition: number,
   page: string,
 ) =>
   db.getFirstAsync<ChapterInfo>(
-    `SELECT * FROM Chapter 
-      WHERE novelId = ? 
+    `SELECT * FROM Chapter
+      WHERE novelId = ?
       AND (
-        (position < ? AND page = ?) 
-        OR page < ?
+        (position < ? AND page = ?)
+        OR CAST(page AS INTEGER) < CAST(? AS INTEGER)
       )
-      ORDER BY position DESC, page DESC`,
+      ORDER BY CAST(page AS INTEGER) DESC, position DESC`,
     novelId,
     chapterPosition,
     page,
@@ -444,13 +496,14 @@ export const getNextChapter = (
   page: string,
 ) =>
   db.getFirstAsync<ChapterInfo>(
-    `SELECT * FROM Chapter 
-      WHERE novelId = ? 
+    `SELECT * FROM Chapter
+      WHERE novelId = ?
       AND (
-        (page = ? AND position > ?)  
-        OR (position = 0 AND page > ?) 
+        (page = ? AND position > ?)
+        OR CAST(page AS INTEGER) > CAST(? AS INTEGER)
       )
-      ORDER BY position ASC, page ASC`,
+      ORDER BY CAST(page AS INTEGER) ASC, position ASC
+      LIMIT 1`,
     novelId,
     page,
     chapterPosition,
@@ -481,16 +534,19 @@ export const getNovelDownloadedChapters = (
   endPosition?: number,
 ) => {
   if (startPosition !== undefined && endPosition !== undefined) {
+    // Range positions are global ordinals over the flat (page, position)-ordered
+    // downloaded list. position alone is per-page (it resets in insertChapters),
+    // so a position-window query would match every page for multi-page novels.
     return db.getAllAsync<ChapterInfo>(
-      'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 AND position >= ? AND position <= ? ORDER BY position ASC',
+      'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY CAST(page AS INTEGER) ASC, position ASC LIMIT ? OFFSET ?',
       novelId,
+      endPosition - startPosition + 1,
       startPosition - 1,
-      endPosition - 1,
     );
   }
 
   return db.getAllAsync<ChapterInfo>(
-    'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY position ASC',
+    'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY CAST(page AS INTEGER) ASC, position ASC',
     novelId,
   );
 };

@@ -6,6 +6,7 @@ import { getPlugin } from '@plugins/pluginManager';
 import { getString } from '@strings/translations';
 import { getChapter } from '@database/queries/ChapterQueries';
 import { sleep } from '@utils/sleep';
+import { getChapterDownloadCooldownMs } from '@hooks/persisted/useSettings';
 import { getNovelById } from '@database/queries/NovelQueries';
 import { db } from '@database/db';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
@@ -90,7 +91,7 @@ export const downloadChapter = async (
       chapter.id,
     ]);
 
-    await sleep(1000);
+    await sleep(getChapterDownloadCooldownMs());
   } else {
     throw new Error(getString('downloadScreen.chapterEmptyOrScrapeError'));
   }

@@ -13,6 +13,20 @@ import dayjs from 'dayjs';
 import { APP_SETTINGS, AppSettings } from '@hooks/persisted/useSettings';
 import { BackgroundTaskMetadata } from '@services/ServiceManager';
 
+const UPDATE_SOURCE_CONCURRENCY = 3;
+
+const groupNovelsByPlugin = (
+  novels: LibraryNovelInfo[],
+): LibraryNovelInfo[][] => {
+  const groupedNovels = new Map<string, LibraryNovelInfo[]>();
+  for (const novel of novels) {
+    const pluginNovels = groupedNovels.get(novel.pluginId);
+    if (pluginNovels) pluginNovels.push(novel);
+    else groupedNovels.set(novel.pluginId, [novel]);
+  }
+  return [...groupedNovels.values()];
+};
+
 const updateLibrary = async (
   {
     categoryId,
@@ -55,26 +69,50 @@ const updateLibrary = async (
 
   if (libraryNovels.length > 0) {
     MMKVStorage.set(LAST_UPDATE_TIME, dayjs().format('YYYY-MM-DD HH:mm:ss'));
-    for (let i = 0; i < libraryNovels.length; i++) {
+
+    const sourceQueues = groupNovelsByPlugin(libraryNovels);
+    const activeNovels = new Map<string, string>();
+    let completedNovels = 0;
+    let nextSourceQueue = 0;
+
+    const publishProgress = () => {
       setMeta(meta => ({
         ...meta,
-        progressText: libraryNovels[i].name,
-        progress: i / libraryNovels.length,
+        progressText: [...activeNovels.values()].join('\n') || undefined,
+        progress: completedNovels / libraryNovels.length,
       }));
+    };
 
-      try {
-        await updateNovel(
-          libraryNovels[i].pluginId,
-          libraryNovels[i].path,
-          libraryNovels[i].id,
-          options,
-        );
-        await sleep(1000);
-      } catch (error: any) {
-        showToast(libraryNovels[i].name + ': ' + error.message);
-        continue;
+    const updateSourceQueue = async (sourceQueue: LibraryNovelInfo[]) => {
+      for (const novel of sourceQueue) {
+        activeNovels.set(novel.pluginId, novel.name);
+        publishProgress();
+        try {
+          await updateNovel(novel.pluginId, novel.path, novel.id, options);
+          await sleep(1000);
+        } catch (error: any) {
+          showToast(novel.name + ': ' + error.message);
+        } finally {
+          completedNovels += 1;
+          activeNovels.delete(novel.pluginId);
+          publishProgress();
+        }
       }
-    }
+    };
+
+    const updateNextSource = async () => {
+      while (nextSourceQueue < sourceQueues.length) {
+        const sourceQueue = sourceQueues[nextSourceQueue++];
+        await updateSourceQueue(sourceQueue);
+      }
+    };
+
+    await Promise.all(
+      Array.from(
+        { length: Math.min(UPDATE_SOURCE_CONCURRENCY, sourceQueues.length) },
+        updateNextSource,
+      ),
+    );
   } else {
     showToast("There's no novel to be updated");
   }
@@ -82,6 +120,7 @@ const updateLibrary = async (
   setMeta(meta => ({
     ...meta,
     progress: 1,
+    progressText: undefined,
     isRunning: false,
   }));
 };

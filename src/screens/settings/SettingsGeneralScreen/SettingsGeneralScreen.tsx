@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import DisplayModeModal from './modals/DisplayModeModal';
 import GridSizeModal from './modals/GridSizeModal';
 import AutoDownloadModal from './modals/AutoDownloadModal';
+import DownloadCooldownModal from './modals/DownloadCooldownModal';
 
 import {
   useAppSettings,
@@ -61,6 +62,7 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
     useLibraryFAB,
     autoDownloadOnRemaining = 'disabled',
     autoDownloadAmount = '10',
+    chapterDownloadCooldownMs,
     setAppSettings,
   } = useAppSettings();
 
@@ -109,6 +111,11 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
    */
   const autoDownloadRemainingModal = useBoolean();
   const autoDownloadAmountModal = useBoolean();
+
+  /**
+   * Chapter Download Cooldown Modal
+   */
+  const downloadCooldownModalRef = useBoolean();
 
   const getAutoDownloadRemainingDescription = () => {
     switch (autoDownloadOnRemaining) {
@@ -266,6 +273,12 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
           <List.SubHeader theme={theme}>
             {getString('generalSettings')}
           </List.SubHeader>
+          <List.Item
+            title={getString('generalSettingsScreen.chapterDownloadCooldown')}
+            description={`${((chapterDownloadCooldownMs ?? 1000) / 1000).toString()}s`}
+            onPress={downloadCooldownModalRef.setTrue}
+            theme={theme}
+          />
           <SettingSwitch
             label={getString('generalSettingsScreen.disableHapticFeedback')}
             description={getString(
@@ -332,6 +345,11 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
         onDismiss={autoDownloadAmountModal.setFalse}
         theme={theme}
         type="amount"
+      />
+      <DownloadCooldownModal
+        visible={downloadCooldownModalRef.value}
+        hideModal={downloadCooldownModalRef.setFalse}
+        theme={theme}
       />
     </SafeAreaView>
   );

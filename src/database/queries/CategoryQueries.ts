@@ -4,6 +4,7 @@ import { showToast } from '@utils/showToast';
 import { getString } from '@strings/translations';
 import { db } from '@database/db';
 import { getAllSync, runSync } from '@database/utils/helpers';
+import { BUILT_IN_CATEGORY_IDS } from '@database/constants';
 
 const getCategoriesQuery = `
     SELECT 
@@ -44,7 +45,7 @@ export const createCategory = (categoryName: string): void =>
   runSync([[createCategoryQuery, [categoryName]]]);
 
 const beforeDeleteCategoryQuery = `
-    UPDATE NovelCategory SET categoryId = (SELECT id FROM Category WHERE sort = 1)
+    UPDATE NovelCategory SET categoryId = ${BUILT_IN_CATEGORY_IDS.default}
     WHERE novelId IN (
       SELECT novelId FROM NovelCategory
       GROUP BY novelId
@@ -93,8 +94,8 @@ export const updateCategoryOrderInDb = (categories: Category[]): void => {
     return;
   }
   runSync(
-    categories.map(c => {
-      return [updateCategoryOrderQuery, [c.sort, c.id]];
+    categories.map((c, index) => {
+      return [updateCategoryOrderQuery, [index + 1, c.id]];
     }),
   );
 };

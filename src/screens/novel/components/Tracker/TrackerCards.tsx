@@ -4,7 +4,10 @@ import { IconButton } from 'react-native-paper';
 
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
-import { getAniListScoreFormatting } from './constants';
+import {
+  getAniListScoreFormatting,
+  getKitsuScoreFormatting,
+} from './constants';
 import { AddTrackingCardProps, TrackedItemCardProps } from './types';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import AppText from '@components/AppText';
@@ -302,6 +305,10 @@ export const TrackedItemCard: React.FC<TrackedItemCardProps> = ({
       return Number.isInteger(trackItem.score)
         ? trackItem.score.toString()
         : trackItem.score.toFixed(1);
+    }
+
+    if (tracker.name === 'Kitsu') {
+      return getKitsuScoreFormatting().label(trackItem.score);
     }
 
     return trackItem.score;

@@ -49,7 +49,10 @@ This fork builds on the original LNReader with enhanced features focused on acce
 - **System-Wide UI Scaling**: Adjustable layout scaling for better accessibility and consistent experience across devices
 - **Enhanced Backup System**: Versioned schema with migration pipeline, multi-location support (Local, Google Drive, Self-Hosted)
 - **Improved App Updates**: In-app download with automatic backup before update
-- **Better Android Compatibility**: Support for API 35+ with all deprecation warnings resolved
+- **Parallel Library Updates**: Concurrent multi-source updating (up to 3 sources at once) for significantly faster library refreshes
+- **Expanded Trackers**: Kitsu added alongside AniList, MyAnimeList, and MangaUpdates
+- **Material You & MD3 Design**: Dynamic wallpaper-derived color palettes and modern Material Design 3 components
+- **Better Android Compatibility**: Support for API 35+ (Android 15+); third-party Gradle/deprecation issues addressed via patches — remaining in-app Kotlin deprecation warnings tracked in plan.md
 
 ---
 
@@ -65,15 +68,15 @@ This fork builds on the original LNReader with enhanced features focused on acce
     - [TTS Engine Picker](#tts-engine-picker)
     - [TTS Text Cleanup](#tts-text-cleanup)
   - [Reader Experience](#reader-experience)
+  - [Library & Updates](#library--updates)
+  - [Trackers](#trackers)
   - [Network \& Security](#network--security)
   - [UI \& Accessibility](#ui--accessibility)
   - [Backup \& Sync](#backup--sync)
 - [What's New](#whats-new)
-  - [Network \& Security Enhancements](#network--security-enhancements)
-  - [UI \& Accessibility](#ui--accessibility-1)
-  - [TTS Enhancements](#tts-enhancements)
-  - [Stability \& Performance](#stability--performance)
+  - [Stability & Performance](#stability--performance)
   - [Platform Updates](#platform-updates)
+  - [Database & System Stability](#database--system-stability)
 - [Getting Started](#getting-started)
   - [First-Time Setup](#first-time-setup)
   - [Using TTS](#using-tts)
@@ -81,6 +84,12 @@ This fork builds on the original LNReader with enhanced features focused on acce
   - [Using Continuous Scrolling](#using-continuous-scrolling)
   - [Backup \& Restore](#backup--restore)
 - [Architecture](#architecture)
+  - [Advanced TTS System](#advanced-tts-system)
+  - [System-Wide UI Scaling](#system-wide-ui-scaling)
+  - [Dynamic Material You Theme](#dynamic-material-you-theme)
+  - [Parallel Library Updater](#parallel-library-updater)
+  - [Robust Backup System](#robust-backup-system)
+  - [Network \& Security Infrastructure](#network--security-infrastructure)
 - [Plugins](#plugins)
 - [Building \& Contributing](#building--contributing)
   - [Quick Start](#quick-start)
@@ -92,9 +101,14 @@ This fork builds on the original LNReader with enhanced features focused on acce
 
 <h2 align="center">Screenshots</h2>
 
+<details>
+<summary>📸 View screenshots</summary>
+
 <p align="center">
   <img src="./.github/readme-images/screenshots.png" align="center" />
 </p>
+
+</details>
 
 ---
 
@@ -122,11 +136,14 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 | 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                 |
 | 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                         |
 | 🖱️ **Advanced Button Gestures**         | Tap to toggle playback, hold 0.5s + swipe to adjust highlight offset, hold 2s + drag to move   |
-| 🧹 **TTS Text Cleanup**                  | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export |
+| 🧹 **TTS Text Cleanup**                  | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export. **Also cleans visible reader text** (Applies to: TTS / Visible / Both) |
 
 </div>
 
 #### TTS Feature Demo
+
+<details>
+<summary>▶️ Watch the demo & feature showcase</summary>
 
 <h3 align="center">🎵 Text-to-Speech in Action</h3>
 
@@ -150,7 +167,12 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 
 </div>
 
+</details>
+
 #### Enhanced TTS Media Notification (Android)
+
+<details>
+<summary>🎛️ See the media notification</summary>
 
 This release introduces a 5-button Android MediaStyle notification for the TTS foreground service. It provides rich metadata (novel name, chapter title, and paragraph-based progress), lock-screen visibility, and a native ⇄ React Native TTS progress sync — all while preserving visibility of the 5 action buttons.
 
@@ -167,9 +189,14 @@ This release introduces a 5-button Android MediaStyle notification for the TTS f
   </p>
 </div>
 
+</details>
+
 ---
 
 #### TTS Engine Picker
+
+<details>
+<summary>🔊 Explore TTS engine options</summary>
 
 Android devices can have multiple TTS engines installed. The default engine is often your manufacturer's (Google on most phones, Samsung on Galaxy devices), but you can install better ones. The **Engine Picker** (Settings → Reader → Accessibility → TTS Engine) lets you choose which engine powers LNReader's TTS, independently of your system default.
 
@@ -177,7 +204,7 @@ Android devices can have multiple TTS engines installed. The default engine is o
 
 <div align="center">
   <p align="center">
-    <img src="./.github/readme-images/TTS/TTS-Engine%20Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
+    <img src="./.github/readme-images/TTS/TTS-Engine Picker.jpg" alt="TTS Engine Picker" width="360" style="border-radius:6px;" />
     <br />
     <em>Engine Picker showing detected TTS engines</em>
   </p>
@@ -199,11 +226,16 @@ Android devices can have multiple TTS engines installed. The default engine is o
 > [!TIP]
 > **Google TTS with Neural2 voices** is the current best recommendation. Install Google TTS, open your device's TTS settings (Settings → Accessibility → Text-to-Speech → Preferred Engine), select "Google Text-to-Speech", then install the Neural2 voice packs. Switch LNReader to use Google TTS and you'll get the highest quality reading experience.
 
+</details>
+
 ---
 
 #### TTS Text Cleanup
 
-Sites like Novelight inject anti-scraper watermarks (spaced letters, unicode lookalikes, `u2014` corruption, "Do not rehost this novel" spam) that system TTS engines read aloud, and LN names/honorifics are commonly mispronounced. **Text Cleanup** fixes both with a declarative, **length-preserving** pipeline applied to every paragraph before it reaches the TTS engine — across all playback modes, including background playback.
+Sites like Novelight inject anti-scraper watermarks (spaced letters, unicode lookalikes, `u2014` corruption, "Do not rehost this novel" spam) that system TTS engines read aloud, and LN names/honorifics are commonly mispronounced. **Text Cleanup** fixes both with a declarative, **length-preserving** pipeline applied to every paragraph before it reaches the TTS engine — across all playback modes, including background playback. The **same ruleset can also clean the visible reader text** (Applies to: **TTS audio only** / **Visible text only** / **Both**), so you maintain ONE ruleset for reading and listening instead of juggling a separate Custom JS script.
+
+<details>
+<summary>🧹 View the cleanup pipeline diagram</summary>
 
 <div align="center">
 
@@ -213,6 +245,7 @@ flowchart LR
     classDef src fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1,font-weight:bold
     classDef clean fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100,font-weight:bold
     classDef out fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20,font-weight:bold
+    classDef vis fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#6a1b9a,font-weight:bold
 
     %% Nodes
     PARA["📄 Every Paragraph<br/>(any playback path)"]:::src
@@ -220,18 +253,23 @@ flowchart LR
     RULES["🧹 2. Find & Replace Rules<br/>(literal or regex, ordered)"]:::clean
     PHON["🗣️ 3. Phonetic Dictionary<br/>(whole-word or substring)"]:::clean
     TTS["🔈 Native TTS Engine"]:::out
+    VDOM["👁️ Visible Reader DOM<br/>(rules only — no phonetics/normalization)"]:::vis
 
     %% Flow
     PARA ==> NORM ==> RULES ==> PHON ==> TTS
+    PARA -. "Applies to: Both / Visible" .-> VDOM
 ```
 
 </div>
 
+</details>
+
 - **Access**: Settings → Reader → Accessibility → **TTS Text Cleanup** (global), or Reader Bottom Sheet → TTS Tab → **Text Cleanup** (quick access, per-novel aware)
+- **Applies to**: inside the cleanup editor, choose **TTS audio only** (default), **Visible text only**, or **Both**. In visible modes the find/replace rules also clean the reader DOM (once per chapter load, never removing paragraphs — emptied ones are padded invisibly to keep highlight/scroll/progress in sync). **Phonetic dictionary and Unicode normalization always stay TTS-only** — they are audio-oriented and would corrupt visible text
 - **Presets (one-tap)**: Curated templates — Novelight spaced watermark, `u2014` corruption, "(Official version)" tags, "Do not rehost" spam, math-bold lookalikes, LN name pronunciations, and CJK substring pairs. Presets are UI data only; applying copies them into your editable rules
-- **Import / Export**: Share or restore your rule set as a versioned JSON envelope (`lnreader-tts-cleanup` v1)
-- **Per-novel overrides**: With per-novel TTS settings enabled, cleanup can be overridden per novel
-- **Safety**: Regex length cap + ReDoS-shape detection + invalid-regex skip; length-preserving (paragraph count never changes, so highlight/scroll stay in sync)
+- **Import / Export**: Share or restore your rule set as a versioned JSON envelope (`lnreader-tts-cleanup` v1; v2 when a non-default target is set — v1 files still import as "TTS audio only")
+- **Per-novel overrides**: With per-novel TTS settings enabled, cleanup (including the target mode) can be overridden per novel
+- **Safety**: Regex length cap + ReDoS-shape detection + invalid-regex skip; length-preserving (paragraph count never changes, so highlight/scroll stay in sync). Custom JS (`Settings → Reader → Advanced`) is NOT recommended for text cleanup — it runs raw and can break paragraph indexing
 
 ---
 
@@ -246,8 +284,26 @@ Enhanced features for smoother, more immersive reading.
 | 📜 **Continuous Scrolling**          | Seamless chapter transitions with invisible DOM stitching   |
 | ✅ **Auto-Mark Short Chapters**      | Automatically mark short chapters as read to reduce clutter |
 | 🪡 **Configurable Stitch Threshold** | User-adjustable trigger for chapter merging                 |
+| 🚀 **Jump to First Unread**          | Read button & FAB navigate straight to the first unread chapter |
+| 📚 **EPUB Range Export**             | Export custom chapter ranges with chapter numbers preserved |
 | 🎨 **EPUB Style Preservation**       | `<span>` tags preserved for better styling                  |
 | 🧹 **EPUB Summary Improvements**     | Clean summaries with HTML tag/entity stripping              |
+
+</div>
+
+---
+
+### Library & Updates
+
+Efficient library management with parallel updates and rate-limit friendly downloads.
+
+<div align="center">
+
+| Feature                          | Description                                                              |
+| :------------------------------- | :----------------------------------------------------------------------- |
+| ⚡ **Parallel Library Updates**   | Update novels across multiple sources concurrently (up to 3 at once)     |
+| ⏱️ **Configurable Download Cooldown** | Adjustable delay between chapter downloads (Settings → General)     |
+| 🔔 **Skip-Version Updates**       | Dismiss update notifications for a specific version                      |
 
 </div>
 
@@ -282,6 +338,8 @@ System-wide improvements for better usability across devices.
 | 📏 **UI-Wide Scaling**     | Single `uiScale` setting affects icons, paddings, and component dimensions |
 | 🔠 **AppText Component**   | Text scaling support for better accessibility                              |
 | 🖼️ **Theme Customization** | Multiple theme options with consistent styling                             |
+| 🎨 **Dynamic Material You** | Wallpaper-derived Material 3 color palettes (Android 12+)                  |
+| 🎚️ **MD3 Sliders & Tabs**  | Flicker-free native sliders, M3 top tab indicators, standardized sheets    |
 
 </div>
 
@@ -308,48 +366,61 @@ Robust backup system with multiple options and versioned schema.
 
 ---
 
+### Trackers
+
+Synchronize your reading progress, status, and scores with popular tracking services.
+
+<div align="center">
+
+| Tracker             | Supported Features                                  |
+| :------------------ | :-------------------------------------------------- |
+| 🦊 **Kitsu**        | Search, status, chapter progress, and score sync    |
+| 🌸 **AniList**      | Search, status, chapter progress, and score sync    |
+| 🟦 **MyAnimeList**  | Search, status, chapter progress, and score sync    |
+| 📖 **MangaUpdates** | Search, status, chapter progress, and score sync    |
+
+</div>
+
+> [!NOTE]
+> **Kitsu** is the newest addition to the tracker lineup; all trackers share the same capabilities (search, status, chapter progress, and score).
+
+---
+
 ## What's New
 
-### Network & Security Enhancements
+<details>
+<summary>📋 Expand the changelog</summary>
 
-- **Cookie Management**: Automatic persistence for authentication-required sources with WebView sync
-- **DNS-over-HTTPS**: Encrypted DNS queries via Cloudflare, Google, or AdGuard (Settings → Advanced)
-- **Cloudflare Bypass**: Automated challenge solving for protected novel sources
-- **Enhanced Network Resilience**: Infinite loop prevention (max 2 retry attempts), connection pooling, graceful timeout handling
-
-### UI & Accessibility
-
-- **Header Positioning Fix**: Resolved header overlap with Android status bar icons across all Settings and More screens
-- **SafeAreaView Enhancement**: Proper inset handling following React Native best practices
-
-### TTS Enhancements
-
-- **TTS Text Cleanup**: Declarative rule pipeline strips anti-scraper watermarks, corrupted text, and fixes LN name pronunciations before TTS reads (Settings → Reader → Accessibility → TTS Text Cleanup; quick access in the Reader TTS tab)
-- **Cleanup Presets**: One-tap curated templates (Novelight watermark, `u2014` corruption, LN/CJK pronunciations, and more) — UI data only, copied into your editable rules
-- **Cleanup Import/Export**: Share or restore cleanup rule sets as versioned JSON from the editor
-- **TTS Engine Picker**: Custom engine selection with native Android integration, quality badges, and persistent selection across sessions
-- **Per-Novel TTS Settings**: Isolated voice/speed/pitch per novel — changes no longer overwrite global defaults
-- **TTS Resume Reliability**: Fixed resume playback failure and wrong engine audio output after interruptions
-- **Engine Stability**: Improved engine stability, voice matching, and reactive live settings updates
-- **Auto Chapter Title Prepend**: TTS auto-announces the chapter title when not visibly present in content
+> [!NOTE]
+> **Feature highlights** mirror the tables above — this section lists what's new that isn't already covered there: bug fixes, platform/tooling upgrades, and database hardening. For the complete changelog, see [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Stability & Performance
 
-- **MainActivity Startup Crash**: Resolved critical crash on app launch
+- **MainActivity Startup Crash**: Resolved critical crash on app launch (`window.insetsController` accessed before `super.onCreate()`)
+- **Header Positioning Fix**: Resolved header overlap with Android status bar icons across all Settings and More screens
+- **SafeAreaView Enhancement**: Proper inset handling following React Native best practices
 - **TTS Progress Persistence**: Fixed stale closure preventing reliable saves
 - **Media Notification Sync**: Eliminated flicker and state desync during seeks
 - **Notification Position Restore**: Fixed position restoration when returning from pause
 - **Auto-Stop Reliability**: Resolved race conditions and state management issues
 - **TTS Position Restoration**: Fixed position when returning to reader after notification pause
+- **EPUB Toggles**: Toggle values (appTheme/CSS/JS/chapterNumber) now carry through export instead of reading a stale closure
+- **EPUB Range Export Correctness**: Fixed chapter-range export fetching wrong/duplicated chapters on multi-page novels
 
 ### Platform Updates
 
 - **EPUB Improvements**: Adopted upstream PRs for better EPUB rendering and summaries
-- **Android SDK 35+ Support**: Resolved all Gradle deprecation warnings and API compatibility issues
+- **Android SDK 35+ Support**: Targets API 35 with compile-time compatibility fixes; Gradle deprecation warnings resolved for third-party modules via pnpm patches — remaining in-app Kotlin deprecation warnings tracked in plan.md
 - **Modern Tooling**: Upgraded React Native to 0.82.1, Reanimated to 4.2.0
 - **Build System**: Gradle 9.2.0 upgrade with OkHttp 4.12.0 for DoH support
 
-View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
+### Database & System Stability
+
+- **Database Migration 004**: Recreates `julianday` triggers across all installs, fixing library sorting anomalies
+- **Exclusive DB Transactions**: Write operations wrapped in exclusive transactions to prevent database locks
+- **Ordering & Safety Fixes**: Date-correct library updates, numeric EPUB page ordering, and hardened native file operations
+
+</details>
 
 ---
 
@@ -408,6 +479,9 @@ View full changelog: [RELEASE_NOTES.md](RELEASE_NOTES.md)
 
 ## Architecture
 
+<details>
+<summary>🏗️ Expand architecture deep-dive</summary>
+
 ### Advanced TTS System
 > [!NOTE]
 > See `docs/TTS/TTS_DESIGN.md` for full design details.
@@ -451,6 +525,12 @@ A custom scaling engine (`src/theme/scaling.ts`) ensures accessibility across al
 -   **Centralized Logic**: `scaleDimension(value, scale)` applies user preferences globally.
 -   **Safety Clamps**: Prevents broken layouts by clamping scale factors (0.8x - 1.3x).
 -   **Component-Level Support**: Custom components like `AppText` and `Icon` automatically consume scaling tokens.
+
+### Dynamic Material You Theme
+Dynamic theming (`src/theme/dynamic.ts`) generates Material 3 palettes from the Android wallpaper via `@pchmn/expo-material3-theme` when the system theme is set to "Dynamic" (`DYNAMIC_THEME_ID`), with an automatic fallback color when dynamic theming is unsupported (pre-Android 12).
+
+### Parallel Library Updater
+The library updater (`src/services/updates`) groups library novels by source and updates up to **3 sources concurrently** (`UPDATE_SOURCE_CONCURRENCY`). Within each source, novels update sequentially with a short cooldown — so a slow or rate-limited source never bottlenecks unrelated sources.
 
 ### Robust Backup System
 The backup system (`src/services/backup`) prioritizes data safety and portability:
@@ -547,6 +627,8 @@ The network stack has been enhanced to address three common challenges when acce
 - ❌ **CAPTCHA Challenge**: hCaptcha/reCAPTCHA (requires manual solve)
 
 **Cookie Lifetime**: `cf_clearance` typically valid for 15 min - 24 hours. After expiration, bypass re-triggers automatically.
+
+</details>
 
 ---
 

@@ -277,9 +277,7 @@ describe('CategoryQueries', () => {
 
       expect(runSync).toHaveBeenCalledWith([
         [
-          expect.stringContaining(
-            'UPDATE NovelCategory SET categoryId = (SELECT id FROM Category WHERE sort = 1)',
-          ),
+          expect.stringContaining('UPDATE NovelCategory SET categoryId = 1'),
           [10],
         ],
         ['DELETE FROM Category WHERE id = ?', [10]],
@@ -452,8 +450,8 @@ describe('CategoryQueries', () => {
       CategoryQueries.updateCategoryOrderInDb(categories);
 
       expect(runSync).toHaveBeenCalledWith([
-        ['UPDATE Category SET sort = ? WHERE id = ?', [10, 5]],
-        ['UPDATE Category SET sort = ? WHERE id = ?', [20, 6]],
+        ['UPDATE Category SET sort = ? WHERE id = ?', [1, 5]],
+        ['UPDATE Category SET sort = ? WHERE id = ?', [2, 6]],
       ]);
     });
   });
