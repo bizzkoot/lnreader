@@ -40,8 +40,8 @@ describe('RepositoryQueries', () => {
 
     it('should return all repositories from database', () => {
       const mockRepos: Repository[] = [
-        { id: 1, url: 'https://example.com/repo1' },
-        { id: 2, url: 'https://example.com/repo2' },
+        { id: 1, url: 'https://example.com/repo1', enabled: true },
+        { id: 2, url: 'https://example.com/repo2', enabled: true },
       ];
       (db.getAllSync as jest.Mock).mockReturnValueOnce(mockRepos);
 
@@ -349,7 +349,7 @@ describe('RepositoryQueries', () => {
 
       // Read
       const mockRepos: Repository[] = [
-        { id: 1, url: 'https://example.com/test' },
+        { id: 1, url: 'https://example.com/test', enabled: true },
       ];
       (db.getAllSync as jest.Mock).mockReturnValueOnce(mockRepos);
       const repos = RepositoryQueries.getRepositoriesFromDb();
@@ -399,6 +399,54 @@ describe('RepositoryQueries', () => {
 
       const idnUrl = 'https://例え.jp/repository';
       expect(() => RepositoryQueries.isRepoUrlDuplicated(idnUrl)).not.toThrow();
+    });
+  });
+
+  describe('getEnabledRepositoriesFromDb', () => {
+    it('should return only enabled repositories', () => {
+      const mockRepos: Repository[] = [
+        { id: 1, url: 'https://example.com/repo1', enabled: true },
+        { id: 2, url: 'https://example.com/repo2', enabled: false },
+      ];
+      (db.getAllSync as jest.Mock).mockReturnValueOnce(mockRepos);
+
+      const result = RepositoryQueries.getEnabledRepositoriesFromDb();
+
+      expect(db.getAllSync).toHaveBeenCalledWith(
+        'SELECT * FROM Repository WHERE enabled = 1',
+      );
+      expect(result).toEqual(mockRepos);
+      expect(result).toHaveLength(2);
+    });
+
+    it('should return empty array when all repositories are disabled', () => {
+      (db.getAllSync as jest.Mock).mockReturnValueOnce([]);
+
+      const result = RepositoryQueries.getEnabledRepositoriesFromDb();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('setRepositoryEnabled', () => {
+    it('should enable a repository', () => {
+      RepositoryQueries.setRepositoryEnabled(1, true);
+
+      expect(db.runSync).toHaveBeenCalledWith(
+        'UPDATE Repository SET enabled = ? WHERE id = ?',
+        1,
+        1,
+      );
+    });
+
+    it('should disable a repository', () => {
+      RepositoryQueries.setRepositoryEnabled(1, false);
+
+      expect(db.runSync).toHaveBeenCalledWith(
+        'UPDATE Repository SET enabled = ? WHERE id = ?',
+        0,
+        1,
+      );
     });
   });
 });

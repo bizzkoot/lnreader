@@ -22,9 +22,11 @@ import { migration003 } from './003_add_tts_state';
  * 4. Ensure version numbers are sequential
  */
 import { migration004 } from './004_recreate_novel_triggers';
+import { migration005 } from './005_add_repository_enabled';
 
 export const migrations: Migration[] = [
   migration002,
   migration003,
   migration004,
+  migration005,
 ];

@@ -17,7 +17,7 @@ import { downloadFile, fetchApi, fetchProto, fetchText } from './helpers/fetch';
 import { defaultCover } from './helpers/constants';
 import { encode, decode } from 'urlencode';
 import { Parser } from 'htmlparser2';
-import { getRepositoriesFromDb } from '@database/queries/RepositoryQueries';
+import { getEnabledRepositoriesFromDb } from '@database/queries/RepositoryQueries';
 import { showToast } from '@utils/showToast';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import NativeFile from '@specs/NativeFile';
@@ -137,7 +137,7 @@ const updatePlugin = async (plugin: PluginItem) => {
 
 const fetchPlugins = async (): Promise<PluginItem[]> => {
   const allPlugins: PluginItem[] = [];
-  const allRepositories = getRepositoriesFromDb();
+  const allRepositories = getEnabledRepositoriesFromDb();
 
   const repoPluginsRes = await Promise.allSettled(
     allRepositories.map(({ url }) => fetch(url).then(res => res.json())),

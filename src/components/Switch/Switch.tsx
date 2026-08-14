@@ -12,13 +12,24 @@ import { useTheme } from '@hooks/persisted';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 
 interface SwitchProps {
+  accessible?: boolean;
+  accessibilityLabel?: string;
+  containerStyle?: StyleProp<ViewStyle>;
   value: boolean;
   onValueChange?: () => void;
   size?: number;
   style?: StyleProp<ViewStyle>;
 }
 
-const Switch = ({ value, size, onValueChange, style }: SwitchProps) => {
+const Switch = ({
+  accessible = true,
+  accessibilityLabel,
+  containerStyle,
+  value,
+  size,
+  onValueChange,
+  style,
+}: SwitchProps) => {
   const theme = useTheme();
   const scaledDimensions = useScaledDimensions();
 
@@ -64,7 +75,14 @@ const Switch = ({ value, size, onValueChange, style }: SwitchProps) => {
   }, [progress, switchSize, value]);
 
   return (
-    <Pressable onPress={onValueChange}>
+    <Pressable
+      accessible={accessible}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessible ? 'switch' : undefined}
+      accessibilityState={accessible ? { checked: value } : undefined}
+      style={containerStyle}
+      onPress={onValueChange}
+    >
       <Animated.View
         style={[
           styles.container,

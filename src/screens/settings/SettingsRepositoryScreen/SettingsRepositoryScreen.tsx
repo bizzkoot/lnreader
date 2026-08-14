@@ -8,6 +8,7 @@ import {
   createRepository,
   getRepositoriesFromDb,
   isRepoUrlDuplicated,
+  setRepositoryEnabled,
   updateRepository,
 } from '@database/queries/RepositoryQueries';
 import { Repository } from '@database/types';
@@ -66,6 +67,15 @@ const SettingsBrowseScreen = ({
     [refreshPlugins],
   );
 
+  const toggleRepository = useCallback(
+    (repository: Repository) => {
+      setRepositoryEnabled(repository.id, !repository.enabled);
+      getRepositories();
+      refreshPlugins();
+    },
+    [refreshPlugins],
+  );
+
   useEffect(() => {
     if (params?.url) {
       upsertRepository(params.url);
@@ -91,6 +101,7 @@ const SettingsBrowseScreen = ({
           <RepositoryCard
             repository={item}
             refetchRepositories={getRepositories}
+            toggleRepository={toggleRepository}
             upsertRepository={upsertRepository}
           />
         )}
