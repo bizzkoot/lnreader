@@ -119,7 +119,12 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
         },
       });
     }
-  }, [chapterList, chapterListInfo.inLibrary, chapterListInfo.updatesPerDay, navigate]);
+  }, [
+    chapterList,
+    chapterListInfo.inLibrary,
+    chapterListInfo.updatesPerDay,
+    navigate,
+  ]);
 
   const { uiScale = 1.0 } = useAppSettings();
   const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);
