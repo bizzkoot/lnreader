@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import AppText from '@components/AppText';
 
@@ -15,7 +15,7 @@ interface ConfirmationDialogProps {
   message?: string;
   visible: boolean;
   theme: ThemeColors;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   onDismiss: () => void;
 }
 
@@ -48,16 +48,23 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     [uiScale],
   );
 
-  const handleOnSubmit = () => {
-    onSubmit();
-    onDismiss();
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const handleOnSubmit = async () => {
+    setIsConfirming(true);
+    try {
+      await onSubmit();
+      onDismiss();
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   return (
     <Portal>
       <Dialog
         visible={visible}
-        onDismiss={onDismiss}
+        onDismiss={isConfirming ? () => {} : onDismiss}
         style={[styles.container, { backgroundColor: theme.overlay3 }]}
       >
         <Dialog.Title style={{ color: theme.onSurface }}>{title}</Dialog.Title>
@@ -69,8 +76,17 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           </Dialog.Content>
         ) : null}
         <View style={styles.buttonCtn}>
-          <Button onPress={handleOnSubmit} title={getString('common.ok')} />
-          <Button onPress={onDismiss} title={getString('common.cancel')} />
+          <Button
+            onPress={handleOnSubmit}
+            title={getString('common.ok')}
+            loading={isConfirming}
+            disabled={isConfirming}
+          />
+          <Button
+            onPress={onDismiss}
+            title={getString('common.cancel')}
+            disabled={isConfirming}
+          />
         </View>
       </Dialog>
     </Portal>

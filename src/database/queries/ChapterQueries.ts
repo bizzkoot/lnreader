@@ -12,6 +12,7 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { createNovelTriggerQueryUpdate } from '@database/tables/NovelTable';
 
 const CHAPTER_ID_BATCH_SIZE = 500;
 const chunkChapterIds = (chapterIds: number[]) =>
@@ -301,8 +302,17 @@ export const markChaptersBeforePositionRead = (
     position,
   );
 
-export const clearUpdates = () =>
-  db.execAsync('UPDATE Chapter SET updatedTime = NULL');
+export const clearUpdates = async (): Promise<void> => {
+  await db.withExclusiveTransactionAsync(async tx => {
+    // The chapter update trigger recalculates novel aggregates once per row.
+    // Bypass it for this database-wide operation and update the one affected
+    // aggregate in bulk instead.
+    await tx.execAsync('DROP TRIGGER IF EXISTS update_novel_stats_on_update');
+    await tx.execAsync('UPDATE Chapter SET updatedTime = NULL');
+    await tx.execAsync('UPDATE Novel SET lastUpdatedAt = NULL');
+    await tx.execAsync(createNovelTriggerQueryUpdate);
+  });
+};
 
 export const resetFutureChaptersProgress = async (
   novelId: number,
