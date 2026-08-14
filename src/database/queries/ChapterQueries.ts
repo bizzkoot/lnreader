@@ -13,6 +13,17 @@ import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 
+const CHAPTER_ID_BATCH_SIZE = 500;
+const chunkChapterIds = (chapterIds: number[]) =>
+  Array.from(
+    { length: Math.ceil(chapterIds.length / CHAPTER_ID_BATCH_SIZE) },
+    (_, index) =>
+      chapterIds.slice(
+        index * CHAPTER_ID_BATCH_SIZE,
+        (index + 1) * CHAPTER_ID_BATCH_SIZE,
+      ),
+  );
+
 // #region Mutations
 
 export const insertChapters = async (
@@ -76,10 +87,16 @@ export const insertChapters = async (
 export const markChapterRead = (chapterId: number) =>
   db.runAsync('UPDATE Chapter SET `unread` = 0 WHERE id = ?', chapterId);
 
-export const markChaptersRead = (chapterIds: number[]) =>
-  db.execAsync(
-    `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${chapterIds.join(',')})`,
-  );
+export const markChaptersRead = async (chapterIds: number[]) => {
+  if (!chapterIds.length) {
+    return;
+  }
+  for (const ids of chunkChapterIds(chapterIds)) {
+    await db.execAsync(
+      `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${ids.join(',')})`,
+    );
+  }
+};
 
 export const markChapterUnread = (chapterId: number) => {
   // Clear MMKV saved progress when marking unread
@@ -87,14 +104,19 @@ export const markChapterUnread = (chapterId: number) => {
   return db.runAsync('UPDATE Chapter SET `unread` = 1 WHERE id = ?', chapterId);
 };
 
-export const markChaptersUnread = (chapterIds: number[]) => {
+export const markChaptersUnread = async (chapterIds: number[]) => {
+  if (!chapterIds.length) {
+    return;
+  }
   // Clear MMKV saved progress for all chapters being marked unread
   chapterIds.forEach(id => {
     MMKVStorage.delete(`chapter_progress_${id}`);
   });
-  return db.execAsync(
-    `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${chapterIds.join(',')})`,
-  );
+  for (const ids of chunkChapterIds(chapterIds)) {
+    await db.execAsync(
+      `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${ids.join(',')})`,
+    );
+  }
 };
 
 export const markAllChaptersRead = (novelId: number) =>
@@ -147,21 +169,19 @@ export const deleteChapter = async (
 export const deleteChapters = async (
   pluginId: string,
   novelId: number,
-  chapters?: ChapterInfo[],
+  chapterIds?: number[],
 ) => {
-  if (!chapters?.length) {
+  if (!chapterIds?.length) {
     return;
   }
-  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
-
-  await Promise.all(
-    chapters?.map(chapter =>
-      deleteDownloadedFiles(pluginId, novelId, chapter.id),
-    ),
-  );
-  await db.execAsync(
-    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-  );
+  for (const ids of chunkChapterIds(chapterIds)) {
+    await Promise.all(
+      ids.map(chapterId => deleteDownloadedFiles(pluginId, novelId, chapterId)),
+    );
+    await db.execAsync(
+      `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+    );
+  }
 };
 
 export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
@@ -209,20 +229,37 @@ export const updateChapterTTSState = (chapterId: number, ttsState: string) =>
     chapterId,
   );
 
-export const updateChapterProgressByIds = (
+export const updateChapterProgressByIds = async (
   chapterIds: number[],
   progress: number,
-) =>
-  db.runAsync(
-    `UPDATE Chapter SET progress = ? WHERE id in (${chapterIds.join(',')})`,
-    progress,
-  );
+) => {
+  if (!chapterIds.length) {
+    return;
+  }
+  for (const ids of chunkChapterIds(chapterIds)) {
+    await db.runAsync(
+      `UPDATE Chapter SET progress = ? WHERE id in (${ids.join(',')})`,
+      progress,
+    );
+  }
+};
 
 export const bookmarkChapter = (chapterId: number) =>
   db.runAsync(
     'UPDATE Chapter SET bookmark = (CASE WHEN bookmark = 0 THEN 1 ELSE 0 END) WHERE id = ?',
     chapterId,
   );
+
+export const bookmarkChapters = async (chapterIds: number[]) => {
+  if (!chapterIds.length) {
+    return;
+  }
+  for (const ids of chunkChapterIds(chapterIds)) {
+    await db.execAsync(
+      `UPDATE Chapter SET bookmark = (CASE WHEN bookmark = 0 THEN 1 ELSE 0 END) WHERE id IN (${ids.join(',')})`,
+    );
+  }
+};
 
 export const markPreviuschaptersRead = (chapterId: number, novelId: number) =>
   db.runAsync(
@@ -404,6 +441,37 @@ export const getPageChapters = (
     novelId,
     page || '1',
   );
+};
+
+export const getPageChapterIds = (
+  novelId: number,
+  filter?: string,
+  page?: string,
+): number[] => {
+  const rows = db.getAllSync<{ id: number }>(
+    `SELECT id FROM Chapter WHERE novelId = ? AND page = ? ${filter || ''}`,
+    novelId,
+    page || '1',
+  );
+  return (rows ?? []).map(row => row.id);
+};
+
+export const getChaptersByIds = (chapterIds: number[]): ChapterInfo[] => {
+  if (!chapterIds.length) {
+    return [];
+  }
+  const chapters = chunkChapterIds(chapterIds).map(ids =>
+    db.getAllSync<ChapterInfo>(
+      `SELECT * FROM Chapter WHERE id IN (${ids.join(',')})`,
+    ),
+  );
+  const chaptersById = new Map(
+    chapters.flat().map(chapter => [chapter.id, chapter]),
+  );
+  return chapterIds.flatMap(chapterId => {
+    const chapter = chaptersById.get(chapterId);
+    return chapter ? [chapter] : [];
+  });
 };
 
 export const getChapterCount = (novelId: number, page: string = '1') =>

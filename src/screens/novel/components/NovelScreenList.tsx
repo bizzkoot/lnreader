@@ -181,8 +181,13 @@ const NovelScreenList = ({
     />
   );
 
+  const selectedIdSet = React.useMemo(
+    () => new Set(selected.map(obj => obj.id)),
+    [selected],
+  );
+
   const isSelected = (id: number) => {
-    return selected.some(obj => obj.id === id);
+    return selectedIdSet.has(id);
   };
 
   const onSelectPress = (chapter: ChapterInfo) => {

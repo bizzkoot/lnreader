@@ -25,6 +25,8 @@ import { resolveUrl } from '@services/plugin/fetch';
 import {
   getAllUndownloadedAndUnreadChapters,
   getAllUndownloadedChapters,
+  getChaptersByIds,
+  getPageChapterIds,
   updateChapterProgressByIds,
 } from '@database/queries/ChapterQueries';
 import { MaterialDesignIconName } from '@type/icon';
@@ -45,6 +47,9 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     getNextChapterBatch,
     loadUpToBatch,
     setNovel,
+    novelSettings,
+    pageIndex,
+    pages,
     bookmarkChapters,
     markChaptersRead,
     markChaptersUnread,
@@ -61,6 +66,24 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
   const [editInfoModal, showEditInfoModal] = useState(false);
 
   const chapterListRef = useRef<LegendListRef | null>(null);
+
+  const selectionVersionRef = useRef(0);
+
+  const selectAllChapters = useCallback(async () => {
+    if (!novel) {
+      return;
+    }
+    const requestVersion = ++selectionVersionRef.current;
+    const chapterIds = getPageChapterIds(
+      novel.id,
+      novelSettings.filter,
+      pages[pageIndex],
+    );
+    const allChapters = getChaptersByIds(chapterIds);
+    if (selectionVersionRef.current === requestVersion) {
+      setSelected(allChapters);
+    }
+  }, [novel, novelSettings.filter, pageIndex, pages]);
 
   const deleteDownloadsSnackbar = useBoolean();
 
@@ -277,7 +300,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
                 icon="select-all"
                 iconColor={theme.onBackground}
                 onPress={() => {
-                  setSelected(chapters);
+                  void selectAllChapters();
                 }}
               />
             </Animated.View>

@@ -9,7 +9,7 @@ import {
   insertNovelAndChapters,
 } from '@database/queries/NovelQueries';
 import {
-  bookmarkChapter as _bookmarkChapter,
+  bookmarkChapters as _bookmarkChapters,
   markChapterRead as _markChapterRead,
   markChaptersRead as _markChaptersRead,
   markPreviuschaptersRead as _markPreviuschaptersRead,
@@ -396,9 +396,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const bookmarkChapters = useCallback(
     (_chapters: ChapterInfo[]) => {
-      _chapters.map(_chapter => {
-        _bookmarkChapter(_chapter.id);
-      });
+      _bookmarkChapters(_chapters.map(_chapter => _chapter.id));
       mutateChapters(chs =>
         chs.map(chapter => {
           if (_chapters.some(_c => _c.id === chapter.id)) {
@@ -548,7 +546,11 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   const deleteChapters = useCallback(
     (_chaters: ChapterInfo[]) => {
       if (novel) {
-        _deleteChapters(novel.pluginId, novel.id, _chaters).then(() => {
+        _deleteChapters(
+          novel.pluginId,
+          novel.id,
+          _chaters.map(_chapter => _chapter.id),
+        ).then(() => {
           showToast(
             getString('updatesScreen.deletedChapters', {
               num: _chaters.length,
