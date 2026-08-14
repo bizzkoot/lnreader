@@ -61,7 +61,9 @@ const SettingsBrowseScreen = ({
           createRepository(repositoryUrl);
         }
         getRepositories();
-        refreshPlugins();
+        refreshPlugins().catch(error => {
+          showToast(error instanceof Error ? error.message : String(error));
+        });
       }
     },
     [refreshPlugins],

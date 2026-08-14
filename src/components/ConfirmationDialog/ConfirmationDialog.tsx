@@ -3,12 +3,17 @@ import { StyleSheet, View } from 'react-native';
 import AppText from '@components/AppText';
 
 import { getString } from '@strings/translations';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
 import { Dialog, Portal } from 'react-native-paper';
 import { ThemeColors } from '../../theme/types';
 import Button from '../Button/Button';
 import { useAppSettings } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
+
+const confirmationDialogLog = createRateLimitedLogger('ConfirmationDialog', {
+  windowMs: 1500,
+});
 
 interface ConfirmationDialogProps {
   title?: string;
@@ -55,6 +60,11 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     try {
       await onSubmit();
       onDismiss();
+    } catch (error) {
+      // Keep the dialog open so the user can retry or cancel; surface the
+      // failure through the rate-limited logger instead of an unhandled
+      // rejection.
+      confirmationDialogLog.error('submit-failed', 'onSubmit failed', error);
     } finally {
       setIsConfirming(false);
     }

@@ -92,11 +92,13 @@ export const markChaptersRead = async (chapterIds: number[]) => {
   if (!chapterIds.length) {
     return;
   }
-  for (const ids of chunkChapterIds(chapterIds)) {
-    await db.execAsync(
-      `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${ids.join(',')})`,
-    );
-  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const markChapterUnread = (chapterId: number) => {
@@ -113,11 +115,13 @@ export const markChaptersUnread = async (chapterIds: number[]) => {
   chapterIds.forEach(id => {
     MMKVStorage.delete(`chapter_progress_${id}`);
   });
-  for (const ids of chunkChapterIds(chapterIds)) {
-    await db.execAsync(
-      `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${ids.join(',')})`,
-    );
-  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const markAllChaptersRead = (novelId: number) =>
@@ -175,14 +179,21 @@ export const deleteChapters = async (
   if (!chapterIds?.length) {
     return;
   }
+  // Remove downloaded files first (independent of the DB transaction).
   for (const ids of chunkChapterIds(chapterIds)) {
     await Promise.all(
       ids.map(chapterId => deleteDownloadedFiles(pluginId, novelId, chapterId)),
     );
-    await db.execAsync(
-      `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
-    );
   }
+  // Apply all flag updates atomically so a mid-batch failure cannot leave a
+  // partially-marked chapter set.
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
@@ -237,12 +248,14 @@ export const updateChapterProgressByIds = async (
   if (!chapterIds.length) {
     return;
   }
-  for (const ids of chunkChapterIds(chapterIds)) {
-    await db.runAsync(
-      `UPDATE Chapter SET progress = ? WHERE id in (${ids.join(',')})`,
-      progress,
-    );
-  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.runAsync(
+        `UPDATE Chapter SET progress = ? WHERE id in (${ids.join(',')})`,
+        progress,
+      );
+    }
+  });
 };
 
 export const bookmarkChapter = (chapterId: number) =>
@@ -255,11 +268,13 @@ export const bookmarkChapters = async (chapterIds: number[]) => {
   if (!chapterIds.length) {
     return;
   }
-  for (const ids of chunkChapterIds(chapterIds)) {
-    await db.execAsync(
-      `UPDATE Chapter SET bookmark = (CASE WHEN bookmark = 0 THEN 1 ELSE 0 END) WHERE id IN (${ids.join(',')})`,
-    );
-  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET bookmark = (CASE WHEN bookmark = 0 THEN 1 ELSE 0 END) WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const markPreviuschaptersRead = (chapterId: number, novelId: number) =>

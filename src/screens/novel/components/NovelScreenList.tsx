@@ -210,7 +210,7 @@ const NovelScreenList = ({
       }
       setSelected(sel => [...sel, chapter]);
     } else {
-      if (selected.length === chapters.length) {
+      if (selected.length >= chapters.length) {
         return;
       }
 

@@ -19,6 +19,7 @@ import { NovelScreenProps, RootStackParamList } from '@navigators/types';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterInfo } from '@database/types';
 import { getString } from '@strings/translations';
+import { showToast } from '@utils/showToast';
 import { isNumber, noop } from 'lodash-es';
 import NovelAppbar from './components/NovelAppbar';
 import { resolveUrl } from '@services/plugin/fetch';
@@ -73,15 +74,19 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     if (!novel) {
       return;
     }
-    const requestVersion = ++selectionVersionRef.current;
-    const chapterIds = getPageChapterIds(
-      novel.id,
-      novelSettings.filter,
-      pages[pageIndex],
-    );
-    const allChapters = getChaptersByIds(chapterIds);
-    if (selectionVersionRef.current === requestVersion) {
-      setSelected(allChapters);
+    try {
+      const requestVersion = ++selectionVersionRef.current;
+      const chapterIds = getPageChapterIds(
+        novel.id,
+        novelSettings.filter,
+        pages[pageIndex],
+      );
+      const allChapters = getChaptersByIds(chapterIds);
+      if (selectionVersionRef.current === requestVersion) {
+        setSelected(allChapters);
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
     }
   }, [novel, novelSettings.filter, pageIndex, pages]);
 

@@ -42,6 +42,8 @@ export const sanitizeChapterText = (
       pluginId,
       novelName,
       chapterName,
+      reportUrl:
+        'https://github.com/LNReader/lnreader-sources/issues/new/choose',
     })
   );
 };

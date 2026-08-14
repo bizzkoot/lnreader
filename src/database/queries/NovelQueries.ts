@@ -276,6 +276,9 @@ export const updateNovelCategories = async (
   novelIds: number[],
   categoryIds: number[],
 ): Promise<void> => {
+  if (!novelIds.length) {
+    return;
+  }
   const queries: QueryObject[] = [];
   // Setting categories implies the novel belongs in the library (upstream #1945)
   queries.push([

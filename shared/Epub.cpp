@@ -371,9 +371,15 @@ std::string findImageReference(const pugi::xml_node &node) {
       std::string reference = node.attribute(attribute_name).as_string();
       if (!reference.empty()) {
         size_t fragment = reference.find('#');
-        return fragment == std::string::npos
-                   ? reference
-                   : reference.substr(0, fragment);
+        std::string stripped = fragment == std::string::npos
+                                   ? reference
+                                   : reference.substr(0, fragment);
+        // Only treat a reference as found when it survives fragment
+        // stripping — a bare "#sprite" must not short-circuit the
+        // remaining attributes on this node.
+        if (!stripped.empty()) {
+          return stripped;
+        }
       }
     }
   }

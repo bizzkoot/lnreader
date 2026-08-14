@@ -8,7 +8,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import useLoadingColors from './useLoadingColors';
+import useLoadingColors from '@utils/useLoadingColors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';

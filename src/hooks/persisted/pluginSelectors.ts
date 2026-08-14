@@ -2,6 +2,9 @@ import type { PluginItem } from '@plugins/types';
 import { newer } from '@utils/compareVersion';
 
 export const getLastUsedPluginId = (storedValue: unknown) => {
+  // Kept for upstream API parity. The fork stores LAST_USED_PLUGIN as a
+  // full PluginItem object (useMMKVObject) rather than a string id, so this
+  // normalization is intentionally unused in fork production code.
   if (typeof storedValue === 'string') return storedValue;
   if (
     storedValue &&
