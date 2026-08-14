@@ -22,6 +22,7 @@ import { showToast } from '@utils/showToast';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import NativeFile from '@specs/NativeFile';
 import { getUserAgent } from '@hooks/persisted/useUserAgent';
+import { withPluginMutationLock } from './mutationQueue';
 
 const packages: Record<string, any> = {
   'htmlparser2': { Parser },
@@ -81,24 +82,6 @@ const initPlugin = (pluginId: string, rawCode: string) => {
 };
 
 const plugins: Record<string, Plugin | undefined> = {};
-
-let pluginMutationQueue = Promise.resolve();
-
-export const withPluginMutationLock = async <T>(
-  operation: () => Promise<T> | T,
-): Promise<T> => {
-  const previous = pluginMutationQueue;
-  let release!: () => void;
-  pluginMutationQueue = new Promise<void>(resolve => {
-    release = resolve;
-  });
-  await previous;
-  try {
-    return await operation();
-  } finally {
-    release();
-  }
-};
 
 const installPluginUnlocked = async (
   _plugin: PluginItem,
@@ -245,6 +228,7 @@ export {
   installPlugin,
   uninstallPlugin,
   updatePlugin,
+  withPluginMutationLock,
   installPluginUnlocked,
   uninstallPluginUnlocked,
   updatePluginUnlocked,

@@ -12,7 +12,7 @@ import NativeFile from '@specs/NativeFile';
 import NativeZipArchive from '@specs/NativeZipArchive';
 import NativeEpub from '@specs/NativeEpub';
 
-const decodePath = (path: string) => {
+export const decodePath = (path: string) => {
   try {
     return decodeURI(path);
   } catch {
@@ -20,7 +20,7 @@ const decodePath = (path: string) => {
   }
 };
 
-const normalizePath = (path: string) => {
+export const normalizePath = (path: string) => {
   const parts: string[] = [];
   for (const part of path.replace(/\\/g, '/').split('/')) {
     if (!part || part === '.') continue;
@@ -30,10 +30,10 @@ const normalizePath = (path: string) => {
   return parts.join('/');
 };
 
-const basename = (path: string) =>
+export const basename = (path: string) =>
   path.replace(/\\/g, '/').split('/').pop() || '';
 
-const createAssetNameMap = (paths: string[]) => {
+export const createAssetNameMap = (paths: string[]) => {
   const result = new Map<string, string>();
   const used = new Set<string>();
   for (const rawPath of paths) {
@@ -55,7 +55,7 @@ const createAssetNameMap = (paths: string[]) => {
   return result;
 };
 
-const rewriteAssetReferences = (
+export const rewriteAssetReferences = (
   content: string,
   sourcePath: string,
   novelDir: string,
