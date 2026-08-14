@@ -11,9 +11,9 @@
   "advancedSettings": "Avancé",
   "advancedSettingsScreen": {
     "cachedNovelsDeletedToast": "Romans en cache supprimés",
-    "chapterInsertFailed": "Insertion de chapitre échoué",
+    "chapterInsertFailed": "Échec de l'insertion du chapitre",
     "clearCachedNovels": "Vider les romans en cache",
-    "clearCachedNovelsDesc": "",
+    "clearCachedNovelsDesc": "Supprimer les romans en cache qui ne sont pas dans votre bibliothèque",
     "clearDatabaseWarning": "Les progrès et les chapitres lus et téléchargés hors de la bibliothèque, seront perdus.",
     "clearUpdatesMessage": "Mises à jour effacées.",
     "clearUpdatesTab": "Effacer l'onglet Mises à jour",
@@ -106,7 +106,7 @@
       "backupInterruped": "Drive Backup Interrupted",
       "googleDriveBackup": "Google Drive Backup",
       "restore": "Drive Restore",
-      "restoreInterruped": "Drive Restore Interrupted"
+      "restoreInterruped": "Restauration depuis Drive interrompue"
     },
     "googeDrive": "Googe Drive",
     "googeDriveDesc": "Sauvegarde sur votre Google Drive",
@@ -123,7 +123,7 @@
     "restoreBackup": "Restore backup",
     "restoreBackupDesc": "Restore library from backup file",
     "restoreLargeBackupsWarning": "Restoring large backups may freeze the app until restoring is finished",
-    "restorinBackup": "Restoring backup",
+    "restorinBackup": "Restauration de la sauvegarde",
     "restoringData": "Restoring Data",
     "selfHost": "Self Host",
     "selfHostDesc": "Backup to your server",
@@ -174,7 +174,7 @@
   },
   "categories": {
     "addCategories": "Ajouter une catégorie",
-    "cantDeleteDefault": "You cant delete default category",
+    "cantDeleteDefault": "Vous ne pouvez pas supprimer la catégorie par défaut",
     "default": "Défaut",
     "defaultCategory": "Catégorie par défaut",
     "deleteModal": {
@@ -235,7 +235,9 @@
     "sort": "Trier",
     "submit": "Soumettre",
     "loading": "Loading ...",
-    "warning": "Warning"
+    "warning": "Warning",
+    "later": "Later",
+    "skipVersion": "Skip version"
   },
   "webview": {
     "refresh": "Actualiser",
@@ -297,7 +299,7 @@
     "refreshMetadataDescription": "Vérifier la nouvelle couverture et les détails lors de la mise à jour de la bibliothèque",
     "sortOrder": "Ordre de tri",
     "updateLibrary": "Mettre à jour la bibliothèque au lancement",
-    "updateLibraryDesc": "Non recommandé pour les appareils ????",
+    "updateLibraryDesc": "Non recommandé pour les appareils bas de gamme",
     "updateOngoing": "Ne mettre à jour que les romans en cours",
     "updateTime": "Afficher la date de dernière mise à jour",
     "useFAB": "Utiliser FAB dans la bibliothèque"
@@ -406,7 +408,7 @@
     },
     "coverSaved": "Cover saved",
     "coverNotSaved": "Cover not saved",
-    "deleteChapterError": "Cant delete chapter chapter folder",
+    "deleteChapterError": "Impossible de supprimer le dossier du chapitre",
     "deleteMessage": "Delete downloaded chapters?",
     "deletedAllDownloads": "Deleted all Downloads",
     "download": {
@@ -487,7 +489,7 @@
       "scrollToCurrentChapter": "Défiler vers le chapitre actuel",
       "scrollToTop": "Défiler jusqu'en haut"
     },
-    "emptyChapterMessage": "<p>Chapter is empty.</p><p>Report on <a href='https://github.com/LNReader/lnreader-sources/issues/new/choose'>GitHub</a> if it's available in WebView.</p><p>Plugin: %{pluginId}</p><p>Novel: %{novelName}</p><p>Chapter: %{chapterName}</p>",
+    "emptyChapterMessage": "<h2>Impossible de charger le chapitre</h2><p>Aucun contenu lisible n'a été trouvé. Vérifiez le chapitre dans la WebView ; s'il s'y charge, <a href='%{reportUrl}'>signalez le problème du plugin</a>.</p><p>Plugin : %{pluginId}<br>Roman : %{novelName}<br>Chapitre : %{chapterName}</p>",
     "finished": "Terminé",
     "nextChapter": "Suivant: %{name}",
     "noNextChapter": "Il n'y a pas de prochain chapitre",
