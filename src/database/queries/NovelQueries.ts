@@ -277,6 +277,10 @@ export const updateNovelCategories = async (
   categoryIds: number[],
 ): Promise<void> => {
   const queries: QueryObject[] = [];
+  // Setting categories implies the novel belongs in the library (upstream #1945)
+  queries.push([
+    `UPDATE Novel SET inLibrary = 1 WHERE id IN (${novelIds.join(',')})`,
+  ]);
   queries.push([
     `DELETE FROM NovelCategory WHERE novelId IN (${novelIds.join(
       ',',

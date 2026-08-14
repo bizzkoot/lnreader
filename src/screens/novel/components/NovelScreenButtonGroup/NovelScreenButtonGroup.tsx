@@ -12,6 +12,7 @@ import { NovelScreenProps } from '@navigators/types';
 import { useTrackedNovel, useTracker, useAppSettings } from '@hooks/persisted';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { MaterialDesignIconName } from '@type/icon';
+import { useNovelContext } from '@screens/novel/NovelContext';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
 import AppText from '@components/AppText';
@@ -80,6 +81,7 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
   const { navigate } = useNavigation<NovelScreenProps['navigation']>();
   const { tracker } = useTracker();
   const { trackedNovel } = useTrackedNovel(novel.id);
+  const { setNovel } = useNovelContext();
   const { uiScale = 1.0 } = useAppSettings();
   const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
@@ -99,6 +101,11 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
     navigate('MigrateNovel', {
       novel: novel,
     });
+  const handleCategoriesUpdated = () => {
+    if (!novel.inLibrary && novel.id !== 'NO_ID') {
+      setNovel({ ...novel, inLibrary: true });
+    }
+  };
 
   const {
     value: setCategoryModalVisible,
@@ -154,6 +161,7 @@ const NovelScreenButtonGroup: React.FC<NovelScreenButtonGroupProps> = ({
         <SetCategoryModal
           novelIds={[novel.id]}
           closeModal={closeSetCategoryModal}
+          onSuccess={handleCategoriesUpdated}
           visible={setCategoryModalVisible}
         />
       )}

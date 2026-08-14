@@ -854,6 +854,15 @@ describe('NovelQueries', () => {
   });
 
   describe('updateNovelCategories', () => {
+    it('should add novels to library when setting categories (upstream #1945)', () => {
+      NovelQueries.updateNovelCategories([1], [5]);
+
+      expect(db.runSync).toHaveBeenCalledWith(
+        'UPDATE Novel SET inLibrary = 1 WHERE id IN (1)',
+        [],
+      );
+    });
+
     it('should delete existing categories and insert new ones', () => {
       NovelQueries.updateNovelCategories([1, 2], [5, 10]);
 
