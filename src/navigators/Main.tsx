@@ -64,7 +64,9 @@ const MainNavigator = () => {
     }
     if (isOnboarded) {
       // hack this helps app has enough time to initialize database;
-      refreshPlugins();
+      refreshPlugins().catch(() => {
+        // Non-fatal: the repository list will refresh on the next visit.
+      });
     }
   }, [isOnboarded, refreshPlugins, updateLibraryOnLaunch]);
 
