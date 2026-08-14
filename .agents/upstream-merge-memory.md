@@ -71,6 +71,14 @@ applyTo: '**'
 - Translations: per-key merges ONLY; id_ID restored 468→687 keys + 8 fork keys re-merged; f69e5d6a7 ported only 2 fork-referenced keys (common.later, common.skipVersion)
 - Zero TTS-pipeline/DoH/scaling/per-novel files touched
 
+## 2026-08-14 - pluginSelectors.ts FOLLOW-UP IMPLEMENTED ✅ (commit 06852a6a8)
+
+**Context**: 3-POV subagent study (specs/upstream-merge-analysis-2026-08-14/plugin-selectors-study/) found the Wave-3 repo-disable switch shipped WITHOUT its badge-cleanup companion — fork's hasUpdate was one-way sticky (stale 'update available' badges persist forever after disabling a repo; update button bypasses disabled repo). Memory's earlier 'dead code in fork' note for pluginSelectors.ts is SUPERSEDED.
+**Ported** (upstream 909504a72): src/hooks/persisted/pluginSelectors.ts verbatim (getLastUsedPluginId, filterInstalledPlugins, filterAvailablePlugins, reconcileInstalledPluginUpdates); usePlugins.refreshPlugins → async({clearUnavailableUpdates}) with pure reconcile + reference-identity conditional INSTALLED_PLUGINS write; filterPlugins delegates to pure selectors (localeCompare sort); SettingsRepositoryScreen.toggleRepository → await refreshPlugins({ clearUnavailableUpdates: repository.enabled }).
+**Fork adaptations (NOT ported)**: LAST_USED_PLUGIN string-id migration (fork stores PluginItem object — kept object-form sync); FILTERED_* persisted keys removal (6 fork consumers depend). hasSettings blocks intact.
+**Tests**: NEW pluginSelectors.test.ts (18 tests). Gates: type-check ✅, lint 0 errors ✅, format ✅, **92 suites / 1487 tests** (3 pre-existing network fails), TTS wake-cycle ✅ refill ✅.
+**Behavior fixes**: stale badges cleared on repo disable; no more unconditional MMKV writes; no mutation-in-filter.
+
 # Merge History
 
 ## 2026-08-03 - Upstream Merge Analysis (170 commits, PLANNED - no code changes)
