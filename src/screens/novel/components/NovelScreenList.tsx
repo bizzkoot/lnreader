@@ -51,6 +51,7 @@ type NovelScreenListProps = {
     path: string;
     pluginId: string;
     cover?: string;
+    inLibrary?: boolean;
   };
 };
 

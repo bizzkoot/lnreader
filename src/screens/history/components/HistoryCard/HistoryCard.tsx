@@ -81,6 +81,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
               path: history.novelPath,
               name: history.novelName,
               pluginId: history.pluginId,
+              inLibrary: history.inLibrary,
             } as NovelInfo,
             chapter: history,
           },
@@ -97,6 +98,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
                 path: history.novelPath,
                 cover: history.novelCover,
                 pluginId: history.pluginId,
+                inLibrary: history.inLibrary,
               },
             })
           }

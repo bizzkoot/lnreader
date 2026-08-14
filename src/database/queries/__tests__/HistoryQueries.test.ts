@@ -66,6 +66,7 @@ describe('HistoryQueries', () => {
           updatedTime: null,
           page: '1',
           progress: null,
+          inLibrary: true,
           novelName: 'Test Novel',
           pluginId: 'test-plugin',
           novelPath: '/test/novel',
@@ -78,6 +79,7 @@ describe('HistoryQueries', () => {
 
       expect(result).toEqual(mockHistory);
       expect(result).toHaveLength(1);
+      expect(result.every(item => item.inLibrary)).toBe(true);
     });
 
     it('should JOIN Chapter and Novel tables', async () => {
@@ -93,6 +95,9 @@ describe('HistoryQueries', () => {
       );
       expect(db.getAllAsync).toHaveBeenCalledWith(
         expect.stringContaining('ON Chapter.novelId = Novel.id'),
+      );
+      expect(db.getAllAsync).toHaveBeenCalledWith(
+        expect.stringContaining('Novel.inLibrary'),
       );
     });
 
@@ -176,6 +181,7 @@ describe('HistoryQueries', () => {
           updatedTime: null,
           page: '1',
           progress: null,
+          inLibrary: true,
           novelName: 'Novel A',
           pluginId: 'plugin-a',
           novelPath: '/novel/a',
@@ -194,6 +200,7 @@ describe('HistoryQueries', () => {
           updatedTime: null,
           page: '1',
           progress: null,
+          inLibrary: false,
           novelName: 'Novel B',
           pluginId: 'plugin-b',
           novelPath: '/novel/b',
@@ -406,6 +413,7 @@ describe('HistoryQueries', () => {
           updatedTime: null,
           page: '1',
           progress: null,
+          inLibrary: true,
           novelName: 'Test Novel',
           pluginId: 'test-plugin',
           novelPath: '/test',

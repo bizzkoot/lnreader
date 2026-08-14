@@ -635,6 +635,7 @@ export const getUpdatedOverviewFromDb = () =>
   Novel.name AS novelName,
   Novel.cover AS novelCover,
   Novel.path AS novelPath,
+  Novel.inLibrary AS inLibrary,
   DATE(Chapter.updatedTime) AS updateDate,
   COUNT(*) AS updatesPerDay
 FROM

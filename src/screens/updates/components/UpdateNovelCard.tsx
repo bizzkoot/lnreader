@@ -50,6 +50,7 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   >(chapterListRaw ?? []);
 
   const chapterListInfo = chapterListInfoRaw ?? {
+    inLibrary: false,
     novelId: chapterList![0]?.novelId,
     novelName: chapterList![0]?.novelName,
     updateDate: chapterList![0]?.updatedTime ?? '',
@@ -114,10 +115,11 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
           path: chapterList[0].novelPath,
           cover: chapterList[0].novelCover,
           name: chapterList[0].novelName,
+          inLibrary: chapterListInfo.inLibrary,
         },
       });
     }
-  }, [chapterList, chapterListInfo.updatesPerDay, navigate]);
+  }, [chapterList, chapterListInfo, chapterListInfo.updatesPerDay, navigate]);
 
   const { uiScale = 1.0 } = useAppSettings();
   const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);

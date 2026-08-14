@@ -56,6 +56,7 @@ export interface DownloadedChapter extends ChapterInfo {
 }
 
 export interface History extends ChapterInfo {
+  inLibrary: boolean;
   pluginId: string;
   novelName: string;
   novelPath: string;
@@ -72,6 +73,7 @@ export interface Update extends ChapterInfo {
 }
 
 export interface UpdateOverview {
+  inLibrary: boolean;
   novelId: number;
   novelName: string;
   updateDate: string;
