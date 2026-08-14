@@ -107,6 +107,12 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
 
   const [index, setIndex] = useState(0);
 
+  useEffect(() => {
+    setIndex(currentIndex =>
+      categories.length ? Math.min(currentIndex, categories.length - 1) : 0,
+    );
+  }, [categories.length]);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const showToastMessage = useCallback((message: string) => {
     setToastMessage(message);
@@ -127,7 +133,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
   const currentNovels = useMemo(() => {
     if (!categories.length) return [];
 
-    const ids = categories[index].novelIds;
+    const ids = categories[index]?.novelIds ?? [];
     return library.filter(l => ids.includes(l.id));
   }, [categories, index, library]);
 
@@ -370,12 +376,13 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
             title: getString('libraryScreen.extraMenu.updateCategory'),
             onPress: () =>
               //2 = local category
-              library[index].id !== 2 &&
+              categories[index]?.id !== 2 &&
+              categories[index] &&
               ServiceManager.manager.addTask({
                 name: 'UPDATE_LIBRARY',
                 data: {
-                  categoryId: library[index].id,
-                  categoryName: library[index].name,
+                  categoryId: categories[index].id,
+                  categoryName: categories[index].name,
                 },
               }),
           },

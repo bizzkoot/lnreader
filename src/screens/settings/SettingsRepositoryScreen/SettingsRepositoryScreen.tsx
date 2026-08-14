@@ -33,9 +33,18 @@ const SettingsBrowseScreen = ({
   const [repositories, setRepositories] = useState<Repository[]>(
     getRepositoriesFromDb(),
   );
-  const getRepositories = () => {
+  const getRepositories = useCallback(() => {
     setRepositories(getRepositoriesFromDb());
-  };
+  }, []);
+
+  const handleRepositoryDeleted = useCallback(async () => {
+    getRepositories();
+    try {
+      await refreshPlugins({ clearUnavailableUpdates: true });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+    }
+  }, [getRepositories, refreshPlugins]);
 
   const {
     value: addRepositoryModalVisible,
@@ -46,14 +55,14 @@ const SettingsBrowseScreen = ({
   const upsertRepository = useCallback(
     (repositoryUrl: string, repository?: Repository) => {
       if (
-        !new RegExp(/https?:\/\/(.*)plugins\.min\.json/).test(repositoryUrl)
+        !new RegExp(/^https:\/\/(.*)plugins\.min\.json$/).test(repositoryUrl)
       ) {
-        showToast('Repository URL is invalid');
+        showToast(getString('repositories.invalidUrl'));
         return;
       }
 
-      if (isRepoUrlDuplicated(repositoryUrl)) {
-        showToast('A respository with this url already exists!');
+      if (isRepoUrlDuplicated(repositoryUrl, repository?.id)) {
+        showToast(getString('repositories.duplicateUrl'));
       } else {
         if (repository) {
           updateRepository(repository.id, repositoryUrl);
@@ -66,7 +75,7 @@ const SettingsBrowseScreen = ({
         });
       }
     },
-    [refreshPlugins],
+    [getRepositories, refreshPlugins],
   );
 
   const toggleRepository = useCallback(
@@ -81,7 +90,7 @@ const SettingsBrowseScreen = ({
         showToast(error instanceof Error ? error.message : String(error));
       }
     },
-    [refreshPlugins],
+    [getRepositories, refreshPlugins],
   );
 
   useEffect(() => {
@@ -93,7 +102,7 @@ const SettingsBrowseScreen = ({
   return (
     <SafeAreaView>
       <Appbar
-        title={'Repositories'}
+        title={getString('repositories.title')}
         handleGoBack={() => {
           if (navigation.canGoBack()) {
             navigation.goBack();
@@ -108,7 +117,7 @@ const SettingsBrowseScreen = ({
         renderItem={({ item }) => (
           <RepositoryCard
             repository={item}
-            refetchRepositories={getRepositories}
+            refetchRepositories={handleRepositoryDeleted}
             toggleRepository={toggleRepository}
             upsertRepository={upsertRepository}
           />

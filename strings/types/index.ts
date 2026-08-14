@@ -217,10 +217,15 @@ export interface StringMap {
   'categories.local': 'string';
   'categories.setCategories': 'string';
   'categories.setModalEmptyMsg': 'string';
+  'repositories.deleteDescription': 'string';
+  'repositories.deleteTitle': 'string';
   'repositories.disable': 'string';
   'repositories.disableTitle': 'string';
   'repositories.disableWarning': 'string';
+  'repositories.duplicateUrl': 'string';
   'repositories.emptyMsg': 'string';
+  'repositories.invalidUrl': 'string';
+  'repositories.title': 'string';
   'repositories.toggle': 'string';
   'common.about': 'string';
   'common.add': 'string';

@@ -67,30 +67,34 @@ describe('ChapterQueries select-all across lazy batches', () => {
   });
 
   describe('getPageChapterIds', () => {
-    it('should query ids for the current page + filter without a batch limit', () => {
-      (db.getAllSync as jest.Mock).mockReturnValue([
+    it('should query ids for the current page + filter without a batch limit', async () => {
+      (db.getAllAsync as jest.Mock).mockResolvedValue([
         { id: 1 },
         { id: 2 },
         { id: 3 },
       ]);
 
-      const ids = ChapterQueries.getPageChapterIds(42, ' AND unread = 1', '2');
+      const ids = await ChapterQueries.getPageChapterIds(
+        42,
+        ' AND unread = 1',
+        '2',
+      );
 
-      expect(db.getAllSync).toHaveBeenCalledWith(
-        'SELECT id FROM Chapter WHERE novelId = ? AND page = ?  AND unread = 1',
+      expect(db.getAllAsync).toHaveBeenCalledWith(
+        'SELECT id FROM Chapter WHERE novelId = ? AND page = ?  AND unread = 1 ORDER BY position ASC',
         42,
         '2',
       );
       expect(ids).toEqual([1, 2, 3]);
     });
 
-    it('should default to page 1 and empty filter when omitted', () => {
-      (db.getAllSync as jest.Mock).mockReturnValue([]);
+    it('should default to page 1 and empty filter when omitted', async () => {
+      (db.getAllAsync as jest.Mock).mockResolvedValue([]);
 
-      ChapterQueries.getPageChapterIds(42);
+      await ChapterQueries.getPageChapterIds(42);
 
-      expect(db.getAllSync).toHaveBeenCalledWith(
-        'SELECT id FROM Chapter WHERE novelId = ? AND page = ? ',
+      expect(db.getAllAsync).toHaveBeenCalledWith(
+        'SELECT id FROM Chapter WHERE novelId = ? AND page = ?  ORDER BY position ASC',
         42,
         '1',
       );
@@ -98,35 +102,35 @@ describe('ChapterQueries select-all across lazy batches', () => {
   });
 
   describe('getChaptersByIds', () => {
-    it('should return rows in the requested id order', () => {
-      (db.getAllSync as jest.Mock).mockReturnValueOnce(
+    it('should return rows in the requested id order', async () => {
+      (db.getAllAsync as jest.Mock).mockResolvedValueOnce(
         buildChapterRows([1, 2, 3]),
       );
 
-      const chapters = ChapterQueries.getChaptersByIds([3, 1, 2]);
+      const chapters = await ChapterQueries.getChaptersByIds([3, 1, 2]);
 
       expect(chapters.map(ch => ch.id)).toEqual([3, 1, 2]);
-      expect(db.getAllSync).toHaveBeenCalledTimes(1);
-      expect(db.getAllSync).toHaveBeenCalledWith(
+      expect(db.getAllAsync).toHaveBeenCalledTimes(1);
+      expect(db.getAllAsync).toHaveBeenCalledWith(
         'SELECT * FROM Chapter WHERE id IN (3,1,2)',
       );
     });
 
-    it('should chunk lookups beyond CHAPTER_ID_BATCH_SIZE and merge in order', () => {
+    it('should chunk lookups beyond CHAPTER_ID_BATCH_SIZE and merge in order', async () => {
       const ids = Array.from({ length: 1200 }, (_, i) => i + 1);
-      (db.getAllSync as jest.Mock)
+      (db.getAllAsync as jest.Mock)
         .mockReturnValueOnce(buildChapterRows(ids.slice(0, 500)))
         .mockReturnValueOnce(buildChapterRows(ids.slice(500, 1000)))
         .mockReturnValueOnce(buildChapterRows(ids.slice(1000, 1200)));
 
-      const chapters = ChapterQueries.getChaptersByIds(ids);
+      const chapters = await ChapterQueries.getChaptersByIds(ids);
 
-      expect(db.getAllSync).toHaveBeenCalledTimes(3);
-      expect(db.getAllSync).toHaveBeenNthCalledWith(
+      expect(db.getAllAsync).toHaveBeenCalledTimes(3);
+      expect(db.getAllAsync).toHaveBeenNthCalledWith(
         1,
         `SELECT * FROM Chapter WHERE id IN (${ids.slice(0, 500).join(',')})`,
       );
-      expect(db.getAllSync).toHaveBeenNthCalledWith(
+      expect(db.getAllAsync).toHaveBeenNthCalledWith(
         3,
         `SELECT * FROM Chapter WHERE id IN (${ids.slice(1000, 1200).join(',')})`,
       );
@@ -135,16 +139,16 @@ describe('ChapterQueries select-all across lazy batches', () => {
       expect(chapters[1199].id).toBe(1200);
     });
 
-    it('should skip ids with no matching row and return [] for empty input', () => {
-      (db.getAllSync as jest.Mock).mockReturnValueOnce(
+    it('should skip ids with no matching row and return [] for empty input', async () => {
+      (db.getAllAsync as jest.Mock).mockResolvedValueOnce(
         buildChapterRows([1, 3]),
       );
 
-      const chapters = ChapterQueries.getChaptersByIds([1, 2, 3]);
+      const chapters = await ChapterQueries.getChaptersByIds([1, 2, 3]);
 
       expect(chapters.map(ch => ch.id)).toEqual([1, 3]);
-      expect(ChapterQueries.getChaptersByIds([])).toEqual([]);
-      expect(db.getAllSync).toHaveBeenCalledTimes(1);
+      await expect(ChapterQueries.getChaptersByIds([])).resolves.toEqual([]);
+      expect(db.getAllAsync).toHaveBeenCalledTimes(1);
     });
   });
 

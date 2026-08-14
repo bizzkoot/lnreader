@@ -140,10 +140,11 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   const updateChapter = useCallback(
     (index: number, update: Partial<ChapterInfo>) => {
       if (novel) {
-        _setChapters(chs => {
-          chs[index] = { ...chs[index], ...update };
-          return chs;
-        });
+        _setChapters(chs =>
+          chs.map((chapter, chapterIndex) =>
+            chapterIndex === index ? { ...chapter, ...update } : chapter,
+          ),
+        );
       }
     },
     [novel],
@@ -447,7 +448,8 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const updateChapterProgress = useCallback(
     (chapterId: number, progress: number) => {
-      _updateChapterProgress(chapterId, Math.min(progress, 100));
+      const clampedProgress = Math.min(progress, 100);
+      _updateChapterProgress(chapterId, clampedProgress);
 
       mutateChapters(chs =>
         chs.map(c => {
@@ -456,7 +458,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
           }
           return {
             ...c,
-            progress,
+            progress: clampedProgress,
           };
         }),
       );

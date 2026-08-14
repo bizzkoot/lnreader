@@ -82,7 +82,25 @@ const initPlugin = (pluginId: string, rawCode: string) => {
 
 const plugins: Record<string, Plugin | undefined> = {};
 
-const installPlugin = async (
+let pluginMutationQueue = Promise.resolve();
+
+export const withPluginMutationLock = async <T>(
+  operation: () => Promise<T> | T,
+): Promise<T> => {
+  const previous = pluginMutationQueue;
+  let release!: () => void;
+  pluginMutationQueue = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+};
+
+const installPluginUnlocked = async (
   _plugin: PluginItem,
 ): Promise<Plugin | undefined> => {
   const rawCode = await fetch(_plugin.url, {
@@ -118,7 +136,7 @@ const installPlugin = async (
   return currentPlugin;
 };
 
-const uninstallPlugin = async (_plugin: PluginItem) => {
+const uninstallPluginUnlocked = async (_plugin: PluginItem) => {
   plugins[_plugin.id] = undefined;
   store.getAllKeys().forEach(key => {
     if (key.startsWith(_plugin.id)) {
@@ -131,27 +149,74 @@ const uninstallPlugin = async (_plugin: PluginItem) => {
   }
 };
 
-const updatePlugin = async (plugin: PluginItem) => {
-  return installPlugin(plugin);
+const updatePluginUnlocked = async (plugin: PluginItem) => {
+  return installPluginUnlocked(plugin);
 };
 
-const fetchPlugins = async (): Promise<PluginItem[]> => {
+const installPlugin = (plugin: PluginItem) =>
+  withPluginMutationLock(() => installPluginUnlocked(plugin));
+
+const uninstallPlugin = (plugin: PluginItem) =>
+  withPluginMutationLock(() => uninstallPluginUnlocked(plugin));
+
+const updatePlugin = (plugin: PluginItem) =>
+  withPluginMutationLock(() => updatePluginUnlocked(plugin));
+
+export interface FetchPluginsResult {
+  plugins: PluginItem[];
+  /** False when one or more enabled repositories could not be fetched or parsed. */
+  complete: boolean;
+}
+
+const isPluginItem = (value: unknown): value is PluginItem => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const plugin = value as Partial<PluginItem>;
+  return (
+    typeof plugin.id === 'string' &&
+    typeof plugin.name === 'string' &&
+    typeof plugin.site === 'string' &&
+    typeof plugin.lang === 'string' &&
+    typeof plugin.version === 'string' &&
+    typeof plugin.url === 'string' &&
+    typeof plugin.iconUrl === 'string'
+  );
+};
+
+const fetchPlugins = async (): Promise<FetchPluginsResult> => {
   const allPlugins: PluginItem[] = [];
   const allRepositories = getEnabledRepositoriesFromDb();
 
   const repoPluginsRes = await Promise.allSettled(
-    allRepositories.map(({ url }) => fetch(url).then(res => res.json())),
+    allRepositories.map(async ({ url }) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Repository request failed (${response.status})`);
+      }
+      const manifest: unknown = await response.json();
+      if (!Array.isArray(manifest)) {
+        throw new Error('Repository manifest must be an array');
+      }
+      const manifestPlugins = manifest.filter(isPluginItem);
+      if (manifestPlugins.length !== manifest.length) {
+        throw new Error('Repository manifest contains invalid plugin entries');
+      }
+      return manifestPlugins;
+    }),
   );
 
+  let complete = true;
   repoPluginsRes.forEach(repoPlugins => {
     if (repoPlugins.status === 'fulfilled') {
       allPlugins.push(...repoPlugins.value);
     } else {
-      showToast(repoPlugins.reason.toString());
+      complete = false;
+      showToast(String(repoPlugins.reason));
     }
   });
 
-  return uniqBy(reverse(allPlugins), 'id');
+  return { plugins: uniqBy(reverse(allPlugins), 'id'), complete };
 };
 
 const getPlugin = (pluginId: string) => {
@@ -180,6 +245,9 @@ export {
   installPlugin,
   uninstallPlugin,
   updatePlugin,
+  installPluginUnlocked,
+  uninstallPluginUnlocked,
+  updatePluginUnlocked,
   fetchPlugins,
   LOCAL_PLUGIN_ID,
 };

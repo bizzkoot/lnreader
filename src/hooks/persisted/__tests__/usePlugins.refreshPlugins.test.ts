@@ -42,9 +42,10 @@ jest.mock('react-native-mmkv', () => ({
 
 jest.mock('@plugins/pluginManager', () => ({
   fetchPlugins: jest.fn(),
-  installPlugin: jest.fn(),
-  uninstallPlugin: jest.fn(),
-  updatePlugin: jest.fn(),
+  installPluginUnlocked: jest.fn(),
+  uninstallPluginUnlocked: jest.fn(),
+  updatePluginUnlocked: jest.fn(),
+  withPluginMutationLock: jest.fn((operation: () => unknown) => operation()),
 }));
 
 jest.mock('expo-localization', () => ({
@@ -81,9 +82,10 @@ describe('usePlugins.refreshPlugins wiring', () => {
     mockMmkvState[INSTALLED_PLUGINS] = JSON.stringify([
       makePlugin({ id: 'p1', version: '1.0.0' }),
     ]);
-    mockFetchPlugins.mockResolvedValue([
-      makePlugin({ id: 'p1', version: '1.0.0' }),
-    ]);
+    mockFetchPlugins.mockResolvedValue({
+      plugins: [makePlugin({ id: 'p1', version: '1.0.0' })],
+      complete: true,
+    });
 
     const { result } = renderHook(() => usePlugins());
 
@@ -100,9 +102,12 @@ describe('usePlugins.refreshPlugins wiring', () => {
     mockMmkvState[INSTALLED_PLUGINS] = JSON.stringify([
       makePlugin({ id: 'p1', version: '1.0.0' }),
     ]);
-    mockFetchPlugins.mockResolvedValue([
-      makePlugin({ id: 'p1', version: '1.0.1', iconUrl: 'new-icon.png' }),
-    ]);
+    mockFetchPlugins.mockResolvedValue({
+      plugins: [
+        makePlugin({ id: 'p1', version: '1.0.1', iconUrl: 'new-icon.png' }),
+      ],
+      complete: true,
+    });
 
     const { result } = renderHook(() => usePlugins());
 
@@ -125,10 +130,12 @@ describe('usePlugins.refreshPlugins wiring', () => {
     const installed = makePlugin({ id: 'p1', version: '1.0.0' });
     mockMmkvState[INSTALLED_PLUGINS] = JSON.stringify([installed]);
     mockHookValues[LAST_USED_PLUGIN] = installed;
-    mockFetchPlugins.mockResolvedValue([
-      makePlugin({ id: 'p1', version: '1.0.1', iconUrl: 'new-icon.png' }),
-    ]);
-
+    mockFetchPlugins.mockResolvedValue({
+      plugins: [
+        makePlugin({ id: 'p1', version: '1.0.1', iconUrl: 'new-icon.png' }),
+      ],
+      complete: true,
+    });
     const { result } = renderHook(() => usePlugins());
 
     await act(async () => {
@@ -147,7 +154,7 @@ describe('usePlugins.refreshPlugins wiring', () => {
       makePlugin({ id: 'p1', version: '1.0.0', hasUpdate: true }),
     ]);
     // The repo was disabled: the plugin no longer appears in the fetched list.
-    mockFetchPlugins.mockResolvedValue([]);
+    mockFetchPlugins.mockResolvedValue({ plugins: [], complete: true });
 
     const { result } = renderHook(() => usePlugins());
 
@@ -161,11 +168,25 @@ describe('usePlugins.refreshPlugins wiring', () => {
     expect(updated[0]).toMatchObject({ id: 'p1', hasUpdate: false });
   });
 
+  it('does not clear badges when repository refresh is incomplete', async () => {
+    mockMmkvState[INSTALLED_PLUGINS] = JSON.stringify([
+      makePlugin({ id: 'p1', version: '1.0.0', hasUpdate: true }),
+    ]);
+    mockFetchPlugins.mockResolvedValue({ plugins: [], complete: false });
+
+    const { result } = renderHook(() => usePlugins());
+    await act(async () => {
+      await result.current.refreshPlugins({ clearUnavailableUpdates: true });
+    });
+
+    expect(writesTo(INSTALLED_PLUGINS)).toHaveLength(0);
+  });
+
   it('keeps hasUpdate badges when clearUnavailableUpdates defaults to false', async () => {
     mockMmkvState[INSTALLED_PLUGINS] = JSON.stringify([
       makePlugin({ id: 'p1', version: '1.0.0', hasUpdate: true }),
     ]);
-    mockFetchPlugins.mockResolvedValue([]);
+    mockFetchPlugins.mockResolvedValue({ plugins: [], complete: true });
 
     const { result } = renderHook(() => usePlugins());
 

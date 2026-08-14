@@ -76,12 +76,12 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     }
     try {
       const requestVersion = ++selectionVersionRef.current;
-      const chapterIds = getPageChapterIds(
+      const chapterIds = await getPageChapterIds(
         novel.id,
         novelSettings.filter,
         pages[pageIndex],
       );
-      const allChapters = getChaptersByIds(chapterIds);
+      const allChapters = await getChaptersByIds(chapterIds);
       if (selectionVersionRef.current === requestVersion) {
         setSelected(allChapters);
       }

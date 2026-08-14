@@ -278,8 +278,10 @@ export default function useChapter(
 
   useEffect(() => {
     if (!incognitoMode) {
-      insertHistory(chapter.id);
-      getDbChapter(chapter.id).then(result => result && setLastRead(result));
+      void insertHistory(chapter.id).then(async () => {
+        const result = await getDbChapter(chapter.id);
+        if (result) setLastRead(result);
+      });
     }
 
     // Check for auto-download when chapter changes

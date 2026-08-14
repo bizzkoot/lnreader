@@ -292,6 +292,15 @@
     "setModalEmptyMsg": "Anda belum punya kategori. Ketuk tombol Edit untuk membuat kategori agar pustaka lebih rapi"
   },
   "repositories": {
+    "deleteDescription": "Do you wish to delete repository \"%{url}\"?",
+    "deleteTitle": "Delete repository",
+    "disable": "Disable",
+    "disableTitle": "Disable repository?",
+    "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",
+    "duplicateUrl": "A repository with this URL already exists!",
+    "invalidUrl": "Repository URL must be a secure plugins.min.json URL",
+    "title": "Repositories",
+    "toggle": "Toggle %{name} repository",
     "emptyMsg": "Anda belum punya repository. Tambahkan repository plugin pertama Anda untuk memulai."
   },
   "common": {

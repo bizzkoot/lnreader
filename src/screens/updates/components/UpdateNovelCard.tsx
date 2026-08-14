@@ -61,13 +61,14 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   const theme = useTheme();
 
   const updateList = useCallback(async () => {
-    getDetailedUpdates(chapterListInfo.novelId, onlyDownloadedChapters).then(
-      res => {
-        if (res.length) {
-          setChapterList(res);
-        }
-      },
-    );
+    getDetailedUpdates(chapterListInfo.novelId, onlyDownloadedChapters)
+      .then(res => {
+        setChapterList(res);
+      })
+      .catch(() => {
+        // Keep the card mounted with its existing snapshot when a refresh
+        // fails; the parent Updates screen reports the database error.
+      });
   }, [chapterListInfo.novelId, getDetailedUpdates, onlyDownloadedChapters]);
   useEffect(() => {
     updateList();
@@ -107,7 +108,7 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   );
 
   const navigateToNovel = useCallback(() => {
-    if (chapterListInfo.updatesPerDay) {
+    if (chapterListInfo.updatesPerDay && chapterList[0]) {
       navigate('ReaderStack', {
         screen: 'Novel',
         params: {

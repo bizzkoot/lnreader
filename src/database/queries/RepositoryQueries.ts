@@ -1,16 +1,27 @@
 import { Repository } from '@database/types';
 import { db } from '@database/db';
 
+const normalizeRepository = (repository: Repository): Repository => ({
+  ...repository,
+  enabled: repository.enabled !== false && Number(repository.enabled) !== 0,
+});
+
 export const getRepositoriesFromDb = () =>
-  db.getAllSync<Repository>('SELECT * FROM Repository');
+  db
+    .getAllSync<Repository>('SELECT * FROM Repository')
+    .map(normalizeRepository);
 
 export const getEnabledRepositoriesFromDb = () =>
-  db.getAllSync<Repository>('SELECT * FROM Repository WHERE enabled = 1');
+  db
+    .getAllSync<Repository>('SELECT * FROM Repository WHERE enabled = 1')
+    .map(normalizeRepository);
 
-export const isRepoUrlDuplicated = (repoUrl: string) =>
+export const isRepoUrlDuplicated = (repoUrl: string, excludeId?: number) =>
   (db.getFirstSync<{ isDuplicated: number }>(
-    'SELECT COUNT(*) as isDuplicated FROM Repository WHERE url = ?',
-    repoUrl,
+    `SELECT COUNT(*) as isDuplicated FROM Repository WHERE url = ?${
+      excludeId === undefined ? '' : ' AND id != ?'
+    }`,
+    ...(excludeId === undefined ? [repoUrl] : [repoUrl, excludeId]),
   )?.isDuplicated || 0) > 0;
 
 export const createRepository = (repoUrl: string) =>

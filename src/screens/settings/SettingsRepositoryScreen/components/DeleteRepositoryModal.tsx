@@ -16,7 +16,7 @@ interface DeleteRepositoryModalProps {
   repository: Repository;
   visible: boolean;
   closeModal: () => void;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 const DeleteRepositoryModal: React.FC<DeleteRepositoryModalProps> = ({
@@ -48,18 +48,24 @@ const DeleteRepositoryModal: React.FC<DeleteRepositoryModalProps> = ({
     <Portal>
       <Modal visible={visible} onDismiss={closeModal}>
         <AppText style={[styles.modalTitle, { color: theme.onSurface }]}>
-          {'Delete repository'}
+          {getString('repositories.deleteTitle')}
         </AppText>
         <AppText style={[styles.modalDesc, { color: theme.onSurfaceVariant }]}>
-          {`Do you wish to delete repository "${repository.url}"?`}
+          {getString('repositories.deleteDescription', {
+            url: repository.url,
+          })}
         </AppText>
         <View style={styles.btnContainer}>
           <Button
             title={getString('common.ok')}
-            onPress={() => {
-              deleteRepositoryById(repository.id);
-              closeModal();
-              onSuccess();
+            onPress={async () => {
+              try {
+                deleteRepositoryById(repository.id);
+                await onSuccess();
+                closeModal();
+              } catch {
+                closeModal();
+              }
             }}
           />
           <Button title={getString('common.cancel')} onPress={closeModal} />

@@ -51,34 +51,32 @@ export const insertChapters = async (
         chapterName,
         chapter.releaseTime || '',
         novelId,
-        chapter.chapterNumber || null,
+        chapter.chapterNumber ?? null,
         chapterPage,
         index,
         chapter.path,
         novelId,
       );
 
-      const insertId = result.lastInsertRowId;
-
-      if (!insertId || insertId < 0) {
+      if (result.changes === 0) {
         await tx.runAsync(
           `
             UPDATE Chapter SET
               page = ?, position = ?, name = ?, releaseTime = ?, chapterNumber = ?
-            WHERE path = ? AND novelId = ? AND (page != ? OR position != ? OR name != ? OR releaseTime != ? OR chapterNumber != ?);
+            WHERE path = ? AND novelId = ? AND (page IS NOT ? OR position IS NOT ? OR name IS NOT ? OR releaseTime IS NOT ? OR chapterNumber IS NOT ?);
           `,
           chapterPage,
           index,
           chapterName,
           chapter.releaseTime || '',
-          chapter.chapterNumber || null,
+          chapter.chapterNumber ?? null,
           chapter.path,
           novelId,
           chapterPage,
           index,
           chapterName,
           chapter.releaseTime || '',
-          chapter.chapterNumber || null,
+          chapter.chapterNumber ?? null,
         );
       }
     }
@@ -201,11 +199,11 @@ export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
     return;
   }
   await Promise.all(
-    chapters?.map(chapter => {
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
-    }),
+    chapters.map(chapter =>
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id),
+    ),
   );
-  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
+  const chapterIdsString = chapters.map(chapter => chapter.id).toString();
   await db.execAsync(
     `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
   );
@@ -214,11 +212,11 @@ export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
 export const deleteReadChaptersFromDb = async () => {
   const chapters = await getReadDownloadedChapters();
   await Promise.all(
-    chapters?.map(chapter => {
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
-    }),
+    chapters.map(chapter =>
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id),
+    ),
   );
-  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
+  const chapterIdsString = chapters.map(chapter => chapter.id).toString();
   if (chapterIdsString) {
     await db.execAsync(
       `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
@@ -468,26 +466,30 @@ export const getPageChapters = (
   );
 };
 
-export const getPageChapterIds = (
+export const getPageChapterIds = async (
   novelId: number,
   filter?: string,
   page?: string,
-): number[] => {
-  const rows = db.getAllSync<{ id: number }>(
-    `SELECT id FROM Chapter WHERE novelId = ? AND page = ? ${filter || ''}`,
+): Promise<number[]> => {
+  const rows = await db.getAllAsync<{ id: number }>(
+    `SELECT id FROM Chapter WHERE novelId = ? AND page = ? ${filter || ''} ORDER BY position ASC`,
     novelId,
     page || '1',
   );
   return (rows ?? []).map(row => row.id);
 };
 
-export const getChaptersByIds = (chapterIds: number[]): ChapterInfo[] => {
+export const getChaptersByIds = async (
+  chapterIds: number[],
+): Promise<ChapterInfo[]> => {
   if (!chapterIds.length) {
     return [];
   }
-  const chapters = chunkChapterIds(chapterIds).map(ids =>
-    db.getAllSync<ChapterInfo>(
-      `SELECT * FROM Chapter WHERE id IN (${ids.join(',')})`,
+  const chapters = await Promise.all(
+    chunkChapterIds(chapterIds).map(ids =>
+      db.getAllAsync<ChapterInfo>(
+        `SELECT * FROM Chapter WHERE id IN (${ids.join(',')})`,
+      ),
     ),
   );
   const chaptersById = new Map(
@@ -626,6 +628,18 @@ export const getNovelDownloadedChapters = (
   startPosition?: number,
   endPosition?: number,
 ) => {
+  if (
+    (startPosition !== undefined || endPosition !== undefined) &&
+    (startPosition === undefined ||
+      endPosition === undefined ||
+      !Number.isInteger(startPosition) ||
+      !Number.isInteger(endPosition) ||
+      startPosition < 1 ||
+      endPosition < startPosition)
+  ) {
+    return Promise.resolve([] as ChapterInfo[]);
+  }
+
   if (startPosition !== undefined && endPosition !== undefined) {
     // Range positions are global ordinals over the flat (page, position)-ordered
     // downloaded list. position alone is per-page (it resets in insertChapters),
