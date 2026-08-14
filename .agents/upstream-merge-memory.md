@@ -40,6 +40,37 @@ applyTo: '**'
 - @react-native-community/slider (replaced by MD3 Slider, Batch C-3)
 - src/screens/settings/SettingsReaderScreen/components/TabBar.tsx (replaced by TopTabBar, Batch C-5)
 
+## 2026-08-14 - Upstream Merge Analysis (32 commits, 4-POV REVIEWED - no code changes)
+
+**Analysis Range**: upstream/master @ 990cd4f2e (2026-08-11) from last sync c3260e8e0 (2026-08-01)
+**Commits Analyzed**: 32 (24 fix, 3 feat, 2 chore, 1 perf, 1 docs, 1 i18n) — NOTE: upstream/main is STALE (2024 v1.1.19); fork tracks upstream/master
+**Method**: 5 parallel lane subagents (portability) + 4 parallel POV subagents (fork-integrity / user-value / effort-cost / strategic) + main-agent spot-verification (all 8 live-bug claims CONFIRMED)
+**Docs**: specs/upstream-merge-analysis-2026-08-14/ (README.md, lane1-5, pov-review/, REVIEW-2026-08-14.md)
+**Outcome**: 16/32 worth porting (7 bug-fix units + 2 UX + 1 feature + 1 translation pass) in 3 waves; 3 deferred (atomic epub export, APK size, custom-code page); 14 SKIP
+
+**Verified live fork bugs (all confirmed):** select-all only selects loaded 300-batch (NovelScreen:277, #1960); clearUpdates full-table UPDATE freeze (ChapterQueries:267, #1955); Epub.cpp whitelist jpeg/png/jpg only (#1622/#1946); Epub.cpp cover ignores media-type (#1948); TTSForegroundService audio-focus-only, no PhoneStateListener (#1976); useLibrary.getLibrary no try/finally; NovelInfoHeader drops image headers (#1977); useLoadingColors still primary-tinted (#1964)
+
+**DO-NOW (3 waves, est 4.5-5d):** W1 bug fixes: 63349de1b (select-all), 8a12529ba (clear freeze - SURGICAL around DoH block), 1eb8c587c (library skeleton), 15560b67b (cover headers), 13885320a (categories→library, tx discipline), epub trio 3ac611f63+91358ad3d+197d8670f (ONE unit, shared/Epub.cpp, one rebuild), 7883b28cd (TTS stop on calls - READ_PHONE_STATE maxSdkVersion=31 policy). W2: skeleton pair 51560195b+e0c89cdd9 (post-e0c89cdd9 wholesale), 57eca11a9 (library-status nav). W3: 909504a72 (repo enable/disable - claims MIGRATION 005, coordinate w/ Batch D), translation pass 3bf025108+3ad6e372f+f69e5d6a7 (id_ID first, per-key, protect fork keys)
+**DO-LATER:** e4246dee5 (atomic export - after export flow bakes; SAF atomicity unverified), 3ece098b9 (APK size - lottie removal NOT safe: native splash uses lottie; gradle/R8 blast radius; StatsScreen hunks → D3), 64707409b (custom-code v2 RED - own PR next 1-2 syncs BEFORE D2; gate: textRemover.js DOM audit vs fork TTS index contract; ToggleButton rename; never memoizedHTML deps)
+**SKIP (14):** 179feb56e, 675f19ef9, 23f9b183b, b9d1abcf2, 586e08514, a727c229c, 67e01bc2d (D3 reference), c6679b7f4, 084dcccab, 990cd4f2e, c3482a851, c3b75ebeb, 7f1f76408 (all ALREADY-HAVE/ARCH)
+**Migration registry note**: [002,003,004]; 005 reserved for 909504a72 if ported this sync (Batch D D1 then takes 006)
+
+## 2026-08-14 - Upstream Sync WAVES 1-3 IMPLEMENTED ✅ (merge/upstream-sync-2026-08-14, 12 commits, NOT pushed)
+
+**Range**: upstream/master @ 990cd4f2e; ports from 32-commit analysis (see 2026-08-14 analysis record below)
+**Method**: sequential worker subagents (orchestrator = main agent, reviewed each diff + ran gates between waves)
+**Commits (12)**: 4c5b45229 (select-all #1960), 4221a7f9e (clearUpdates freeze #1955 — trigger-bypass + bulk UPDATE in withExclusiveTransactionAsync), 487d58faf (library stuck skeleton), 895f714f6 (cover headers #1977), 119a9b257 (categories→library #1945), 944b2b3ea (EPUB formats+cover #1622/#1946/#1948 — shared/Epub.cpp), 6fb30f26c (skeleton colors #1964), a8da9255d (library-status nav 57eca11a9), 8c49e6c05 (lint dep fix), 03683bd31 (repo enable/disable #1628 + migration 005), ba2e07c63 (translations 3bf025108/3ad6e372f/f69e5d6a7), +1 style commit
+**SKIPPED in-wave**: 7883b28cd (TTS phone calls) — VERIFIED upstream is audio-focus handling ALREADY in fork (TTSForegroundService.kt); PhoneStateListener variant inert without runtime permission → SKIP-ALREADY-HAVE. 3ece098b9, e4246dee5, 64707409b deferred (see analysis record).
+**Gates**: type-check ✅, lint 0 errors (7 pre-existing warnings) ✅, format ✅, **91 suites / 1469 tests passing** (+37 vs baseline 1432; 3 pre-existing network-dependent useGithubUpdateChecker failures), TTS wake-cycle 7/7 ✅, refill ✅, migration upgrade-path 39/39 ✅ (incl. new 005)
+**Migration registry NOW**: [002,003,004,005]. **Batch D must use 006+** (005 claimed by repo-enable migration).
+**Key implementation notes**:
+- clearUpdates: drops update trigger inside tx, bulk UPDATE, recreates trigger from NovelTable constant (avoids per-row aggregate write amplification)
+- ChapterQueries: new chunkChapterIds (500/batch) + chunked bulk ops (markChaptersRead/Unread, deleteChapters, updateChapterProgressByIds, bookmarkChapters) + getPageChapterIds/getChaptersByIds (select-all spans full current source page, filter-respecting)
+- Epub.cpp: isSupportedImageMediaType (svg/gif/webp/bmp), findCoverImagePath for cover DOCUMENTS, property_cover_id (properties=cover-image) + media-type guard on cover resolve
+- Repo controls: migration 005 + RepositoryTable enabled column + setRepositoryEnabled/getEnabledRepositoriesFromDb + fetchPlugins filters enabled repos only (installed plugins cached, unaffected) + RepositoryCard Switch (0/1 coercion) + Switch backward-compat a11y props. pluginSelectors.ts NOT ported (dead code in fork — fork's refreshPlugins equivalent inline)
+- Translations: per-key merges ONLY; id_ID restored 468→687 keys + 8 fork keys re-merged; f69e5d6a7 ported only 2 fork-referenced keys (common.later, common.skipVersion)
+- Zero TTS-pipeline/DoH/scaling/per-novel files touched
+
 # Merge History
 
 ## 2026-08-03 - Upstream Merge Analysis (170 commits, PLANNED - no code changes)
