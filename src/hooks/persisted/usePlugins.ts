@@ -1,6 +1,5 @@
 import { getLocales } from 'expo-localization';
 import { languagesMapping } from '@utils/constants/languages';
-import { orderBy } from 'lodash-es';
 import { useMMKVObject } from 'react-native-mmkv';
 import { PluginItem } from '@plugins/types';
 import {
@@ -9,10 +8,14 @@ import {
   uninstallPlugin as _uninstall,
   updatePlugin as _update,
 } from '@plugins/pluginManager';
-import { newer } from '@utils/compareVersion';
 import { MMKVStorage, getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
 import { useCallback } from 'react';
 import { getString } from '@strings/translations';
+import {
+  filterAvailablePlugins,
+  filterInstalledPlugins,
+  reconcileInstalledPluginUpdates,
+} from './pluginSelectors';
 
 export const AVAILABLE_PLUGINS = 'AVAILABLE_PLUGINS';
 export const INSTALLED_PLUGINS = 'INSTALL_PLUGINS';
@@ -21,6 +24,12 @@ export const LAST_USED_PLUGIN = 'LAST_USED_PLUGIN';
 export const PINNED_PLUGINS = 'PINNED_PLUGINS';
 export const FILTERED_AVAILABLE_PLUGINS = 'FILTERED_AVAILABLE_PLUGINS';
 export const FILTERED_INSTALLED_PLUGINS = 'FILTERED_INSTALLED_PLUGINS';
+
+interface RefreshPluginsOptions {
+  /** Clear hasUpdate badges for plugins whose newer version is no longer
+   * published by an enabled repository (pass true when disabling a repo). */
+  clearUnavailableUpdates?: boolean;
+}
 
 export default function usePlugins() {
   const defaultLang =
@@ -48,49 +57,51 @@ export default function usePlugins() {
       const availablePlugins =
         getMMKVObject<PluginItem[]>(AVAILABLE_PLUGINS) || [];
       setFilteredInstalledPlugins(
-        installedPlugins.filter(plg => filter.includes(plg.lang)),
+        filterInstalledPlugins(installedPlugins, filter),
       );
       setFilteredAvailablePlugins(
-        orderBy(
-          availablePlugins
-            .filter(
-              avalilablePlugin =>
-                !installedPlugins.some(
-                  installedPlugin => installedPlugin.id === avalilablePlugin.id,
-                ),
-            )
-            .filter(plg => filter.includes(plg.lang)),
-          'name',
-        ),
+        filterAvailablePlugins(availablePlugins, installedPlugins, filter),
       );
     },
     [setFilteredAvailablePlugins, setFilteredInstalledPlugins],
   );
 
-  const refreshPlugins = useCallback(() => {
-    const installedPlugins =
-      getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
-    return fetchPlugins().then(fetchedPlugins => {
-      fetchedPlugins.filter(plg => {
-        const finded = installedPlugins.find(v => v.id === plg.id);
-        if (finded) {
-          if (newer(plg.version, finded.version)) {
-            finded.hasUpdate = true;
-            finded.iconUrl = plg.iconUrl;
-            finded.url = plg.url;
-            if (finded.id === lastUsedPlugin?.id) {
-              setLastUsedPlugin(finded);
-            }
-          }
-          return false;
+  const refreshPlugins = useCallback(
+    async ({ clearUnavailableUpdates = false }: RefreshPluginsOptions = {}) => {
+      const installedPlugins =
+        getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
+      const fetchedPlugins = await fetchPlugins();
+      const updatedInstalledPlugins = reconcileInstalledPluginUpdates(
+        installedPlugins,
+        fetchedPlugins,
+        clearUnavailableUpdates,
+      );
+
+      if (
+        updatedInstalledPlugins.some(
+          (plugin, index) => plugin !== installedPlugins[index],
+        )
+      ) {
+        setMMKVObject(INSTALLED_PLUGINS, updatedInstalledPlugins);
+        // Keep the object-form LAST_USED_PLUGIN in sync when the
+        // last-used plugin's entry changed (fork stores a PluginItem object,
+        // upstream stores a string id — the migration is not ported).
+        const lastUsedIndex = installedPlugins.findIndex(
+          plugin => plugin.id === lastUsedPlugin?.id,
+        );
+        if (
+          lastUsedIndex !== -1 &&
+          updatedInstalledPlugins[lastUsedIndex] !==
+            installedPlugins[lastUsedIndex]
+        ) {
+          setLastUsedPlugin(updatedInstalledPlugins[lastUsedIndex]);
         }
-        return true;
-      });
-      setMMKVObject(INSTALLED_PLUGINS, installedPlugins);
+      }
       setMMKVObject(AVAILABLE_PLUGINS, fetchedPlugins);
       filterPlugins(languagesFilter);
-    });
-  }, [filterPlugins, languagesFilter, lastUsedPlugin?.id, setLastUsedPlugin]);
+    },
+    [filterPlugins, languagesFilter, lastUsedPlugin?.id, setLastUsedPlugin],
+  );
 
   const toggleLanguageFilter = (lang: string) => {
     const newFilter = languagesFilter.includes(lang)

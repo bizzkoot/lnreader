@@ -68,10 +68,16 @@ const SettingsBrowseScreen = ({
   );
 
   const toggleRepository = useCallback(
-    (repository: Repository) => {
-      setRepositoryEnabled(repository.id, !repository.enabled);
-      getRepositories();
-      refreshPlugins();
+    async (repository: Repository) => {
+      try {
+        setRepositoryEnabled(repository.id, !repository.enabled);
+        getRepositories();
+        await refreshPlugins({
+          clearUnavailableUpdates: repository.enabled,
+        });
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : String(error));
+      }
     },
     [refreshPlugins],
   );
