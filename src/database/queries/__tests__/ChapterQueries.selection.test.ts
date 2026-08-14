@@ -3,25 +3,27 @@ import * as ChapterQueries from '../ChapterQueries';
 import NativeFile from '@specs/NativeFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 
-jest.mock('@database/db', () => ({
-  db: {
-    runAsync: jest.fn(() =>
-      Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
-    ),
-    execAsync: jest.fn(() => Promise.resolve()),
-    withExclusiveTransactionAsync: jest.fn(callback =>
-      callback({
-        runAsync: jest.fn(() =>
-          Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
-        ),
-      }),
-    ),
-    getAllAsync: jest.fn(() => Promise.resolve([])),
-    getFirstAsync: jest.fn(() => Promise.resolve(null)),
-    getFirstSync: jest.fn(() => null),
-    getAllSync: jest.fn(() => []),
-  },
-}));
+jest.mock('@database/db', () => {
+  const execAsync = jest.fn(() => Promise.resolve());
+  const runAsync = jest.fn(() =>
+    Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
+  );
+  return {
+    db: {
+      runAsync,
+      execAsync,
+      // Transaction statements are routed to the same mocks so call-count
+      // assertions on db.execAsync / db.runAsync keep working.
+      withExclusiveTransactionAsync: jest.fn(callback =>
+        callback({ runAsync, execAsync }),
+      ),
+      getAllAsync: jest.fn(() => Promise.resolve([])),
+      getFirstAsync: jest.fn(() => Promise.resolve(null)),
+      getFirstSync: jest.fn(() => null),
+      getAllSync: jest.fn(() => []),
+    },
+  };
+});
 
 jest.mock('@utils/showToast', () => ({
   showToast: jest.fn(),

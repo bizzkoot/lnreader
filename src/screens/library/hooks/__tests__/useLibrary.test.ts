@@ -128,4 +128,70 @@ describe('useLibrary', () => {
       firstFocusCallback,
     );
   });
+
+  it('does not re-show loading on refetch after a successful load', async () => {
+    const novels = [{ id: 1, name: 'Test Novel' } as NovelInfo];
+    mockGetLibraryNovelsFromDb.mockReturnValue(novels);
+    mockUseFocusEffect.mockImplementationOnce(callback => {
+      callback();
+    });
+
+    const { result } = renderHook(() => useLibrary());
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.library).toEqual(novels);
+
+    act(() => {
+      void result.current.refetchLibrary();
+    });
+
+    await waitFor(() => expect(result.current.library).toEqual(novels));
+    // The gate (`hasLoadedRef && !hasErrorRef && !searchText`) keeps the
+    // skeleton hidden on refetch after a successful load.
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it('discards a stale (older request-id) load result', async () => {
+    mockGetLibraryNovelsFromDb.mockReturnValue([]);
+    mockUseFocusEffect.mockImplementationOnce(callback => {
+      callback();
+    });
+
+    const { result } = renderHook(() => useLibrary());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let resolveFirstLoad: (value: unknown) => void = () => {};
+    const firstLoadPromise = new Promise<unknown>(resolve => {
+      resolveFirstLoad = resolve;
+    });
+    // First refetch hangs; second refetch resolves immediately with new data.
+    mockGetLibraryNovelsFromDb.mockReturnValueOnce(
+      firstLoadPromise as unknown as NovelInfo[],
+    );
+    mockGetLibraryNovelsFromDb.mockReturnValueOnce([
+      { id: 2, name: 'Newest Result' } as NovelInfo,
+    ]);
+
+    act(() => {
+      void result.current.refetchLibrary();
+    });
+    act(() => {
+      void result.current.refetchLibrary();
+    });
+    await waitFor(() =>
+      expect(result.current.library).toEqual([
+        expect.objectContaining({ id: 2 }),
+      ]),
+    );
+
+    // Resolve the stale (older request-id) load with conflicting data.
+    await act(async () => {
+      resolveFirstLoad([{ id: 99, name: 'Stale Result' } as NovelInfo]);
+    });
+
+    // The stale result must be discarded by the request-id guard.
+    expect(result.current.library).toEqual([
+      expect.objectContaining({ id: 2 }),
+    ]);
+  });
 });

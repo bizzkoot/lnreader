@@ -165,7 +165,7 @@ const runRunner = (adapter: ExpoLikeDb) => {
   );
 };
 
-describe('MigrationRunner upgrade paths → migration004', () => {
+describe('MigrationRunner upgrade paths → migration005', () => {
   it('fresh install: createInitialSchema-equivalent (v0→2) → runner → version 5, julianday triggers', () => {
     const { adapter } = createExpoLikeDb();
     seedCurrentSchema(adapter);
