@@ -79,6 +79,16 @@ applyTo: '**'
 **Tests**: NEW pluginSelectors.test.ts (18 tests). Gates: type-check ✅, lint 0 errors ✅, format ✅, **92 suites / 1487 tests** (3 pre-existing network fails), TTS wake-cycle ✅ refill ✅.
 **Behavior fixes**: stale badges cleared on repo disable; no more unconditional MMKV writes; no mutation-in-filter.
 
+## 2026-08-15 - AUDIT of upstream sync batch (5-POV, 0 blockers) + FIX PASS ✅ (bc68fbbb8, 54b36d5da)
+
+**Method**: 5 parallel fresh-context reviewers (port-fidelity / fork-integrity / behavioral correctness / tests / hygiene) + main-agent verification of the 1 inter-POV conflict (inLibrary plumbing — POV5 'dead' REFUTED: NovelScreenList spreads routeBaseNovel over false default, param IS consumed).
+**Verdict**: 0 BLOCKERS. 3 MED + 8 LOW/NOTE accepted fixes + 3 test additions. Reports: specs/upstream-merge-analysis-2026-08-14/audit/.
+**Fixes applied (bc68fbbb8)**: (1) i18n reportUrl bound in emptyChapterMessage (was broken link in ~31 non-en locales) + en updated to %{reportUrl} wording; (2) ConfirmationDialog catches async onSubmit rejections (rate-limited logger, dialog stays open); (3) Skeleton consolidated on @utils/useLoadingColors, stale components/Skeleton/useLoadingColors.tsx deleted; (4) updateNovelCategories empty-novelIds guard; (5) selectAllChapters try/catch + toast; (6) NovelScreenList range-select guard === → >=; (7) upsertRepository refreshPlugins .catch; (8) epub findImageReference skips bare-# fragment; (9) chunked bulk ops (markRead/Unread/updateProgressByIds/bookmark/deleteChapters) wrapped in ONE withExclusiveTransactionAsync (MMKV/file ops outside); (10) dedupe migrations registry comment + rename stale describe.
+**Tests added (54b36d5da)**: usePlugins.refreshPlugins wiring (5), ConfirmationDialog async confirm (2), useLibrary refetch-after-success + stale-request-discard (+2).
+**Gates**: type-check ✅, lint 0 errors (7 pre-existing) ✅, format ✅, **94 suites / 1496 tests** (3 pre-existing network fails), TTS wake-cycle ✅ refill ✅. Protected surfaces: zero TTS/DoH/scaling/per-novel files touched.
+**Deferred/kept (documented)**: epub whitelist conservative (no avif/heic — may not render old APIs); useLoadingColors 3rd tuple kept (upstream parity); id_ID orphan taxonomy keys (Crowdin baseline); chunk-tx now done. getLastUsedPluginId documented unused.
+**Branch**: merge/upstream-sync-2026-08-14 = 20 commits, local-only, NOT pushed.
+
 # Merge History
 
 ## 2026-08-03 - Upstream Merge Analysis (170 commits, PLANNED - no code changes)
