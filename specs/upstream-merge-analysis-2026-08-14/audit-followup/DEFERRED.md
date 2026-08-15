@@ -21,24 +21,38 @@ TOC branch keyed on `toc_href.find("ncx")` (filename), not on the matched media-
 (`application/x-dtbncx+xml`). An NCX named `toc.xml` routes to `parse_nav_xhtml` → empty
 label map → filename-fallback chapter names. Impact: label loss only.
 
-### 3. ⬜ Hoist `withWriteLock` to module scope — `usePlugins.ts:62`
+### 3. ✅ Hoist `withWriteLock` to module scope — `usePlugins.ts:62`
 Write queue is per-`usePlugins` instance (5 independent queues across Main/AvailableTab/
 InstalledTab/PluginListItem/SettingsRepositoryScreen). Safe today because every write-lock
 block is synchronous/atomic; **any future `await` inside a block** creates a cross-instance
 stale-overwrite window for `INSTALLED_PLUGINS`/`AVAILABLE_PLUGINS`. Fix: hoist to a
 dep-free module like `src/plugins/mutationQueue.ts`.
 
-### 4. ⬜ Install-fetch timeout — `pluginManager.ts:52-55`
+**Closed 2026-08-15 (audit resolution pass):** queue hoisted to module-scope
+`src/hooks/persisted/writeQueue.ts` (`withWriteLock`), shared by all `usePlugins`
+instances; dedicated FIFO/release test suite added
+(`src/hooks/persisted/__tests__/writeQueue.test.ts`).
+
+### 4. ✅ Install-fetch timeout — `pluginManager.ts:52-55`
 `fetch()` in `installPluginUnlocked` has no timeout. A hung request pins the global plugin
 mutation queue, blocking all installs/uninstalls/updates (hang, not deadlock — `finally`
 still releases). Fix: `AbortController` timeout.
 
-### 5. ⬜ `useUpdates` generation guard — `useUpdates.ts`
+**Closed 2026-08-15 (audit resolution pass):** 30s `AbortController` timeout added around
+the plugin-script fetch in `installPluginUnlocked` (timeout cleared on completion); tested
+in `src/plugins/__tests__/pluginManager.install-timeout.test.ts`.
+
+### 5. ✅ `useUpdates` generation guard — `useUpdates.ts`
 `getUpdates`/`getDetailedUpdates` have no request-id guard: a slow focus-triggered fetch can
 resolve after a `deleteChapter().then(getUpdates)` refetch and overwrite
 `updatesOverview` with pre-delete rows. `getUpdates` deps also recreate on
 `LAST_UPDATE_TIME` change (duplicate focus fetch). Fix: mirror `useLibrary`'s
 `loadRequestIdRef` pattern.
+
+**Closed 2026-08-15 (audit resolution pass):** request-id guard (`overviewRequestIdRef`)
+added to `getUpdates` so only the latest fetch can write `updatesOverview`/`error`/`isLoading`;
+stale-discard + error-suppression tests in `src/hooks/persisted/__tests__/useUpdates.test.ts`.
+The duplicate-focus-fetch note (deps on `LAST_UPDATE_TIME`) is benign and left as-is.
 
 ### 6. ⬜ Migration 004 edge case — `004_recreate_novel_triggers.ts:40-49` (PRE-EXISTING)
 `assertColumnsExist` throws for installs at `user_version ≥ 2` whose Novel table lacks the
@@ -81,3 +95,4 @@ duplicate-basenames).
 | Date | Action |
 |---|---|
 | 2026-08-15 | Items 1–11 tracked; none fixed in sync branch by design. |
+| 2026-08-15 | Items 3–5 closed in audit resolution pass (writeQueue hoist, install-fetch timeout, useUpdates generation guard); `UpdateNovelCard` fallback `inLibrary` now derived from real data (`getDownloadedChapters` selects `Novel.inLibrary`). |

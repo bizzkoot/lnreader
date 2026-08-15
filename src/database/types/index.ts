@@ -53,6 +53,7 @@ export interface DownloadedChapter extends ChapterInfo {
   novelName: string;
   novelPath: string;
   novelCover: string;
+  inLibrary?: boolean;
 }
 
 export interface History extends ChapterInfo {
@@ -70,6 +71,7 @@ export interface Update extends ChapterInfo {
   novelName: string;
   novelPath: string;
   novelCover: string;
+  inLibrary?: boolean;
 }
 
 export interface UpdateOverview {

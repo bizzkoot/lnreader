@@ -12,6 +12,7 @@ import {
 import { MMKVStorage, getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
 import { useCallback, useRef } from 'react';
 import { getString } from '@strings/translations';
+import { withWriteLock } from './writeQueue';
 import {
   filterAvailablePlugins,
   filterInstalledPlugins,
@@ -47,23 +48,6 @@ export default function usePlugins() {
   const [filteredInstalledPlugins = [], setFilteredInstalledPlugins] =
     useMMKVObject<PluginItem[]>(FILTERED_INSTALLED_PLUGINS);
   const refreshRequestIdRef = useRef(0);
-  const writeQueueRef = useRef(Promise.resolve());
-  const withWriteLock = useCallback(
-    async <T>(operation: () => Promise<T> | T): Promise<T> => {
-      const previous = writeQueueRef.current;
-      let release!: () => void;
-      writeQueueRef.current = new Promise<void>(resolve => {
-        release = resolve;
-      });
-      await previous;
-      try {
-        return await operation();
-      } finally {
-        release();
-      }
-    },
-    [],
-  );
   /**
    * @param filter
    * We cant use the languagesFilter directly because it is updated only after component's lifecycle end.
@@ -126,13 +110,7 @@ export default function usePlugins() {
         );
       });
     },
-    [
-      filterPlugins,
-      languagesFilter,
-      lastUsedPlugin?.id,
-      setLastUsedPlugin,
-      withWriteLock,
-    ],
+    [filterPlugins, languagesFilter, lastUsedPlugin?.id, setLastUsedPlugin],
   );
 
   const toggleLanguageFilter = (lang: string) => {

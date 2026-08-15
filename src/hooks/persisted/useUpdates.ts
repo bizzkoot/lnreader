@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   getDetailedUpdatesFromDb,
   getUpdatedOverviewFromDb,
@@ -29,6 +29,10 @@ export const useLastUpdate = () => {
 export const useUpdates = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [updatesOverview, setUpdatesOverview] = useState<UpdateOverview[]>([]);
+  // Guards against a stale async overview fetch resolving after a newer one
+  // (e.g. a slow focus-triggered fetch landing after a deleteChapter().then(getUpdates)
+  // refetch) — mirrors useLibrary's loadRequestIdRef pattern.
+  const overviewRequestIdRef = useRef(0);
 
   const { lastUpdateTime, showLastUpdateTime, setLastUpdateTime } =
     useLastUpdate();
@@ -67,10 +71,14 @@ export const useUpdates = () => {
   );
 
   const getUpdates = useCallback(async () => {
+    const requestId = ++overviewRequestIdRef.current;
     setIsLoading(true);
     setError('');
     try {
       const res = await getUpdatedOverviewFromDb();
+      if (requestId !== overviewRequestIdRef.current) {
+        return;
+      }
       setUpdatesOverview(res);
       if (
         res.length &&
@@ -80,9 +88,13 @@ export const useUpdates = () => {
         setLastUpdateTime(res[0].updateDate);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (requestId === overviewRequestIdRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === overviewRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [lastUpdateTime, setLastUpdateTime]);
 

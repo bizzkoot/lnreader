@@ -616,7 +616,7 @@ export const getDownloadedChapters = () =>
   db.getAllAsync<DownloadedChapter>(`
     SELECT
       Chapter.*,
-      Novel.pluginId, Novel.name as novelName, Novel.cover as novelCover, Novel.path as novelPath
+      Novel.pluginId, Novel.name as novelName, Novel.cover as novelCover, Novel.path as novelPath, Novel.inLibrary as inLibrary
     FROM Chapter
     JOIN Novel
     ON Chapter.novelId = Novel.id
@@ -691,7 +691,7 @@ export const getDetailedUpdatesFromDb = async (
     `
 SELECT
   Chapter.*,
-  pluginId, Novel.id as novelId, Novel.name as novelName, Novel.path as novelPath, cover as novelCover
+  pluginId, Novel.id as novelId, Novel.name as novelName, Novel.path as novelPath, cover as novelCover, Novel.inLibrary AS inLibrary
 FROM
   Chapter
 JOIN

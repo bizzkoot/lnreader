@@ -2,6 +2,9 @@ import { db } from '@database/db';
 import * as ChapterQueries from '../ChapterQueries';
 import NativeFile from '@specs/NativeFile';
 import type { DownloadedChapter } from '../../types';
+import Database from 'better-sqlite3';
+import { createNovelTableQuery } from '../../tables/NovelTable';
+import { createChapterTableQuery } from '../../tables/ChapterTable';
 
 jest.mock('@database/db', () => ({
   db: {
@@ -42,6 +45,43 @@ jest.mock('@specs/NativeFile', () => ({
 describe('ChapterQueries download deletion', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('getDownloadedChapters', () => {
+    it('selects Novel.inLibrary so consumers can tell in-library novels apart', async () => {
+      await ChapterQueries.getDownloadedChapters();
+
+      const sql = (db.getAllAsync as jest.Mock).mock.calls[0][0] as string;
+      expect(sql).toContain('Novel.inLibrary as inLibrary');
+    });
+
+    it('returns the real inLibrary value from the Novel JOIN (real SQLite)', async () => {
+      const sqlite = new Database(':memory:');
+      sqlite.exec(createNovelTableQuery);
+      sqlite.exec(createChapterTableQuery);
+      sqlite.exec(
+        "INSERT INTO Novel (path, pluginId, name, inLibrary) VALUES ('p1','pl1','n1',1)",
+      );
+      sqlite.exec(
+        "INSERT INTO Novel (path, pluginId, name, inLibrary) VALUES ('p2','pl2','n2',0)",
+      );
+      sqlite.exec(
+        "INSERT INTO Chapter (path, name, novelId, position, isDownloaded) VALUES ('c1','C1',1,0,1)",
+      );
+      sqlite.exec(
+        "INSERT INTO Chapter (path, name, novelId, position, isDownloaded) VALUES ('c2','C2',2,0,1)",
+      );
+
+      (db.getAllAsync as jest.Mock).mockImplementation(async (sql: string) =>
+        sqlite.prepare(sql).all(),
+      );
+
+      const rows = await ChapterQueries.getDownloadedChapters();
+      expect(rows).toHaveLength(2);
+      expect(rows[0].inLibrary).toBe(1);
+      expect(rows[1].inLibrary).toBe(0);
+      sqlite.close();
+    });
   });
 
   describe('deleteDownloads', () => {

@@ -28,6 +28,19 @@ pnpm run test:tts-refill
 pnpm run test:tts-wake-cycle
 ```
 
+## Commit Message Convention
+
+All commits MUST use a Conventional Commits message. Follow these structural rules strictly:
+
+1. Format: `<type>(<scope>): <summary>`
+2. Summary: use imperative mood (`add`, not `added`), start with lowercase, omit the period, and keep it to a maximum of 50 characters.
+3. Body: for complex changes, add a blank line followed by a bulleted list.
+   - Use `-` bullets for distinct technical changes or side effects.
+   - Keep each bullet point on a single line; do not hard-wrap or break lines mid-sentence.
+   - Focus on what changed and why rather than implementation details.
+4. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`.
+5. Include validation details in the body when relevant, such as type-checking, linting, formatting, tests, builds, native compilation, or diff checks.
+
 ## Current Task
 
 TTS Text Cleanup Pipeline (2026-08-02) - ✅ COMPLETED

@@ -50,7 +50,9 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   >(chapterListRaw ?? []);
 
   const chapterListInfo = chapterListInfoRaw ?? {
-    inLibrary: false,
+    // Derive inLibrary from the downloaded-chapter rows (DownloadsScreen path)
+    // instead of hardcoding false, which mislabels in-library novels.
+    inLibrary: chapterList![0]?.inLibrary ?? false,
     novelId: chapterList![0]?.novelId,
     novelName: chapterList![0]?.novelName,
     updateDate: chapterList![0]?.updatedTime ?? '',

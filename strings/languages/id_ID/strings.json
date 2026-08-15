@@ -7,7 +7,7 @@
     "plugins": "Plugin",
     "version": "Versi",
     "whatsNew": "Yang baru",
-    "sources": "Indonesi"
+    "sources": "Sumber"
   },
   "advancedSettings": "Lanjutan",
   "advancedSettingsScreen": {
@@ -557,9 +557,9 @@
       "invalidRange": "Harap masukkan nomor bab yang valid",
       "selectFolder": "Pilih folder tujuan untuk file EPUB",
       "startChapter": "Bab Awal",
-      "startGreaterThanEnd": "Bab awal harus меньше atau sama dengan bab akhir",
+      "startGreaterThanEnd": "Bab awal harus lebih kecil atau sama dengan bab akhir",
       "title": "Ekspor Novel sebagai EPUB",
-      "downloadedChaptersOnly": "Only downloaded chapters will be included in the EPUB file"
+      "downloadedChaptersOnly": "Hanya bab yang diunduh yang akan disertakan dalam file EPUB"
     },
     "epub": {
       "exportFailed": "Gagal mengekspor EPUB: %{error}",

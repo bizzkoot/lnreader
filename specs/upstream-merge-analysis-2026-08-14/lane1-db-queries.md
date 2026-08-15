@@ -1,6 +1,7 @@
 I now have complete fork-side evidence for all 10 commits. Let me compose the final artifact.
 
 ## Review
+
 - **Correct**: I verified the fork working tree state (dev @ d4fe64c48, upstream/master @ 990cd4f2e via loose refs), mapped every lane commit's affected files against the fork, and confirmed the parent-provided file lists (useChapterSelection.ts / useNovelScreenActions.ts / UpdateNovelChapterGroup.tsx / NovelChapterGroup.tsx all MISSING; ChapterQueries.ts, backup/utils.ts, useUpdates.ts, ConfirmationDialog.tsx, SettingsAdvancedScreen.tsx, NovelQueries.ts, LibraryQueries.ts, useLibrary.ts, db.ts, error.ts, AppErrorBoundary all HAS).
 - **Note**: No shell tool is available in my subagent toolset, so I could not run `git show`/`git cat-file`/`git log`. All fork-side conclusions below are verified from working-tree reads (working tree = fork dev head per loose refs). Upstream-side claims (exact hunks) rest on the parent-provided commit metadata (titles, issue numbers, file lists) and are flagged where inference is involved. Git commands a future implementer must run are listed in the porting guidance.
 
@@ -141,14 +142,14 @@ I now have complete fork-side evidence for all 10 commits. Let me compose the fi
 
 - **Files (upstream)**: src/database/db.ts, src/utils/error.ts, AppErrorBoundary, tests
 - **Fork file status**:
-  - `src/database/db.ts` — **HAS**, fork raw expo-sqlite + custom `MigrationRunner` (`src/database/utils/migrationRunner.ts`), `initializeDatabase()` with PRAGMA try/catch and `user_version` guard. Upstream db.ts is Drizzle — **not portable**. But the *crash-resilience concept* is already present: `MigrationRunner.runMigrations` wraps each migration in `db.withTransactionSync` with try/catch, logs via rate-limited logger, and shows a toast before rethrowing; `initializeDatabase` guards PRAGMA failures.
+  - `src/database/db.ts` — **HAS**, fork raw expo-sqlite + custom `MigrationRunner` (`src/database/utils/migrationRunner.ts`), `initializeDatabase()` with PRAGMA try/catch and `user_version` guard. Upstream db.ts is Drizzle — **not portable**. But the _crash-resilience concept_ is already present: `MigrationRunner.runMigrations` wraps each migration in `db.withTransactionSync` with try/catch, logs via rate-limited logger, and shows a toast before rethrowing; `initializeDatabase` guards PRAGMA failures.
   - `src/utils/error.ts` — **HAS** and is already a rich fork module (`AppError`, `NetworkError`/`StorageError`/`TTS_ERROR`, `safeAsync`, `handleOperationError`, `getErrorMessage`, `createErrorGuard`, `ignoreError`). Fork db.ts already imports `getErrorMessage`.
-  - `AppErrorBoundary.tsx` — **HAS**; fork already hardened it (themed `ErrorFallback`, `ThemeProvider` moved above boundary, dbError path wrapped — quick-fix batch item 4, committed 2026-08-05). 
+  - `AppErrorBoundary.tsx` — **HAS**; fork already hardened it (themed `ErrorFallback`, `ThemeProvider` moved above boundary, dbError path wrapped — quick-fix batch item 4, committed 2026-08-05).
   - Tests — fork has migration-runner + upgrade-path test suites (004/upgrade-path) covering runner failure behavior.
 - **Portability**: SKIP-ARCH (db.ts) + SKIP-ALREADY-HAVE (error.ts / AppErrorBoundary)
 - **Safety score**: 90/100 (GREEN)
 - **Overlap with fork-custom code**: yes in the "protected" sense — db.ts/MigrationRunner is fork-custom; the port should NOT touch it unless the upstream diff reveals a specific new crash mode the fork's runner still has (e.g., a specific PRAGMA ordering). Nothing to change.
-- **Porting guidance**: Review `git show 586e08514` for the *specific* crash (likely Drizzle `db.transact` on a migration error). Map any new guard onto `MigrationRunner`/`initializeDatabase` only if it is not already covered (it appears covered: PRAGMA try/catch, per-migration tx + catch + toast, version guard). No action expected.
+- **Porting guidance**: Review `git show 586e08514` for the _specific_ crash (likely Drizzle `db.transact` on a migration error). Map any new guard onto `MigrationRunner`/`initializeDatabase` only if it is not already covered (it appears covered: PRAGMA try/catch, per-migration tx + catch + toast, version guard). No action expected.
 - **Verdict**: SKIP
 
 ## a727c229c fix: Optimize Novel Counter Migration
@@ -165,20 +166,21 @@ I now have complete fork-side evidence for all 10 commits. Let me compose the fi
 
 ## Summary table
 
-| hash | title | portability | score | verdict |
-|---|---|---|---|---|
-| 63349de1b | Select All Chapters Across Lazy-Loaded Batches (#1960) | MANUAL | 78/100 GREEN | PORT |
-| 179feb56e | Include All Chapters Beyond the 1000-Row UI Limit (#1938) | SKIP-ALREADY-HAVE | 85/100 GREEN | SKIP |
-| 675f19ef9 | Make Update Chapters Reactive and Remove Display Limit (#1953) | SKIP-ALREADY-HAVE | 80/100 GREEN | SKIP (verify diff) |
-| 8a12529ba | Prevent Update Clearing From Freezing App (#1955) | MANUAL | 55/100 YELLOW | PORT-with-care |
-| 23f9b183b | Refresh Updates Screen on Focus (#1956) | SKIP-ALREADY-HAVE | 85/100 GREEN | SKIP |
-| 57eca11a9 | Pass Library Status Through Novel Navigation | PARTIAL | 65/100 YELLOW | PORT-with-care |
-| 13885320a | Add Novels To Library When Setting Categories (#1945) | MANUAL | 72/100 GREEN | PORT |
-| b9d1abcf2 | Refresh Library Download Counts After Deletion | SKIP-ALREADY-HAVE | 85/100 GREEN | SKIP |
-| 586e08514 | Resolve Migration Crash (#1967) | SKIP-ARCH + ALREADY-HAVE | 90/100 GREEN | SKIP |
-| a727c229c | Optimize Novel Counter Migration | SKIP-ARCH | 90/100 GREEN | SKIP (concept noted) |
+| hash      | title                                                          | portability              | score         | verdict              |
+| --------- | -------------------------------------------------------------- | ------------------------ | ------------- | -------------------- |
+| 63349de1b | Select All Chapters Across Lazy-Loaded Batches (#1960)         | MANUAL                   | 78/100 GREEN  | PORT                 |
+| 179feb56e | Include All Chapters Beyond the 1000-Row UI Limit (#1938)      | SKIP-ALREADY-HAVE        | 85/100 GREEN  | SKIP                 |
+| 675f19ef9 | Make Update Chapters Reactive and Remove Display Limit (#1953) | SKIP-ALREADY-HAVE        | 80/100 GREEN  | SKIP (verify diff)   |
+| 8a12529ba | Prevent Update Clearing From Freezing App (#1955)              | MANUAL                   | 55/100 YELLOW | PORT-with-care       |
+| 23f9b183b | Refresh Updates Screen on Focus (#1956)                        | SKIP-ALREADY-HAVE        | 85/100 GREEN  | SKIP                 |
+| 57eca11a9 | Pass Library Status Through Novel Navigation                   | PARTIAL                  | 65/100 YELLOW | PORT-with-care       |
+| 13885320a | Add Novels To Library When Setting Categories (#1945)          | MANUAL                   | 72/100 GREEN  | PORT                 |
+| b9d1abcf2 | Refresh Library Download Counts After Deletion                 | SKIP-ALREADY-HAVE        | 85/100 GREEN  | SKIP                 |
+| 586e08514 | Resolve Migration Crash (#1967)                                | SKIP-ARCH + ALREADY-HAVE | 90/100 GREEN  | SKIP                 |
+| a727c229c | Optimize Novel Counter Migration                               | SKIP-ARCH                | 90/100 GREEN  | SKIP (concept noted) |
 
 **Cross-cutting notes for the orchestrator:**
+
 - 4 of 10 commits are worth porting (2 clean-ish manual ports + 2 with-care), 6 are SKIP with fork-side justification.
 - The two highest-value ports: **63349de1b** (verified live bug at NovelScreen.tsx:277–280) and **8a12529ba** (verified live freeze risk at ChapterQueries.ts:267).
 - **8a12529ba is the only commit in this lane with fork-custom DoH overlap** (SettingsAdvancedScreen.tsx) — apply its hunks surgically around the DoH block.

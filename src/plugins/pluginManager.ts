@@ -83,12 +83,30 @@ const initPlugin = (pluginId: string, rawCode: string) => {
 
 const plugins: Record<string, Plugin | undefined> = {};
 
+/**
+ * A hung plugin-script fetch would otherwise pin the global plugin mutation
+ * queue forever, blocking every subsequent install/uninstall/update.
+ */
+const PLUGIN_INSTALL_FETCH_TIMEOUT_MS = 30000;
+
 const installPluginUnlocked = async (
   _plugin: PluginItem,
 ): Promise<Plugin | undefined> => {
-  const rawCode = await fetch(_plugin.url, {
-    headers: { 'pragma': 'no-cache', 'cache-control': 'no-cache' },
-  }).then(res => res.text());
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    PLUGIN_INSTALL_FETCH_TIMEOUT_MS,
+  );
+  let rawCode: string;
+  try {
+    const response = await fetch(_plugin.url, {
+      headers: { 'pragma': 'no-cache', 'cache-control': 'no-cache' },
+      signal: controller.signal,
+    });
+    rawCode = await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
   const plugin = initPlugin(_plugin.id, rawCode);
   if (!plugin) {
     return undefined;
