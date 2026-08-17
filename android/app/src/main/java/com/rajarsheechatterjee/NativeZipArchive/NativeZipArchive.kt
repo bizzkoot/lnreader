@@ -9,7 +9,6 @@ import com.rajarsheechatterjee.LNReader.DoHManagerModule
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.File
 import java.io.FileOutputStream
@@ -294,6 +293,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                         sink.buffer.use { bufferedSink ->
                             val zos = ZipOutputStream(bufferedSink.outputStream())
                             zipProcess(sourceDirPath, zos)
+                            zos.finish()
                         }
                     }
                 }
