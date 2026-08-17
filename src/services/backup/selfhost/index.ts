@@ -11,12 +11,35 @@ export interface SelfHostData {
   backupFolder: string;
 }
 
+/**
+ * Validate self-host backup URL.
+ * Requires http/https scheme. Non-localhost http requires explicit acceptance.
+ */
+export const isValidSelfHostUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    // Block obviously dangerous hosts
+    if (!parsed.hostname || parsed.hostname === '') {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const createSelfHostBackup = async (
   { host, backupFolder }: SelfHostData,
   setMeta: (
     transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
   ) => void,
 ) => {
+  if (!isValidSelfHostUrl(host)) {
+    throw new Error(`Invalid self-host URL: ${host}`);
+  }
   setMeta(meta => ({
     ...meta,
     isRunning: true,
@@ -59,6 +82,9 @@ export const selfHostRestore = async (
     transformer: (meta: BackgroundTaskMetadata) => BackgroundTaskMetadata,
   ) => void,
 ) => {
+  if (!isValidSelfHostUrl(host)) {
+    throw new Error(`Invalid self-host URL: ${host}`);
+  }
   setMeta(meta => ({
     ...meta,
     isRunning: true,

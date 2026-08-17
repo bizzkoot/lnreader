@@ -45,6 +45,11 @@ const repositoryEnabledFromBackup = (value: unknown): boolean =>
   value === '1' ||
   value === 'true';
 
+// Same validation as the repository UI in SettingsRepositoryScreen
+const REPOSITORY_URL_RE = /^https:\/\/(.*)plugins\.min\.json$/;
+const isValidRepositoryUrl = (url: unknown): url is string =>
+  typeof url === 'string' && REPOSITORY_URL_RE.test(url);
+
 // ============================================================================
 // Backup Schema Version Control
 // ============================================================================
@@ -871,17 +876,38 @@ export const restoreData = async (cacheDirPath: string) => {
 
       for (const repository of repositories) {
         try {
-          // Check if repository URL already exists to avoid duplicates
-          if (!isRepoUrlDuplicated(repository.url)) {
-            const inserted = createRepository(repository.url);
-            if (!repositoryEnabledFromBackup(repository.enabled)) {
-              const repositoryId = Number(inserted.lastInsertRowId);
-              if (Number.isFinite(repositoryId) && repositoryId > 0) {
-                setRepositoryEnabled(repositoryId, false);
+          // Validate URL format (same policy as repository UI)
+          if (!isValidRepositoryUrl(repository.url)) {
+            failedRepositoryCount++;
+            backupLog.warn(
+              'invalid-repo-url',
+              `Skipping repository with invalid URL: ${repository.url}`,
+            );
+            continue;
+          }
+          // If URL already exists, reconcile enabled state instead of silently skipping
+          if (isRepoUrlDuplicated(repository.url)) {
+            const existingRepos = getRepositoriesFromDb();
+            const existing = existingRepos.find(r => r.url === repository.url);
+            if (existing) {
+              const backupEnabled = repositoryEnabledFromBackup(
+                repository.enabled,
+              );
+              if (!backupEnabled && existing.enabled) {
+                setRepositoryEnabled(existing.id, false);
               }
             }
             repositoryCount++;
+            continue;
           }
+          const inserted = createRepository(repository.url);
+          if (!repositoryEnabledFromBackup(repository.enabled)) {
+            const repositoryId = Number(inserted.lastInsertRowId);
+            if (Number.isFinite(repositoryId) && repositoryId > 0) {
+              setRepositoryEnabled(repositoryId, false);
+            }
+          }
+          repositoryCount++;
         } catch (error) {
           failedRepositoryCount++;
           const errorMessage =

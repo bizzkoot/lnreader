@@ -115,14 +115,11 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
             // Force flush SharedPreferences to prevent data loss
             initPrefs()
             prefs?.edit()?.commit() // Synchronous write
-            
+
             // Graceful exit
             reactApplicationContext.currentActivity?.finish()
         } catch (e: Exception) {
             reactApplicationContext.currentActivity?.finish()
-        } finally {
-            // Final attempt to exit
-            System.exit(0)
         }
     }
 

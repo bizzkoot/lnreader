@@ -313,31 +313,72 @@ export const updateNovelCategories = async (
   return runSync(queries);
 };
 
-const restoreObjectQuery = (table: string, obj: Record<string, unknown>) => {
-  return `
-  INSERT INTO ${table}
-  (${Object.keys(obj).join(',')})
-  VALUES (${Object.keys(obj)
-    .map(() => '?')
-    .join(',')})
-  `;
-};
+const asBoolean = (value: unknown, fallback = false): number =>
+  typeof value === 'boolean'
+    ? Number(value)
+    : value === 1 || value === '1' || value === 'true'
+      ? 1
+      : value === 0 || value === '0' || value === 'false'
+        ? 0
+        : Number(fallback);
 
 export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
+  if (!backupNovel || !Array.isArray(backupNovel.chapters)) {
+    throw new Error('Invalid backup novel: chapters must be an array');
+  }
+
   const { chapters, ...novel } = backupNovel;
   await db.withExclusiveTransactionAsync(async tx => {
     await tx.runAsync('DELETE FROM Novel WHERE id = ?', [novel.id]);
     await tx.runAsync(
-      restoreObjectQuery('Novel', novel),
-      Object.values(novel) as string[] | number[],
+      `INSERT INTO Novel
+        (id, path, pluginId, name, cover, summary, author, artist, status,
+         genres, inLibrary, isLocal, totalPages)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        novel.id,
+        novel.path,
+        novel.pluginId,
+        novel.name,
+        novel.cover ?? null,
+        novel.summary ?? null,
+        novel.author ?? null,
+        novel.artist ?? null,
+        novel.status ?? null,
+        novel.genres ?? null,
+        asBoolean(novel.inLibrary),
+        asBoolean(novel.isLocal),
+        Number.isFinite(novel.totalPages) ? novel.totalPages : 0,
+      ],
     );
+
     for (const chapter of chapters) {
       await tx.runAsync(
-        restoreObjectQuery(
-          'Chapter',
-          chapter as unknown as Record<string, unknown>,
-        ),
-        Object.values(chapter) as string[] | number[],
+        `INSERT INTO Chapter
+          (id, novelId, path, name, releaseTime, bookmark, unread, readTime,
+           isDownloaded, updatedTime, chapterNumber, page, position, progress,
+           ttsState)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          chapter.id,
+          novel.id,
+          chapter.path,
+          chapter.name,
+          chapter.releaseTime ?? null,
+          asBoolean(chapter.bookmark),
+          asBoolean(chapter.unread, true),
+          chapter.readTime ?? null,
+          asBoolean(chapter.isDownloaded),
+          chapter.updatedTime ?? null,
+          chapter.chapterNumber ?? null,
+          chapter.page ?? '1',
+          typeof chapter.position === 'number' &&
+          Number.isFinite(chapter.position)
+            ? chapter.position
+            : 0,
+          chapter.progress ?? null,
+          chapter.ttsState ?? null,
+        ],
       );
     }
   });

@@ -169,13 +169,25 @@ export interface FetchPluginsResult {
   complete: boolean;
 }
 
+/**
+ * Validate a plugin identifier is safe for filesystem paths and storage keys.
+ * Rejects empty IDs, traversal sequences, slashes, backslashes, NUL, and special chars.
+ * Used at plugin install, uninstall, lookup, and restore boundaries.
+ */
+export const isValidPluginId = (id: unknown): id is string =>
+  typeof id === 'string' &&
+  id.length > 0 &&
+  id.length <= 64 &&
+  /^[A-Za-z0-9._-]+$/.test(id) &&
+  !id.includes('..');
+
 const isPluginItem = (value: unknown): value is PluginItem => {
   if (!value || typeof value !== 'object') {
     return false;
   }
   const plugin = value as Partial<PluginItem>;
   return (
-    typeof plugin.id === 'string' &&
+    isValidPluginId(plugin.id) &&
     typeof plugin.name === 'string' &&
     typeof plugin.site === 'string' &&
     typeof plugin.lang === 'string' &&
@@ -222,6 +234,10 @@ const fetchPlugins = async (): Promise<FetchPluginsResult> => {
 
 const getPlugin = (pluginId: string) => {
   if (pluginId === LOCAL_PLUGIN_ID) {
+    return undefined;
+  }
+  // Reject unsafe plugin IDs before constructing filesystem paths
+  if (!isValidPluginId(pluginId)) {
     return undefined;
   }
 

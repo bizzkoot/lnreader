@@ -86,6 +86,7 @@ import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 import { useTTSController } from '../hooks/useTTSController';
 import { WebViewPostEvent, TTS_CONSTANTS } from '../types/tts';
 import { autoStopService } from '@services/tts/AutoStopService';
+import { sanitizeChapterText } from '../utils/sanitizeChapterText';
 
 type WebViewReaderProps = {
   onPress(): void;
@@ -1118,13 +1119,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   'chapter-html-received',
                   `Got chapter HTML (${chapterHtml.length} chars)`,
                 );
+                // Sanitize stitched chapter content to match initial chapter sanitization
+                const sanitizedHtml = sanitizeChapterText(
+                  novel?.pluginId || '',
+                  novel?.name || '',
+                  targetChapter.name,
+                  chapterHtml,
+                );
                 // Send chapter content back to WebView
                 webViewRef.current?.injectJavaScript(`
                   if (window.reader && window.reader.receiveChapterContent) {
                     window.reader.receiveChapterContent(
                       ${targetChapter.id},
                       ${JSON.stringify(targetChapter.name)},
-                      ${JSON.stringify(chapterHtml)},
+                      ${JSON.stringify(sanitizedHtml)},
                       ${JSON.stringify(targetChapter)}
                     );
                   }
