@@ -344,6 +344,16 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         this.ttsListener = listener
     }
 
+    /** Accessor for MediaSession — used by unit tests and potential future integrations */
+    fun getMediaSession(): MediaSessionCompat? = mediaSession
+
+    /** Progress text for notification and external consumers */
+    fun getCurrentProgressText(): String {
+        if (mediaTotalParagraphs <= 0) return ""
+        val progress = ((mediaParagraphIndex + 1).toFloat() / mediaTotalParagraphs * 100).toInt()
+        return "$mediaNovelName\n$mediaChapterLabel\n$progress%"
+    }
+
     /**
      * Sets the TTS voice with intelligent fallback.
      * 1. Try to find exact voice by ID

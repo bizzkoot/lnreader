@@ -11,6 +11,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.modules.network.OkHttpClientProvider
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 import com.rajarsheechatterjee.NativeFile.NativePackage
@@ -46,6 +47,11 @@ class MainApplication : Application(), ReactApplication {
  
     override fun onCreate() {
         super.onCreate()
+        // Initialize DoH from persisted settings before OkHttp clients are created.
+        // initializeFromNative() reads SharedPreferences and builds the DNS instance,
+        // then setOkHttpClientFactory() applies it to all RN OkHttp clients.
+        DoHManagerModule.initializeFromNative(this)
+        OkHttpClientProvider.setOkHttpClientFactory(DoHOkHttpClientFactory())
         loadReactNative(this)
         ApplicationLifecycleDispatcher.onApplicationCreate(this)
     }

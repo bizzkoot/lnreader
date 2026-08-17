@@ -106,13 +106,13 @@ describe('useGithubUpdateChecker', () => {
   };
 
   it('first launch (no prior check timestamp) proceeds with the check', async () => {
-    mockReleaseResponse('v2.1.4');
+    mockReleaseResponse('v2.1.5');
 
     const { result } = renderHook(() => useGithubUpdateChecker());
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(result.current.latestRelease?.tag_name).toBe('v2.1.4'),
+      expect(result.current.latestRelease?.tag_name).toBe('v2.1.5'),
     );
 
     expect(result.current.isNewVersion).toBe(true);
@@ -142,26 +142,26 @@ describe('useGithubUpdateChecker', () => {
   });
 
   it('ignoreVersion persists the ignored tag and suppresses that version', async () => {
-    mockReleaseResponse('v2.1.4');
+    mockReleaseResponse('v2.1.5');
 
     const { result } = renderHook(() => useGithubUpdateChecker());
 
     await waitFor(() => expect(result.current.isNewVersion).toBe(true));
 
     act(() => {
-      result.current.ignoreVersion('v2.1.4');
+      result.current.ignoreVersion('v2.1.5');
     });
 
     expect(MMKVStorage.set).toHaveBeenCalledWith(
       IGNORED_UPDATE_VERSION_KEY,
-      'v2.1.4',
+      'v2.1.5',
     );
     expect(result.current.isNewVersion).toBe(false);
   });
 
   it('a previously ignored older version does not suppress a newer release', async () => {
     mockMMKVStorage[IGNORED_UPDATE_VERSION_KEY] = 'v2.1.0';
-    mockReleaseResponse('v2.1.4');
+    mockReleaseResponse('v2.1.5');
 
     const { result } = renderHook(() => useGithubUpdateChecker());
 

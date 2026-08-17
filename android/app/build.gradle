@@ -141,6 +141,9 @@ dependencies {
     // Updated Okio dependency
     implementation("com.squareup.okio:okio:3.6.0")
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.robolectric:robolectric:4.13'
+    testImplementation 'androidx.test:core-ktx:1.6.1'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

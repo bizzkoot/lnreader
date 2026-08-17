@@ -9,6 +9,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
@@ -52,7 +53,12 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
     @ReactMethod
     override fun unzip(sourceFilePath: String, distDirPath: String, promise: Promise) {
         Thread {
+            val stagingDir = File(
+                File(distDirPath).absoluteFile.parentFile,
+                ".staging-${UUID.randomUUID()}",
+            )
             try {
+                stagingDir.mkdirs()
                 ZipFile(sourceFilePath).use { zf ->
                     var entryCount = 0
                     var totalSize = 0L
@@ -64,7 +70,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                         if (zipEntry.size > MAX_ENTRY_SIZE) {
                             throw SecurityException("Entry '${zipEntry.name}' exceeds maximum size (${zipEntry.size} > $MAX_ENTRY_SIZE)")
                         }
-                        val newFile = validateZipEntry(distDirPath, zipEntry.name)
+                        val newFile = validateZipEntry(stagingDir.absolutePath, zipEntry.name)
                             ?: throw SecurityException("Unsafe zip entry: ${zipEntry.name}")
                         newFile.parentFile?.mkdirs()
                         zf.getInputStream(zipEntry).use { inputStream ->
@@ -75,8 +81,11 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                         Thread.yield()
                     }
                 }
+                // Extraction succeeded — atomically swap staging into destination
+                swapStagingToDestination(stagingDir, File(distDirPath))
                 promise.resolve(null)
             } catch (e: Exception) {
+                deleteRecursive(stagingDir)
                 promise.reject(e)
             }
         }.start()
@@ -105,7 +114,12 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
     ) {
         val connection = URL(urlString).openConnection() as HttpURLConnection
         Thread {
+            val stagingDir = File(
+                File(distDirPath).absoluteFile.parentFile,
+                ".staging-${UUID.randomUUID()}",
+            )
             try {
+                stagingDir.mkdirs()
                 connection.requestMethod = "GET"
                 connection.connectTimeout = CONNECT_TIMEOUT_MS
                 connection.readTimeout = READ_TIMEOUT_MS
@@ -129,7 +143,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                             if (entryCount > MAX_ENTRIES) {
                                 throw SecurityException("Archive exceeds maximum entry count ($MAX_ENTRIES)")
                             }
-                            val newFile = validateZipEntry(distDirPath, zipEntry.name)
+                            val newFile = validateZipEntry(stagingDir.absolutePath, zipEntry.name)
                                 ?: throw SecurityException("Unsafe zip entry: ${zipEntry.name}")
                             newFile.parentFile?.mkdirs()
                             FileOutputStream(newFile).use { fos ->
@@ -138,13 +152,68 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                             Thread.yield()
                         }
                 }
+                // Extraction succeeded — atomically swap staging into destination
+                swapStagingToDestination(stagingDir, File(distDirPath))
                 promise.resolve(null)
             } catch (e: Exception) {
+                deleteRecursive(stagingDir)
                 promise.reject(e)
             } finally {
                 connection.disconnect()
             }
         }.start()
+    }
+
+    /**
+     * Atomically swap a staging directory into the destination.
+     * Preserves the existing destination on failure; rolls back if swap fails.
+     *
+     * Strategy:
+     * 1. If dest doesn't exist: staging → dest (clean)
+     * 2. If dest is empty dir: delete it, staging → dest (clean)
+     * 3. If dest has content: dest → displaced, staging → dest, cleanup displaced
+     * On failure: restore displaced, cleanup staging.
+     */
+    private fun swapStagingToDestination(stagingDir: File, destDir: File) {
+        var displaced: File? = null
+        try {
+            if (!destDir.exists()) {
+                // Case 1: destination doesn't exist — clean rename
+                if (!stagingDir.renameTo(destDir)) {
+                    throw IllegalStateException("Failed to move staging to destination")
+                }
+            } else if (destDir.isDirectory && destDir.listFiles()?.isEmpty() == true) {
+                // Case 2: empty directory — remove it, then rename
+                destDir.delete()
+                if (!stagingDir.renameTo(destDir)) {
+                    throw IllegalStateException("Failed to move staging to destination")
+                }
+            } else {
+                // Case 3: existing content — move aside, then rename staging into place
+                displaced = File(destDir.parentFile, ".displaced-${UUID.randomUUID()}")
+                if (!destDir.renameTo(displaced)) {
+                    throw IllegalStateException("Failed to back up existing destination")
+                }
+                if (!stagingDir.renameTo(destDir)) {
+                    // Swap failed — restore original
+                    displaced.renameTo(destDir)
+                    throw IllegalStateException("Failed to swap staging into destination")
+                }
+                // Success — remove backed-up original
+                deleteRecursive(displaced)
+                displaced = null
+            }
+        } catch (e: Exception) {
+            // Rollback: if we moved the original aside, put it back
+            displaced?.let { orig ->
+                if (!destDir.exists()) {
+                    orig.renameTo(destDir)
+                } else {
+                    deleteRecursive(orig)
+                }
+            }
+            throw e
+        }
     }
 
     private fun copyEntry(
@@ -165,6 +234,13 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
             output.write(buffer, 0, read)
         }
         return entrySize
+    }
+
+    private fun deleteRecursive(file: File) {
+        if (file.isDirectory) {
+            file.listFiles()?.forEach { deleteRecursive(it) }
+        }
+        file.delete()
     }
 
     private fun zipProcess(sourceDirPath: String, zos: ZipOutputStream) {
