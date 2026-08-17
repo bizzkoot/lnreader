@@ -2,6 +2,13 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { pickApkAsset } from '../githubReleaseUtils';
 import { useGithubUpdateChecker } from '../useGithubUpdateChecker';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { version } from '../../../../package.json';
+
+const nextPatchVersion = () => {
+  const parts = version.split('-')[0].split('.');
+  const patch = Number.parseInt(parts.pop() || '0', 10);
+  return [...parts, String(patch + 1)].join('.');
+};
 
 const LAST_UPDATE_CHECK_KEY = 'LAST_UPDATE_CHECK';
 const IGNORED_UPDATE_VERSION_KEY = 'IGNORED_UPDATE_VERSION';
@@ -106,13 +113,14 @@ describe('useGithubUpdateChecker', () => {
   };
 
   it('first launch (no prior check timestamp) proceeds with the check', async () => {
-    mockReleaseResponse('v2.1.5');
+    const latestVersion = `v${nextPatchVersion()}`;
+    mockReleaseResponse(latestVersion);
 
     const { result } = renderHook(() => useGithubUpdateChecker());
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(result.current.latestRelease?.tag_name).toBe('v2.1.5'),
+      expect(result.current.latestRelease?.tag_name).toBe(latestVersion),
     );
 
     expect(result.current.isNewVersion).toBe(true);
@@ -142,26 +150,27 @@ describe('useGithubUpdateChecker', () => {
   });
 
   it('ignoreVersion persists the ignored tag and suppresses that version', async () => {
-    mockReleaseResponse('v2.1.5');
+    const latestVersion = `v${nextPatchVersion()}`;
+    mockReleaseResponse(latestVersion);
 
     const { result } = renderHook(() => useGithubUpdateChecker());
 
     await waitFor(() => expect(result.current.isNewVersion).toBe(true));
 
     act(() => {
-      result.current.ignoreVersion('v2.1.5');
+      result.current.ignoreVersion(latestVersion);
     });
 
     expect(MMKVStorage.set).toHaveBeenCalledWith(
       IGNORED_UPDATE_VERSION_KEY,
-      'v2.1.5',
+      latestVersion,
     );
     expect(result.current.isNewVersion).toBe(false);
   });
 
   it('a previously ignored older version does not suppress a newer release', async () => {
-    mockMMKVStorage[IGNORED_UPDATE_VERSION_KEY] = 'v2.1.0';
-    mockReleaseResponse('v2.1.5');
+    mockMMKVStorage[IGNORED_UPDATE_VERSION_KEY] = 'v0.0.1';
+    mockReleaseResponse(`v${nextPatchVersion()}`);
 
     const { result } = renderHook(() => useGithubUpdateChecker());
 
