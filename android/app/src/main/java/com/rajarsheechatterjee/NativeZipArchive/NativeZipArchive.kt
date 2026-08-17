@@ -5,11 +5,16 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.lnreader.spec.NativeZipArchiveSpec
+import com.rajarsheechatterjee.LNReader.DoHManagerModule
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
@@ -23,6 +28,22 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
         private const val MAX_TOTAL_SIZE = 500L * 1024 * 1024 // 500 MB total uncompressed
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 30_000
+
+        /**
+         * Shared OkHttpClient used by remote backup operations.
+         * Picks up DoH DNS when configured via DoHManagerModule.initializeFromNative().
+         * Falls back to system DNS when DoH is disabled.
+         */
+        private val httpClient: OkHttpClient by lazy {
+            val builder = OkHttpClient.Builder()
+                .connectTimeout(CONNECT_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+                .readTimeout(READ_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+            val doh = DoHManagerModule.getDnsInstance()
+            if (doh != null) {
+                builder.dns(doh)
+            }
+            builder.build()
+        }
 
         /**
          * Validate a zip entry name to prevent path traversal (Zip Slip).
@@ -112,45 +133,41 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
         headers: ReadableMap,
         promise: Promise
     ) {
-        val connection = URL(urlString).openConnection() as HttpURLConnection
         Thread {
             val stagingDir = File(
                 File(distDirPath).absoluteFile.parentFile,
                 ".staging-${UUID.randomUUID()}",
             )
+            var response: Response? = null
             try {
                 stagingDir.mkdirs()
-                connection.requestMethod = "GET"
-                connection.connectTimeout = CONNECT_TIMEOUT_MS
-                connection.readTimeout = READ_TIMEOUT_MS
-                val it = headers.entryIterator
-                while (it.hasNext()) {
-                    val (key, value) = it.next()
-                    connection.setRequestProperty(key, value.toString())
+                val requestBuilder = Request.Builder().url(urlString).get()
+                buildOkHeaders(headers, requestBuilder)
+                val request = requestBuilder.build()
+                response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    throw Exception("HTTP ${response.code} for $urlString")
                 }
-                // Check HTTP status BEFORE reading the zip stream
-                val responseCode = connection.responseCode
-                if (responseCode != 200) {
-                    throw Exception("HTTP $responseCode for $urlString")
-                }
-                ZipInputStream(connection.inputStream).use { zis ->
-                    var entryCount = 0
-                    var totalSize = 0L
-                    generateSequence { zis.nextEntry }
-                        .filterNot { it.isDirectory }
-                        .forEach { zipEntry ->
-                            entryCount++
-                            if (entryCount > MAX_ENTRIES) {
-                                throw SecurityException("Archive exceeds maximum entry count ($MAX_ENTRIES)")
+                response.body?.byteStream()?.use { bodyStream ->
+                    ZipInputStream(bodyStream).use { zis ->
+                        var entryCount = 0
+                        var totalSize = 0L
+                        generateSequence { zis.nextEntry }
+                            .filterNot { it.isDirectory }
+                            .forEach { zipEntry ->
+                                entryCount++
+                                if (entryCount > MAX_ENTRIES) {
+                                    throw SecurityException("Archive exceeds maximum entry count ($MAX_ENTRIES)")
+                                }
+                                val newFile = validateZipEntry(stagingDir.absolutePath, zipEntry.name)
+                                    ?: throw SecurityException("Unsafe zip entry: ${zipEntry.name}")
+                                newFile.parentFile?.mkdirs()
+                                FileOutputStream(newFile).use { fos ->
+                                    totalSize += copyEntry(zis, fos, totalSize, zipEntry.name)
+                                }
+                                Thread.yield()
                             }
-                            val newFile = validateZipEntry(stagingDir.absolutePath, zipEntry.name)
-                                ?: throw SecurityException("Unsafe zip entry: ${zipEntry.name}")
-                            newFile.parentFile?.mkdirs()
-                            FileOutputStream(newFile).use { fos ->
-                                totalSize += copyEntry(zis, fos, totalSize, zipEntry.name)
-                            }
-                            Thread.yield()
-                        }
+                    }
                 }
                 // Extraction succeeded — atomically swap staging into destination
                 swapStagingToDestination(stagingDir, File(distDirPath))
@@ -159,7 +176,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                 deleteRecursive(stagingDir)
                 promise.reject(e)
             } finally {
-                connection.disconnect()
+                response?.close()
             }
         }.start()
     }
@@ -266,28 +283,48 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
         promise: Promise
     ) {
         Thread {
-            val connection = URL(urlString).openConnection() as HttpURLConnection
+            var response: Response? = null
             try {
-                connection.requestMethod = "POST"
-                connection.connectTimeout = CONNECT_TIMEOUT_MS
-                connection.readTimeout = READ_TIMEOUT_MS
-                val it = headers.entryIterator
-                while (it.hasNext()) {
-                    val (key, value) = it.next()
-                    connection.setRequestProperty(key, value.toString())
+                // Build a streaming request body that zips sourceDirPath on the fly.
+                // OkHttp's .toRequestBody() streams data lazily, so this is memory-efficient.
+                val requestBody = object : okhttp3.RequestBody() {
+                    override fun contentType() = "application/octet-stream".toMediaType()
+
+                    override fun writeTo(sink: okio.BufferedSink) {
+                        sink.buffer.use { bufferedSink ->
+                            val zos = ZipOutputStream(bufferedSink.outputStream())
+                            zipProcess(sourceDirPath, zos)
+                        }
+                    }
                 }
-                ZipOutputStream(connection.outputStream).use { zipProcess(sourceDirPath, it) }
-                if (connection.responseCode == 200) {
-                    promise.resolve(
-                        connection.inputStream.bufferedReader().use { it.readText() })
+                val requestBuilder = Request.Builder()
+                    .url(urlString)
+                    .post(requestBody)
+                buildOkHeaders(headers, requestBuilder)
+                val request = requestBuilder.build()
+                response = httpClient.newCall(request).execute()
+                if (response!!.isSuccessful) {
+                    val responseBody = response!!.body?.string() ?: ""
+                    promise.resolve(responseBody)
                 } else {
-                    throw Exception("HTTP ${connection.responseCode}")
+                    throw Exception("HTTP ${response!!.code}")
                 }
             } catch (e: Exception) {
                 promise.reject(e)
             } finally {
-                connection.disconnect()
+                response?.close()
             }
         }.start()
+    }
+
+    /**
+     * Convert a ReadableMap of headers into OkHttp Request.Builder headers.
+     */
+    private fun buildOkHeaders(headers: ReadableMap, builder: Request.Builder) {
+        val it = headers.entryIterator
+        while (it.hasNext()) {
+            val (key, value) = it.next()
+            builder.addHeader(key, value.toString())
+        }
     }
 }
