@@ -90,6 +90,8 @@ import { sanitizeChapterText } from '../utils/sanitizeChapterText';
 
 type WebViewReaderProps = {
   onPress(): void;
+  onSearchResult?(result: import('../types').ReaderSearchResult): void;
+  searchQuery?: string;
 };
 
 const { RNDeviceInfo } = NativeModules;
@@ -144,7 +146,11 @@ const validateContinuousScrollSettings = (
   };
 };
 
-const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
+const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
+  onPress,
+  onSearchResult,
+  searchQuery = '',
+}) => {
   const {
     novel,
     chapter,
@@ -736,6 +742,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         <script src="${assetsUriPrefix}/js/van.js"></script>
         <script src="${assetsUriPrefix}/js/text-vibe.js"></script>
         <script src="${assetsUriPrefix}/js/core.js"></script>
+        <script src="${assetsUriPrefix}/js/search.js"></script>
         <script src="${assetsUriPrefix}/js/index.js"></script>
         <script src="${pluginCustomJS}"></script>
         <script>
@@ -825,6 +832,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'stitched-chapters-cleared',
         'chapter-transition',
         'visible-cleanup',
+        'search-result',
       ] as const);
       if (!msg) {
         return;
@@ -854,6 +862,17 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
       // Handle non-TTS messages
       switch (event.type) {
+        case 'search-result':
+          if (event.data && typeof event.data === 'object') {
+            onSearchResult?.({
+              query: (event.data as any).query ?? '',
+              current: (event.data as any).current ?? 0,
+              total: (event.data as any).total ?? 0,
+              renderedTotal: (event.data as any).renderedTotal ?? 0,
+              isTruncated: (event.data as any).isTruncated ?? false,
+            });
+          }
+          break;
         case 'tts-update-settings':
           if (event.data) {
             applyTtsUpdateToWebView(event.data as TTSSettings, webViewRef);
@@ -1454,6 +1473,8 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       prevChapter,
       setAdjacentChapter,
       getChapter,
+      onSearchResult,
+      searchQuery,
     ],
   );
 
@@ -1539,6 +1560,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           webViewRef.current?.injectJavaScript(`
             if (window.reader && window.reader.setVisibleCleanup) {
               window.reader.setVisibleCleanup(${shouldCleanVisible});
+            }
+            if (window.readerSearch && ${JSON.stringify(searchQuery)}) {
+              window.readerSearch.search(${JSON.stringify(searchQuery)});
             }
             true;
           `);

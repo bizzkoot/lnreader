@@ -503,6 +503,8 @@ export interface StringMap {
   'readerScreen.nextChapter': 'string';
   'readerScreen.noNextChapter': 'string';
   'readerScreen.noPreviousChapter': 'string';
+  'readerScreen.searchPlaceholder': 'string';
+  'readerScreen.searchMinLength': 'string';
   'readerSettings.autoScrollInterval': 'string';
   'readerSettings.autoScrollOffset': 'string';
   'readerSettings.backgroundColor': 'string';

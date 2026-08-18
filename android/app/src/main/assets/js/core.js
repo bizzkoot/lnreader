@@ -2009,6 +2009,7 @@ window.tts = new (function () {
     'BR',
     'STRONG',
     'A',
+    'MARK',
     // Block elements (must match extractParagraphs BLOCK_TAGS)
     'P',
     'DIV',

@@ -25,6 +25,8 @@ interface ReaderAppbarProps {
   goBack: () => void;
   bookmarked: boolean;
   setBookmarked: React.Dispatch<React.SetStateAction<boolean>>;
+  searchVisible: boolean;
+  onToggleSearch: () => void;
 }
 
 const fastOutSlowIn = Easing.bezier(0.4, 0.0, 0.2, 1.0);
@@ -34,6 +36,8 @@ const ReaderAppbar = ({
   theme,
   bookmarked,
   setBookmarked,
+  searchVisible,
+  onToggleSearch,
 }: ReaderAppbarProps) => {
   const { chapter, novel } = useChapterContext();
   const { statusBarHeight } = useNovelContext();
@@ -114,23 +118,33 @@ const ReaderAppbar = ({
           </Text>
         </View>
         <IconButtonV2
-          name={bookmarked ? 'bookmark' : 'bookmark-outline'}
+          name="magnify"
           size={scaledDimensions.iconSize.md}
-          onPress={() => {
-            bookmarkChapter(chapter.id)
-              .then(() => setBookmarked(!bookmarked))
-              .catch(err => {
-                readerAppbarLog.error(
-                  'bookmark-failed',
-                  'Failed to bookmark chapter',
-                  err,
-                );
-              });
-          }}
+          onPress={onToggleSearch}
           color={theme.onSurface}
           theme={theme}
           style={styles.bookmark}
         />
+        {!searchVisible && (
+          <IconButtonV2
+            name={bookmarked ? 'bookmark' : 'bookmark-outline'}
+            size={scaledDimensions.iconSize.md}
+            onPress={() => {
+              bookmarkChapter(chapter.id)
+                .then(() => setBookmarked(!bookmarked))
+                .catch(err => {
+                  readerAppbarLog.error(
+                    'bookmark-failed',
+                    'Failed to bookmark chapter',
+                    err,
+                  );
+                });
+            }}
+            color={theme.onSurface}
+            theme={theme}
+            style={styles.bookmark}
+          />
+        )}
       </View>
     </Animated.View>
   );
