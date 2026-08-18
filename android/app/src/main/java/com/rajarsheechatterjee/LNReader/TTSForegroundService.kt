@@ -70,6 +70,14 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     // Notification update throttling to prevent flicker during rapid changes
     private var lastNotificationUpdateTime = 0L
     private val NOTIFICATION_UPDATE_THROTTLE_MS = 500L // Max 2 updates/second
+    // Counter for notification updates — used by unit tests to verify throttling
+    var notificationUpdateCount = 0
+        private set
+    /** Reset throttle timer and counter — for unit tests */
+    fun resetNotificationTracking() {
+        lastNotificationUpdateTime = 0L
+        notificationUpdateCount = 0
+    }
 
     companion object {
         const val CHANNEL_ID = "tts_service_channel"
@@ -1029,7 +1037,12 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
 
         // Create large icon from app launcher icon to fill the left area of notification
         // This improves visual balance and prevents the "gap on left" appearance
-        val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+        val largeIcon = try {
+            BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+        } catch (_: Exception) {
+            // Fallback for environments where app resources are not loaded (e.g. unit tests)
+            android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+        }
 
 
 
@@ -1154,6 +1167,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
 
     private fun updateNotification() {
         if (!isServiceForeground) return
+        notificationUpdateCount++
         val notification = createNotification()
         try {
             NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)

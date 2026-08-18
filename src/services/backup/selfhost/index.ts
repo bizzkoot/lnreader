@@ -31,6 +31,16 @@ export const isValidSelfHostUrl = (url: string): boolean => {
   }
 };
 
+/**
+ * Validate self-host backup folder name.
+ * Only allows conservative alphanumeric names: [A-Za-z0-9._-]{1,64}
+ * Rejects slash, backslash, .., NUL, query/fragment characters.
+ */
+export const isValidBackupFolder = (name: string): boolean =>
+  typeof name === 'string' &&
+  /^[A-Za-z0-9._-]{1,64}$/.test(name) &&
+  !name.includes('..');
+
 export const createSelfHostBackup = async (
   { host, backupFolder }: SelfHostData,
   setMeta: (
@@ -39,6 +49,9 @@ export const createSelfHostBackup = async (
 ) => {
   if (!isValidSelfHostUrl(host)) {
     throw new Error(`Invalid self-host URL: ${host}`);
+  }
+  if (!isValidBackupFolder(backupFolder)) {
+    throw new Error(`Invalid backup folder: ${backupFolder}`);
   }
   setMeta(meta => ({
     ...meta,
@@ -84,6 +97,9 @@ export const selfHostRestore = async (
 ) => {
   if (!isValidSelfHostUrl(host)) {
     throw new Error(`Invalid self-host URL: ${host}`);
+  }
+  if (!isValidBackupFolder(backupFolder)) {
+    throw new Error(`Invalid backup folder: ${backupFolder}`);
   }
   setMeta(meta => ({
     ...meta,
