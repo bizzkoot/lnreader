@@ -2429,12 +2429,14 @@ export function useTTSController(
               lastTTSPauseTimeRef.current = Date.now();
               latestParagraphIndexRef.current = idx;
               autoStartTTSRef.current = false;
-              isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               isTTSPausedRef.current = true;
               autoStopService.stop();
               await TTSHighlight.pause();
+              // Keep the reading flag set while updating the paused notification so
+              // it displays the paragraph currently being spoken, not the last one completed.
               updateTtsMediaNotificationState(false);
+              isTTSReadingRef.current = false;
               return;
             }
 
