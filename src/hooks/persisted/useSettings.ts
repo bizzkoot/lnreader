@@ -134,6 +134,14 @@ export interface AppSettings {
    * - DoHProvider.ADGUARD: AdGuard DoH (94.140.14.140)
    */
   doHProvider: DoHProvider;
+
+  /**
+   * Reading time tracking (PRD 3.2, smallest safe impl)
+   * - readingTimeTrackingEnabled: opt-in manual reading timer; TTS PLAYING pauses it
+   * - readingTimeInactivityTimeoutMs: 0 = never auto-pause on inactivity, else auto-pause after N ms without user activity
+   */
+  readingTimeTrackingEnabled?: boolean;
+  readingTimeInactivityTimeoutMs?: number;
 }
 
 export interface BrowseSettings {
@@ -378,6 +386,12 @@ const initialAppSettings: AppSettings = {
    * DNS-over-HTTPS provider
    */
   doHProvider: DoHProvider.DISABLED,
+
+  /**
+   * Reading time tracking (PRD 3.2)
+   */
+  readingTimeTrackingEnabled: false,
+  readingTimeInactivityTimeoutMs: 0,
 };
 
 const initialBrowseSettings: BrowseSettings = {

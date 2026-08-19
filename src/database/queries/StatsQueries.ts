@@ -140,3 +140,86 @@ export const getNovelStatusFromDb = async (): Promise<LibraryStats> => {
   });
   return { status: countBy(status) };
 };
+
+// --- Reading time tracking (PRD 3.2) --- raw-SQL aggregates over ReadingSession ---
+
+interface ReadingTimeRow {
+  total: number | null;
+}
+
+export interface ReadingTimeStats {
+  total: number;
+}
+
+const getTotalReadingTimeQuery = `SELECT COALESCE(SUM(duration), 0) as total FROM ReadingSession`;
+const getReadingTimeForNovelQuery = `SELECT COALESCE(SUM(duration), 0) as total FROM ReadingSession WHERE novelId = ?`;
+const getReadingTimeForChapterQuery = `SELECT COALESCE(SUM(duration), 0) as total FROM ReadingSession WHERE chapterId = ?`;
+const getReadingTimeGroupedByNovelQuery = `SELECT novelId, COALESCE(SUM(duration), 0) as total FROM ReadingSession GROUP BY novelId`;
+const getReadingTimeGroupedByChapterQuery = `SELECT chapterId, novelId, COALESCE(SUM(duration), 0) as total FROM ReadingSession GROUP BY chapterId`;
+
+export const getTotalReadingTime = async (): Promise<ReadingTimeStats> => {
+  const row = await getFirstAsync<ReadingTimeRow>([getTotalReadingTimeQuery]);
+  return { total: row?.total ?? 0 };
+};
+
+export const getReadingTimeForNovel = async (
+  novelId: number,
+): Promise<ReadingTimeStats> => {
+  const row = await getFirstAsync<ReadingTimeRow>([
+    getReadingTimeForNovelQuery,
+    [novelId],
+  ]);
+  return { total: row?.total ?? 0 };
+};
+
+export const getReadingTimeForChapter = async (
+  chapterId: number,
+): Promise<ReadingTimeStats> => {
+  const row = await getFirstAsync<ReadingTimeRow>([
+    getReadingTimeForChapterQuery,
+    [chapterId],
+  ]);
+  return { total: row?.total ?? 0 };
+};
+
+export const getReadingTimeGroupedByNovel = async (): Promise<
+  Array<{ novelId: number; total: number }>
+> => {
+  return (await getAllAsync<{ novelId: number; total: number }>([
+    getReadingTimeGroupedByNovelQuery,
+  ])) as Array<{ novelId: number; total: number }>;
+};
+
+export const getReadingTimeGroupedByChapter = async (): Promise<
+  Array<{ chapterId: number; novelId: number; total: number }>
+> => {
+  return (await getAllAsync<{
+    chapterId: number;
+    novelId: number;
+    total: number;
+  }>([getReadingTimeGroupedByChapterQuery])) as Array<{
+    chapterId: number;
+    novelId: number;
+    total: number;
+  }>;
+};
+
+export const insertReadingSession = async (params: {
+  novelId: number;
+  chapterId: number;
+  startTime: number;
+  duration: number;
+}): Promise<void> => {
+  const { novelId, chapterId, startTime, duration } = params;
+  if (!Number.isFinite(novelId) || !Number.isFinite(chapterId)) return;
+  if (!Number.isFinite(duration) || duration < 1000) return;
+  if (!Number.isFinite(startTime)) return;
+  const { db } = await import('@database/db');
+  await db.runAsync(
+    'INSERT INTO ReadingSession (novelId, chapterId, startTime, duration) VALUES (?, ?, ?, ?)',
+    novelId,
+    chapterId,
+    startTime,
+    Math.round(duration),
+  );
+};

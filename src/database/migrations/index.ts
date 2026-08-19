@@ -13,10 +13,12 @@ import { migration002 } from './002_add_novel_counters';
 import { migration003 } from './003_add_tts_state';
 import { migration004 } from './004_recreate_novel_triggers';
 import { migration005 } from './005_add_repository_enabled';
+import { migration006 } from './006_add_reading_time_tracking';
 
 export const migrations: Migration[] = [
   migration002,
   migration003,
   migration004,
   migration005,
+  migration006,
 ];

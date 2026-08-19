@@ -1471,6 +1471,7 @@ window.reader = new (function () {
 
   // NEW: Debounced scroll handler to replace scrollend
   this.scrollDebounceTimer = null;
+  this.lastReadingActivityPost = 0;
   this.accumulatedScrollDelta = 0;
   this.DIRECTION_CHANGE_THRESHOLD = 50; // pixels
 
@@ -1505,6 +1506,14 @@ window.reader = new (function () {
     }
 
     window.tts.lastKnownScrollY = currentScrollY;
+
+    // Notify native reading-time tracking about manual scrolling without
+    // flooding the React Native bridge on every scroll event.
+    const now = Date.now();
+    if (now - this.lastReadingActivityPost >= 250) {
+      this.lastReadingActivityPost = now;
+      this.post({ type: 'reading-activity' });
+    }
 
     // Debounce the actual processing
     if (this.scrollDebounceTimer) {
@@ -4126,6 +4135,7 @@ document.addEventListener('message', __handleNativeMessage);
   this.initialY = null;
 
   reader.chapterElement.addEventListener('touchstart', e => {
+    this.post({ type: 'reading-activity' });
     this.initialX = e.changedTouches[0].screenX;
     this.initialY = e.changedTouches[0].screenY;
   });

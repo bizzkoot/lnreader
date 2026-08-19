@@ -257,6 +257,8 @@ export interface UseTTSControllerReturn {
   chapterTransitionTimeRef: RefObject<number>;
   /** Previous chapter ID ref (for TTS chapterId parameter in WebView commands) */
   prevChapterIdRef: RefObject<number>;
+  /** Whether TTS is currently reading (ref, updates without re-render) */
+  isTTSReadingRef: RefObject<boolean>;
 
   // === Utility Functions ===
   /** Resume TTS from stored state */
@@ -3700,6 +3702,7 @@ export function useTTSController(
     chaptersAutoPlayedRef,
     chapterTransitionTimeRef,
     prevChapterIdRef,
+    isTTSReadingRef,
 
     // Utility Functions (from utilities)
     resumeTTS,

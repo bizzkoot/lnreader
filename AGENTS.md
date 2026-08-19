@@ -40,6 +40,7 @@ All commits MUST use a Conventional Commits message. Follow these structural rul
    - Focus on what changed and why rather than implementation details.
 4. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`.
 5. Include validation details in the body when relevant, such as type-checking, linting, formatting, tests, builds, native compilation, or diff checks.
+6. Commit bodies must contain real line breaks. Never pass literal `\\n` text in a commit message; use repeated `-m` arguments or a heredoc/file with actual newlines.
 
 ## Current Task
 

@@ -81,6 +81,7 @@ import {
   useNovelTtsSettings,
 } from '@services/tts/novelTtsSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import { useTimeTracking } from '@hooks/persisted/useTimeTracking';
 
 // Import the TTS hook
 import { useTTSController } from '../hooks/useTTSController';
@@ -421,6 +422,21 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
     readerSettingsRef,
     chapterGeneralSettingsRef,
     showToastMessage,
+  });
+
+  // ============================================================================
+  // Reading time tracking (PRD 3.2) — manual reading only, pauses during TTS PLAYING
+  // ============================================================================
+  const { readingTimeTrackingEnabled, readingTimeInactivityTimeoutMs } =
+    useAppSettings();
+  const timeTracking = useTimeTracking({
+    novelId: novel?.id,
+    chapterId: chapter?.id,
+    enabled: !!readingTimeTrackingEnabled,
+    inactivityTimeoutMs: readingTimeInactivityTimeoutMs ?? 0,
+    isTTSActiveRef: (
+      tts as unknown as { isTTSReadingRef: React.RefObject<boolean> }
+    ).isTTSReadingRef,
   });
 
   // ============================================================================
@@ -885,7 +901,11 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
             applyTtsUpdateToWebView(event.data as TTSSettings, webViewRef);
           }
           break;
+        case 'reading-activity':
+          timeTracking.recordActivity();
+          break;
         case 'hide':
+          timeTracking.recordActivity();
           onPress();
           break;
         case 'next':
@@ -989,6 +1009,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
                 event.paragraphIndex as number | undefined,
               );
             }
+            timeTracking.recordActivity();
           }
           break;
         case 'show-toast':
@@ -1482,6 +1503,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
       getChapter,
       onSearchResult,
       searchQuery,
+      timeTracking,
     ],
   );
 
