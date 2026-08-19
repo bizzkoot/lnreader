@@ -538,6 +538,9 @@ export interface StringMap {
   'statsScreen.titlesInLibrary': 'string';
   'statsScreen.totalChapters': 'string';
   'statsScreen.unreadChapters': 'string';
+  'statsScreen.tabs.overview': 'string';
+  'statsScreen.tabs.time': 'string';
+  'statsScreen.tabs.plugins': 'string';
   'tracking': 'string';
   'trackingScreen.logOutMessage': 'string';
   'trackingScreen.revalidate': 'string';

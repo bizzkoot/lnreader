@@ -204,6 +204,109 @@ export const getReadingTimeGroupedByChapter = async (): Promise<
   }>;
 };
 
+// --- 3.3 additions (raw-SQL, no Drizzle) ---
+
+export interface AggregateStats extends LibraryStats {
+  totalReadingTime?: number;
+}
+
+interface AggregateRow {
+  novelsCount: number;
+  sourcesCount: number;
+  chaptersCount: number;
+  chaptersUnread: number;
+  chaptersDownloaded: number;
+  totalReadingTime: number | null;
+}
+
+const getAggregateStatsQuery = `
+  SELECT
+    COUNT(*) as novelsCount,
+    COUNT(DISTINCT pluginId) as sourcesCount,
+    COALESCE(SUM(totalChapters), 0) as chaptersCount,
+    COALESCE(SUM(chaptersUnread), 0) as chaptersUnread,
+    COALESCE(SUM(chaptersDownloaded), 0) as chaptersDownloaded,
+    COALESCE((SELECT SUM(duration) FROM ReadingSession JOIN Novel n2 ON ReadingSession.novelId = n2.id WHERE n2.inLibrary = 1), 0) as totalReadingTime
+  FROM Novel
+  WHERE inLibrary = 1
+`;
+
+export const getAggregateStatsFromDb = async (): Promise<AggregateStats> => {
+  const row = await getFirstAsync<AggregateRow>([getAggregateStatsQuery]);
+  if (!row) return {};
+  const chaptersCount = row.chaptersCount ?? 0;
+  const chaptersUnread = row.chaptersUnread ?? 0;
+  return {
+    novelsCount: row.novelsCount ?? 0,
+    sourcesCount: row.sourcesCount ?? 0,
+    chaptersCount,
+    chaptersUnread,
+    chaptersDownloaded: row.chaptersDownloaded ?? 0,
+    chaptersRead: Math.max(0, chaptersCount - chaptersUnread),
+    totalReadingTime: row.totalReadingTime ?? 0,
+  };
+};
+
+export interface NovelWithGenresRow {
+  id: number;
+  pluginId: string;
+  name: string;
+  cover?: string;
+  genres?: string | null;
+  status?: string | null;
+  totalChapters: number;
+  chaptersUnread: number;
+  chaptersDownloaded: number;
+}
+
+const getNovelsWithGenresQueryFull = `
+  SELECT id, pluginId, name, cover, genres, status, totalChapters, chaptersUnread, chaptersDownloaded
+  FROM Novel
+  WHERE inLibrary = 1
+`;
+
+export const getNovelsWithGenresFromDb = async (): Promise<
+  NovelWithGenresRow[]
+> => {
+  const rows = await getAllAsync<NovelWithGenresRow>([
+    getNovelsWithGenresQueryFull,
+  ]);
+  return rows ?? [];
+};
+
+export interface TopNovelTimeRow {
+  id: number;
+  pluginId: string;
+  name: string;
+  cover?: string | null;
+  timeSpent: number;
+}
+
+const getTopNovelsByReadingTimeQuery = `
+  SELECT Novel.id as id, Novel.pluginId as pluginId, Novel.name as name, Novel.cover as cover,
+         COALESCE(SUM(ReadingSession.duration), 0) as timeSpent
+  FROM Novel
+  JOIN ReadingSession ON Novel.id = ReadingSession.novelId
+  WHERE Novel.inLibrary = 1
+  GROUP BY Novel.id
+  HAVING timeSpent > 0
+  ORDER BY timeSpent DESC
+  LIMIT ?
+`;
+
+export const getTopNovelsByReadingTimeFromDb = async (
+  limit = 10,
+): Promise<TopNovelTimeRow[]> => {
+  const safeLimit = Number.isFinite(limit)
+    ? Math.max(1, Math.min(50, Math.floor(limit)))
+    : 10;
+  const rows = await getAllAsync<TopNovelTimeRow>([
+    getTopNovelsByReadingTimeQuery,
+    [safeLimit],
+  ]);
+  return (rows ?? []) as TopNovelTimeRow[];
+};
+
 export const insertReadingSession = async (params: {
   novelId: number;
   chapterId: number;

@@ -632,7 +632,12 @@
     "title": "Statistics",
     "titlesInLibrary": "Titles in library",
     "totalChapters": "Total chapters",
-    "unreadChapters": "Unread chapters"
+    "unreadChapters": "Unread chapters",
+    "tabs": {
+      "overview": "Overview",
+      "time": "Time",
+      "plugins": "Plugins"
+    }
   },
   "tracking": "Tracking",
   "trackingScreen": {

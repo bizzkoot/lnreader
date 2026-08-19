@@ -107,6 +107,7 @@ export interface LibraryStats {
   sourcesCount?: number;
   genres?: Record<string, number>;
   status?: Record<string, number>;
+  totalReadingTime?: number;
 }
 
 export interface BackupNovel extends NovelInfo {
