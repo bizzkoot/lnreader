@@ -1,4 +1,5 @@
 import * as Localization from 'expo-localization';
+import { I18nManager } from 'react-native';
 import dayjs from 'dayjs';
 import { I18n, TranslateOptions } from 'i18n-js';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
@@ -147,6 +148,12 @@ const detectedLocale =
   savedLocale ||
   Localization.getLocales()[0]?.languageTag ||
   i18n.defaultLocale;
+const isRtlLocale = ['ar', 'he', 'fa', 'ur'].includes(
+  detectedLocale.split(/[-_]/)[0].toLowerCase(),
+);
+
+I18nManager?.allowRTL?.(true);
+I18nManager?.forceRTL?.(isRtlLocale);
 
 i18n.locale = detectedLocale;
 dayjs.locale(getDayjsLocale(detectedLocale));

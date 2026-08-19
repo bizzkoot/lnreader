@@ -36,7 +36,7 @@ import {
   useChapterReaderSettings,
   useAppSettings,
 } from '@hooks/persisted';
-import { getString } from '@strings/translations';
+import { getString, localization } from '@strings/translations';
 
 import { getPlugin } from '@plugins/pluginManager';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
@@ -641,9 +641,16 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
   // ============================================================================
 
   const memoizedHTML = useMemo(() => {
+    const language = (localization || 'en').replace('_', '-');
+    const direction = ['ar', 'he', 'fa', 'ur'].includes(
+      language.split('-')[0].toLowerCase(),
+    )
+      ? 'rtl'
+      : 'ltr';
+
     return `
       <!DOCTYPE html>
-      <html lang="en" style="background-color: ${readerSettings.theme}">
+      <html lang="${language}" dir="${direction}" style="background-color: ${readerSettings.theme}">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -685,7 +692,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
             ${readerSettings.customCSS}
           </style>
         </head>
-        <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
+        <body dir="${direction}" class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
           <div class="transition-chapter" style="transform: translateX(0%);${
             chapterGeneralSettings.pageReader ? '' : 'display: none'
           }">
