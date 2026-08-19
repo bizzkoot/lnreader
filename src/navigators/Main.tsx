@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { AppState } from 'react-native';
 
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -36,6 +37,7 @@ import Color from 'color';
 import { useMMKVBoolean } from 'react-native-mmkv';
 import OnboardingScreen from '@screens/onboarding/OnboardingScreen';
 import ServiceManager from '@services/ServiceManager';
+import { dispatchScheduledLibraryUpdateIfDue } from '@services/updates/scheduledLibraryUpdates';
 import ReaderStack from './ReaderStack';
 import { LibraryContextProvider } from '@components/Context/LibraryContext';
 import { UpdateContextProvider } from '@components/Context/UpdateContext';
@@ -61,6 +63,8 @@ const MainNavigator = () => {
   useEffect(() => {
     if (updateLibraryOnLaunch) {
       ServiceManager.manager.addTask({ name: 'UPDATE_LIBRARY' });
+    } else {
+      dispatchScheduledLibraryUpdateIfDue();
     }
     if (isOnboarded) {
       // hack this helps app has enough time to initialize database;
@@ -69,6 +73,15 @@ const MainNavigator = () => {
       });
     }
   }, [isOnboarded, refreshPlugins, updateLibraryOnLaunch]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        dispatchScheduledLibraryUpdateIfDue();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   const { isNewVersion, latestRelease, ignoreVersion } =
     useGithubUpdateChecker();

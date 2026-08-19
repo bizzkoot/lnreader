@@ -38,6 +38,26 @@ export const LIBRARY_SETTINGS = 'LIBRARY_SETTINGS';
 export const CHAPTER_GENERAL_SETTINGS = 'CHAPTER_GENERAL_SETTINGS';
 export const CHAPTER_READER_SETTINGS = 'CHAPTER_READER_SETTINGS';
 
+export const SUPPORTED_LIBRARY_UPDATE_INTERVAL_HOURS = [
+  0, 12, 24, 48, 72, 168,
+] as const;
+
+export type SupportedLibraryUpdateIntervalHours =
+  (typeof SUPPORTED_LIBRARY_UPDATE_INTERVAL_HOURS)[number];
+
+export const isSupportedLibraryUpdateIntervalHours = (
+  value: unknown,
+): value is SupportedLibraryUpdateIntervalHours =>
+  typeof value === 'number' &&
+  (SUPPORTED_LIBRARY_UPDATE_INTERVAL_HOURS as readonly number[]).includes(
+    value,
+  );
+
+export const normalizeLibraryUpdateIntervalHours = (
+  value: unknown,
+): SupportedLibraryUpdateIntervalHours =>
+  isSupportedLibraryUpdateIntervalHours(value) ? value : 0;
+
 export interface AppSettings {
   /**
    * General settings
@@ -142,6 +162,13 @@ export interface AppSettings {
    */
   readingTimeTrackingEnabled?: boolean;
   readingTimeInactivityTimeoutMs?: number;
+
+  /**
+   * Scheduled background library updates (PRD 3.4)
+   * - 0 = off (default)
+   * - Supported intervals: 12, 24, 48, 72, 168 hours
+   */
+  automaticLibraryUpdateIntervalHours?: number;
 }
 
 export interface BrowseSettings {
@@ -392,6 +419,11 @@ const initialAppSettings: AppSettings = {
    */
   readingTimeTrackingEnabled: false,
   readingTimeInactivityTimeoutMs: 0,
+
+  /**
+   * Scheduled background library updates (PRD 3.4)
+   */
+  automaticLibraryUpdateIntervalHours: 0,
 };
 
 const initialBrowseSettings: BrowseSettings = {
@@ -466,6 +498,9 @@ export const useAppSettings = () => {
   const clampedSettings = {
     ...appSettings,
     uiScale: clampUIScale(appSettings.uiScale ?? 1.0),
+    automaticLibraryUpdateIntervalHours: normalizeLibraryUpdateIntervalHours(
+      appSettings.automaticLibraryUpdateIntervalHours,
+    ),
   };
 
   const setAppSettings = (values: Partial<AppSettings>) => {
@@ -473,6 +508,12 @@ export const useAppSettings = () => {
     const valuesToSet = { ...values };
     if (valuesToSet.uiScale !== undefined) {
       valuesToSet.uiScale = clampUIScale(valuesToSet.uiScale);
+    }
+    if (valuesToSet.automaticLibraryUpdateIntervalHours !== undefined) {
+      valuesToSet.automaticLibraryUpdateIntervalHours =
+        normalizeLibraryUpdateIntervalHours(
+          valuesToSet.automaticLibraryUpdateIntervalHours,
+        );
     }
     setSettings({ ...clampedSettings, ...valuesToSet });
   };

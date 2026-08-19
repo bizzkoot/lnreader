@@ -5,6 +5,7 @@ import DisplayModeModal from './modals/DisplayModeModal';
 import GridSizeModal from './modals/GridSizeModal';
 import AutoDownloadModal from './modals/AutoDownloadModal';
 import DownloadCooldownModal from './modals/DownloadCooldownModal';
+import AutomaticLibraryUpdateModal from './modals/AutomaticLibraryUpdateModal';
 
 import {
   useAppSettings,
@@ -63,6 +64,7 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
     autoDownloadOnRemaining = 'disabled',
     autoDownloadAmount = '10',
     chapterDownloadCooldownMs,
+    automaticLibraryUpdateIntervalHours = 0,
     setAppSettings,
   } = useAppSettings();
 
@@ -117,6 +119,11 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
    */
   const downloadCooldownModalRef = useBoolean();
 
+  /**
+   * Automatic Library Update Modal
+   */
+  const automaticUpdateModalRef = useBoolean();
+
   const getAutoDownloadRemainingDescription = () => {
     switch (autoDownloadOnRemaining) {
       case '5':
@@ -132,6 +139,23 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
 
   const getAutoDownloadAmountDescription = () => {
     return `${autoDownloadAmount} chapters`;
+  };
+
+  const getAutomaticUpdateDescription = () => {
+    switch (automaticLibraryUpdateIntervalHours) {
+      case 12:
+        return getString('generalSettingsScreen.automaticUpdateEvery12h');
+      case 24:
+        return getString('generalSettingsScreen.automaticUpdateEvery24h');
+      case 48:
+        return getString('generalSettingsScreen.automaticUpdateEvery48h');
+      case 72:
+        return getString('generalSettingsScreen.automaticUpdateEvery72h');
+      case 168:
+        return getString('generalSettingsScreen.automaticUpdateEveryWeek');
+      default:
+        return getString('generalSettingsScreen.automaticUpdateOff');
+    }
   };
 
   return (
@@ -243,6 +267,12 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
             onPress={() => setShowLastUpdateTime(!showLastUpdateTime)}
             theme={theme}
           />
+          <List.Item
+            title={getString('generalSettingsScreen.automaticUpdate')}
+            description={getAutomaticUpdateDescription()}
+            onPress={automaticUpdateModalRef.setTrue}
+            theme={theme}
+          />
           <List.Divider theme={theme} />
           <List.SubHeader theme={theme}>
             {getString('generalSettingsScreen.autoDownload')}
@@ -349,6 +379,11 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
       <DownloadCooldownModal
         visible={downloadCooldownModalRef.value}
         hideModal={downloadCooldownModalRef.setFalse}
+        theme={theme}
+      />
+      <AutomaticLibraryUpdateModal
+        visible={automaticUpdateModalRef.value}
+        onDismiss={automaticUpdateModalRef.setFalse}
         theme={theme}
       />
     </SafeAreaView>

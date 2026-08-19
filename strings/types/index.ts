@@ -341,6 +341,14 @@ export interface StringMap {
   'generalSettingsScreen.updateLibrary': 'string';
   'generalSettingsScreen.updateLibraryDesc': 'string';
   'generalSettingsScreen.updateOngoing': 'string';
+  'generalSettingsScreen.automaticUpdate': 'string';
+  'generalSettingsScreen.automaticUpdateDesc': 'string';
+  'generalSettingsScreen.automaticUpdateOff': 'string';
+  'generalSettingsScreen.automaticUpdateEvery12h': 'string';
+  'generalSettingsScreen.automaticUpdateEvery24h': 'string';
+  'generalSettingsScreen.automaticUpdateEvery48h': 'string';
+  'generalSettingsScreen.automaticUpdateEvery72h': 'string';
+  'generalSettingsScreen.automaticUpdateEveryWeek': 'string';
   'generalSettingsScreen.updateTime': 'string';
   'generalSettingsScreen.useFAB': 'string';
   'globalSearch.allSources': 'string';
