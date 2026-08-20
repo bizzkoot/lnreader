@@ -97,9 +97,9 @@ describe('isScheduledLibraryUpdateDue', () => {
     expect(isScheduledLibraryUpdateDue('not-a-date', 24, base)).toBe(true);
   });
 
-  it('returns false on future lastUpdateTime (clock skew)', () => {
+  it('returns true on future lastUpdateTime (clock skew self-heal)', () => {
     const future = dayjs(base).add(1, 'hour').format('YYYY-MM-DD HH:mm:ss');
-    expect(isScheduledLibraryUpdateDue(future, 24, base)).toBe(false);
+    expect(isScheduledLibraryUpdateDue(future, 24, base)).toBe(true);
   });
 
   it('respects exact threshold boundary', () => {

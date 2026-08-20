@@ -30,8 +30,8 @@ body {
 }
 
 #LNReader-chapter {
-  padding-left: var(--readerSettings-padding);
-  padding-right: var(--readerSettings-padding);
+  padding-inline-start: var(--readerSettings-padding);
+  padding-inline-end: var(--readerSettings-padding);
 }
 
 hr {
@@ -85,8 +85,8 @@ td {
 
 .next-button,
 .info-text {
-  margin-left: var(--readerSettings-padding);
-  margin-right: var(--readerSettings-padding);
+  margin-inline-start: var(--readerSettings-padding);
+  margin-inline-end: var(--readerSettings-padding);
   border-radius: 50px;
   background-color: var(--theme-primary);
   font-family: var(--readerSettings-fontFamily);

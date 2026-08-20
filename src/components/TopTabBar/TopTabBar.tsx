@@ -27,7 +27,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     start: 0,
-    left: 0,
   },
   primaryIndicator: {
     width: '60%',

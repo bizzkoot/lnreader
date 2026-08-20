@@ -45,7 +45,8 @@ export const isScheduledLibraryUpdateDue = (
   const parsed = parseLastUpdateTime(lastUpdateTime);
   if (!parsed) return true;
   const diffMs = nowMs - parsed.valueOf();
-  if (!Number.isFinite(diffMs) || diffMs < 0) return false;
+  if (!Number.isFinite(diffMs)) return false;
+  if (diffMs < 0) return true;
   return diffMs >= intervalHours * 60 * 60 * 1000;
 };
 

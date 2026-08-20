@@ -681,7 +681,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
               --readerSettings-padding: ${readerSettings.padding}px;
               --readerSettings-textSize: ${readerSettings.textSize}px;
               --readerSettings-textColor: ${readerSettings.textColor};
-              --readerSettings-textAlign: ${readerSettings.textAlign};
+              --readerSettings-textAlign: ${readerSettings.textAlign === 'left' ? 'start' : readerSettings.textAlign};
               --readerSettings-lineHeight: ${readerSettings.lineHeight};
               --readerSettings-fontFamily: ${readerSettings.fontFamily};
               --theme-primary: ${theme.primary};

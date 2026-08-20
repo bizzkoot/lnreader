@@ -80,8 +80,9 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
   let angle = 0;
   const segments = entries
     .map(e => {
+      if (sum <= 0) return null;
       const sweep = (e.value / sum) * 360;
-      if (sweep < 1.8) return null;
+      if (!Number.isFinite(sweep) || sweep < 1.8) return null;
       const start = angle;
       const end = angle + sweep;
       angle = end;
