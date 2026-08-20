@@ -250,6 +250,7 @@ const SettingsReaderScreen = () => {
 
   return (
     <SafeAreaView
+      excludeTop
       style={[styles.container, { backgroundColor: readerBackgroundColor }]}
     >
       <Appbar

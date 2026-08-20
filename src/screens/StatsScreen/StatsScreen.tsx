@@ -150,23 +150,23 @@ const StatsScreen = () => {
 
   if (error) {
     return (
-      <>
+      <SafeAreaView style={styles.safe} excludeTop>
         {Header}
         <ErrorScreenV2 error={error} />
-      </>
+      </SafeAreaView>
     );
   }
   if (isLoading) {
     return (
-      <>
+      <SafeAreaView style={styles.safe} excludeTop>
         {Header}
         <LoadingScreenV2 theme={theme} />
-      </>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} excludeTop>
       {Header}
       <TabView
         navigationState={{ index, routes }}

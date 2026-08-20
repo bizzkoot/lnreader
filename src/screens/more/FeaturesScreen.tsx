@@ -336,7 +336,10 @@ const FeaturesScreen = () => {
   const hideGuide = () => setSelectedFeature(null);
 
   return (
-    <SafeAreaView style={[{ backgroundColor: theme.background }, styles.root]}>
+    <SafeAreaView
+      excludeTop
+      style={[{ backgroundColor: theme.background }, styles.root]}
+    >
       <Appbar
         title="App Features"
         handleGoBack={() => navigation.goBack()}

@@ -1,5 +1,11 @@
-import { StyleSheet } from 'react-native';
-import { TabBar, type Route, type TabBarProps } from 'react-native-tab-view';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import {
+  TabBar,
+  TabBarIndicator,
+  type Route,
+  type TabBarProps,
+} from 'react-native-tab-view';
 
 const TopTabBar = <T extends Route>({
   indicatorStyle,
@@ -7,15 +13,25 @@ const TopTabBar = <T extends Route>({
 }: TabBarProps<T>) => (
   <TabBar
     {...props}
-    indicatorStyle={[styles.primaryIndicator, indicatorStyle]}
+    renderIndicator={indicatorProps => (
+      <TabBarIndicator {...indicatorProps} style={styles.indicatorWrapper}>
+        <View style={[styles.primaryIndicator, indicatorStyle]} />
+      </TabBarIndicator>
+    )}
   />
 );
 
 const styles = StyleSheet.create({
+  indicatorWrapper: {
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    start: 0,
+    left: 0,
+  },
   primaryIndicator: {
     width: '60%',
     height: 3,
-    marginHorizontal: 'auto',
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
   },

@@ -160,7 +160,7 @@ const TrackerScreen = ({ navigation }: TrackerSettingsScreenProps) => {
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Provider>
         <Appbar
           title={getString('tracking')}

@@ -260,7 +260,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
   );
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
         title={getString('appearance')}
         handleGoBack={navigation.goBack}

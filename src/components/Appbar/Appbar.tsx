@@ -16,7 +16,7 @@ const Appbar: React.FC<AppbarProps> = ({
   title,
   handleGoBack,
   theme,
-  mode = 'large',
+  mode = 'small',
   children,
 }) => (
   <PaperAppbar.Header

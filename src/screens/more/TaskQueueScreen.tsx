@@ -38,7 +38,7 @@ const DownloadQueue = ({ navigation }: TaskQueueScreenProps) => {
   //TODO: there should probably be a way to cancel a specific task from this screen
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
         title={'Task Queue'}
         handleGoBack={navigation.goBack}

@@ -91,7 +91,7 @@ const Downloads = ({ navigation }: DownloadsScreenProps) => {
   }, []);
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
         title={getString('common.downloads')}
         handleGoBack={navigation.goBack}

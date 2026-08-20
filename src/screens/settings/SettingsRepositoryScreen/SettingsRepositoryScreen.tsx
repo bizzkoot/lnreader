@@ -100,7 +100,7 @@ const SettingsBrowseScreen = ({
   }, [params, upsertRepository]);
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
         title={getString('repositories.title')}
         handleGoBack={() => {
