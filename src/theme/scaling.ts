@@ -3,8 +3,9 @@
  * - Min 0.8 (80%): Below this, text becomes illegible and touch targets too small
  * - Max 1.3 (130%): Above this, layouts overflow and modals clip
  */
-const UI_SCALE_MIN = 0.8;
-const UI_SCALE_MAX = 1.3;
+export const UI_SCALE_MIN = 0.8;
+export const UI_SCALE_MAX = 1.3;
+export const UI_SCALE_STEP = 0.05;
 
 /**
  * Clamp UI scale to safe range (0.8-1.3)

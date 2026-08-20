@@ -4,7 +4,6 @@ import {
   I18nManager,
   LayoutChangeEvent,
   PanResponder,
-  Pressable,
   StyleProp,
   StyleSheet,
   Text,
@@ -122,6 +121,17 @@ const Slider: React.FC<SliderProps> = ({
   const [width, setWidth] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [dragValue, setDragValue] = useState<number | null>(null);
+  const startXRef = React.useRef(0);
+
+  const disabledRef = React.useRef(disabled);
+  disabledRef.current = disabled;
+
+  const onSlidingCompleteRef = React.useRef(onSlidingComplete);
+  onSlidingCompleteRef.current = onSlidingComplete;
+
+  const onValueChangeRef = React.useRef(onValueChange);
+  onValueChangeRef.current = onValueChange;
+
   const sizeTokens = SIZE_TOKENS[size];
   const containerHeight = Math.max(
     TOUCH_TARGET_HEIGHT,
@@ -143,6 +153,13 @@ const Slider: React.FC<SliderProps> = ({
   }
   const displayedValue =
     dragValue === null ? boundedValue : clamp(dragValue, min, safeMax);
+
+  const displayedValueRef = React.useRef(displayedValue);
+  displayedValueRef.current = displayedValue;
+
+  const boundedValueRef = React.useRef(boundedValue);
+  boundedValueRef.current = boundedValue;
+
   const fraction = (displayedValue - min) / span;
   const isDiscrete = Boolean(step && step > 0);
   const isEndpoint = fraction === 0 || fraction === 1;
@@ -179,12 +196,18 @@ const Slider: React.FC<SliderProps> = ({
     [min, safeMax, step],
   );
 
+  const widthRef = React.useRef(width);
+  widthRef.current = width;
+
   const updateFromPosition = useCallback(
     (locationX: number) => {
-      if (disabled || width <= HANDLE_WIDTH) return displayedValue;
+      const currentWidth = widthRef.current;
+      if (disabledRef.current || currentWidth <= HANDLE_WIDTH) {
+        return displayedValueRef.current;
+      }
 
       let nextFraction = clamp(
-        (locationX - HANDLE_WIDTH / 2) / (width - HANDLE_WIDTH),
+        (locationX - HANDLE_WIDTH / 2) / (currentWidth - HANDLE_WIDTH),
         0,
         1,
       );
@@ -192,71 +215,78 @@ const Slider: React.FC<SliderProps> = ({
 
       const nextValue = normalizeValue(min + nextFraction * span);
       setDragValue(nextValue);
-      onValueChange?.(nextValue);
+      onValueChangeRef.current?.(nextValue);
       return nextValue;
     },
-    [disabled, displayedValue, min, normalizeValue, onValueChange, span, width],
+    [min, normalizeValue, span],
   );
 
   const completeAtLocation = useCallback(
     (locationX: number) => {
       const completedValue = updateFromPosition(locationX);
       setIsActive(false);
-      if (completedValue === boundedValue) {
+      if (completedValue === boundedValueRef.current) {
         setDragValue(null);
       }
-      onSlidingComplete?.(completedValue);
+      onSlidingCompleteRef.current?.(completedValue);
     },
-    [boundedValue, onSlidingComplete, updateFromPosition],
+    [updateFromPosition],
   );
 
-  const handleTap = useCallback(
-    (locationX: number) => {
-      if (disabled) return;
-      completeAtLocation(locationX);
-    },
-    [completeAtLocation, disabled],
-  );
+  const updateFromPositionRef = React.useRef(updateFromPosition);
+  updateFromPositionRef.current = updateFromPosition;
+
+  const completeAtLocationRef = React.useRef(completeAtLocation);
+  completeAtLocationRef.current = completeAtLocation;
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // Never claim at touch start: the parent vertical ScrollView must win
-        // vertical gestures (otherwise vertical swipes starting on the track
-        // are swallowed and cannot scroll the page).
-        onStartShouldSetPanResponder: () => false,
-        // Claim only once the gesture is clearly horizontal-dominant; taps
-        // (no move) fall through to the Pressable wrapper's onPress.
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          shouldClaimPanResponder(gestureState.dx, gestureState.dy, disabled),
+        onStartShouldSetPanResponder: () => !disabledRef.current,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: () => !disabledRef.current,
+        onMoveShouldSetPanResponderCapture: () => false,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: event => {
+          if (disabledRef.current) return;
           setIsActive(true);
-          updateFromPosition(event.nativeEvent.locationX);
+          const locX = event.nativeEvent?.locationX ?? 0;
+          startXRef.current = locX;
+          updateFromPositionRef.current(locX);
         },
-        onPanResponderMove: event =>
-          updateFromPosition(event.nativeEvent.locationX),
-        onPanResponderRelease: event =>
-          completeAtLocation(event.nativeEvent.locationX),
+        onPanResponderMove: (event, gestureState) => {
+          if (disabledRef.current) return;
+          const dx = gestureState?.dx ?? 0;
+          const locX = event.nativeEvent?.locationX;
+          const currentX =
+            dx !== 0 ? startXRef.current + dx : (locX ?? startXRef.current);
+          updateFromPositionRef.current(currentX);
+        },
+        onPanResponderRelease: (event, gestureState) => {
+          if (disabledRef.current) return;
+          const dx = gestureState?.dx ?? 0;
+          const locX = event.nativeEvent?.locationX;
+          const currentX =
+            dx !== 0 ? startXRef.current + dx : (locX ?? startXRef.current);
+          completeAtLocationRef.current(currentX);
+        },
         onPanResponderTerminate: () => {
+          if (disabledRef.current) return;
           setIsActive(false);
-          if (displayedValue === boundedValue) {
+          const currentVal = displayedValueRef.current;
+          if (currentVal === boundedValueRef.current) {
             setDragValue(null);
           }
-          onSlidingComplete?.(displayedValue);
+          onSlidingCompleteRef.current?.(currentVal);
         },
       }),
-    [
-      boundedValue,
-      completeAtLocation,
-      disabled,
-      displayedValue,
-      onSlidingComplete,
-      updateFromPosition,
-    ],
+    [],
   );
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setWidth(event.nativeEvent.layout.width);
+    const nextWidth = event.nativeEvent.layout.width;
+    widthRef.current = nextWidth;
+    setWidth(nextWidth);
   }, []);
 
   const changeBy = useCallback(
@@ -286,166 +316,159 @@ const Slider: React.FC<SliderProps> = ({
   }, [showStops, span, step]);
 
   return (
-    <Pressable
-      accessible={false}
-      disabled={disabled}
-      testID={`${testID}-press-surface`}
-      onPress={event => handleTap(event.nativeEvent.locationX)}
+    <View
+      {...viewProps}
+      {...panResponder.panHandlers}
+      testID={testID}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityActions={[
+        { name: 'increment', label: 'Increase' },
+        { name: 'decrement', label: 'Decrease' },
+      ]}
+      accessibilityState={{ disabled }}
+      accessibilityValue={{
+        min,
+        max: safeMax,
+        now: displayedValue,
+        text: formatValue(displayedValue),
+      }}
+      onAccessibilityAction={handleAccessibilityAction}
+      onLayout={handleLayout}
+      style={[styles.container, { height: containerHeight }, style]}
     >
-      <View
-        {...viewProps}
-        {...panResponder.panHandlers}
-        testID={testID}
-        accessible
-        accessibilityRole="adjustable"
-        accessibilityActions={[
-          { name: 'increment', label: 'Increase' },
-          { name: 'decrement', label: 'Decrease' },
-        ]}
-        accessibilityState={{ disabled }}
-        accessibilityValue={{
-          min,
-          max: safeMax,
-          now: displayedValue,
-          text: formatValue(displayedValue),
-        }}
-        onAccessibilityAction={handleAccessibilityAction}
-        onLayout={handleLayout}
-        style={[styles.container, { height: containerHeight }, style]}
-      >
-        {showValueIndicator && isActive ? (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.valueIndicator,
-              {
-                backgroundColor: theme.inverseSurface,
-                bottom: centerY + sizeTokens.handleHeight / 2 + 12,
-                left: handlePosition,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.valueIndicatorText,
-                { color: theme.inverseOnSurface },
-              ]}
-            >
-              {formatValue(displayedValue)}
-            </Text>
-          </View>
-        ) : null}
-
-        <>
-          <View
-            pointerEvents="none"
-            testID={`${testID}-active-track`}
-            style={[
-              styles.trackSegment,
-              {
-                backgroundColor: disabled
-                  ? disabledActiveColor
-                  : resolvedActiveColor,
-                borderTopLeftRadius: I18nManager.isRTL
-                  ? INSIDE_CORNER_RADIUS
-                  : sizeTokens.trackRadius,
-                borderBottomLeftRadius: I18nManager.isRTL
-                  ? INSIDE_CORNER_RADIUS
-                  : sizeTokens.trackRadius,
-                borderTopRightRadius: I18nManager.isRTL
-                  ? sizeTokens.trackRadius
-                  : INSIDE_CORNER_RADIUS,
-                borderBottomRightRadius: I18nManager.isRTL
-                  ? sizeTokens.trackRadius
-                  : INSIDE_CORNER_RADIUS,
-                height: sizeTokens.trackHeight,
-                left: I18nManager.isRTL ? afterHandleStart : 0,
-                top: trackTop,
-                width: I18nManager.isRTL ? afterHandleWidth : beforeHandleWidth,
-              },
-            ]}
-          />
-          <View
-            pointerEvents="none"
-            testID={`${testID}-inactive-track`}
-            style={[
-              styles.trackSegment,
-              {
-                backgroundColor: disabled
-                  ? disabledInactiveColor
-                  : resolvedInactiveColor,
-                borderTopLeftRadius: I18nManager.isRTL
-                  ? sizeTokens.trackRadius
-                  : INSIDE_CORNER_RADIUS,
-                borderBottomLeftRadius: I18nManager.isRTL
-                  ? sizeTokens.trackRadius
-                  : INSIDE_CORNER_RADIUS,
-                borderTopRightRadius: I18nManager.isRTL
-                  ? INSIDE_CORNER_RADIUS
-                  : sizeTokens.trackRadius,
-                borderBottomRightRadius: I18nManager.isRTL
-                  ? INSIDE_CORNER_RADIUS
-                  : sizeTokens.trackRadius,
-                height: sizeTokens.trackHeight,
-                left: I18nManager.isRTL ? 0 : afterHandleStart,
-                top: trackTop,
-                width: I18nManager.isRTL ? beforeHandleWidth : afterHandleWidth,
-              },
-            ]}
-          />
-          {stops.map(stop => {
-            const stopPosition =
-              sizeTokens.trackRadius +
-              (width - sizeTokens.trackRadius * 2) *
-                (I18nManager.isRTL ? 1 - stop : stop);
-            const isInHandleGap =
-              Math.abs(stopPosition - handlePosition) <= gapFromHandleCenter;
-            if (isInHandleGap) return null;
-
-            const isActiveStop = stop <= fraction;
-            return (
-              <View
-                key={stop}
-                pointerEvents="none"
-                style={[
-                  styles.stop,
-                  {
-                    backgroundColor: disabled
-                      ? disabledActiveColor
-                      : showStops
-                        ? isActiveStop
-                          ? theme.onPrimary
-                          : theme.onSecondaryContainer
-                        : resolvedActiveColor,
-                    left: stopPosition,
-                    top: stopTop,
-                  },
-                ]}
-              />
-            );
-          })}
-        </>
-
+      {showValueIndicator && isActive ? (
         <View
           pointerEvents="none"
-          testID={`${testID}-handle`}
           style={[
-            styles.handle,
+            styles.valueIndicator,
+            {
+              backgroundColor: theme.inverseSurface,
+              bottom: centerY + sizeTokens.handleHeight / 2 + 12,
+              left: handlePosition,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.valueIndicatorText,
+              { color: theme.inverseOnSurface },
+            ]}
+          >
+            {formatValue(displayedValue)}
+          </Text>
+        </View>
+      ) : null}
+
+      <>
+        <View
+          pointerEvents="none"
+          testID={`${testID}-active-track`}
+          style={[
+            styles.trackSegment,
             {
               backgroundColor: disabled
                 ? disabledActiveColor
-                : resolvedHandleColor,
-              borderRadius: HANDLE_WIDTH / 2,
-              height: sizeTokens.handleHeight,
-              left: handlePosition,
-              marginLeft: -(isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH) / 2,
-              top: handleTop,
-              width: isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH,
+                : resolvedActiveColor,
+              borderTopLeftRadius: I18nManager.isRTL
+                ? INSIDE_CORNER_RADIUS
+                : sizeTokens.trackRadius,
+              borderBottomLeftRadius: I18nManager.isRTL
+                ? INSIDE_CORNER_RADIUS
+                : sizeTokens.trackRadius,
+              borderTopRightRadius: I18nManager.isRTL
+                ? sizeTokens.trackRadius
+                : INSIDE_CORNER_RADIUS,
+              borderBottomRightRadius: I18nManager.isRTL
+                ? sizeTokens.trackRadius
+                : INSIDE_CORNER_RADIUS,
+              height: sizeTokens.trackHeight,
+              left: I18nManager.isRTL ? afterHandleStart : 0,
+              top: trackTop,
+              width: I18nManager.isRTL ? afterHandleWidth : beforeHandleWidth,
             },
           ]}
         />
-      </View>
-    </Pressable>
+        <View
+          pointerEvents="none"
+          testID={`${testID}-inactive-track`}
+          style={[
+            styles.trackSegment,
+            {
+              backgroundColor: disabled
+                ? disabledInactiveColor
+                : resolvedInactiveColor,
+              borderTopLeftRadius: I18nManager.isRTL
+                ? sizeTokens.trackRadius
+                : INSIDE_CORNER_RADIUS,
+              borderBottomLeftRadius: I18nManager.isRTL
+                ? sizeTokens.trackRadius
+                : INSIDE_CORNER_RADIUS,
+              borderTopRightRadius: I18nManager.isRTL
+                ? INSIDE_CORNER_RADIUS
+                : sizeTokens.trackRadius,
+              borderBottomRightRadius: I18nManager.isRTL
+                ? INSIDE_CORNER_RADIUS
+                : sizeTokens.trackRadius,
+              height: sizeTokens.trackHeight,
+              left: I18nManager.isRTL ? 0 : afterHandleStart,
+              top: trackTop,
+              width: I18nManager.isRTL ? beforeHandleWidth : afterHandleWidth,
+            },
+          ]}
+        />
+        {stops.map(stop => {
+          const stopPosition =
+            sizeTokens.trackRadius +
+            (width - sizeTokens.trackRadius * 2) *
+              (I18nManager.isRTL ? 1 - stop : stop);
+          const isInHandleGap =
+            Math.abs(stopPosition - handlePosition) <= gapFromHandleCenter;
+          if (isInHandleGap) return null;
+
+          const isActiveStop = stop <= fraction;
+          return (
+            <View
+              key={stop}
+              pointerEvents="none"
+              style={[
+                styles.stop,
+                {
+                  backgroundColor: disabled
+                    ? disabledActiveColor
+                    : showStops
+                      ? isActiveStop
+                        ? theme.onPrimary
+                        : theme.onSecondaryContainer
+                      : resolvedActiveColor,
+                  left: stopPosition,
+                  top: stopTop,
+                },
+              ]}
+            />
+          );
+        })}
+      </>
+
+      <View
+        pointerEvents="none"
+        testID={`${testID}-handle`}
+        style={[
+          styles.handle,
+          {
+            backgroundColor: disabled
+              ? disabledActiveColor
+              : resolvedHandleColor,
+            borderRadius: HANDLE_WIDTH / 2,
+            height: sizeTokens.handleHeight,
+            left: handlePosition,
+            marginLeft: -(isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH) / 2,
+            top: handleTop,
+            width: isActive ? PRESSED_HANDLE_WIDTH : HANDLE_WIDTH,
+          },
+        ]}
+      />
+    </View>
   );
 };
 
