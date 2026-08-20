@@ -17,7 +17,12 @@
  *   because the chain only ever resolves through `release()`.
  */
 
-let writeQueue = Promise.resolve();
+let writeQueue: Promise<void> = Promise.resolve();
+
+// test-only: reset module-scoped chain between tests to avoid cross-test pollution
+export const __resetQueueForTests = () => {
+  writeQueue = Promise.resolve();
+};
 
 export const withWriteLock = async <T>(
   operation: () => Promise<T> | T,

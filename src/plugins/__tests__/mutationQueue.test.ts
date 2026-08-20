@@ -1,32 +1,51 @@
-import { withPluginMutationLock } from '../mutationQueue';
+import { withPluginMutationLock, __resetQueueForTests } from '../mutationQueue';
 
-const tick = (ms = 5) => new Promise(resolve => setTimeout(resolve, ms));
+const createDeferred = <T = void>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 describe('withPluginMutationLock', () => {
+  beforeEach(() => {
+    __resetQueueForTests();
+  });
+
   it('runs operations strictly in FIFO order without interleaving', async () => {
     const events: string[] = [];
+    const gate = createDeferred<void>();
 
-    const results = await Promise.all([
-      withPluginMutationLock(async () => {
-        events.push('a-start');
-        await tick(20);
-        events.push('a-end');
-        return 'A';
-      }),
-      withPluginMutationLock(async () => {
-        events.push('b-start');
-        events.push('b-end');
-        return 'B';
-      }),
-      withPluginMutationLock(async () => {
-        events.push('c-start');
-        events.push('c-end');
-        return 'C';
-      }),
-    ]);
+    const pA = withPluginMutationLock(async () => {
+      events.push('a-start');
+      await gate.promise;
+      events.push('a-end');
+      return 'A';
+    });
+    const pB = withPluginMutationLock(async () => {
+      events.push('b-start');
+      events.push('b-end');
+      return 'B';
+    });
+    const pC = withPluginMutationLock(async () => {
+      events.push('c-start');
+      events.push('c-end');
+      return 'C';
+    });
+
+    // A has started, B/C are queued
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(events).toEqual(['a-start']);
+    expect(events).not.toContain('b-start');
+
+    gate.resolve();
+    const results = await Promise.all([pA, pB, pC]);
 
     expect(results).toEqual(['A', 'B', 'C']);
-    // The second operation must not start until the first has finished.
     expect(events.indexOf('b-start')).toBeGreaterThan(events.indexOf('a-end'));
     expect(events.indexOf('c-start')).toBeGreaterThan(events.indexOf('b-end'));
   });

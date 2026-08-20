@@ -1,32 +1,50 @@
-import { withWriteLock } from '../writeQueue';
+import { withWriteLock, __resetQueueForTests } from '../writeQueue';
 
-const tick = (ms = 5) => new Promise(resolve => setTimeout(resolve, ms));
+const createDeferred = <T = void>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
 
 describe('withWriteLock (module-scoped plugin write queue)', () => {
+  beforeEach(() => {
+    __resetQueueForTests();
+  });
+
   it('runs operations strictly in FIFO order without interleaving', async () => {
     const events: string[] = [];
+    const gate = createDeferred<void>();
 
-    const results = await Promise.all([
-      withWriteLock(async () => {
-        events.push('a-start');
-        await tick(20);
-        events.push('a-end');
-        return 'A';
-      }),
-      withWriteLock(async () => {
-        events.push('b-start');
-        events.push('b-end');
-        return 'B';
-      }),
-      withWriteLock(async () => {
-        events.push('c-start');
-        events.push('c-end');
-        return 'C';
-      }),
-    ]);
+    const pA = withWriteLock(async () => {
+      events.push('a-start');
+      await gate.promise;
+      events.push('a-end');
+      return 'A';
+    });
+    const pB = withWriteLock(async () => {
+      events.push('b-start');
+      events.push('b-end');
+      return 'B';
+    });
+    const pC = withWriteLock(async () => {
+      events.push('c-start');
+      events.push('c-end');
+      return 'C';
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(events).toEqual(['a-start']);
+    expect(events).not.toContain('b-start');
+
+    gate.resolve();
+    const results = await Promise.all([pA, pB, pC]);
 
     expect(results).toEqual(['A', 'B', 'C']);
-    // The second operation must not start until the first has finished.
     expect(events.indexOf('b-start')).toBeGreaterThan(events.indexOf('a-end'));
     expect(events.indexOf('c-start')).toBeGreaterThan(events.indexOf('b-end'));
   });

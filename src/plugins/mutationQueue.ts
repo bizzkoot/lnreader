@@ -13,7 +13,12 @@
  *   because the chain only ever resolves through `release()`.
  */
 
-let mutationQueue = Promise.resolve();
+let mutationQueue: Promise<void> = Promise.resolve();
+
+// test-only: reset module-scoped chain between tests to avoid cross-test pollution
+export const __resetQueueForTests = () => {
+  mutationQueue = Promise.resolve();
+};
 
 export const withPluginMutationLock = async <T>(
   operation: () => Promise<T> | T,
