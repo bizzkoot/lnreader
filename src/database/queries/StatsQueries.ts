@@ -2,6 +2,13 @@ import { countBy } from 'lodash-es';
 import { LibraryStats } from '../types';
 import { getAllAsync, getFirstAsync } from '../utils/helpers';
 
+// ponytail: single helper for comma-separated fields; filter Boolean removes empty entries
+// (previously duplicated in getNovelGenresFromDb, getNovelStatusFromDb, and StatsScreen.tsx)
+export const splitCsvField = (value: string | null | undefined): string[] => {
+  if (!value) return [];
+  return value.split(/\s*,\s*/).filter(Boolean);
+};
+
 interface NovelGenresRow {
   genres: string;
 }
@@ -117,11 +124,7 @@ export const getNovelGenresFromDb = async (): Promise<LibraryStats> => {
   const genres: string[] = [];
   await getAllAsync<NovelGenresRow>([getNovelGenresQuery]).then(res => {
     res.forEach((item: NovelGenresRow) => {
-      const novelGenres = item.genres?.split(/\s*,\s*/);
-
-      if (novelGenres?.length) {
-        genres.push(...novelGenres);
-      }
+      genres.push(...splitCsvField(item.genres));
     });
   });
   return { genres: countBy(genres) };
@@ -131,11 +134,7 @@ export const getNovelStatusFromDb = async (): Promise<LibraryStats> => {
   const status: string[] = [];
   await getAllAsync<NovelStatusRow>([getNovelStatusQuery]).then(res => {
     res.forEach((item: NovelStatusRow) => {
-      const novelStatus = item.status?.split(/\s*,\s*/);
-
-      if (novelStatus?.length) {
-        status.push(...novelStatus);
-      }
+      status.push(...splitCsvField(item.status));
     });
   });
   return { status: countBy(status) };

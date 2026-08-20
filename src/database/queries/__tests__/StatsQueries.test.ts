@@ -280,8 +280,8 @@ describe('StatsQueries', () => {
 
       const result = await StatsQueries.getNovelGenresFromDb();
 
-      // countBy includes empty string in counts
-      expect(result.genres).toEqual({ '': 1, Action: 1 });
+      // splitCsvField filters empty entries via filter(Boolean)
+      expect(result.genres).toEqual({ Action: 1 });
     });
 
     it('should handle null genres', async () => {
@@ -358,8 +358,8 @@ describe('StatsQueries', () => {
 
       const result = await StatsQueries.getNovelStatusFromDb();
 
-      // countBy includes empty string in counts
-      expect(result.status).toEqual({ '': 1, Ongoing: 1 });
+      // splitCsvField filters empty entries via filter(Boolean)
+      expect(result.status).toEqual({ Ongoing: 1 });
     });
 
     it('should handle null status', async () => {

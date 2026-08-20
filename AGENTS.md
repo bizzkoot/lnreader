@@ -33,7 +33,7 @@ pnpm run test:tts-wake-cycle
 All commits MUST use a Conventional Commits message. Follow these structural rules strictly:
 
 1. Format: `<type>(<scope>): <summary>`
-2. Summary: use imperative mood (`add`, not `added`), start with lowercase, omit the period, and keep it to a maximum of 50 characters.
+2. Summary: use imperative mood (`add`, not `added`), start with lowercase, omit the period, and keep it to a maximum of 72 characters (ideal 50; scope + upstream refs may push toward 72 — hard limit 90 only when unavoidable).
 3. Body: for complex changes, add a blank line followed by a bulleted list.
    - Use `-` bullets for distinct technical changes or side effects.
    - Keep each bullet point on a single line; do not hard-wrap or break lines mid-sentence.

@@ -23,6 +23,7 @@ import {
   getNovelsWithGenresFromDb,
   getTopNovelsByReadingTimeFromDb,
   NovelWithGenresRow,
+  splitCsvField,
   TopNovelTimeRow,
 } from '@database/queries/StatsQueries';
 import { countBy } from 'lodash-es';
@@ -63,14 +64,8 @@ const StatsScreen = () => {
       const genres: string[] = [];
       const status: string[] = [];
       novelsWithGenres.forEach(n => {
-        if (n.genres) {
-          const parts = n.genres.split(/\s*,\s*/).filter(Boolean);
-          genres.push(...parts);
-        }
-        if (n.status) {
-          const parts = n.status.split(/\s*,\s*/).filter(Boolean);
-          status.push(...parts);
-        }
+        genres.push(...splitCsvField(n.genres));
+        status.push(...splitCsvField(n.status));
       });
 
       const merged: AggregateStats & LibraryStats = {
