@@ -43,16 +43,18 @@
 
 This fork builds on the original LNReader with enhanced features focused on accessibility, reading experience, and productivity:
 
-- **Advanced TTS System**: Bluetooth headset controls, multi-chapter background playback, smart auto-stop, queue management, and live settings updates
+- **Advanced TTS System**: Bluetooth headset controls, multi-chapter background playback, smart auto-stop, queue management, live settings updates, and length-preserving text cleanup
 - **Continuous Reading Experience**: Seamless chapter transitions with invisible stitching and auto-mark short chapters
-- **Network & Security**: Cookie management for authenticated sources, DNS-over-HTTPS for privacy, and Cloudflare bypass for protected sources
-- **System-Wide UI Scaling**: Adjustable layout scaling for better accessibility and consistent experience across devices
+- **In-Chapter Text Search**: Fast non-destructive keyword search with steppers and occurrence counters without breaking TTS
+- **Reading Analytics & Statistics**: In-depth multi-tab analytics (Overview, Time, Plugins), SVG donut distribution charts, reading velocity, and inactivity auto-pause with TTS synergy
+- **Scheduled & Parallel Updates**: Automatic periodic update checks (12h to weekly) and concurrent multi-source updating (up to 3 sources)
+- **RTL Language & Layout Support**: Complete bidirectional UI and reader flow mirroring for Arabic, Hebrew, Persian, and Urdu
+- **Network & Security**: Cookie management for authenticated sources, DNS-over-HTTPS (DoH) for privacy, and Cloudflare bypass
+- **System-Wide UI Scaling**: Adjustable layout scaling (`uiScale`) for better accessibility across all devices
 - **Enhanced Backup System**: Versioned schema with migration pipeline, multi-location support (Local, Google Drive, Self-Hosted)
-- **Improved App Updates**: In-app download with automatic backup before update
-- **Parallel Library Updates**: Concurrent multi-source updating (up to 3 sources at once) for significantly faster library refreshes
+- **Material You & MD3 Design**: Dynamic wallpaper-derived color palettes, modern MD3 sliders, top tab indicators, and standardized sheets
 - **Expanded Trackers**: Kitsu added alongside AniList, MyAnimeList, and MangaUpdates
-- **Material You & MD3 Design**: Dynamic wallpaper-derived color palettes and modern Material Design 3 components
-- **Better Android Compatibility**: Support for API 35+ (Android 15+); third-party Gradle/deprecation issues addressed via patches — remaining in-app Kotlin deprecation warnings tracked in plan.md
+- **Better Android Compatibility**: Support for API 35+ (Android 15+); third-party Gradle/deprecation issues addressed via patches
 
 ---
 
@@ -68,6 +70,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
     - [TTS Engine Picker](#tts-engine-picker)
     - [TTS Text Cleanup](#tts-text-cleanup)
   - [Reader Experience](#reader-experience)
+  - [Reading Analytics & Statistics](#reading-analytics--statistics)
   - [Library & Updates](#library--updates)
   - [Trackers](#trackers)
   - [Network \& Security](#network--security)
@@ -91,7 +94,7 @@ This fork builds on the original LNReader with enhanced features focused on acce
   - [Robust Backup System](#robust-backup-system)
   - [Network \& Security Infrastructure](#network--security-infrastructure)
 - [Plugins](#plugins)
-- [Building \& Contributing](#building--contributing)
+  - [Building \& Contributing](#building--contributing)
   - [Quick Start](#quick-start)
   - [Code Quality](#code-quality)
 - [License](#license)
@@ -122,21 +125,21 @@ This fork includes extensive TTS enhancements for hands-free reading and accessi
 
 <div align="center">
 
-| Feature                                  | Description                                                                                      |
-| :--------------------------------------- | :----------------------------------------------------------------------------------------------- |
-| 🔈 **Background Playback**                | Continue listening with screen off or app in background                                          |
-| ⏩ **Multi-Chapter Continuation**         | Seamless audio across chapter boundaries while screen is off                                     |
-| 🎧 **Bluetooth & Wired Headset Controls** | Full media button support for hands-free control                                                 |
-| ⏱️ **Auto-Stop System**                   | Smart sleep timer with screen state detection (minutes/paragraphs/end of chapter) + Smart Rewind |
-| ⚡ **Live Settings Updates**              | Change speed, pitch, voice instantly without restarting                                          |
-| 📥 **Queue Management**                   | Proactive refill prevents audio gaps with race condition protection                              |
-| 💾 **Progress Persistence**               | Triple-layer save (DB + MMKV + Native) with reconciliation                                       |
-| ⏯️ **Smart Resume**                       | Auto-resume after interruptions with position sync                                               |
-| 📚 **Per-Novel TTS Settings**             | Isolated voice/speed/pitch per novel without overwriting global defaults                         |
-| 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                 |
-| 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                         |
-| 🖱️ **Advanced Button Gestures**         | Tap to toggle playback, hold 0.5s + swipe to adjust highlight offset, hold 2s + drag to move   |
-| 🧹 **TTS Text Cleanup**                  | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export. **Also cleans visible reader text** (Applies to: TTS / Visible / Both) |
+| Feature                                   | Description                                                                                                                                                                                                                 |
+| :---------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔈 **Background Playback**                | Continue listening with screen off or app in background                                                                                                                                                                     |
+| ⏩ **Multi-Chapter Continuation**         | Seamless audio across chapter boundaries while screen is off                                                                                                                                                                |
+| 🎧 **Bluetooth & Wired Headset Controls** | Full media button support for hands-free control                                                                                                                                                                            |
+| ⏱️ **Auto-Stop System**                   | Smart sleep timer with screen state detection (minutes/paragraphs/end of chapter) + Smart Rewind                                                                                                                            |
+| ⚡ **Live Settings Updates**              | Change speed, pitch, voice instantly without restarting                                                                                                                                                                     |
+| 📥 **Queue Management**                   | Proactive refill prevents audio gaps with race condition protection                                                                                                                                                         |
+| 💾 **Progress Persistence**               | Triple-layer save (DB + MMKV + Native) with reconciliation                                                                                                                                                                  |
+| ⏯️ **Smart Resume**                       | Auto-resume after interruptions with position sync                                                                                                                                                                          |
+| 📚 **Per-Novel TTS Settings**             | Isolated voice/speed/pitch per novel without overwriting global defaults                                                                                                                                                    |
+| 🔧 **TTS Engine Picker**                  | Select system or custom TTS engines with quality badges and persistent selection                                                                                                                                            |
+| 🏷️ **Auto Chapter Title Prepend**         | Auto-announces chapter title via TTS when not visibly present in content                                                                                                                                                    |
+| 🖱️ **Advanced Button Gestures**           | Tap to toggle playback, hold 0.5s + swipe to adjust highlight offset, hold 2s + drag to move                                                                                                                                |
+| 🧹 **TTS Text Cleanup**                   | Strip watermarks/corrupted text & fix pronunciations before TTS reads — declarative rules, one-tap presets, per-novel overrides, JSON import/export. **Also cleans visible reader text** (Applies to: TTS / Visible / Both) |
 
 </div>
 
@@ -212,14 +215,14 @@ Android devices can have multiple TTS engines installed. The default engine is o
 
 <div align="center">
 
-| Engine | Description | Install |
-|--------|-------------|---------|
-| **Google Text-to-Speech** | Best all-around — Neural2 voices are the most natural-sounding | [Play Store](https://play.google.com/store/apps/details?id=com.google.android.tts) |
-| **Microsoft Text-to-Speech** | High-quality neural voices, great for English | [Play Store](https://play.google.com/store/apps/details?id=com.microsoft.tts) |
-| **NekoSpeak** | Offline AI TTS with voice cloning (Kokoro, Piper, Pocket-TTS) | [GitHub](https://github.com/siva-sub/NekoSpeak) |
-| **SherpaTTS / VoxSherpa** | 100% offline on-device TTS powered by Sherpa-ONNX | [GitHub](https://github.com/CodeBySonu95/VoxSherpa-TTS) |
-| **RHVoice** | Open source, good multilingual support | [Play Store](https://play.google.com/store/apps/details?id=com.github.olga_yakovleva.rhvoice.android) |
-| **eSpeak** | Lightweight, many languages, works on older devices | [Play Store](https://play.google.com/store/apps/details?id=com.reecedunn.espeak) |
+| Engine                       | Description                                                    | Install                                                                                               |
+| ---------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Google Text-to-Speech**    | Best all-around — Neural2 voices are the most natural-sounding | [Play Store](https://play.google.com/store/apps/details?id=com.google.android.tts)                    |
+| **Microsoft Text-to-Speech** | High-quality neural voices, great for English                  | [Play Store](https://play.google.com/store/apps/details?id=com.microsoft.tts)                         |
+| **NekoSpeak**                | Offline AI TTS with voice cloning (Kokoro, Piper, Pocket-TTS)  | [GitHub](https://github.com/siva-sub/NekoSpeak)                                                       |
+| **SherpaTTS / VoxSherpa**    | 100% offline on-device TTS powered by Sherpa-ONNX              | [GitHub](https://github.com/CodeBySonu95/VoxSherpa-TTS)                                               |
+| **RHVoice**                  | Open source, good multilingual support                         | [Play Store](https://play.google.com/store/apps/details?id=com.github.olga_yakovleva.rhvoice.android) |
+| **eSpeak**                   | Lightweight, many languages, works on older devices            | [Play Store](https://play.google.com/store/apps/details?id=com.reecedunn.espeak)                      |
 
 </div>
 
@@ -279,15 +282,35 @@ Enhanced features for smoother, more immersive reading.
 
 <div align="center">
 
-| Feature                             | Description                                                 |
-| :---------------------------------- | :---------------------------------------------------------- |
-| 📜 **Continuous Scrolling**          | Seamless chapter transitions with invisible DOM stitching   |
-| ✅ **Auto-Mark Short Chapters**      | Automatically mark short chapters as read to reduce clutter |
-| 🪡 **Configurable Stitch Threshold** | User-adjustable trigger for chapter merging                 |
-| 🚀 **Jump to First Unread**          | Read button & FAB navigate straight to the first unread chapter |
-| 📚 **EPUB Range Export**             | Export custom chapter ranges with chapter numbers preserved |
-| 🎨 **EPUB Style Preservation**       | `<span>` tags preserved for better styling                  |
-| 🧹 **EPUB Summary Improvements**     | Clean summaries with HTML tag/entity stripping              |
+| Feature                              | Description                                                                       |
+| :----------------------------------- | :-------------------------------------------------------------------------------- |
+| 🔍 **In-Chapter Search**             | Fast keyword search with steppers, occurrence counters, and zero TTS interference |
+| 🌐 **RTL Language Support**          | Full layout and text mirroring for Arabic, Hebrew, Persian, and Urdu              |
+| 📜 **Continuous Scrolling**          | Seamless chapter transitions with invisible DOM stitching                         |
+| ✅ **Auto-Mark Short Chapters**      | Automatically mark short chapters as read to reduce clutter                       |
+| 🪡 **Configurable Stitch Threshold** | User-adjustable trigger for chapter merging                                       |
+| 🚀 **Jump to First Unread**          | Read button & FAB navigate straight to the first unread chapter                   |
+| 📚 **EPUB Range Export**             | Export custom chapter ranges with chapter numbers preserved                       |
+| 🎨 **EPUB Style Preservation**       | `<span>` tags preserved for better styling                                        |
+| 🧹 **EPUB Summary Improvements**     | Clean summaries with HTML tag/entity stripping                                    |
+
+</div>
+
+---
+
+### Reading Analytics & Statistics
+
+Gain deep insights into your reading habits, velocities, and source distribution.
+
+<div align="center">
+
+| Feature                         | Description                                                                      |
+| :------------------------------ | :------------------------------------------------------------------------------- |
+| 📊 **Multi-Tab Analytics**      | Dedicated Overview, Time, and Plugins tabs with daily averages and top novels    |
+| 🍩 **Interactive Donut Charts** | Dynamic SVG distribution charts with genre taxonomy visualization                |
+| ⏱️ **Smart Time Tracking**      | Dual-mode tracking for manual reading and TTS audio with zero double-counting    |
+| ⏸️ **Inactivity Auto-Pause**    | Auto-pauses reading timer on inactivity (2m/5m/10m/15m) to ensure accurate stats |
+| ⚡ **Reading Velocity**         | Live calculation of chapters per hour and minutes per chapter                    |
 
 </div>
 
@@ -295,15 +318,16 @@ Enhanced features for smoother, more immersive reading.
 
 ### Library & Updates
 
-Efficient library management with parallel updates and rate-limit friendly downloads.
+Efficient library management with parallel updates, background scheduling, and rate-limit friendly downloads.
 
 <div align="center">
 
-| Feature                          | Description                                                              |
-| :------------------------------- | :----------------------------------------------------------------------- |
-| ⚡ **Parallel Library Updates**   | Update novels across multiple sources concurrently (up to 3 at once)     |
-| ⏱️ **Configurable Download Cooldown** | Adjustable delay between chapter downloads (Settings → General)     |
-| 🔔 **Skip-Version Updates**       | Dismiss update notifications for a specific version                      |
+| Feature                               | Description                                                                                  |
+| :------------------------------------ | :------------------------------------------------------------------------------------------- |
+| 🕒 **Scheduled Background Updates**   | Automatically check for new chapters at your preferred interval (12h, 24h, 48h, 72h, weekly) |
+| ⚡ **Parallel Library Updates**       | Update novels across multiple sources concurrently (up to 3 at once)                         |
+| ⏱️ **Configurable Download Cooldown** | Adjustable delay between chapter downloads (Settings → General)                              |
+| 🔔 **Skip-Version Updates**           | Dismiss update notifications for a specific version                                          |
 
 </div>
 
@@ -315,12 +339,12 @@ Privacy-focused networking features for enhanced access and security.
 
 <div align="center">
 
-| Feature                          | Description                                                                            |
-| :------------------------------- | :------------------------------------------------------------------------------------- |
-| 🍪 **Cookie Management**          | Automatic cookie persistence for authentication-required sources with manual clearing  |
-| 🔒 **DNS-over-HTTPS (DoH)**       | Encrypted DNS queries via Cloudflare, Google, or AdGuard for enhanced privacy         |
-| 🛡️ **Cloudflare Bypass**          | Automated challenge solving for accessing Cloudflare-protected novel sources           |
-| 🌐 **Enhanced Network Resilience** | Retry logic with backoff, connection pooling, and graceful timeout handling            |
+| Feature                            | Description                                                                           |
+| :--------------------------------- | :------------------------------------------------------------------------------------ |
+| 🍪 **Cookie Management**           | Automatic cookie persistence for authentication-required sources with manual clearing |
+| 🔒 **DNS-over-HTTPS (DoH)**        | Encrypted DNS queries via Cloudflare, Google, or AdGuard for enhanced privacy         |
+| 🛡️ **Cloudflare Bypass**           | Automated challenge solving for accessing Cloudflare-protected novel sources          |
+| 🌐 **Enhanced Network Resilience** | Retry logic with backoff, connection pooling, and graceful timeout handling           |
 
 </div>
 
@@ -330,16 +354,15 @@ Privacy-focused networking features for enhanced access and security.
 
 System-wide improvements for better usability across devices.
 
-
 <div align="center">
 
-| Feature                   | Description                                                                |
-| :------------------------ | :------------------------------------------------------------------------- |
-| 📏 **UI-Wide Scaling**     | Single `uiScale` setting affects icons, paddings, and component dimensions |
-| 🔠 **AppText Component**   | Text scaling support for better accessibility                              |
-| 🖼️ **Theme Customization** | Multiple theme options with consistent styling                             |
+| Feature                     | Description                                                                |
+| :-------------------------- | :------------------------------------------------------------------------- |
+| 📏 **UI-Wide Scaling**      | Single `uiScale` setting affects icons, paddings, and component dimensions |
+| 🔠 **AppText Component**    | Text scaling support for better accessibility                              |
+| 🖼️ **Theme Customization**  | Multiple theme options with consistent styling                             |
 | 🎨 **Dynamic Material You** | Wallpaper-derived Material 3 color palettes (Android 12+)                  |
-| 🎚️ **MD3 Sliders & Tabs**  | Flicker-free native sliders, M3 top tab indicators, standardized sheets    |
+| 🎚️ **MD3 Sliders & Tabs**   | Flicker-free native sliders, M3 top tab indicators, standardized sheets    |
 
 </div>
 
@@ -351,8 +374,8 @@ Robust backup system with multiple options and versioned schema.
 
 <div align="center">
 
-| Feature                      | Description                                               |
-| :--------------------------- | :-------------------------------------------------------- |
+| Feature                       | Description                                               |
+| :---------------------------- | :-------------------------------------------------------- |
 | 🔄 **Versioned Schema v2**    | Automatic migration from v1 backups                       |
 | ☁️ **Multi-Location Support** | Local, Google Drive, and Self-Hosted repositories         |
 | 🔙 **Legacy Format Support**  | Create backups compatible with original upstream LNReader |
@@ -372,12 +395,12 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 
 <div align="center">
 
-| Tracker             | Supported Features                                  |
-| :------------------ | :-------------------------------------------------- |
-| 🦊 **Kitsu**        | Search, status, chapter progress, and score sync    |
-| 🌸 **AniList**      | Search, status, chapter progress, and score sync    |
-| 🟦 **MyAnimeList**  | Search, status, chapter progress, and score sync    |
-| 📖 **MangaUpdates** | Search, status, chapter progress, and score sync    |
+| Tracker             | Supported Features                               |
+| :------------------ | :----------------------------------------------- |
+| 🦊 **Kitsu**        | Search, status, chapter progress, and score sync |
+| 🌸 **AniList**      | Search, status, chapter progress, and score sync |
+| 🟦 **MyAnimeList**  | Search, status, chapter progress, and score sync |
+| 📖 **MangaUpdates** | Search, status, chapter progress, and score sync |
 
 </div>
 
@@ -416,9 +439,9 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 
 ### Database & System Stability
 
-- **Database Migration 004**: Recreates `julianday` triggers across all installs, fixing library sorting anomalies
-- **Exclusive DB Transactions**: Write operations wrapped in exclusive transactions to prevent database locks
-- **Ordering & Safety Fixes**: Date-correct library updates, numeric EPUB page ordering, and hardened native file operations
+- **Database Migrations 004, 005, 006**: Recreates `julianday` triggers (004), adds repository toggle status (005), and introduces cascading `ReadingSession` tracking tables with compound indexing (006)
+- **Exclusive DB Transactions**: Write operations and backup restores wrapped in exclusive transactions to prevent database locks
+- **Security & Safety Fixes**: Hardened backup archive inputs against path traversal, date-correct library updates, numeric EPUB page ordering, and safe native file operations
 
 </details>
 
@@ -483,6 +506,7 @@ Synchronize your reading progress, status, and scores with popular tracking serv
 <summary>🏗️ Expand architecture deep-dive</summary>
 
 ### Advanced TTS System
+
 > [!NOTE]
 > See `docs/TTS/TTS_DESIGN.md` for full design details.
 
@@ -493,10 +517,11 @@ The TTS engine uses a **Hybrid 3-Layer Architecture** to ensure reliable playbac
 3.  **Native Android (Audio)**: Runs a Foreground Service with a managed audio queue to support continuous background playback.
 
 **Key Mechanisms:**
--   **Proactive Queue Refill**: Monitors queue size and refills (batch size ~20) before depletion to prevent audio gaps.
--   **State Reconciliation**: On load, syncs progress from three sources: Database (permanent), MMKV (fast), and Native (current utterance).
--   **Smart Wake-Up**: Detects app foregrounding and seamlessly syncs the visual reader position with the background audio position.
--   **Declarative Text Cleanup**: Settings-driven find/replace + phonetic rules applied length-preserving at every audio entry point (initial queue, WebView DOM refills, fallback single-speak) — no arbitrary JS, no hardcoded site regexes.
+
+- **Proactive Queue Refill**: Monitors queue size and refills (batch size ~20) before depletion to prevent audio gaps.
+- **State Reconciliation**: On load, syncs progress from three sources: Database (permanent), MMKV (fast), and Native (current utterance).
+- **Smart Wake-Up**: Detects app foregrounding and seamlessly syncs the visual reader position with the background audio position.
+- **Declarative Text Cleanup**: Settings-driven find/replace + phonetic rules applied length-preserving at every audio entry point (initial queue, WebView DOM refills, fallback single-speak) — no arbitrary JS, no hardcoded site regexes.
 
 <div align="center">
 
@@ -521,22 +546,28 @@ flowchart LR
 </div>
 
 ### System-Wide UI Scaling
+
 A custom scaling engine (`src/theme/scaling.ts`) ensures accessibility across all device sizes:
--   **Centralized Logic**: `scaleDimension(value, scale)` applies user preferences globally.
--   **Safety Clamps**: Prevents broken layouts by clamping scale factors (0.8x - 1.3x).
--   **Component-Level Support**: Custom components like `AppText` and `Icon` automatically consume scaling tokens.
+
+- **Centralized Logic**: `scaleDimension(value, scale)` applies user preferences globally.
+- **Safety Clamps**: Prevents broken layouts by clamping scale factors (0.8x - 1.3x).
+- **Component-Level Support**: Custom components like `AppText` and `Icon` automatically consume scaling tokens.
 
 ### Dynamic Material You Theme
+
 Dynamic theming (`src/theme/dynamic.ts`) generates Material 3 palettes from the Android wallpaper via `@pchmn/expo-material3-theme` when the system theme is set to "Dynamic" (`DYNAMIC_THEME_ID`), with an automatic fallback color when dynamic theming is unsupported (pre-Android 12).
 
 ### Parallel Library Updater
+
 The library updater (`src/services/updates`) groups library novels by source and updates up to **3 sources concurrently** (`UPDATE_SOURCE_CONCURRENCY`). Within each source, novels update sequentially with a short cooldown — so a slow or rate-limited source never bottlenecks unrelated sources.
 
 ### Robust Backup System
+
 The backup system (`src/services/backup`) prioritizes data safety and portability:
--   **Versioned Schema**: Uses a generic `Backup` interface that supports version migration (v1 → v2).
--   **Provider Abstraction**: Decouples logic from storage backends (Local File vs Google Drive).
--   **Legacy Compatibility**: Maintains a "Legacy Exporter" to ensure users can always migrate back to the upstream version.
+
+- **Versioned Schema**: Uses a generic `Backup` interface that supports version migration (v1 → v2).
+- **Provider Abstraction**: Decouples logic from storage backends (Local File vs Google Drive).
+- **Legacy Compatibility**: Maintains a "Legacy Exporter" to ensure users can always migrate back to the upstream version.
 
 <div align="center">
 
@@ -550,7 +581,7 @@ flowchart LR
     %% Nodes
     Manager["🛡️ Backup Manager<br/>(Orchestrator)"]:::main
     Data[("📱 App Data<br/>(DB, MMKV)")]:::main
-    
+
     subgraph Pipeline ["Processing Pipeline"]
         direction TB
         Compat["⚙️ Compatibility Layer<br/>(compatibility.ts)"]:::logic
@@ -570,7 +601,7 @@ flowchart LR
     Manager ==> Compat
     Compat -- "Standard" --> V2Logic
     Compat -- "Legacy Mode" --> LegacyLogic
-    
+
     V2Logic --> Storage
     LegacyLogic --> Storage
 ```
@@ -582,8 +613,10 @@ flowchart LR
 The network stack has been enhanced to address three common challenges when accessing novel sources: authentication requirements, privacy concerns, and regional blocks.
 
 #### 1. Cookie Management System
+
 **Problem**: Many novel sources require authentication (login) but lose session data on app restart.  
 **Solution**: Automatic cookie persistence using a three-tier approach:
+
 - **CookieManager Service** (`src/services/network/CookieManager.ts`): Wraps `@react-native-cookies/cookies` for centralized cookie storage
 - **fetchApi Integration**: Auto-injects cookies before requests and saves `Set-Cookie` headers after responses
 - **WebView Sync**: Extracts `document.cookie` when WebView-based authentication is used (OAuth flows, login pages)
@@ -591,20 +624,22 @@ The network stack has been enhanced to address three common challenges when acce
 **Use Case**: Source requires login → User authenticates in WebView → Cookies automatically persist → Subsequent requests work without re-login.
 
 #### 2. DNS-over-HTTPS (DoH)
+
 **Problem**: ISP-level DNS queries can leak browsing data and be censored by network administrators.  
 **Solution**: Encrypted DNS resolution through trusted providers.
 
 <div align="center">
 
-| Provider | Endpoint | Bootstrap IP | Privacy Policy |
-|----------|----------|--------------|----------------|
-| Cloudflare | `https://cloudflare-dns.com/dns-query` | 1.1.1.1 | [Link](https://www.cloudflare.com/privacypolicy/) |
-| Google | `https://dns.google/dns-query` | 8.8.8.8 | [Link](https://developers.google.com/speed/public-dns/privacy) |
-| AdGuard | `https://dns-unfiltered.adguard.com/dns-query` | 94.140.14.140 | [Link](https://adguard.com/en/privacy.html) |
+| Provider   | Endpoint                                       | Bootstrap IP  | Privacy Policy                                                 |
+| ---------- | ---------------------------------------------- | ------------- | -------------------------------------------------------------- |
+| Cloudflare | `https://cloudflare-dns.com/dns-query`         | 1.1.1.1       | [Link](https://www.cloudflare.com/privacypolicy/)              |
+| Google     | `https://dns.google/dns-query`                 | 8.8.8.8       | [Link](https://developers.google.com/speed/public-dns/privacy) |
+| AdGuard    | `https://dns-unfiltered.adguard.com/dns-query` | 94.140.14.140 | [Link](https://adguard.com/en/privacy.html)                    |
 
 </div>
 
 **Implementation**:
+
 - Native Android module (`DoHManagerModule.kt`) using OkHttp 4.12.0 + `okhttp-dnsoverhttps`
 - Bootstrap IPs prevent circular DNS dependency (can't resolve DoH provider domain without DNS!)
 - Dual-layer persistence (MMKV + SharedPreferences) survives app restarts
@@ -613,15 +648,18 @@ The network stack has been enhanced to address three common challenges when acce
 **Location**: Settings → Advanced → DoH Provider (Android only)
 
 #### 3. Cloudflare Bypass System
+
 **Problem**: Many novel sources use Cloudflare protection (403/503 "Checking your browser..." challenges).  
 **Solution**: Automated WebView-based challenge solver.
 
 **Architecture**:
+
 - **CloudflareDetector** (`src/services/network/CloudflareDetector.ts`): Identifies Cloudflare challenges (status codes, `cf-ray` header, body signatures)
 - **CloudflareBypass** (`src/services/network/CloudflareBypass.ts`): Loads challenge page in hidden WebView, extracts `cf_clearance` cookie
 - **fetchApi Integration**: Auto-detects challenges and attempts bypass (max 2 retries to prevent infinite loops)
 
 **Challenge Types Handled**:
+
 - ✅ **JS Challenge**: 5-second JavaScript execution check (fully automated)
 - 🔶 **Interactive Challenge**: "Verify you are human" checkbox (requires user tap)
 - ❌ **CAPTCHA Challenge**: hCaptcha/reCAPTCHA (requires manual solve)

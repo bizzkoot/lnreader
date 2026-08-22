@@ -37,6 +37,17 @@ const FEATURES: FeatureSection[] = [
         ],
       },
       {
+        icon: 'broom',
+        title: 'Text & Pronunciation Cleanup',
+        desc: 'Declarative rules and phonetic dictionary to remove watermarks, fix broken characters, and correct pronunciations for TTS and visible reader text.',
+        location: 'Settings → Reader → Accessibility / Bottom Sheet',
+        detailedGuide: [
+          'Go to "Settings" -> "Reader" -> "Accessibility" -> "TTS Text Cleanup" (or Reader Bottom Sheet -> TTS -> Text Cleanup).',
+          'Use one-tap presets or add custom find/replace rules.',
+          'Choose "Applies to: TTS audio only, Visible text only, or Both" to clean annoying watermark text directly in the reader without breaking page layout.',
+        ],
+      },
+      {
         icon: 'timer-stop-outline',
         title: 'Auto-Stop System',
         desc: 'Smart timer that detects screen state. Use "Sleep Timer" or "Auto pause on screen off".',
@@ -145,6 +156,19 @@ const FEATURES: FeatureSection[] = [
     title: 'Immersive Reading',
     items: [
       {
+        icon: 'text-search',
+        title: 'In-Chapter Search',
+        desc: 'Instantly find any word or phrase within the current chapter with live highlight counters and match navigation.',
+        location: 'Reader Mode → Top Appbar Search Icon',
+        detailedGuide: [
+          'Open any novel chapter.',
+          'Tap screen center to reveal the top bar.',
+          'Tap the Search (magnifying glass) icon in the top right.',
+          'Type your search query to see instant highlight matches and match counters.',
+          'Use the Up/Down steppers to jump directly to each match.',
+        ],
+      },
+      {
         icon: 'script-text-outline',
         title: 'Continuous Scrolling',
         desc: 'Seamlessly scroll from one chapter to the next without interruption. "Invisible" chapter transitions.',
@@ -154,6 +178,17 @@ const FEATURES: FeatureSection[] = [
           'Go to "General" tab.',
           'Ensure you are using Vertical or Webtoon reading mode.',
           'Seamless transition happens automatically between chapters.',
+        ],
+      },
+      {
+        icon: 'format-textdirection-r-to-l',
+        title: 'RTL Language Support',
+        desc: 'Full native right-to-left layout and reader flow for Arabic, Hebrew, Persian, and Urdu languages.',
+        location: 'Settings → Appearance → App Language',
+        detailedGuide: [
+          'Go to "More" -> "Settings" -> "Appearance" -> "App language".',
+          'Select an RTL language (e.g. Arabic, Hebrew, Persian, Urdu).',
+          'App navigation, drawer layouts, and reader alignment mirror automatically.',
         ],
       },
       {
@@ -176,6 +211,63 @@ const FEATURES: FeatureSection[] = [
           'Open Reader Settings (Cog icon).',
           'Go to "General" tab.',
           'Enable "Auto-download next chapter".',
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Analytics & Statistics',
+    items: [
+      {
+        icon: 'chart-donut',
+        title: 'Reading Analytics & Charts',
+        desc: 'Comprehensive statistics across Overview, Time, and Plugins tabs with interactive donut charts and reading velocity.',
+        location: 'More → Statistics',
+        detailedGuide: [
+          'Navigate to "More" tab -> "Statistics".',
+          'Overview tab: Explore total reading time, daily averages, and interactive genre distribution charts.',
+          'Time tab: View reading history by day, week, month, or year and your top-read novels.',
+          'Plugins tab: Breakdown of novel sources in your library.',
+        ],
+      },
+      {
+        icon: 'timer-outline',
+        title: 'Smart Reading Time Tracking',
+        desc: 'Tracks reading time for manual reading and TTS audio independently with inactivity auto-pause.',
+        location: 'Settings → General → Reading Time Tracking',
+        detailedGuide: [
+          'Go to "More" -> "Settings" -> "General".',
+          'Toggle "Track reading time" on or off.',
+          'Set "Inactivity auto-pause" (e.g. 2, 5, 10 minutes) so leaving the reader open idle will not skew your statistics.',
+          'TTS playback automatically pauses manual time tracking and records audio time separately.',
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Library & Updates',
+    items: [
+      {
+        icon: 'sync-circle',
+        title: 'Scheduled Background Updates',
+        desc: 'Automatically checks for novel updates in your library at your preferred interval (12h, 24h, 48h, 72h, weekly).',
+        location: 'Settings → General → Automatic Updates',
+        detailedGuide: [
+          'Go to "More" -> "Settings" -> "General".',
+          'Tap "Automatic update frequency".',
+          'Select your desired schedule (e.g. Every 12 hours, Daily, Weekly).',
+          'Updates run seamlessly in the background with zero battery waste.',
+        ],
+      },
+      {
+        icon: 'lightning-bolt',
+        title: 'Parallel Multi-Source Updates',
+        desc: 'Updates novels across multiple sources concurrently (up to 3 at once) for much faster library refreshes.',
+        location: 'Library → Pull to Refresh / Update Button',
+        detailedGuide: [
+          'Go to "Library" tab.',
+          'Pull down to refresh or tap the Update action.',
+          'Novels update in parallel across sources with built-in rate-limit protection.',
         ],
       },
     ],
