@@ -21,6 +21,7 @@ import RepositoryCard from './components/RepositoryCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RespositorySettingsScreenProps } from '@navigators/types';
 import { showToast } from '@utils/showToast';
+import { isValidRepositoryUrl } from '@services/backup/utils';
 
 const SettingsBrowseScreen = ({
   route: { params },
@@ -54,9 +55,7 @@ const SettingsBrowseScreen = ({
 
   const upsertRepository = useCallback(
     (repositoryUrl: string, repository?: Repository) => {
-      if (
-        !new RegExp(/^https:\/\/(.*)plugins\.min\.json$/).test(repositoryUrl)
-      ) {
+      if (!isValidRepositoryUrl(repositoryUrl)) {
         showToast(getString('repositories.invalidUrl'));
         return;
       }

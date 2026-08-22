@@ -1,5 +1,12 @@
 import { Pressable, StyleSheet, View, Image } from 'react-native';
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   ChapterInfo,
@@ -48,6 +55,13 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   const [chapterList, setChapterList] = useState<
     Update[] | DownloadedChapter[]
   >(chapterListRaw ?? []);
+  const mountedRef = useRef(true);
+  const seqRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const chapterListInfo = chapterListInfoRaw ?? {
     // Derive inLibrary from the downloaded-chapter rows (DownloadsScreen path)
@@ -63,8 +77,10 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   const theme = useTheme();
 
   const updateList = useCallback(async () => {
+    const seq = ++seqRef.current;
     getDetailedUpdates(chapterListInfo.novelId, onlyDownloadedChapters)
       .then(res => {
+        if (!mountedRef.current || seq !== seqRef.current) return;
         setChapterList(res);
       })
       .catch(() => {

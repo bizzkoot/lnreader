@@ -137,6 +137,10 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun setProvider(providerId: Int, promise: Promise) {
         try {
+            if (providerId != DOH_DISABLED && providerId != DOH_CLOUDFLARE && providerId != DOH_GOOGLE && providerId != DOH_ADGUARD) {
+                promise.reject("DOH_ERROR", "Invalid DoH provider: $providerId", null)
+                return
+            }
             currentProvider = providerId
             dohInstance = buildDnsOverHttps(providerId)
             saveProvider(providerId)

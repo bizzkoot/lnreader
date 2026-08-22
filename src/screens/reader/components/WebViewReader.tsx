@@ -682,9 +682,18 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
 
   const memoizedHTML = useMemo(() => {
     const language = (localization || 'en').replace('_', '-');
-    const direction = ['ar', 'he', 'fa', 'ur'].includes(
-      language.split('-')[0].toLowerCase(),
-    )
+    const direction = [
+      'ar',
+      'he',
+      'fa',
+      'ur',
+      'ps',
+      'sd',
+      'ug',
+      'yi',
+      'ckb',
+      'dv',
+    ].includes(language.split('-')[0].toLowerCase())
       ? 'rtl'
       : 'ltr';
 
@@ -705,7 +714,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
               --readerSettings-padding: ${readerSettings.padding}px;
               --readerSettings-textSize: ${readerSettings.textSize}px;
               --readerSettings-textColor: ${readerSettings.textColor};
-              --readerSettings-textAlign: ${readerSettings.textAlign === 'left' ? 'start' : readerSettings.textAlign};
+              --readerSettings-textAlign: ${readerSettings.textAlign === 'left' ? 'start' : readerSettings.textAlign === 'right' ? 'end' : readerSettings.textAlign};
               --readerSettings-lineHeight: ${readerSettings.lineHeight};
               --readerSettings-fontFamily: ${readerSettings.fontFamily};
               --theme-primary: ${theme.primary};

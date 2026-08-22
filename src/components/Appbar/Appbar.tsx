@@ -1,5 +1,4 @@
 import React from 'react';
-import { StatusBar } from 'react-native';
 
 import { Appbar as PaperAppbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +23,7 @@ const Appbar: React.FC<AppbarProps> = ({
   return (
     <PaperAppbar.Header
       style={{ backgroundColor: theme.surface }}
-      statusBarHeight={insets.top || (StatusBar.currentHeight ?? 0)}
+      statusBarHeight={insets.top}
       mode={mode}
     >
       {handleGoBack && (

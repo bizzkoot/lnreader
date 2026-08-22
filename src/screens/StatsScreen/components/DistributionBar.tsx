@@ -77,8 +77,19 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
   const isSingleFull =
     entries.length === 1 && Math.abs(entries[0].value - sum) < 0.001;
 
+  const visibleEntries: Entry[] = [];
+  let otherValue = 0;
+  for (const e of entries) {
+    const sweep = sum > 0 ? (e.value / sum) * 360 : 0;
+    if (!Number.isFinite(sweep) || sweep < 1.8) otherValue += e.value;
+    else visibleEntries.push(e);
+  }
+  if (otherValue > 0) {
+    visibleEntries.push({ key: 'other', value: otherValue, label: 'Other' });
+  }
+
   let angle = 0;
-  const segments = entries
+  const segments = visibleEntries
     .map(e => {
       if (sum <= 0) return null;
       const sweep = (e.value / sum) * 360;
@@ -90,7 +101,9 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
     })
     .filter(Boolean) as Array<{ entry: Entry; start: number; end: number }>;
 
-  const sortedForLegend = entries.slice().sort((a, b) => b.value - a.value);
+  const sortedForLegend = visibleEntries
+    .slice()
+    .sort((a, b) => b.value - a.value);
 
   return (
     <View style={styles.container}>

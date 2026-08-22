@@ -24,15 +24,20 @@ const AutomaticLibraryUpdateModal: React.FC<Props> = ({
   onDismiss,
   theme,
 }) => {
-  const { automaticLibraryUpdateIntervalHours = 0, setAppSettings } =
-    useAppSettings();
-  const { uiScale = 1.0 } = useAppSettings();
+  const {
+    automaticLibraryUpdateIntervalHours = 0,
+    setAppSettings,
+    uiScale = 1.0,
+  } = useAppSettings() as ReturnType<typeof useAppSettings> & {
+    uiScale?: number;
+  };
+  const resolvedUiScale = uiScale ?? 1.0;
 
   const styles = React.useMemo(
     () =>
       StyleSheet.create({
         modalHeader: {
-          fontSize: scaleDimension(24, uiScale),
+          fontSize: scaleDimension(24, resolvedUiScale),
           marginBottom: 16,
           paddingHorizontal: 24,
         },
@@ -40,7 +45,7 @@ const AutomaticLibraryUpdateModal: React.FC<Props> = ({
           paddingHorizontal: 8,
         },
       }),
-    [uiScale],
+    [resolvedUiScale],
   );
 
   const options: {
@@ -84,7 +89,7 @@ const AutomaticLibraryUpdateModal: React.FC<Props> = ({
               status={automaticLibraryUpdateIntervalHours === option.value}
               onPress={() => handleSelect(option.value)}
               theme={theme}
-              labelStyle={{ fontSize: scaleDimension(16, uiScale) }}
+              labelStyle={{ fontSize: scaleDimension(16, resolvedUiScale) }}
             />
           ))}
         </View>

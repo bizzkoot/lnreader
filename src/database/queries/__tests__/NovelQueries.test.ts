@@ -60,6 +60,13 @@ jest.mock('@plugins/helpers/fetch', () => ({
 
 jest.mock('@plugins/pluginManager', () => ({
   getPlugin: jest.fn(),
+  isValidPluginId: jest.fn(
+    id =>
+      typeof id === 'string' &&
+      id.length > 0 &&
+      /^[A-Za-z0-9._-]+$/.test(id) &&
+      !id.includes('..'),
+  ),
 }));
 
 jest.mock('@services/tts/novelTtsSettings', () => ({

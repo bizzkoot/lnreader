@@ -343,7 +343,7 @@ describe('Slider', () => {
     expect(onSlidingComplete).not.toHaveBeenCalled();
   });
 
-  it('claims responder at touch start when enabled, and ignores when disabled', () => {
+  it('never claims responder at touch start (lets parent ScrollView handle vertical swipes)', () => {
     const { rerender } = render(<Slider value={5} min={0} max={10} />);
     const slider = screen.getByTestId('slider');
 
@@ -351,7 +351,7 @@ describe('Slider', () => {
       | ((event?: object) => boolean)
       | undefined;
     expect(startShouldSet).toBeDefined();
-    expect(startShouldSet!()).toBe(true);
+    expect(startShouldSet!()).toBe(false);
 
     rerender(<Slider disabled value={5} min={0} max={10} />);
     expect(slider.props.onStartShouldSetResponder!()).toBe(false);

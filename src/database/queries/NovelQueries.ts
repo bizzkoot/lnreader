@@ -17,7 +17,7 @@ import { BackupNovel, NovelInfo } from '../types';
 import { SourceNovel } from '@plugins/types';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import { downloadFile } from '@plugins/helpers/fetch';
-import { getPlugin } from '@plugins/pluginManager';
+import { getPlugin, isValidPluginId } from '@plugins/pluginManager';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
 import { deleteNovelTtsSettings } from '@services/tts/novelTtsSettings';
@@ -27,6 +27,9 @@ export const insertNovelAndChapters = async (
   pluginId: string,
   sourceNovel: SourceNovel,
 ): Promise<number | undefined> => {
+  if (!isValidPluginId(pluginId)) {
+    throw new Error(`Invalid pluginId: ${pluginId}`);
+  }
   const insertNovelQuery =
     'INSERT OR IGNORE INTO Novel (path, pluginId, name, cover, summary, author, artist, status, genres, totalPages) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
   const novelId: number | undefined = db.runSync(insertNovelQuery, [
@@ -325,6 +328,9 @@ const asBoolean = (value: unknown, fallback = false): number =>
 export const _restoreNovelAndChapters = async (backupNovel: BackupNovel) => {
   if (!backupNovel || !Array.isArray(backupNovel.chapters)) {
     throw new Error('Invalid backup novel: chapters must be an array');
+  }
+  if (!isValidPluginId(backupNovel.pluginId)) {
+    throw new Error(`Invalid backup pluginId: ${backupNovel.pluginId}`);
   }
 
   const { chapters, ...novel } = backupNovel;

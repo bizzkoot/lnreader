@@ -100,12 +100,12 @@ export const useUpdates = () => {
 
   useFocusEffect(
     useCallback(() => {
-      setIsLoading(true);
-      //? Push updates to the end of the stack to avoid lag
-      setTimeout(async () => {
-        await getUpdates();
-        setIsLoading(false);
+      // Push updates to the end of the stack to avoid lag; rely on getUpdates
+      // for isLoading gating via overviewRequestIdRef to avoid premature clear.
+      const timer = setTimeout(() => {
+        getUpdates();
       }, 0);
+      return () => clearTimeout(timer);
     }, [getUpdates]),
   );
 

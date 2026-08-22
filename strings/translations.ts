@@ -148,9 +148,18 @@ const detectedLocale =
   savedLocale ||
   Localization.getLocales()[0]?.languageTag ||
   i18n.defaultLocale;
-const isRtlLocale = ['ar', 'he', 'fa', 'ur'].includes(
-  detectedLocale.split(/[-_]/)[0].toLowerCase(),
-);
+const isRtlLocale = [
+  'ar',
+  'he',
+  'fa',
+  'ur',
+  'ps',
+  'sd',
+  'ug',
+  'yi',
+  'ckb',
+  'dv',
+].includes(detectedLocale.split(/[-_]/)[0].toLowerCase());
 
 I18nManager?.allowRTL?.(true);
 I18nManager?.forceRTL?.(isRtlLocale);

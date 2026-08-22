@@ -63,8 +63,16 @@ const SIZE_TOKENS: Record<
   xl: { trackHeight: 96, trackRadius: 28, handleHeight: 108 },
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
+const clamp = (value: number, min: number, max: number) => {
+  if (
+    !Number.isFinite(value) ||
+    !Number.isFinite(min) ||
+    !Number.isFinite(max)
+  ) {
+    return Number.isFinite(min) ? min : 0;
+  }
+  return Math.min(Math.max(value, min), max);
+};
 
 const decimalPlaces = (value: number) => {
   const [, decimals = ''] = value.toString().split('.');
@@ -242,9 +250,14 @@ const Slider: React.FC<SliderProps> = ({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabledRef.current,
+        onStartShouldSetPanResponder: () => false,
         onStartShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponder: () => !disabledRef.current,
+        onMoveShouldSetPanResponder: (_evt, gestureState) =>
+          shouldClaimPanResponder(
+            gestureState?.dx ?? 0,
+            gestureState?.dy ?? 0,
+            disabledRef.current,
+          ),
         onMoveShouldSetPanResponderCapture: () => false,
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: event => {

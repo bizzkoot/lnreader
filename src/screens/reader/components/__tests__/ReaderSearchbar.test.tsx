@@ -93,7 +93,8 @@ describe('ReaderSearchbar', () => {
     expect(screen.queryByText(/\/\d/)).toBeNull();
   });
 
-  it('calls onSearch when text changes', () => {
+  it('calls onSearch when text changes (debounced)', () => {
+    jest.useFakeTimers();
     const onSearch = jest.fn();
     render(
       <ReaderSearchbar
@@ -112,7 +113,10 @@ describe('ReaderSearchbar', () => {
       />,
     );
     fireEvent.changeText(screen.getByDisplayValue(''), 'ab');
+    expect(onSearch).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(150);
     expect(onSearch).toHaveBeenCalledWith('ab');
+    jest.useRealTimers();
   });
 
   it('shows min-length warning for short query without special chars', () => {

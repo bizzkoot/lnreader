@@ -45,10 +45,17 @@ const repositoryEnabledFromBackup = (value: unknown): boolean =>
   value === '1' ||
   value === 'true';
 
-// Same validation as the repository UI in SettingsRepositoryScreen
-const REPOSITORY_URL_RE = /^https:\/\/(.*)plugins\.min\.json$/;
-const isValidRepositoryUrl = (url: unknown): url is string =>
-  typeof url === 'string' && REPOSITORY_URL_RE.test(url);
+export const isValidRepositoryUrl = (url: unknown): url is string => {
+  if (typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    if (!parsed.pathname.endsWith('/plugins.min.json')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 // ============================================================================
 // Backup Schema Version Control

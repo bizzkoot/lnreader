@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import color from 'color';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
@@ -65,10 +65,18 @@ const ReaderSearchbar = ({
     [theme, scaledDimensions],
   );
 
-  const handleTextChange = useCallback(
-    (text: string) => onSearch(text),
-    [onSearch],
-  );
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+  const handleTextChange = useCallback((text: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onSearchRef.current(text), 150);
+  }, []);
 
   const { query, current, total } = searchResult;
   const hasResults = total > 0;

@@ -103,6 +103,9 @@ const installPluginUnlocked = async (
       headers: { 'pragma': 'no-cache', 'cache-control': 'no-cache' },
       signal: controller.signal,
     });
+    if (!response.ok) {
+      throw new Error(`Plugin fetch failed: ${response.status}`);
+    }
     rawCode = await response.text();
   } finally {
     clearTimeout(timeout);
@@ -178,7 +181,9 @@ export const isValidPluginId = (id: unknown): id is string =>
   typeof id === 'string' &&
   id.length > 0 &&
   id.length <= 64 &&
-  /^[A-Za-z0-9._-]+$/.test(id) &&
+  id !== '.' &&
+  id !== '..' &&
+  /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(id) &&
   !id.includes('..');
 
 const isPluginItem = (value: unknown): value is PluginItem => {

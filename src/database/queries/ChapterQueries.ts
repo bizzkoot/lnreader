@@ -203,25 +203,35 @@ export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
       deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id),
     ),
   );
-  const chapterIdsString = chapters.map(chapter => chapter.id).toString();
-  await db.execAsync(
-    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-  );
+  const chapterIds = chapters.map(chapter => chapter.id);
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const deleteReadChaptersFromDb = async () => {
   const chapters = await getReadDownloadedChapters();
+  if (!chapters.length) {
+    showToast(getString('novelScreen.readChaptersDeleted'));
+    return;
+  }
   await Promise.all(
     chapters.map(chapter =>
       deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id),
     ),
   );
-  const chapterIdsString = chapters.map(chapter => chapter.id).toString();
-  if (chapterIdsString) {
-    await db.execAsync(
-      `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-    );
-  }
+  const chapterIds = chapters.map(chapter => chapter.id);
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
   showToast(getString('novelScreen.readChaptersDeleted'));
 };
 

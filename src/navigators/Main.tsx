@@ -38,6 +38,9 @@ import { useMMKVBoolean } from 'react-native-mmkv';
 import OnboardingScreen from '@screens/onboarding/OnboardingScreen';
 import ServiceManager from '@services/ServiceManager';
 import { dispatchScheduledLibraryUpdateIfDue } from '@services/updates/scheduledLibraryUpdates';
+import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+
+const mainLog = createRateLimitedLogger('Main', { windowMs: 2000 });
 import ReaderStack from './ReaderStack';
 import { LibraryContextProvider } from '@components/Context/LibraryContext';
 import { UpdateContextProvider } from '@components/Context/UpdateContext';
@@ -68,8 +71,8 @@ const MainNavigator = () => {
     }
     if (isOnboarded) {
       // hack this helps app has enough time to initialize database;
-      refreshPlugins().catch(() => {
-        // Non-fatal: the repository list will refresh on the next visit.
+      refreshPlugins().catch(err => {
+        mainLog.warn('refresh-plugins', 'cold-start refresh failed', err);
       });
     }
   }, [isOnboarded, refreshPlugins, updateLibraryOnLaunch]);

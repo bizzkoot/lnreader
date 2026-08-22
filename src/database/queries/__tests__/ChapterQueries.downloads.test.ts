@@ -17,6 +17,7 @@ jest.mock('@database/db', () => ({
         runAsync: jest.fn(() =>
           Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
         ),
+        execAsync: jest.fn(() => Promise.resolve()),
       }),
     ),
     getAllAsync: jest.fn(() => Promise.resolve([])),
@@ -102,10 +103,9 @@ describe('ChapterQueries download deletion', () => {
       );
       expect(NativeFile.unlink).toHaveBeenCalledTimes(2);
 
-      // The flag reset must be scoped to the given ids, never global
-      expect(db.execAsync).toHaveBeenCalledWith(
-        'UPDATE Chapter SET isDownloaded = 0 WHERE id IN (1,2)',
-      );
+      // The flag reset must be scoped to the given ids, never global (chunked transaction)
+      expect(db.withExclusiveTransactionAsync).toHaveBeenCalled();
+      expect(db.execAsync).not.toHaveBeenCalled();
     });
 
     it('should not touch the database when no chapters are passed', async () => {
@@ -113,6 +113,7 @@ describe('ChapterQueries download deletion', () => {
 
       expect(NativeFile.unlink).not.toHaveBeenCalled();
       expect(db.execAsync).not.toHaveBeenCalled();
+      expect(db.withExclusiveTransactionAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -137,10 +138,9 @@ describe('ChapterQueries download deletion', () => {
       );
       expect(NativeFile.unlink).toHaveBeenCalledTimes(2);
 
-      // execAsync is awaited and scoped to the read chapters
-      expect(db.execAsync).toHaveBeenCalledWith(
-        'UPDATE Chapter SET isDownloaded = 0 WHERE id IN (5,6)',
-      );
+      // update is done inside a chunked transaction
+      expect(db.withExclusiveTransactionAsync).toHaveBeenCalled();
+      expect(db.execAsync).not.toHaveBeenCalled();
     });
 
     it('should no-op safely when there are no read downloaded chapters', async () => {
