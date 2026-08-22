@@ -6,7 +6,7 @@ import { ThemeColors } from '@theme/types';
 import { useAppSettings } from '@hooks/persisted/useSettings';
 import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
-import { Modal } from '@components';
+import Modal from '@components/Modal/Modal';
 import { RadioButton } from '@components/RadioButton/RadioButton';
 
 interface Props {

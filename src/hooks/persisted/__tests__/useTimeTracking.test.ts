@@ -156,7 +156,10 @@ describe('useTimeTracking (Dual-Mode: Manual + TTS)', () => {
 
   it('switches seamlessly from manual to TTS without double-counting', async () => {
     const isTTSActiveRef = { current: false };
-    const { rerender } = renderHook(
+    const { rerender } = renderHook<
+      ReturnType<typeof useTimeTracking>,
+      { isTTS: boolean }
+    >(
       ({ isTTS }) =>
         useTimeTracking({
           novelId: 4,

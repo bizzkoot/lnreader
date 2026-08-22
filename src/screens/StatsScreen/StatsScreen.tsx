@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
   SceneRendererProps,
@@ -9,6 +9,7 @@ import {
 
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
+import { scaleDimension } from '@theme/scaling';
 import {
   Appbar,
   ErrorScreenV2,
@@ -27,9 +28,6 @@ import {
   TopNovelTimeRow,
 } from '@database/queries/StatsQueries';
 import { countBy } from 'lodash-es';
-import { overlay } from 'react-native-paper';
-import { scaleDimension } from '@theme/scaling';
-import AppText from '@components/AppText';
 
 import OverviewTab from './components/OverviewTab';
 import TimeTab from './components/TimeTab';
@@ -184,32 +182,7 @@ const StatsScreen = () => {
 
 export default StatsScreen;
 
-export const StatsCard: React.FC<{ label: string; value?: number }> = ({
-  label,
-  value = 0,
-}) => {
-  const theme = useTheme();
-  const { uiScale = 1.0 } = useAppSettings();
-  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
-  if (!label) return null;
-  return (
-    <View
-      style={[
-        styles.statsCardCtn,
-        {
-          backgroundColor: theme.isDark
-            ? overlay(2, theme.surface)
-            : theme.secondaryContainer,
-        },
-      ]}
-    >
-      <AppText style={[styles.statsVal, { color: theme.primary }]}>
-        {value}
-      </AppText>
-      <AppText style={{ color: theme.onSurface }}>{label}</AppText>
-    </View>
-  );
-};
+export { default as StatsCard } from './components/StatsCard';
 
 const createStyles = (uiScale: number) =>
   StyleSheet.create({

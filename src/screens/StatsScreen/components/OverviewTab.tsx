@@ -7,7 +7,7 @@ import { LibraryStats } from '@database/types';
 import { NovelWithGenresRow } from '@database/queries/StatsQueries';
 import { getString } from '@strings/translations';
 import { translateNovelStatus } from '@utils/translateEnum';
-import { StatsCard } from '../StatsScreen';
+import StatsCard from './StatsCard';
 import ChapterBar from './ChapterBar';
 import DistributionBar from './DistributionBar';
 import GenreSection from './GenreSection';
