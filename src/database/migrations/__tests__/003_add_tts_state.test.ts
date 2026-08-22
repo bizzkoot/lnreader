@@ -134,14 +134,15 @@ describe('Migration 003: Add ttsState column to Chapter table', () => {
       );
     });
 
-    it('should handle ALTER TABLE failure gracefully', () => {
+    it('should propagate ALTER TABLE failures so the schema version is not advanced', () => {
       mockDb.getAllSync.mockReturnValue([{ name: 'id' }, { name: 'name' }]);
       mockDb.runSync.mockImplementation(() => {
         throw new Error('Table does not exist');
       });
 
-      // Migration should not throw error even when ALTER TABLE fails
-      expect(() => migration003.migrate(mockDb)).not.toThrow();
+      expect(() => migration003.migrate(mockDb)).toThrow(
+        'Table does not exist',
+      );
 
       // Verify that runSync was called (attempted to add column)
       expect(mockDb.runSync).toHaveBeenCalled();

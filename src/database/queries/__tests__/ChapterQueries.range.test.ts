@@ -49,17 +49,11 @@ describe('ChapterQueries getNovelDownloadedChapters', () => {
       );
     });
 
-    it('should produce a negative limit when the range overruns backwards (safe, clamped by SQL)', async () => {
-      // start > end is guarded upstream in the modal; still verify the math is
-      // passed through consistently rather than silently mis-windowed.
-      await ChapterQueries.getNovelDownloadedChapters(7, 5, 3);
-
-      expect(db.getAllAsync).toHaveBeenCalledWith(
-        'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY CAST(page AS INTEGER) ASC, position ASC LIMIT ? OFFSET ?',
-        7,
-        -1,
-        4,
-      );
+    it('should reject a reversed range without querying SQLite', async () => {
+      await expect(
+        ChapterQueries.getNovelDownloadedChapters(7, 5, 3),
+      ).resolves.toEqual([]);
+      expect(db.getAllAsync).not.toHaveBeenCalled();
     });
 
     it('should keep the isDownloaded = 1 filter and page-then-position ordering', async () => {
@@ -83,13 +77,11 @@ describe('ChapterQueries getNovelDownloadedChapters', () => {
       );
     });
 
-    it('should ignore a partial range (only startPosition set)', async () => {
-      await ChapterQueries.getNovelDownloadedChapters(42, 2);
-
-      expect(db.getAllAsync).toHaveBeenCalledWith(
-        'SELECT * FROM Chapter WHERE novelId = ? AND isDownloaded = 1 ORDER BY CAST(page AS INTEGER) ASC, position ASC',
-        42,
-      );
+    it('should reject a partial range without querying SQLite', async () => {
+      await expect(
+        ChapterQueries.getNovelDownloadedChapters(42, 2),
+      ).resolves.toEqual([]);
+      expect(db.getAllAsync).not.toHaveBeenCalled();
     });
   });
 });

@@ -40,6 +40,65 @@ applyTo: '**'
 - @react-native-community/slider (replaced by MD3 Slider, Batch C-3)
 - src/screens/settings/SettingsReaderScreen/components/TabBar.tsx (replaced by TopTabBar, Batch C-5)
 
+## 2026-08-14 - Upstream Merge Analysis (32 commits, 4-POV REVIEWED - no code changes)
+
+**Analysis Range**: upstream/master @ 990cd4f2e (2026-08-11) from last sync c3260e8e0 (2026-08-01)
+**Commits Analyzed**: 32 (24 fix, 3 feat, 2 chore, 1 perf, 1 docs, 1 i18n) — NOTE: upstream/main is STALE (2024 v1.1.19); fork tracks upstream/master
+**Method**: 5 parallel lane subagents (portability) + 4 parallel POV subagents (fork-integrity / user-value / effort-cost / strategic) + main-agent spot-verification (all 8 live-bug claims CONFIRMED)
+**Docs**: specs/upstream-merge-analysis-2026-08-14/ (README.md, lane1-5, pov-review/, REVIEW-2026-08-14.md)
+**Outcome**: 16/32 worth porting (7 bug-fix units + 2 UX + 1 feature + 1 translation pass) in 3 waves; 3 deferred (atomic epub export, APK size, custom-code page); 14 SKIP
+
+**Verified live fork bugs (all confirmed):** select-all only selects loaded 300-batch (NovelScreen:277, #1960); clearUpdates full-table UPDATE freeze (ChapterQueries:267, #1955); Epub.cpp whitelist jpeg/png/jpg only (#1622/#1946); Epub.cpp cover ignores media-type (#1948); TTSForegroundService audio-focus-only, no PhoneStateListener (#1976); useLibrary.getLibrary no try/finally; NovelInfoHeader drops image headers (#1977); useLoadingColors still primary-tinted (#1964)
+
+**DO-NOW (3 waves, est 4.5-5d):** W1 bug fixes: 63349de1b (select-all), 8a12529ba (clear freeze - SURGICAL around DoH block), 1eb8c587c (library skeleton), 15560b67b (cover headers), 13885320a (categories→library, tx discipline), epub trio 3ac611f63+91358ad3d+197d8670f (ONE unit, shared/Epub.cpp, one rebuild), 7883b28cd (TTS stop on calls - READ_PHONE_STATE maxSdkVersion=31 policy). W2: skeleton pair 51560195b+e0c89cdd9 (post-e0c89cdd9 wholesale), 57eca11a9 (library-status nav). W3: 909504a72 (repo enable/disable - claims MIGRATION 005, coordinate w/ Batch D), translation pass 3bf025108+3ad6e372f+f69e5d6a7 (id_ID first, per-key, protect fork keys)
+**DO-LATER:** e4246dee5 (atomic export - after export flow bakes; SAF atomicity unverified), 3ece098b9 (APK size - lottie removal NOT safe: native splash uses lottie; gradle/R8 blast radius; StatsScreen hunks → D3), 64707409b (custom-code v2 RED - own PR next 1-2 syncs BEFORE D2; gate: textRemover.js DOM audit vs fork TTS index contract; ToggleButton rename; never memoizedHTML deps)
+**SKIP (14):** 179feb56e, 675f19ef9, 23f9b183b, b9d1abcf2, 586e08514, a727c229c, 67e01bc2d (D3 reference), c6679b7f4, 084dcccab, 990cd4f2e, c3482a851, c3b75ebeb, 7f1f76408 (all ALREADY-HAVE/ARCH)
+**Migration registry note**: [002,003,004]; 005 reserved for 909504a72 if ported this sync (Batch D D1 then takes 006)
+
+## 2026-08-14 - Upstream Sync WAVES 1-3 IMPLEMENTED ✅ (merge/upstream-sync-2026-08-14, 12 commits, NOT pushed)
+
+**Range**: upstream/master @ 990cd4f2e; ports from 32-commit analysis (see 2026-08-14 analysis record below)
+**Method**: sequential worker subagents (orchestrator = main agent, reviewed each diff + ran gates between waves)
+**Commits (12)**: 4c5b45229 (select-all #1960), 4221a7f9e (clearUpdates freeze #1955 — trigger-bypass + bulk UPDATE in withExclusiveTransactionAsync), 487d58faf (library stuck skeleton), 895f714f6 (cover headers #1977), 119a9b257 (categories→library #1945), 944b2b3ea (EPUB formats+cover #1622/#1946/#1948 — shared/Epub.cpp), 6fb30f26c (skeleton colors #1964), a8da9255d (library-status nav 57eca11a9), 8c49e6c05 (lint dep fix), 03683bd31 (repo enable/disable #1628 + migration 005), ba2e07c63 (translations 3bf025108/3ad6e372f/f69e5d6a7), +1 style commit
+**SKIPPED in-wave**: 7883b28cd (TTS phone calls) — VERIFIED upstream is audio-focus handling ALREADY in fork (TTSForegroundService.kt); PhoneStateListener variant inert without runtime permission → SKIP-ALREADY-HAVE. 3ece098b9, e4246dee5, 64707409b deferred (see analysis record).
+**Gates**: type-check ✅, lint 0 errors (7 pre-existing warnings) ✅, format ✅, **91 suites / 1469 tests passing** (+37 vs baseline 1432; 3 pre-existing network-dependent useGithubUpdateChecker failures), TTS wake-cycle 7/7 ✅, refill ✅, migration upgrade-path 39/39 ✅ (incl. new 005)
+**Migration registry NOW**: [002,003,004,005]. **Batch D must use 006+** (005 claimed by repo-enable migration).
+**Key implementation notes**:
+- clearUpdates: drops update trigger inside tx, bulk UPDATE, recreates trigger from NovelTable constant (avoids per-row aggregate write amplification)
+- ChapterQueries: new chunkChapterIds (500/batch) + chunked bulk ops (markChaptersRead/Unread, deleteChapters, updateChapterProgressByIds, bookmarkChapters) + getPageChapterIds/getChaptersByIds (select-all spans full current source page, filter-respecting)
+- Epub.cpp: isSupportedImageMediaType (svg/gif/webp/bmp), findCoverImagePath for cover DOCUMENTS, property_cover_id (properties=cover-image) + media-type guard on cover resolve
+- Repo controls: migration 005 + RepositoryTable enabled column + setRepositoryEnabled/getEnabledRepositoriesFromDb + fetchPlugins filters enabled repos only (installed plugins cached, unaffected) + RepositoryCard Switch (0/1 coercion) + Switch backward-compat a11y props. pluginSelectors.ts NOT ported (dead code in fork — fork's refreshPlugins equivalent inline)
+- Translations: per-key merges ONLY; id_ID restored 468→687 keys + 8 fork keys re-merged; f69e5d6a7 ported only 2 fork-referenced keys (common.later, common.skipVersion)
+- Zero TTS-pipeline/DoH/scaling/per-novel files touched
+
+## 2026-08-14 - pluginSelectors.ts FOLLOW-UP IMPLEMENTED ✅ (commit 06852a6a8)
+
+**Context**: 3-POV subagent study (specs/upstream-merge-analysis-2026-08-14/plugin-selectors-study/) found the Wave-3 repo-disable switch shipped WITHOUT its badge-cleanup companion — fork's hasUpdate was one-way sticky (stale 'update available' badges persist forever after disabling a repo; update button bypasses disabled repo). Memory's earlier 'dead code in fork' note for pluginSelectors.ts is SUPERSEDED.
+**Ported** (upstream 909504a72): src/hooks/persisted/pluginSelectors.ts verbatim (getLastUsedPluginId, filterInstalledPlugins, filterAvailablePlugins, reconcileInstalledPluginUpdates); usePlugins.refreshPlugins → async({clearUnavailableUpdates}) with pure reconcile + reference-identity conditional INSTALLED_PLUGINS write; filterPlugins delegates to pure selectors (localeCompare sort); SettingsRepositoryScreen.toggleRepository → await refreshPlugins({ clearUnavailableUpdates: repository.enabled }).
+**Fork adaptations (NOT ported)**: LAST_USED_PLUGIN string-id migration (fork stores PluginItem object — kept object-form sync); FILTERED_* persisted keys removal (6 fork consumers depend). hasSettings blocks intact.
+**Tests**: NEW pluginSelectors.test.ts (18 tests). Gates: type-check ✅, lint 0 errors ✅, format ✅, **92 suites / 1487 tests** (3 pre-existing network fails), TTS wake-cycle ✅ refill ✅.
+**Behavior fixes**: stale badges cleared on repo disable; no more unconditional MMKV writes; no mutation-in-filter.
+
+## 2026-08-15 - AUDIT of upstream sync batch (5-POV, 0 blockers) + FIX PASS ✅ (bc68fbbb8, 54b36d5da)
+
+**Method**: 5 parallel fresh-context reviewers (port-fidelity / fork-integrity / behavioral correctness / tests / hygiene) + main-agent verification of the 1 inter-POV conflict (inLibrary plumbing — POV5 'dead' REFUTED: NovelScreenList spreads routeBaseNovel over false default, param IS consumed).
+**Verdict**: 0 BLOCKERS. 3 MED + 8 LOW/NOTE accepted fixes + 3 test additions. Reports: specs/upstream-merge-analysis-2026-08-14/audit/.
+**Fixes applied (bc68fbbb8)**: (1) i18n reportUrl bound in emptyChapterMessage (was broken link in ~31 non-en locales) + en updated to %{reportUrl} wording; (2) ConfirmationDialog catches async onSubmit rejections (rate-limited logger, dialog stays open); (3) Skeleton consolidated on @utils/useLoadingColors, stale components/Skeleton/useLoadingColors.tsx deleted; (4) updateNovelCategories empty-novelIds guard; (5) selectAllChapters try/catch + toast; (6) NovelScreenList range-select guard === → >=; (7) upsertRepository refreshPlugins .catch; (8) epub findImageReference skips bare-# fragment; (9) chunked bulk ops (markRead/Unread/updateProgressByIds/bookmark/deleteChapters) wrapped in ONE withExclusiveTransactionAsync (MMKV/file ops outside); (10) dedupe migrations registry comment + rename stale describe.
+**Tests added (54b36d5da)**: usePlugins.refreshPlugins wiring (5), ConfirmationDialog async confirm (2), useLibrary refetch-after-success + stale-request-discard (+2).
+**Gates**: type-check ✅, lint 0 errors (7 pre-existing) ✅, format ✅, **94 suites / 1501 tests** (3 pre-existing network fails), TTS wake-cycle ✅ refill ✅. Protected surfaces: zero TTS/DoH/scaling/per-novel files touched.
+**Deferred/kept (documented)**: epub whitelist conservative (no avif/heic — may not render old APIs); useLoadingColors 3rd tuple kept (upstream parity); id_ID orphan taxonomy keys (Crowdin baseline); chunk-tx now done. getLastUsedPluginId documented unused.
+**Branch**: merge/upstream-sync-2026-08-14 = 22 commits, local-only, NOT pushed.
+
+## 2026-08-15 - POST-AUDIT FOLLOW-UP: POV re-audit of fix commits + coverage-gap closure ✅ (d2195bf75, a54ddae1c, docs)
+
+**Context**: 4-POV fresh-context re-audit (concurrency / db-integrity / epub-native / tests-validation) of the fix commits f0e3b4767..HEAD. Verdict: 0 BLOCKERS; 1 actionable MED (Main.tsx unguarded refreshPlugins), 2 POV MEDs refuted/absorbed (range-validation UX already handled by ExportEpubModal start>end check; EPUB nav_type/NCX-heuristic MEDs are pre-existing, deferred). Gates re-attested by main agent (subagents had no shell): type-check ✅, lint 0/7 ✅, prettier ✅, git diff --check ✅, full suite **94 suites / 1501 tests** (1498 pass, 3 pre-existing network fails), C++17 syntax-check of shared/Epub.cpp ✅. Reports: specs/upstream-merge-analysis-2026-08-14/audit-followup/audit-pov1..4 (2026-08-15 follow-up).
+**Count corrections** (memory was stale vs working tree): full suite 1496 → **1501**; refreshPlugins wiring tests 5 → **6** (harden commit added the complete-flag guard test); backup suites 27 → **35** (backupSchema 21 + BackupPruning 14).
+**Fixed (d2195bf75)**: Main.tsx cold-start refreshPlugins now .catch'd (aligned with all other call sites).
+**Tests added (a54ddae1c)**: (1) withPluginMutationLock serialization — extracted into dep-free src/plugins/mutationQueue.ts (pluginManager pulls cheerio/htmlparser2/native deps; queue was untestable in isolation) + 5 tests (FIFO exclusivity, release-on-reject, mid-chain reject, sync ops, value propagation); (2) insertChapters changes===0 UPDATE branch — 3 tests (UPDATE path w/ IS NOT null-safe params, insert-only path, no-op empty); (3) import.ts asset helpers exported + 13 tests (collision suffixing, percent-decoding, data:/absolute/fragment preservation, query/fragment suffix retention, unquoted url()).
+**Docs added**: EPUB device smoke test — 4 fixture EPUBs (namespace-prefixed / css-relative-images / percent-encoded / duplicate-basenames) + generator script + procedure doc at specs/upstream-merge-analysis-2026-08-14/audit/epub-device-smoke-test.md. **PENDING device run** (cannot be done in-repo).
+**Deferred (tracked, NOT fixed)**: (1) nav epub:type filter (landmarks can overwrite TOC labels, Epub.cpp:313); (2) toc_href.find("ncx") filename heuristic (Epub.cpp:450-456); (3) withWriteLock per-instance queue hoist to module scope (usePlugins.ts:62); (4) install-fetch timeout in installPluginUnlocked (hang pins global queue); (5) useUpdates generation guard (getUpdates stale-overwrite window); (6) migration 004 assertColumnsExist for hypothetical user_version>=2 + v1-era-schema installs (pre-existing, own migration PR per Batch D convention); (7) useHistory generation-guard test (pattern already proven in useLibrary); (8) NovelScreen select-all component test; (9) LibraryUpdateQueries chapterNumber/await tests; (10) RepositoryQueries normalizeRepository numeric 0/1 test.
+**Branch**: merge/upstream-sync-2026-08-14 = 22 commits (was 20) + 2 docs commits, local-only, NOT pushed.
+
 # Merge History
 
 ## 2026-08-03 - Upstream Merge Analysis (170 commits, PLANNED - no code changes)

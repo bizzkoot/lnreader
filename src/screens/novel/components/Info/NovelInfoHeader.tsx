@@ -34,6 +34,7 @@ import { NovelStatus, PluginItem } from '@plugins/types';
 import { translateNovelStatus } from '@utils/translateEnum';
 import { getMMKVObject } from '@utils/mmkv/mmkv';
 import { AVAILABLE_PLUGINS } from '@hooks/persisted/usePlugins';
+import { getPlugin } from '@plugins/pluginManager';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { scaleDimension } from '@theme/scaling';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -145,6 +146,14 @@ const NovelInfoHeader = ({
     [novel.pluginId],
   );
 
+  const coverSource = useMemo(() => {
+    const imageRequestInit = getPlugin(novel.pluginId)?.imageRequestInit;
+    return {
+      uri: novel.cover ?? undefined,
+      headers: imageRequestInit?.headers,
+    };
+  }, [novel.pluginId, novel.cover]);
+
   const showNotAvailable = async () => {
     showToast('Not available while loading');
   };
@@ -152,13 +161,13 @@ const NovelInfoHeader = ({
   return (
     <>
       <CoverImage
-        source={{ uri: novel.cover }}
+        source={coverSource}
         theme={theme}
         hideBackdrop={hideBackdrop}
       >
         <NovelInfoContainer>
           <NovelThumbnail
-            source={{ uri: novel.cover }}
+            source={coverSource}
             theme={theme}
             setCustomNovelCover={
               isLoading ? showNotAvailable : setCustomNovelCover

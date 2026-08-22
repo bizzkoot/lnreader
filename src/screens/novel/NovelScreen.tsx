@@ -19,12 +19,15 @@ import { NovelScreenProps, RootStackParamList } from '@navigators/types';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterInfo } from '@database/types';
 import { getString } from '@strings/translations';
+import { showToast } from '@utils/showToast';
 import { isNumber, noop } from 'lodash-es';
 import NovelAppbar from './components/NovelAppbar';
 import { resolveUrl } from '@services/plugin/fetch';
 import {
   getAllUndownloadedAndUnreadChapters,
   getAllUndownloadedChapters,
+  getChaptersByIds,
+  getPageChapterIds,
   updateChapterProgressByIds,
 } from '@database/queries/ChapterQueries';
 import { MaterialDesignIconName } from '@type/icon';
@@ -45,6 +48,9 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     getNextChapterBatch,
     loadUpToBatch,
     setNovel,
+    novelSettings,
+    pageIndex,
+    pages,
     bookmarkChapters,
     markChaptersRead,
     markChaptersUnread,
@@ -61,6 +67,28 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
   const [editInfoModal, showEditInfoModal] = useState(false);
 
   const chapterListRef = useRef<LegendListRef | null>(null);
+
+  const selectionVersionRef = useRef(0);
+
+  const selectAllChapters = useCallback(async () => {
+    if (!novel) {
+      return;
+    }
+    try {
+      const requestVersion = ++selectionVersionRef.current;
+      const chapterIds = await getPageChapterIds(
+        novel.id,
+        novelSettings.filter,
+        pages[pageIndex],
+      );
+      const allChapters = await getChaptersByIds(chapterIds);
+      if (selectionVersionRef.current === requestVersion) {
+        setSelected(allChapters);
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+    }
+  }, [novel, novelSettings.filter, pageIndex, pages]);
 
   const deleteDownloadsSnackbar = useBoolean();
 
@@ -277,7 +305,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
                 icon="select-all"
                 iconColor={theme.onBackground}
                 onPress={() => {
-                  setSelected(chapters);
+                  void selectAllChapters();
                 }}
               />
             </Animated.View>

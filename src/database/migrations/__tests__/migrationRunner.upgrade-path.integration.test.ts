@@ -165,8 +165,8 @@ const runRunner = (adapter: ExpoLikeDb) => {
   );
 };
 
-describe('MigrationRunner upgrade paths → migration004', () => {
-  it('fresh install: createInitialSchema-equivalent (v0→2) → runner → version 4, julianday triggers', () => {
+describe('MigrationRunner upgrade paths → migration006', () => {
+  it('fresh install: createInitialSchema-equivalent (v0→2) → runner → version 6, julianday triggers + ReadingSession', () => {
     const { adapter } = createExpoLikeDb();
     seedCurrentSchema(adapter);
     adapter.execSync('PRAGMA user_version = 2');
@@ -174,7 +174,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     runRunner(adapter);
 
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 4,
+      user_version: 6,
     });
     expect(triggerNames(adapter)).toEqual([
       'add_category',
@@ -187,7 +187,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     );
   });
 
-  it('v1-era upgrade: bare tables without counters/triggers → runner adds 002/003/004 → version 4', () => {
+  it('v1-era upgrade: bare tables without counters/triggers → runner adds 002/003/004/005/006 → version 6', () => {
     const { adapter } = createExpoLikeDb();
     seedV1Schema(adapter);
     adapter.execSync('PRAGMA user_version = 1');
@@ -203,7 +203,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     runRunner(adapter);
 
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 4,
+      user_version: 6,
     });
 
     // 002 added the counter columns.
@@ -228,7 +228,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     expect(triggerNames(adapter)).toContain('add_category');
   });
 
-  it('v2 upgrade: old lexicographic triggers → julianday bodies + backfill corrected', () => {
+  it('v2 upgrade: old lexicographic triggers → julianday bodies + backfill corrected + 005/006', () => {
     const { adapter } = createExpoLikeDb();
     seedV2WithOldTriggers(adapter);
     adapter.execSync('PRAGMA user_version = 2');
@@ -247,7 +247,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     runRunner(adapter);
 
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 4,
+      user_version: 6,
     });
     expect(normalizeSql(triggerSql(adapter, 'update_novel_stats'))).toBe(
       normalizeSql(createNovelTriggerQueryInsert),
@@ -260,7 +260,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     expect(novel?.lastUpdatedAt).toBe('2026-08-01 09:00:00');
   });
 
-  it('v3 upgrade (ttsState already present): runner applies only 004 → version 4', () => {
+  it('v3 upgrade (ttsState already present): runner applies 004 + 005 + 006 → version 6', () => {
     const { adapter } = createExpoLikeDb();
     seedV2WithOldTriggers(adapter);
     adapter.execSync('PRAGMA user_version = 3');
@@ -268,7 +268,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
     runRunner(adapter);
 
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 4,
+      user_version: 6,
     });
     expect(triggerNames(adapter)).toHaveLength(4);
     expect(triggerSql(adapter, 'update_novel_stats')).toContain('julianday');
@@ -339,7 +339,7 @@ describe('MigrationRunner upgrade paths → migration004', () => {
       expect(novel.lastUpdatedAt).toBe(expected?.v ?? null);
     }
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 4,
+      user_version: 6,
     });
   });
 });

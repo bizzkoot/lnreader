@@ -1,18 +1,23 @@
 import { getLocales } from 'expo-localization';
 import { languagesMapping } from '@utils/constants/languages';
-import { orderBy } from 'lodash-es';
 import { useMMKVObject } from 'react-native-mmkv';
 import { PluginItem } from '@plugins/types';
 import {
   fetchPlugins,
-  installPlugin as _install,
-  uninstallPlugin as _uninstall,
-  updatePlugin as _update,
+  installPluginUnlocked as _install,
+  uninstallPluginUnlocked as _uninstall,
+  updatePluginUnlocked as _update,
+  withPluginMutationLock,
 } from '@plugins/pluginManager';
-import { newer } from '@utils/compareVersion';
 import { MMKVStorage, getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { getString } from '@strings/translations';
+import { withWriteLock } from './writeQueue';
+import {
+  filterAvailablePlugins,
+  filterInstalledPlugins,
+  reconcileInstalledPluginUpdates,
+} from './pluginSelectors';
 
 export const AVAILABLE_PLUGINS = 'AVAILABLE_PLUGINS';
 export const INSTALLED_PLUGINS = 'INSTALL_PLUGINS';
@@ -22,12 +27,25 @@ export const PINNED_PLUGINS = 'PINNED_PLUGINS';
 export const FILTERED_AVAILABLE_PLUGINS = 'FILTERED_AVAILABLE_PLUGINS';
 export const FILTERED_INSTALLED_PLUGINS = 'FILTERED_INSTALLED_PLUGINS';
 
+interface RefreshPluginsOptions {
+  /** Clear hasUpdate badges for plugins whose newer version is no longer
+   * published by an enabled repository (pass true when disabling a repo). */
+  clearUnavailableUpdates?: boolean;
+}
+
 export default function usePlugins() {
   const defaultLang =
     languagesMapping[getLocales()[0]?.languageCode ?? 'en'] ?? 'English';
 
   const [lastUsedPlugin, setLastUsedPlugin] =
     useMMKVObject<PluginItem>(LAST_USED_PLUGIN);
+  // Migrate legacy string id stored under LAST_USED_PLUGIN (pre-object shape)
+  useEffect(() => {
+    const raw = getMMKVObject<unknown>(LAST_USED_PLUGIN);
+    if (typeof raw === 'string') {
+      MMKVStorage.delete(LAST_USED_PLUGIN);
+    }
+  }, []);
   const [pinnedPlugins = [], setPinnedPlugins] =
     useMMKVObject<string[]>(PINNED_PLUGINS);
   const [languagesFilter = [defaultLang], setLanguagesFilter] =
@@ -36,6 +54,7 @@ export default function usePlugins() {
     useMMKVObject<PluginItem[]>(FILTERED_AVAILABLE_PLUGINS);
   const [filteredInstalledPlugins = [], setFilteredInstalledPlugins] =
     useMMKVObject<PluginItem[]>(FILTERED_INSTALLED_PLUGINS);
+  const refreshRequestIdRef = useRef(0);
   /**
    * @param filter
    * We cant use the languagesFilter directly because it is updated only after component's lifecycle end.
@@ -48,49 +67,58 @@ export default function usePlugins() {
       const availablePlugins =
         getMMKVObject<PluginItem[]>(AVAILABLE_PLUGINS) || [];
       setFilteredInstalledPlugins(
-        installedPlugins.filter(plg => filter.includes(plg.lang)),
+        filterInstalledPlugins(installedPlugins, filter),
       );
       setFilteredAvailablePlugins(
-        orderBy(
-          availablePlugins
-            .filter(
-              avalilablePlugin =>
-                !installedPlugins.some(
-                  installedPlugin => installedPlugin.id === avalilablePlugin.id,
-                ),
-            )
-            .filter(plg => filter.includes(plg.lang)),
-          'name',
-        ),
+        filterAvailablePlugins(availablePlugins, installedPlugins, filter),
       );
     },
     [setFilteredAvailablePlugins, setFilteredInstalledPlugins],
   );
 
-  const refreshPlugins = useCallback(() => {
-    const installedPlugins =
-      getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
-    return fetchPlugins().then(fetchedPlugins => {
-      fetchedPlugins.filter(plg => {
-        const finded = installedPlugins.find(v => v.id === plg.id);
-        if (finded) {
-          if (newer(plg.version, finded.version)) {
-            finded.hasUpdate = true;
-            finded.iconUrl = plg.iconUrl;
-            finded.url = plg.url;
-            if (finded.id === lastUsedPlugin?.id) {
-              setLastUsedPlugin(finded);
-            }
-          }
-          return false;
+  const refreshPlugins = useCallback(
+    async ({ clearUnavailableUpdates = false }: RefreshPluginsOptions = {}) => {
+      const requestId = ++refreshRequestIdRef.current;
+      await withWriteLock(async () => {
+        const fetched = await fetchPlugins();
+        // Re-read while holding the write lock. An install/update cannot write
+        // between this read and the reconciliation below.
+        const installedPlugins =
+          getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
+        if (requestId !== refreshRequestIdRef.current) {
+          return;
         }
-        return true;
+        const updatedInstalledPlugins = reconcileInstalledPluginUpdates(
+          installedPlugins,
+          fetched.plugins,
+          clearUnavailableUpdates && fetched.complete,
+        );
+
+        if (
+          updatedInstalledPlugins.some(
+            (plugin, index) => plugin !== installedPlugins[index],
+          )
+        ) {
+          setMMKVObject(INSTALLED_PLUGINS, updatedInstalledPlugins);
+          const lastUsedIndex = installedPlugins.findIndex(
+            plugin => plugin.id === lastUsedPlugin?.id,
+          );
+          if (
+            lastUsedIndex !== -1 &&
+            updatedInstalledPlugins[lastUsedIndex] !==
+              installedPlugins[lastUsedIndex]
+          ) {
+            setLastUsedPlugin(updatedInstalledPlugins[lastUsedIndex]);
+          }
+        }
+        setMMKVObject(AVAILABLE_PLUGINS, fetched.plugins);
+        filterPlugins(
+          getMMKVObject<string[]>(LANGUAGES_FILTER) || languagesFilter,
+        );
       });
-      setMMKVObject(INSTALLED_PLUGINS, installedPlugins);
-      setMMKVObject(AVAILABLE_PLUGINS, fetchedPlugins);
-      filterPlugins(languagesFilter);
-    });
-  }, [filterPlugins, languagesFilter, lastUsedPlugin?.id, setLastUsedPlugin]);
+    },
+    [filterPlugins, languagesFilter, lastUsedPlugin?.id, setLastUsedPlugin],
+  );
 
   const toggleLanguageFilter = (lang: string) => {
     const newFilter = languagesFilter.includes(lang)
@@ -108,79 +136,99 @@ export default function usePlugins() {
    */
 
   const installPlugin = (plugin: PluginItem) => {
-    return _install(plugin).then(_plg => {
-      if (_plg) {
-        const installedPlugins =
-          getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
-        const actualPlugin: PluginItem = {
-          ...plugin,
-          version: _plg.version,
-          hasSettings: !!_plg.pluginSettings,
-        };
-        // safe
-        if (!installedPlugins.some(plg => plg.id === plugin.id)) {
-          setMMKVObject(INSTALLED_PLUGINS, [...installedPlugins, actualPlugin]);
-        }
-        filterPlugins(languagesFilter);
-      } else {
-        throw new Error(
-          getString('browseScreen.installFailed', { name: plugin.name }),
-        );
-      }
-    });
+    return withPluginMutationLock(() =>
+      _install(plugin).then(_plg =>
+        withWriteLock(() => {
+          if (_plg) {
+            const installedPlugins =
+              getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
+            const actualPlugin: PluginItem = {
+              ...plugin,
+              version: _plg.version,
+              hasSettings: !!_plg.pluginSettings,
+            };
+            if (!installedPlugins.some(plg => plg.id === plugin.id)) {
+              setMMKVObject(INSTALLED_PLUGINS, [
+                ...installedPlugins,
+                actualPlugin,
+              ]);
+            }
+            filterPlugins(
+              getMMKVObject<string[]>(LANGUAGES_FILTER) || languagesFilter,
+            );
+          } else {
+            throw new Error(
+              getString('browseScreen.installFailed', { name: plugin.name }),
+            );
+          }
+        }),
+      ),
+    );
   };
 
   const uninstallPlugin = (plugin: PluginItem) => {
-    if (lastUsedPlugin?.id === plugin.id) {
-      MMKVStorage.delete(LAST_USED_PLUGIN);
-    }
-    if (pinnedPlugins.includes(plugin.id)) {
-      setPinnedPlugins(pinnedPlugins.filter(id => id !== plugin.id));
-    }
-    const installedPlugins =
-      getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
-    setMMKVObject(
-      INSTALLED_PLUGINS,
-      installedPlugins.filter(plg => plg.id !== plugin.id),
+    return withPluginMutationLock(() =>
+      _uninstall(plugin).then(() =>
+        withWriteLock(() => {
+          if (lastUsedPlugin?.id === plugin.id) {
+            MMKVStorage.delete(LAST_USED_PLUGIN);
+          }
+          if (pinnedPlugins.includes(plugin.id)) {
+            setPinnedPlugins(pinnedPlugins.filter(id => id !== plugin.id));
+          }
+          const installedPlugins =
+            getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
+          setMMKVObject(
+            INSTALLED_PLUGINS,
+            installedPlugins.filter(plg => plg.id !== plugin.id),
+          );
+          filterPlugins(
+            getMMKVObject<string[]>(LANGUAGES_FILTER) || languagesFilter,
+          );
+        }),
+      ),
     );
-    filterPlugins(languagesFilter);
-    return _uninstall(plugin).then(() => {});
   };
 
   const updatePlugin = (plugin: PluginItem) => {
-    return _update(plugin).then(_plg => {
-      if (plugin.version === _plg?.version && !__DEV__) {
-        throw new Error('No update found!');
-      }
-      if (_plg) {
-        const installedPlugins =
-          getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
-        setMMKVObject<PluginItem[]>(
-          INSTALLED_PLUGINS,
-          installedPlugins.map(plg => {
-            if (plugin.id !== plg.id) {
-              return plg;
-            }
-            const newPlugin: PluginItem = {
-              ...plugin,
-              site: _plg.site,
-              name: _plg.name,
-              version: _plg.version,
-              hasUpdate: false,
-              hasSettings: !!_plg.pluginSettings,
-            };
-            if (newPlugin.id === lastUsedPlugin?.id) {
-              setLastUsedPlugin(newPlugin);
-            }
-            return newPlugin;
-          }),
-        );
-        filterPlugins(languagesFilter);
-        return _plg.version;
-      } else {
-        throw Error(getString('browseScreen.updateFailed'));
-      }
-    });
+    return withPluginMutationLock(() =>
+      _update(plugin).then(_plg =>
+        withWriteLock(() => {
+          if (plugin.version === _plg?.version && !__DEV__) {
+            throw new Error('No update found!');
+          }
+          if (_plg) {
+            const installedPlugins =
+              getMMKVObject<PluginItem[]>(INSTALLED_PLUGINS) || [];
+            setMMKVObject<PluginItem[]>(
+              INSTALLED_PLUGINS,
+              installedPlugins.map(plg => {
+                if (plugin.id !== plg.id) {
+                  return plg;
+                }
+                const newPlugin: PluginItem = {
+                  ...plugin,
+                  site: _plg.site,
+                  name: _plg.name,
+                  version: _plg.version,
+                  hasUpdate: false,
+                  hasSettings: !!_plg.pluginSettings,
+                };
+                if (newPlugin.id === lastUsedPlugin?.id) {
+                  setLastUsedPlugin(newPlugin);
+                }
+                return newPlugin;
+              }),
+            );
+            filterPlugins(
+              getMMKVObject<string[]>(LANGUAGES_FILTER) || languagesFilter,
+            );
+            return _plg.version;
+          }
+          throw Error(getString('browseScreen.updateFailed'));
+        }),
+      ),
+    );
   };
 
   const togglePinPlugin = useCallback(

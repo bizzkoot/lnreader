@@ -2,7 +2,7 @@
   "aboutScreen": {
     "website": "网站",
     "discord": "Discord",
-    "github": "Github",
+    "github": "GitHub",
     "helpTranslate": "协助翻译",
     "sources": "源",
     "version": "版本",
@@ -190,6 +190,15 @@
     "setModalEmptyMsg": "您目前还没有分类。点击编辑按钮来创建一个分类以组织您的书库"
   },
   "repositories": {
+    "deleteDescription": "Do you wish to delete repository \"%{url}\"?",
+    "deleteTitle": "Delete repository",
+    "disable": "Disable",
+    "disableTitle": "Disable repository?",
+    "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",
+    "duplicateUrl": "A repository with this URL already exists!",
+    "invalidUrl": "Repository URL must be a secure plugins.min.json URL",
+    "title": "Repositories",
+    "toggle": "Toggle %{name} repository",
     "emptyMsg": "你还没有插件仓库，添加一个以开始使用。"
   },
   "common": {
@@ -235,7 +244,9 @@
     "sort": "排序",
     "submit": "确定",
     "loading": "正在加载...",
-    "warning": "警告"
+    "warning": "警告",
+    "later": "Later",
+    "skipVersion": "Skip version"
   },
   "webview": {
     "refresh": "刷新",
@@ -487,7 +498,7 @@
       "scrollToCurrentChapter": "滚动到当前章节",
       "scrollToTop": "滚动到顶部"
     },
-    "emptyChapterMessage": "<p>章节为空。</p><p>如果在Webview中不可访问请在 <a href='https://github.com/LNReader/lnreader-sources/issues/new/choose'>GitHub</a> 上报告。</p><p>插件名: %{pluginId}</p><p>小说名: %{novelName}</p><p>章节编号: %{chapterName}</p>",
+    "emptyChapterMessage": "<h2>无法加载章节</h2><p>未找到可读取的内容。请在 WebView 中检查该章节；如果在那里可以加载，请<a href='%{reportUrl}'>报告插件问题</a>。</p><p>插件：%{pluginId}<br>小说：%{novelName}<br>章节：%{chapterName}</p>",
     "finished": "已完成",
     "nextChapter": "下一章: %{name}",
     "noNextChapter": "没有下一章节",

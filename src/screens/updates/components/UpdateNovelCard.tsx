@@ -1,5 +1,12 @@
 import { Pressable, StyleSheet, View, Image } from 'react-native';
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   ChapterInfo,
@@ -48,8 +55,18 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   const [chapterList, setChapterList] = useState<
     Update[] | DownloadedChapter[]
   >(chapterListRaw ?? []);
+  const mountedRef = useRef(true);
+  const seqRef = useRef(0);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const chapterListInfo = chapterListInfoRaw ?? {
+    // Derive inLibrary from the downloaded-chapter rows (DownloadsScreen path)
+    // instead of hardcoding false, which mislabels in-library novels.
+    inLibrary: chapterList![0]?.inLibrary ?? false,
     novelId: chapterList![0]?.novelId,
     novelName: chapterList![0]?.novelName,
     updateDate: chapterList![0]?.updatedTime ?? '',
@@ -60,13 +77,16 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   const theme = useTheme();
 
   const updateList = useCallback(async () => {
-    getDetailedUpdates(chapterListInfo.novelId, onlyDownloadedChapters).then(
-      res => {
-        if (res.length) {
-          setChapterList(res);
-        }
-      },
-    );
+    const seq = ++seqRef.current;
+    getDetailedUpdates(chapterListInfo.novelId, onlyDownloadedChapters)
+      .then(res => {
+        if (!mountedRef.current || seq !== seqRef.current) return;
+        setChapterList(res);
+      })
+      .catch(() => {
+        // Keep the card mounted with its existing snapshot when a refresh
+        // fails; the parent Updates screen reports the database error.
+      });
   }, [chapterListInfo.novelId, getDetailedUpdates, onlyDownloadedChapters]);
   useEffect(() => {
     updateList();
@@ -106,7 +126,7 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
   );
 
   const navigateToNovel = useCallback(() => {
-    if (chapterListInfo.updatesPerDay) {
+    if (chapterListInfo.updatesPerDay && chapterList[0]) {
       navigate('ReaderStack', {
         screen: 'Novel',
         params: {
@@ -114,10 +134,16 @@ const UpdateNovelCard: React.FC<UpdateCardProps> = ({
           path: chapterList[0].novelPath,
           cover: chapterList[0].novelCover,
           name: chapterList[0].novelName,
+          inLibrary: chapterListInfo.inLibrary,
         },
       });
     }
-  }, [chapterList, chapterListInfo.updatesPerDay, navigate]);
+  }, [
+    chapterList,
+    chapterListInfo.inLibrary,
+    chapterListInfo.updatesPerDay,
+    navigate,
+  ]);
 
   const { uiScale = 1.0 } = useAppSettings();
   const styles = useMemo(() => createStyles(theme, uiScale), [theme, uiScale]);

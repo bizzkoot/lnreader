@@ -30,8 +30,21 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
         private var isInitialized: Boolean = false
 
         /**
-         * Get current DoH DNS instance for OkHttpClient configuration
-         * This is called by network layer to apply DoH if enabled
+         * Initialize DoH from persisted SharedPreferences using native context.
+         * Called from MainApplication.onCreate() BEFORE OkHttp clients are created,
+         * so the DNS instance is available when OkHttpClientProvider builds its client.
+         */
+        fun initializeFromNative(context: Context) {
+            if (isInitialized) return
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            currentProvider = prefs.getInt(KEY_PROVIDER, DOH_DISABLED)
+            dohInstance = buildDnsOverHttps(currentProvider)
+            isInitialized = true
+        }
+
+        /**
+         * Get current DoH DNS instance for OkHttpClient configuration.
+         * Returns null if DoH is disabled or not yet initialized.
          */
         fun getDnsInstance(): DnsOverHttps? = dohInstance
 
@@ -39,30 +52,81 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
          * Get current provider ID
          */
         fun getCurrentProvider(): Int = currentProvider
+
+        /**
+         * Build a DnsOverHttps resolver for the given provider.
+         * Uses a bootstrap OkHttpClient with system DNS to resolve the DoH endpoint.
+         */
+        private fun buildDnsOverHttps(providerId: Int): DnsOverHttps? {
+            if (providerId == DOH_DISABLED) {
+                return null
+            }
+
+            // Bootstrap client uses system DNS to resolve DoH endpoints
+            // Note: Certificate pinning removed to prevent outages when DoH providers
+            // rotate certificates. Android's platform trust store + Certificate
+            // Transparency provides sufficient security for third-party DoH services.
+            // See: OWASP Pinning Cheat Sheet (2025) - pinning discouraged for external services
+            val bootstrapClient = OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .writeTimeout(5, TimeUnit.SECONDS)
+                .build()
+
+            return when (providerId) {
+                DOH_CLOUDFLARE -> {
+                    DnsOverHttps.Builder()
+                        .client(bootstrapClient)
+                        .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+                        .bootstrapDnsHosts(
+                            InetAddress.getByName("1.1.1.1"),
+                            InetAddress.getByName("1.0.0.1"),
+                            InetAddress.getByName("162.159.36.1"),
+                            InetAddress.getByName("162.159.46.1")
+                        )
+                        .build()
+                }
+
+                DOH_GOOGLE -> {
+                    DnsOverHttps.Builder()
+                        .client(bootstrapClient)
+                        .url("https://dns.google/dns-query".toHttpUrl())
+                        .bootstrapDnsHosts(
+                            InetAddress.getByName("8.8.8.8"),
+                            InetAddress.getByName("8.8.4.4")
+                        )
+                        .build()
+                }
+
+                DOH_ADGUARD -> {
+                    DnsOverHttps.Builder()
+                        .client(bootstrapClient)
+                        .url("https://dns-unfiltered.adguard.com/dns-query".toHttpUrl())
+                        .bootstrapDnsHosts(
+                            InetAddress.getByName("94.140.14.140"),
+                            InetAddress.getByName("94.140.14.141")
+                        )
+                        .build()
+                }
+
+                else -> null
+            }
+        }
     }
 
     private var prefs: SharedPreferences? = null
 
-    // Initialize SharedPreferences on first access
     private fun initPrefs() {
         if (prefs == null) {
             prefs = reactApplicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         }
     }
 
-    // Save provider to SharedPreferences
     private fun saveProvider(providerId: Int) {
         initPrefs()
         prefs?.edit()?.putInt(KEY_PROVIDER, providerId)?.commit()
     }
 
-    // Load provider from SharedPreferences
-    private fun loadProvider(): Int {
-        initPrefs()
-        return prefs?.getInt(KEY_PROVIDER, DOH_DISABLED) ?: DOH_DISABLED
-    }
-
-    // Clear SharedPreferences
     private fun clearPrefs() {
         initPrefs()
         prefs?.edit()?.clear()?.commit()
@@ -73,6 +137,10 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun setProvider(providerId: Int, promise: Promise) {
         try {
+            if (providerId != DOH_DISABLED && providerId != DOH_CLOUDFLARE && providerId != DOH_GOOGLE && providerId != DOH_ADGUARD) {
+                promise.reject("DOH_ERROR", "Invalid DoH provider: $providerId", null)
+                return
+            }
             currentProvider = providerId
             dohInstance = buildDnsOverHttps(providerId)
             saveProvider(providerId)
@@ -85,11 +153,9 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun getProvider(promise: Promise) {
         try {
-            // Initialize from SharedPreferences on first call
+            // Initialize from SharedPreferences on first call (fallback if native init missed)
             if (!isInitialized) {
-                currentProvider = loadProvider()
-                dohInstance = buildDnsOverHttps(currentProvider)
-                isInitialized = true
+                initializeFromNative(reactApplicationContext)
             }
             promise.resolve(currentProvider)
         } catch (e: Exception) {
@@ -112,73 +178,11 @@ class DoHManagerModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun exitApp() {
         try {
-            // Force flush SharedPreferences to prevent data loss
             initPrefs()
-            prefs?.edit()?.commit() // Synchronous write
-            
-            // Graceful exit
+            prefs?.edit()?.commit()
             reactApplicationContext.currentActivity?.finish()
         } catch (e: Exception) {
             reactApplicationContext.currentActivity?.finish()
-        } finally {
-            // Final attempt to exit
-            System.exit(0)
-        }
-    }
-
-    private fun buildDnsOverHttps(providerId: Int): DnsOverHttps? {
-        if (providerId == DOH_DISABLED) {
-            return null
-        }
-
-        // Bootstrap client uses system DNS to resolve DoH endpoints
-        // Note: Certificate pinning removed to prevent outages when DoH providers 
-        // rotate certificates. Android's platform trust store + Certificate 
-        // Transparency provides sufficient security for third-party DoH services.
-        // See: OWASP Pinning Cheat Sheet (2025) - pinning discouraged for external services
-        val bootstrapClient = OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
-            .writeTimeout(5, TimeUnit.SECONDS)
-            .build()
-
-        return when (providerId) {
-            DOH_CLOUDFLARE -> {
-                DnsOverHttps.Builder()
-                    .client(bootstrapClient)
-                    .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
-                    .bootstrapDnsHosts(
-                        InetAddress.getByName("1.1.1.1"),
-                        InetAddress.getByName("1.0.0.1"),
-                        InetAddress.getByName("162.159.36.1"),
-                        InetAddress.getByName("162.159.46.1")
-                    )
-                    .build()
-            }
-
-            DOH_GOOGLE -> {
-                DnsOverHttps.Builder()
-                    .client(bootstrapClient)
-                    .url("https://dns.google/dns-query".toHttpUrl())
-                    .bootstrapDnsHosts(
-                        InetAddress.getByName("8.8.8.8"),
-                        InetAddress.getByName("8.8.4.4")
-                    )
-                    .build()
-            }
-
-            DOH_ADGUARD -> {
-                DnsOverHttps.Builder()
-                    .client(bootstrapClient)
-                    .url("https://dns-unfiltered.adguard.com/dns-query".toHttpUrl())
-                    .bootstrapDnsHosts(
-                        InetAddress.getByName("94.140.14.140"),
-                        InetAddress.getByName("94.140.14.141")
-                    )
-                    .build()
-            }
-
-            else -> null
         }
     }
 }

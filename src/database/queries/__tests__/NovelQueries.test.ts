@@ -60,6 +60,13 @@ jest.mock('@plugins/helpers/fetch', () => ({
 
 jest.mock('@plugins/pluginManager', () => ({
   getPlugin: jest.fn(),
+  isValidPluginId: jest.fn(
+    id =>
+      typeof id === 'string' &&
+      id.length > 0 &&
+      /^[A-Za-z0-9._-]+$/.test(id) &&
+      !id.includes('..'),
+  ),
 }));
 
 jest.mock('@services/tts/novelTtsSettings', () => ({
@@ -854,6 +861,15 @@ describe('NovelQueries', () => {
   });
 
   describe('updateNovelCategories', () => {
+    it('should add novels to library when setting categories (upstream #1945)', () => {
+      NovelQueries.updateNovelCategories([1], [5]);
+
+      expect(db.runSync).toHaveBeenCalledWith(
+        'UPDATE Novel SET inLibrary = 1 WHERE id IN (1)',
+        [],
+      );
+    });
+
     it('should delete existing categories and insert new ones', () => {
       NovelQueries.updateNovelCategories([1, 2], [5, 10]);
 

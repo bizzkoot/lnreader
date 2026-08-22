@@ -276,6 +276,7 @@ const LibraryBottomSheet: React.FC<LibraryBottomSheetProps> = ({
     <BottomSheet
       bottomSheetRef={bottomSheetRef}
       snapPoints={[scaleDimension(520, uiScale)]}
+      enableContentPanningGesture={false}
     >
       <BottomSheetView style={styles(uiScale).bottomSheetCtn}>
         <TabView

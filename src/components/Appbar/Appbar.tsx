@@ -1,7 +1,7 @@
 import React from 'react';
-import { StatusBar } from 'react-native';
 
 import { Appbar as PaperAppbar } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../theme/types';
 
 interface AppbarProps {
@@ -16,26 +16,29 @@ const Appbar: React.FC<AppbarProps> = ({
   title,
   handleGoBack,
   theme,
-  mode = 'large',
+  mode = 'small',
   children,
-}) => (
-  <PaperAppbar.Header
-    style={{ backgroundColor: theme.surface }}
-    statusBarHeight={StatusBar.currentHeight}
-    mode={mode}
-  >
-    {handleGoBack && (
-      <PaperAppbar.BackAction
-        onPress={handleGoBack}
-        iconColor={theme.onSurface}
+}) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <PaperAppbar.Header
+      style={{ backgroundColor: theme.surface }}
+      statusBarHeight={insets.top}
+      mode={mode}
+    >
+      {handleGoBack && (
+        <PaperAppbar.BackAction
+          onPress={handleGoBack}
+          iconColor={theme.onSurface}
+        />
+      )}
+      <PaperAppbar.Content
+        title={title}
+        titleStyle={{ color: theme.onSurface }}
       />
-    )}
-    <PaperAppbar.Content
-      title={title}
-      titleStyle={{ color: theme.onSurface }}
-    />
-    {children}
-  </PaperAppbar.Header>
-);
+      {children}
+    </PaperAppbar.Header>
+  );
+};
 
 export default Appbar;

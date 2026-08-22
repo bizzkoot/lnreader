@@ -2,7 +2,7 @@
   "aboutScreen": {
     "website": "Site",
     "discord": "Discord",
-    "github": "Github",
+    "github": "GitHub",
     "helpTranslate": "Ajude a traduzir",
     "sources": "Fontes",
     "version": "Versão",
@@ -26,11 +26,11 @@
     "importNovel": "Importar livro",
     "importStaticFiles": "Importar arquivo estático",
     "novelInsertFailed": "falha ao inserir livro",
-    "useFAB": "Utilize FAV invez do botão",
+    "useFAB": "Utilize FAB em vez do botão",
     "userAgent": "Agente usuário",
     "recreateDBIndexes": "Recreate DB indexes",
-    "recreateDBIndexesToast": "Recreated DB indexes",
-    "recreateDBIndexesDialogTitle": "All DB indexes will be recreated.\nThis may take a while.",
+    "recreateDBIndexesToast": "Índices do BD foram recriados",
+    "recreateDBIndexesDialogTitle": "Todos os índices do BD serão recriados.\nIsso pode demorar um pouco.",
     "recreateDBIndexesDesc": "Recreates DB indexes. This may improve performance on slower devices."
   },
   "appearance": "Aparência",
@@ -108,7 +108,7 @@
       "restore": "",
       "restoreInterruped": "Drive Restore Interrupted"
     },
-    "googeDrive": "",
+    "googeDrive": "Google Drive",
     "googeDriveDesc": "Backup to your Google Drive",
     "invalidBackupFolder": "Invalid backup folder",
     "localBackup": "Local Backup",
@@ -121,7 +121,7 @@
     },
     "remoteBackup": "Remote Backup",
     "restoreBackup": "Restore backup",
-    "restoreBackupDesc": "Restore library from backup file",
+    "restoreBackupDesc": "Restaure a biblioteca a partir de um arquivo de backup",
     "restoreLargeBackupsWarning": "Restoring large backups may freeze the app until restoring is finished",
     "restorinBackup": "Restoring backup",
     "restoringData": "Restoring Data",
@@ -154,7 +154,7 @@
     "pinnedPlugin": "Pinned %{name}",
     "pinnedPlugins": "Pinned plugins",
     "removeFromLibrary": "Removido da biblioteca",
-    "searchbar": "Pesquisar nas fontes",
+    "searchbar": "Pesquisar fontes e plugins",
     "searchResults": "Search results",
     "selectNovel": "Select Novel",
     "uninstalledPlugin": "Uninstalled %{name}",
@@ -190,6 +190,15 @@
     "setModalEmptyMsg": "Você não possui categorias. Clique no botão de editar para criar uma para organizar sua biblioteca"
   },
   "repositories": {
+    "deleteDescription": "Do you wish to delete repository \"%{url}\"?",
+    "deleteTitle": "Delete repository",
+    "disable": "Disable",
+    "disableTitle": "Disable repository?",
+    "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",
+    "duplicateUrl": "A repository with this URL already exists!",
+    "invalidUrl": "Repository URL must be a secure plugins.min.json URL",
+    "title": "Repositories",
+    "toggle": "Toggle %{name} repository",
     "emptyMsg": "Você não tem fontes. Adicione sua primeira para iniciar."
   },
   "common": {
@@ -206,7 +215,7 @@
     "deleted": "Deletado %{name}",
     "deprecated": "Depreciado",
     "display": "Exibir",
-    "done": "Depreciado",
+    "done": "Concluído",
     "downloads": "Baixados",
     "edit": "Editar",
     "example": "Exemplo",
@@ -235,7 +244,9 @@
     "sort": "Ordenar por",
     "submit": "Aplicar",
     "loading": "Loading ...",
-    "warning": "Warning"
+    "warning": "Warning",
+    "later": "Later",
+    "skipVersion": "Skip version"
   },
   "webview": {
     "refresh": "Rever",
@@ -297,7 +308,7 @@
     "refreshMetadataDescription": "Verificar por novas capas e detalhes durante a atualização da biblioteca",
     "sortOrder": "Sort Order",
     "updateLibrary": "Atualizar biblioteca ao iniciar",
-    "updateLibraryDesc": "Not recommended for low devices",
+    "updateLibraryDesc": "Não recomendado para dispositivos de baixo desempenho",
     "updateOngoing": "Atualizar somente novels em andamento",
     "updateTime": "Mostrar horário da última atualização",
     "useFAB": "Usar Botões flutuantes na Biblioteca"
@@ -406,7 +417,7 @@
     },
     "coverSaved": "Cover saved",
     "coverNotSaved": "Cover not saved",
-    "deleteChapterError": "Cant delete chapter chapter folder",
+    "deleteChapterError": "Não foi possível excluir a pasta do capítulo",
     "deleteMessage": "Delete downloaded chapters?",
     "deletedAllDownloads": "Deleted all Downloads",
     "download": {
@@ -414,8 +425,8 @@
       "customAmount": "Download custom amount",
       "delete": "Delete downloads",
       "next": "Next chapter",
-      "next10": "Next 10 chapter",
-      "next5": "Next 5 chapter",
+      "next10": "Próximos 10 capítulos",
+      "next5": "Próximos 5 capítulos",
       "unread": "Unread"
     },
     "edit": {
@@ -487,7 +498,7 @@
       "scrollToCurrentChapter": "Rolar para o capítulo atual",
       "scrollToTop": "Rolar para o topo"
     },
-    "emptyChapterMessage": "<p>Chapter is empty.</p><p>Report on <a href='https://github.com/LNReader/lnreader-sources/issues/new/choose'>GitHub</a> if it's available in WebView.</p><p>Plugin: %{pluginId}</p><p>Novel: %{novelName}</p><p>Chapter: %{chapterName}</p>",
+    "emptyChapterMessage": "<h2>Não foi possível carregar o capítulo</h2><p>Nenhum conteúdo legível foi encontrado. Verifique o capítulo no WebView; se ele carregar lá, <a href='%{reportUrl}'>relate o problema do plugin</a>.</p><p>Plugin: %{pluginId}<br>Novel: %{novelName}<br>Capítulo: %{chapterName}</p>",
     "finished": "Finalizado",
     "nextChapter": "Next: %{name}",
     "noNextChapter": "Não há próximo capítulo",

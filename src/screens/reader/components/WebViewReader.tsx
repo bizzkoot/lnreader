@@ -16,6 +16,8 @@ import React, {
   useState,
 } from 'react';
 import {
+  AppState,
+  AppStateStatus,
   NativeEventEmitter,
   NativeModules,
   StatusBar,
@@ -36,7 +38,7 @@ import {
   useChapterReaderSettings,
   useAppSettings,
 } from '@hooks/persisted';
-import { getString } from '@strings/translations';
+import { getString, localization } from '@strings/translations';
 
 import { getPlugin } from '@plugins/pluginManager';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
@@ -81,14 +83,18 @@ import {
   useNovelTtsSettings,
 } from '@services/tts/novelTtsSettings';
 import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
+import { useTimeTracking } from '@hooks/persisted/useTimeTracking';
 
 // Import the TTS hook
 import { useTTSController } from '../hooks/useTTSController';
 import { WebViewPostEvent, TTS_CONSTANTS } from '../types/tts';
 import { autoStopService } from '@services/tts/AutoStopService';
+import { sanitizeChapterText } from '../utils/sanitizeChapterText';
 
 type WebViewReaderProps = {
   onPress(): void;
+  onSearchResult?(result: import('../types').ReaderSearchResult): void;
+  searchQuery?: string;
 };
 
 const { RNDeviceInfo } = NativeModules;
@@ -143,7 +149,11 @@ const validateContinuousScrollSettings = (
   };
 };
 
-const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
+const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
+  onPress,
+  onSearchResult,
+  searchQuery = '',
+}) => {
   const {
     novel,
     chapter,
@@ -417,6 +427,21 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   });
 
   // ============================================================================
+  // Reading time tracking (PRD 3.2) — manual reading only, pauses during TTS PLAYING
+  // ============================================================================
+  const { readingTimeTrackingEnabled, readingTimeInactivityTimeoutMs } =
+    useAppSettings();
+  const timeTracking = useTimeTracking({
+    novelId: novel?.id,
+    chapterId: chapter?.id,
+    enabled: !!readingTimeTrackingEnabled,
+    inactivityTimeoutMs: readingTimeInactivityTimeoutMs ?? 0,
+    isTTSActiveRef: (
+      tts as unknown as { isTTSReadingRef: React.RefObject<boolean> }
+    ).isTTSReadingRef,
+  });
+
+  // ============================================================================
   // Live TTS Settings Listener
   // ============================================================================
 
@@ -502,6 +527,28 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   useBackHandler(() => {
     return tts.handleBackPress();
   });
+
+  // ============================================================================
+  // AppState: flush reading progress on background (non-TTS reading)
+  // ============================================================================
+
+  const isTTSReadingRef = useRef(false);
+  useEffect(() => {
+    isTTSReadingRef.current = !!(tts as unknown as { isTTSReading?: boolean })
+      .isTTSReading;
+  }, [tts]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        if (isTTSReadingRef.current) return;
+        webViewRef.current?.injectJavaScript(
+          `(function(){try{if(window.reader&&window.reader.flushPendingProgressSave){window.reader.flushPendingProgressSave();}else if(window.reader&&window.reader.saveProgress&&!(window.tts&&window.tts.reading)){window.reader.saveProgress();}}catch(e){}} )();true;`,
+        );
+      }
+    });
+    return () => sub.remove();
+  }, [webViewRef]);
 
   // ============================================================================
   // MMKV Settings Listener
@@ -634,9 +681,25 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
   // ============================================================================
 
   const memoizedHTML = useMemo(() => {
+    const language = (localization || 'en').replace('_', '-');
+    const direction = [
+      'ar',
+      'he',
+      'fa',
+      'ur',
+      'ps',
+      'sd',
+      'ug',
+      'yi',
+      'ckb',
+      'dv',
+    ].includes(language.split('-')[0].toLowerCase())
+      ? 'rtl'
+      : 'ltr';
+
     return `
       <!DOCTYPE html>
-      <html lang="en" style="background-color: ${readerSettings.theme}">
+      <html lang="${language}" dir="${direction}" style="background-color: ${readerSettings.theme}">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -651,7 +714,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
               --readerSettings-padding: ${readerSettings.padding}px;
               --readerSettings-textSize: ${readerSettings.textSize}px;
               --readerSettings-textColor: ${readerSettings.textColor};
-              --readerSettings-textAlign: ${readerSettings.textAlign};
+              --readerSettings-textAlign: ${readerSettings.textAlign === 'left' ? 'start' : readerSettings.textAlign === 'right' ? 'end' : readerSettings.textAlign};
               --readerSettings-lineHeight: ${readerSettings.lineHeight};
               --readerSettings-fontFamily: ${readerSettings.fontFamily};
               --theme-primary: ${theme.primary};
@@ -678,7 +741,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
             ${readerSettings.customCSS}
           </style>
         </head>
-        <body class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
+        <body dir="${direction}" class="${chapterGeneralSettings.pageReader ? 'page-reader' : ''}">
           <div class="transition-chapter" style="transform: translateX(0%);${
             chapterGeneralSettings.pageReader ? '' : 'display: none'
           }">
@@ -735,6 +798,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         <script src="${assetsUriPrefix}/js/van.js"></script>
         <script src="${assetsUriPrefix}/js/text-vibe.js"></script>
         <script src="${assetsUriPrefix}/js/core.js"></script>
+        <script src="${assetsUriPrefix}/js/search.js"></script>
         <script src="${assetsUriPrefix}/js/index.js"></script>
         <script src="${pluginCustomJS}"></script>
         <script>
@@ -824,6 +888,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
         'stitched-chapters-cleared',
         'chapter-transition',
         'visible-cleanup',
+        'search-result',
       ] as const);
       if (!msg) {
         return;
@@ -853,12 +918,27 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
 
       // Handle non-TTS messages
       switch (event.type) {
+        case 'search-result':
+          if (event.data && typeof event.data === 'object') {
+            onSearchResult?.({
+              query: (event.data as any).query ?? '',
+              current: (event.data as any).current ?? 0,
+              total: (event.data as any).total ?? 0,
+              renderedTotal: (event.data as any).renderedTotal ?? 0,
+              isTruncated: (event.data as any).isTruncated ?? false,
+            });
+          }
+          break;
         case 'tts-update-settings':
           if (event.data) {
             applyTtsUpdateToWebView(event.data as TTSSettings, webViewRef);
           }
           break;
+        case 'reading-activity':
+          timeTracking.recordActivity();
+          break;
         case 'hide':
+          timeTracking.recordActivity();
           onPress();
           break;
         case 'next':
@@ -962,6 +1042,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                 event.paragraphIndex as number | undefined,
               );
             }
+            timeTracking.recordActivity();
           }
           break;
         case 'show-toast':
@@ -1118,13 +1199,20 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
                   'chapter-html-received',
                   `Got chapter HTML (${chapterHtml.length} chars)`,
                 );
+                // Sanitize stitched chapter content to match initial chapter sanitization
+                const sanitizedHtml = sanitizeChapterText(
+                  novel?.pluginId || '',
+                  novel?.name || '',
+                  targetChapter.name,
+                  chapterHtml,
+                );
                 // Send chapter content back to WebView
                 webViewRef.current?.injectJavaScript(`
                   if (window.reader && window.reader.receiveChapterContent) {
                     window.reader.receiveChapterContent(
                       ${targetChapter.id},
                       ${JSON.stringify(targetChapter.name)},
-                      ${JSON.stringify(chapterHtml)},
+                      ${JSON.stringify(sanitizedHtml)},
                       ${JSON.stringify(targetChapter)}
                     );
                   }
@@ -1446,6 +1534,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
       prevChapter,
       setAdjacentChapter,
       getChapter,
+      onSearchResult,
+      searchQuery,
+      timeTracking,
     ],
   );
 
@@ -1531,6 +1622,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({ onPress }) => {
           webViewRef.current?.injectJavaScript(`
             if (window.reader && window.reader.setVisibleCleanup) {
               window.reader.setVisibleCleanup(${shouldCleanVisible});
+            }
+            if (window.readerSearch && ${JSON.stringify(searchQuery)}) {
+              window.readerSearch.search(${JSON.stringify(searchQuery)});
             }
             true;
           `);

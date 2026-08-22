@@ -2,7 +2,7 @@
   "aboutScreen": {
     "website": "Trang web",
     "discord": "Discord",
-    "github": "Github",
+    "github": "GitHub",
     "helpTranslate": "Giúp chúng tôi dịch ứng dụng",
     "sources": "Nguồn truyện",
     "version": "Phiên bản",
@@ -152,7 +152,7 @@
     },
     "noSource": "Thư viện của bạn không có truyện nào từ nguồn này",
     "pinnedPlugin": "Pinned %{name}",
-    "pinnedPlugins": "Pinned plugins",
+    "pinnedPlugins": "Pinned",
     "removeFromLibrary": "Đã xoá khỏi thư viện",
     "searchbar": "Tìm nguồn truyện",
     "searchResults": "Search results",
@@ -190,6 +190,15 @@
     "setModalEmptyMsg": "Bạn không có danh mục nào. Hãy ấn vào nút chỉnh sửa để tạo danh mục mới"
   },
   "repositories": {
+    "deleteDescription": "Do you wish to delete repository \"%{url}\"?",
+    "deleteTitle": "Delete repository",
+    "disable": "Disable",
+    "disableTitle": "Disable repository?",
+    "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",
+    "duplicateUrl": "A repository with this URL already exists!",
+    "invalidUrl": "Repository URL must be a secure plugins.min.json URL",
+    "title": "Repositories",
+    "toggle": "Toggle %{name} repository",
     "emptyMsg": "Bạn không có nguồn lưu trữ. Thêm nguồn lưu trữ để bắt đầu."
   },
   "common": {
@@ -235,7 +244,9 @@
     "sort": "Sắp xếp",
     "submit": "Gửi",
     "loading": "Loading ...",
-    "warning": "Warning"
+    "warning": "Warning",
+    "later": "Later",
+    "skipVersion": "Skip version"
   },
   "webview": {
     "refresh": "Làm mới",
@@ -487,7 +498,7 @@
       "scrollToCurrentChapter": "Chương hiện tại",
       "scrollToTop": "Lên đầu"
     },
-    "emptyChapterMessage": "<p>Chương không có nội dung.</p><p>Hãy báo cáo trên <a href='https://github.com/LNReader/lnreader-sources/issues/new/choose'>Github</a> nếu bạn vẫn có thể xem được bằng WebView.</p><p>Nguồn: %{pluginId}</p><p>Truyện: %{novelName}</p><p>Chương: %{chapterName}</p>",
+    "emptyChapterMessage": "<h2>Không thể tải chương</h2><p>Không tìm thấy nội dung có thể đọc. Hãy kiểm tra chương trong WebView; nếu chương tải được ở đó, <a href='%{reportUrl}'>hãy báo cáo sự cố của plugin</a>.</p><p>Plugin: %{pluginId}<br>Truyện: %{novelName}<br>Chương: %{chapterName}</p>",
     "finished": "Đã xong",
     "nextChapter": "Tiếp: %{name}",
     "noNextChapter": "Không có chương kế tiếp",

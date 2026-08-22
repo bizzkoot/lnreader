@@ -2,6 +2,9 @@ import { db } from '@database/db';
 import * as ChapterQueries from '../ChapterQueries';
 import NativeFile from '@specs/NativeFile';
 import type { DownloadedChapter } from '../../types';
+import Database from 'better-sqlite3';
+import { createNovelTableQuery } from '../../tables/NovelTable';
+import { createChapterTableQuery } from '../../tables/ChapterTable';
 
 jest.mock('@database/db', () => ({
   db: {
@@ -14,6 +17,7 @@ jest.mock('@database/db', () => ({
         runAsync: jest.fn(() =>
           Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
         ),
+        execAsync: jest.fn(() => Promise.resolve()),
       }),
     ),
     getAllAsync: jest.fn(() => Promise.resolve([])),
@@ -44,6 +48,43 @@ describe('ChapterQueries download deletion', () => {
     jest.clearAllMocks();
   });
 
+  describe('getDownloadedChapters', () => {
+    it('selects Novel.inLibrary so consumers can tell in-library novels apart', async () => {
+      await ChapterQueries.getDownloadedChapters();
+
+      const sql = (db.getAllAsync as jest.Mock).mock.calls[0][0] as string;
+      expect(sql).toContain('Novel.inLibrary as inLibrary');
+    });
+
+    it('returns the real inLibrary value from the Novel JOIN (real SQLite)', async () => {
+      const sqlite = new Database(':memory:');
+      sqlite.exec(createNovelTableQuery);
+      sqlite.exec(createChapterTableQuery);
+      sqlite.exec(
+        "INSERT INTO Novel (path, pluginId, name, inLibrary) VALUES ('p1','pl1','n1',1)",
+      );
+      sqlite.exec(
+        "INSERT INTO Novel (path, pluginId, name, inLibrary) VALUES ('p2','pl2','n2',0)",
+      );
+      sqlite.exec(
+        "INSERT INTO Chapter (path, name, novelId, position, isDownloaded) VALUES ('c1','C1',1,0,1)",
+      );
+      sqlite.exec(
+        "INSERT INTO Chapter (path, name, novelId, position, isDownloaded) VALUES ('c2','C2',2,0,1)",
+      );
+
+      (db.getAllAsync as jest.Mock).mockImplementation(async (sql: string) =>
+        sqlite.prepare(sql).all(),
+      );
+
+      const rows = await ChapterQueries.getDownloadedChapters();
+      expect(rows).toHaveLength(2);
+      expect(rows[0].inLibrary).toBe(1);
+      expect(rows[1].inLibrary).toBe(0);
+      sqlite.close();
+    });
+  });
+
   describe('deleteDownloads', () => {
     it('should delete files and clear isDownloaded only for the given chapter ids', async () => {
       const chapters = [
@@ -62,10 +103,9 @@ describe('ChapterQueries download deletion', () => {
       );
       expect(NativeFile.unlink).toHaveBeenCalledTimes(2);
 
-      // The flag reset must be scoped to the given ids, never global
-      expect(db.execAsync).toHaveBeenCalledWith(
-        'UPDATE Chapter SET isDownloaded = 0 WHERE id IN (1,2)',
-      );
+      // The flag reset must be scoped to the given ids, never global (chunked transaction)
+      expect(db.withExclusiveTransactionAsync).toHaveBeenCalled();
+      expect(db.execAsync).not.toHaveBeenCalled();
     });
 
     it('should not touch the database when no chapters are passed', async () => {
@@ -73,6 +113,7 @@ describe('ChapterQueries download deletion', () => {
 
       expect(NativeFile.unlink).not.toHaveBeenCalled();
       expect(db.execAsync).not.toHaveBeenCalled();
+      expect(db.withExclusiveTransactionAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -97,10 +138,9 @@ describe('ChapterQueries download deletion', () => {
       );
       expect(NativeFile.unlink).toHaveBeenCalledTimes(2);
 
-      // execAsync is awaited and scoped to the read chapters
-      expect(db.execAsync).toHaveBeenCalledWith(
-        'UPDATE Chapter SET isDownloaded = 0 WHERE id IN (5,6)',
-      );
+      // update is done inside a chunked transaction
+      expect(db.withExclusiveTransactionAsync).toHaveBeenCalled();
+      expect(db.execAsync).not.toHaveBeenCalled();
     });
 
     it('should no-op safely when there are no read downloaded chapters', async () => {

@@ -17,6 +17,7 @@ import {
   getRepositoriesFromDb,
   createRepository,
   isRepoUrlDuplicated,
+  setRepositoryEnabled,
 } from '@database/queries/RepositoryQueries';
 import { BackupCategory, BackupNovel, Repository } from '@database/types';
 import { BackupEntryName } from './types';
@@ -36,6 +37,25 @@ import {
 } from './compatibility';
 
 const backupLog = createRateLimitedLogger('Backup', { windowMs: 1500 });
+
+const repositoryEnabledFromBackup = (value: unknown): boolean =>
+  value === undefined ||
+  value === true ||
+  value === 1 ||
+  value === '1' ||
+  value === 'true';
+
+export const isValidRepositoryUrl = (url: unknown): url is string => {
+  if (typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    if (!parsed.pathname.endsWith('/plugins.min.json')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 // ============================================================================
 // Backup Schema Version Control
@@ -374,7 +394,7 @@ export const validateAndRestoreMMKVEntries = (
  * Legacy MMKV backup (v1 format)
  * @deprecated Use backupMMKVDataTyped for v2 backups
  */
-const backupMMKVData = (): Record<string, string | number | boolean> => {
+export const backupMMKVData = (): Record<string, string | number | boolean> => {
   const keys = MMKVStorage.getAllKeys().filter(
     key => !getExcludedMMKVKeys().includes(key),
   );
@@ -382,10 +402,13 @@ const backupMMKVData = (): Record<string, string | number | boolean> => {
   for (const key of keys) {
     let value: string | number | boolean | undefined =
       MMKVStorage.getString(key);
-    if (!value) {
+    if (value === undefined) {
       value = MMKVStorage.getBoolean(key);
     }
-    if (key && value) {
+    if (value === undefined) {
+      value = MMKVStorage.getNumber(key);
+    }
+    if (key && value !== undefined && value !== null) {
       data[key] = value;
     }
   }
@@ -860,11 +883,38 @@ export const restoreData = async (cacheDirPath: string) => {
 
       for (const repository of repositories) {
         try {
-          // Check if repository URL already exists to avoid duplicates
-          if (!isRepoUrlDuplicated(repository.url)) {
-            createRepository(repository.url);
-            repositoryCount++;
+          // Validate URL format (same policy as repository UI)
+          if (!isValidRepositoryUrl(repository.url)) {
+            failedRepositoryCount++;
+            backupLog.warn(
+              'invalid-repo-url',
+              `Skipping repository with invalid URL: ${repository.url}`,
+            );
+            continue;
           }
+          // If URL already exists, reconcile enabled state instead of silently skipping
+          if (isRepoUrlDuplicated(repository.url)) {
+            const existingRepos = getRepositoriesFromDb();
+            const existing = existingRepos.find(r => r.url === repository.url);
+            if (existing) {
+              const backupEnabled = repositoryEnabledFromBackup(
+                repository.enabled,
+              );
+              if (!backupEnabled && existing.enabled) {
+                setRepositoryEnabled(existing.id, false);
+              }
+            }
+            repositoryCount++;
+            continue;
+          }
+          const inserted = createRepository(repository.url);
+          if (!repositoryEnabledFromBackup(repository.enabled)) {
+            const repositoryId = Number(inserted.lastInsertRowId);
+            if (Number.isFinite(repositoryId) && repositoryId > 0) {
+              setRepositoryEnabled(repositoryId, false);
+            }
+          }
+          repositoryCount++;
         } catch (error) {
           failedRepositoryCount++;
           const errorMessage =

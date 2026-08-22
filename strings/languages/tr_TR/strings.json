@@ -2,7 +2,7 @@
   "aboutScreen": {
     "website": "Web Sitesi",
     "discord": "Discord",
-    "github": "Github",
+    "github": "GitHub",
     "helpTranslate": "Çevirmeye Yardım Et",
     "sources": "Kaynaklar",
     "version": "Versiyon",
@@ -152,7 +152,7 @@
     },
     "noSource": "Kütüphanenizde bu kaynaktan roman yok",
     "pinnedPlugin": "Pinned %{name}",
-    "pinnedPlugins": "Pinned plugins",
+    "pinnedPlugins": "Pinned",
     "removeFromLibrary": "Kitaplıktan kaldırıldı",
     "searchbar": "Kaynak ara",
     "searchResults": "Search results",
@@ -183,13 +183,22 @@
     },
     "duplicateError": "Bu ada sahip bir kategori zaten var!",
     "editCategories": "Kategoriyi yeniden adlandır",
-    "emptyMsg": "Kategoriniz bulunmuyor.  Kitaplığınızı düzenlemek için bir tane oluşturmak için artı butonuna basın",
+    "emptyMsg": "Kategoriniz bulunmuyor. Kitaplığınızı düzenlemek için bir tane oluşturmak için artı butonuna basın",
     "header": "Kategorileri düzenle",
     "local": "Yerel",
     "setCategories": "Kategorileri ayarla",
     "setModalEmptyMsg": "Hiç kategoriniz yok. Kitaplığınızı düzenlemek üzere bir tane oluşturmak için Düzenle düğmesine dokunun."
   },
   "repositories": {
+    "deleteDescription": "Do you wish to delete repository \"%{url}\"?",
+    "deleteTitle": "Delete repository",
+    "disable": "Disable",
+    "disableTitle": "Disable repository?",
+    "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",
+    "duplicateUrl": "A repository with this URL already exists!",
+    "invalidUrl": "Repository URL must be a secure plugins.min.json URL",
+    "title": "Repositories",
+    "toggle": "Toggle %{name} repository",
     "emptyMsg": "Uzantı deponuz yok. Başlamak için ilk uzantı deponuzu ekleyin."
   },
   "common": {
@@ -235,7 +244,9 @@
     "sort": "Sırala",
     "submit": "Gönder",
     "loading": "Yükleniyor ...",
-    "warning": "Dikkat"
+    "warning": "Dikkat",
+    "later": "Later",
+    "skipVersion": "Skip version"
   },
   "webview": {
     "refresh": "Yenile",
@@ -487,7 +498,7 @@
       "scrollToCurrentChapter": "Mevcut bölüme kaydır",
       "scrollToTop": "Yukarı kaydır"
     },
-    "emptyChapterMessage": "<p>Chapter is empty.</p><p>Report on <a href='https://github.com/LNReader/lnreader-sources/issues/new/choose'>GitHub</a> if it's available in WebView.</p><p>Plugin: %{pluginId}</p><p>Novel: %{novelName}</p><p>Chapter: %{chapterName}</p>",
+    "emptyChapterMessage": "<h2>Chapter couldn't be loaded</h2><p>No readable content was found. Check the chapter in WebView; if it loads there, <a href='%{reportUrl}'>report the plugin issue</a>.</p><p>Plugin: %{pluginId}<br>Novel: %{novelName}<br>Chapter: %{chapterName}</p>",
     "finished": "Biten",
     "nextChapter": "Sonraki: %{name}",
     "noNextChapter": "Başka bölüm yok",

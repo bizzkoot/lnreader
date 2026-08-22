@@ -17,11 +17,12 @@ import { downloadFile, fetchApi, fetchProto, fetchText } from './helpers/fetch';
 import { defaultCover } from './helpers/constants';
 import { encode, decode } from 'urlencode';
 import { Parser } from 'htmlparser2';
-import { getRepositoriesFromDb } from '@database/queries/RepositoryQueries';
+import { getEnabledRepositoriesFromDb } from '@database/queries/RepositoryQueries';
 import { showToast } from '@utils/showToast';
 import { PLUGIN_STORAGE } from '@utils/Storages';
 import NativeFile from '@specs/NativeFile';
 import { getUserAgent } from '@hooks/persisted/useUserAgent';
+import { withPluginMutationLock } from './mutationQueue';
 
 const packages: Record<string, any> = {
   'htmlparser2': { Parser },
@@ -82,12 +83,33 @@ const initPlugin = (pluginId: string, rawCode: string) => {
 
 const plugins: Record<string, Plugin | undefined> = {};
 
-const installPlugin = async (
+/**
+ * A hung plugin-script fetch would otherwise pin the global plugin mutation
+ * queue forever, blocking every subsequent install/uninstall/update.
+ */
+const PLUGIN_INSTALL_FETCH_TIMEOUT_MS = 30000;
+
+const installPluginUnlocked = async (
   _plugin: PluginItem,
 ): Promise<Plugin | undefined> => {
-  const rawCode = await fetch(_plugin.url, {
-    headers: { 'pragma': 'no-cache', 'cache-control': 'no-cache' },
-  }).then(res => res.text());
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    PLUGIN_INSTALL_FETCH_TIMEOUT_MS,
+  );
+  let rawCode: string;
+  try {
+    const response = await fetch(_plugin.url, {
+      headers: { 'pragma': 'no-cache', 'cache-control': 'no-cache' },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Plugin fetch failed: ${response.status}`);
+    }
+    rawCode = await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
   const plugin = initPlugin(_plugin.id, rawCode);
   if (!plugin) {
     return undefined;
@@ -118,7 +140,7 @@ const installPlugin = async (
   return currentPlugin;
 };
 
-const uninstallPlugin = async (_plugin: PluginItem) => {
+const uninstallPluginUnlocked = async (_plugin: PluginItem) => {
   plugins[_plugin.id] = undefined;
   store.getAllKeys().forEach(key => {
     if (key.startsWith(_plugin.id)) {
@@ -131,31 +153,96 @@ const uninstallPlugin = async (_plugin: PluginItem) => {
   }
 };
 
-const updatePlugin = async (plugin: PluginItem) => {
-  return installPlugin(plugin);
+const updatePluginUnlocked = async (plugin: PluginItem) => {
+  return installPluginUnlocked(plugin);
 };
 
-const fetchPlugins = async (): Promise<PluginItem[]> => {
+const installPlugin = (plugin: PluginItem) =>
+  withPluginMutationLock(() => installPluginUnlocked(plugin));
+
+const uninstallPlugin = (plugin: PluginItem) =>
+  withPluginMutationLock(() => uninstallPluginUnlocked(plugin));
+
+const updatePlugin = (plugin: PluginItem) =>
+  withPluginMutationLock(() => updatePluginUnlocked(plugin));
+
+export interface FetchPluginsResult {
+  plugins: PluginItem[];
+  /** False when one or more enabled repositories could not be fetched or parsed. */
+  complete: boolean;
+}
+
+/**
+ * Validate a plugin identifier is safe for filesystem paths and storage keys.
+ * Rejects empty IDs, traversal sequences, slashes, backslashes, NUL, and special chars.
+ * Used at plugin install, uninstall, lookup, and restore boundaries.
+ */
+export const isValidPluginId = (id: unknown): id is string =>
+  typeof id === 'string' &&
+  id.length > 0 &&
+  id.length <= 64 &&
+  id !== '.' &&
+  id !== '..' &&
+  /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(id) &&
+  !id.includes('..');
+
+const isPluginItem = (value: unknown): value is PluginItem => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const plugin = value as Partial<PluginItem>;
+  return (
+    isValidPluginId(plugin.id) &&
+    typeof plugin.name === 'string' &&
+    typeof plugin.site === 'string' &&
+    typeof plugin.lang === 'string' &&
+    typeof plugin.version === 'string' &&
+    typeof plugin.url === 'string' &&
+    typeof plugin.iconUrl === 'string'
+  );
+};
+
+const fetchPlugins = async (): Promise<FetchPluginsResult> => {
   const allPlugins: PluginItem[] = [];
-  const allRepositories = getRepositoriesFromDb();
+  const allRepositories = getEnabledRepositoriesFromDb();
 
   const repoPluginsRes = await Promise.allSettled(
-    allRepositories.map(({ url }) => fetch(url).then(res => res.json())),
+    allRepositories.map(async ({ url }) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Repository request failed (${response.status})`);
+      }
+      const manifest: unknown = await response.json();
+      if (!Array.isArray(manifest)) {
+        throw new Error('Repository manifest must be an array');
+      }
+      const manifestPlugins = manifest.filter(isPluginItem);
+      if (manifestPlugins.length !== manifest.length) {
+        throw new Error('Repository manifest contains invalid plugin entries');
+      }
+      return manifestPlugins;
+    }),
   );
 
+  let complete = true;
   repoPluginsRes.forEach(repoPlugins => {
     if (repoPlugins.status === 'fulfilled') {
       allPlugins.push(...repoPlugins.value);
     } else {
-      showToast(repoPlugins.reason.toString());
+      complete = false;
+      showToast(String(repoPlugins.reason));
     }
   });
 
-  return uniqBy(reverse(allPlugins), 'id');
+  return { plugins: uniqBy(reverse(allPlugins), 'id'), complete };
 };
 
 const getPlugin = (pluginId: string) => {
   if (pluginId === LOCAL_PLUGIN_ID) {
+    return undefined;
+  }
+  // Reject unsafe plugin IDs before constructing filesystem paths
+  if (!isValidPluginId(pluginId)) {
     return undefined;
   }
 
@@ -180,6 +267,10 @@ export {
   installPlugin,
   uninstallPlugin,
   updatePlugin,
+  withPluginMutationLock,
+  installPluginUnlocked,
+  uninstallPluginUnlocked,
+  updatePluginUnlocked,
   fetchPlugins,
   LOCAL_PLUGIN_ID,
 };

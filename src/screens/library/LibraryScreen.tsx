@@ -24,6 +24,8 @@ import Color from 'color';
 import {
   SearchbarV2,
   Button,
+  EmptyView,
+  ErrorScreenV2,
   SafeAreaView,
   TopTabBar,
 } from '@components/index';
@@ -90,6 +92,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
     categories,
     refetchLibrary,
     isLoading,
+    error: libraryError,
     settings: { showNumberOfNovels, downloadedOnlyMode, incognitoMode },
   } = useLibraryContext();
 
@@ -103,6 +106,12 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
   const bottomSheetRef = useRef<BottomSheetModalMethods | null>(null);
 
   const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(currentIndex =>
+      categories.length ? Math.min(currentIndex, categories.length - 1) : 0,
+    );
+  }, [categories.length]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const showToastMessage = useCallback((message: string) => {
@@ -124,7 +133,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
   const currentNovels = useMemo(() => {
     if (!categories.length) return [];
 
-    const ids = categories[index].novelIds;
+    const ids = categories[index]?.novelIds ?? [];
     return library.filter(l => ids.includes(l.id));
   }, [categories, index, library]);
 
@@ -237,9 +246,7 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
           (n.author?.toLowerCase().includes(searchText.toLowerCase()) ?? false),
       );
 
-      return isLoading ? (
-        <SourceScreenSkeletonLoading theme={theme} />
-      ) : (
+      return (
         <>
           {searchText ? (
             <Button
@@ -267,14 +274,12 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
       );
     },
     [
-      isLoading,
       library,
       navigation,
       pickAndImport,
       searchText,
       selectedNovelIds,
       styles.globalSearchBtn,
-      theme,
     ],
   );
 
@@ -371,12 +376,13 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
             title: getString('libraryScreen.extraMenu.updateCategory'),
             onPress: () =>
               //2 = local category
-              library[index].id !== 2 &&
+              categories[index]?.id !== 2 &&
+              categories[index] &&
               ServiceManager.manager.addTask({
                 name: 'UPDATE_LIBRARY',
                 data: {
-                  categoryId: library[index].id,
-                  categoryName: library[index].name,
+                  categoryId: categories[index].id,
+                  categoryName: categories[index].name,
                 },
               }),
           },
@@ -408,17 +414,45 @@ const LibraryScreen = ({ navigation }: LibraryScreenProps) => {
         />
       ) : null}
 
-      <TabView
-        commonOptions={{
-          label: renderLabel,
-        }}
-        lazy
-        navigationState={navigationState}
-        renderTabBar={renderTabBar}
-        renderScene={renderScene}
-        onIndexChange={setIndex}
-        initialLayout={{ width: layout.width }}
-      />
+      {isLoading ? (
+        <SourceScreenSkeletonLoading theme={theme} />
+      ) : libraryError ? (
+        <ErrorScreenV2
+          error={libraryError}
+          actions={[
+            {
+              iconName: 'refresh',
+              title: getString('common.retry'),
+              onPress: refetchLibrary,
+            },
+          ]}
+        />
+      ) : categories.length ? (
+        <TabView
+          commonOptions={{
+            label: renderLabel,
+          }}
+          lazy
+          navigationState={navigationState}
+          renderTabBar={renderTabBar}
+          renderScene={renderScene}
+          onIndexChange={setIndex}
+          initialLayout={{ width: layout.width }}
+        />
+      ) : (
+        <EmptyView
+          theme={theme}
+          icon="Σ(ಠ_ಠ)"
+          description={getString('libraryScreen.empty')}
+          actions={[
+            {
+              iconName: 'compass-outline',
+              title: getString('browse'),
+              onPress: () => navigation.navigate('Browse'),
+            },
+          ]}
+        />
+      )}
 
       {useLibraryFAB &&
       !isHistoryLoading &&

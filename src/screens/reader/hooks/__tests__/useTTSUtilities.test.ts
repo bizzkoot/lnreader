@@ -102,6 +102,10 @@ describe('useTTSUtilities (Phase 1 - Step 2)', () => {
     };
 
     // Default mock implementations
+    (TTSHighlight.updateMediaState as jest.Mock).mockResolvedValue(undefined);
+    (TTSHighlight.pause as jest.Mock).mockResolvedValue(undefined);
+    (TTSHighlight.stop as jest.Mock).mockResolvedValue(undefined);
+    (TTSHighlight.speakBatch as jest.Mock).mockResolvedValue(undefined);
     (extractParagraphs as jest.Mock).mockReturnValue([
       'Paragraph 1',
       'Paragraph 2',

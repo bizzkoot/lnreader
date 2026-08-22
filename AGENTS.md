@@ -28,18 +28,44 @@ pnpm run test:tts-refill
 pnpm run test:tts-wake-cycle
 ```
 
+## Commit Message Convention
+
+All commits MUST use a Conventional Commits message. Follow these structural rules strictly:
+
+1. Format: `<type>(<scope>): <summary>`
+2. Summary: use imperative mood (`add`, not `added`), start with lowercase, omit the period, and keep it to a maximum of 72 characters (ideal 50; scope + upstream refs may push toward 72 — hard limit 90 only when unavoidable).
+3. Body: for complex changes, add a blank line followed by a bulleted list.
+   - Use `-` bullets for distinct technical changes or side effects.
+   - Keep each bullet point on a single line; do not hard-wrap or break lines mid-sentence.
+   - Focus on what changed and why rather than implementation details.
+4. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`.
+5. Include validation details in the body when relevant, such as type-checking, linting, formatting, tests, builds, native compilation, or diff checks.
+6. Commit bodies must contain real line breaks. Never pass literal `\\n` text in a commit message; use repeated `-m` arguments or a heredoc/file with actual newlines.
+
 ## Current Task
 
-TTS Text Cleanup Pipeline (2026-08-02) - ✅ COMPLETED
+Upstream Feature Integration Roadmap (2026-08-19) - ✅ COMPLETED
 
-- **Feature**: Declarative, length-preserving text cleanup applied to every paragraph before it reaches the native TTS engine across ALL playback paths (initial queue, WebView tts-queue refills, fallback single-speak)
-- **Capabilities**: Ordered find/replace + regex strip rules, phonetic pronunciation dictionary (whole-word/substring match), optional Unicode normalization, per-novel overrides
-- **UI**: Global in Settings → Reader → Accessibility Tab; Quick access in Reader Bottom Sheet → TTS Tab ("Text Cleanup" section)
-- **Commits**: 2d35beff0 (pipeline), 1a1ffb00d (regex safety), aeec7abb6 (per-novel overrides), b0b56f333 (substring mode + reorder), b47f527c0 (wiring tests), e4a78d623 (listener deps) — all 2026-08-02, branch `dev` (not yet pushed)
-- **Tests**: 1235 passing (zero regressions)
-- **Docs**: PRD at specs/tts-text-cleanup/PRD.md
+- **Phase 1: In-Chapter Search & RTL Support** - ✅ COMPLETED
+  - **In-Chapter Search (#1877)**: Non-destructive WebView search engine (`window.readerSearch`), match counters, steppers, MD3 scaled `ReaderSearchbar.tsx`, hardware back dismissal (`932638119`)
+  - **RTL Language Support (#1717)**: Native and WebView layout direction for RTL locales (ar, he, fa, ur), reader CSS alignment (`6ddfe3d2e`)
+- **Phase 2: Analytics & Statistics** - ✅ COMPLETED
+  - **Reading Time Tracking (#1899)**: Migration 006 `ReadingSession` table with cascading deletes, `useTimeTracking.ts` foreground activity listener with inactivity pause & TTS synergy (`cde0aa1ff`)
+  - **Statistics Overhaul & Charts (#1919)**: Raw-SQL aggregate queries in `StatsQueries.ts`, Overview/Time/Plugins tabs, `react-native-svg` donut distribution charts, genre taxonomy exploration (`caa1645cd`)
+- **Phase 3: Background Updates** - ✅ COMPLETED
+  - **Scheduled Library Updates**: Persisted interval settings, `ServiceManager` opportunistic foreground checks and task deduplication (`8fecb06a9`)
+- **Tests**: 1628 passing across 109 test suites (zero regressions)
+- **Docs**: PRD at PRD.md
 
 ### Previous Completed Tasks
+
+- TTS Text Cleanup Pipeline (2026-08-02) - ✅ COMPLETED
+  - **Feature**: Declarative, length-preserving text cleanup applied to every paragraph before it reaches the native TTS engine across ALL playback paths (initial queue, WebView tts-queue refills, fallback single-speak)
+  - **Capabilities**: Ordered find/replace + regex strip rules, phonetic pronunciation dictionary (whole-word/substring match), optional Unicode normalization, per-novel overrides
+  - **UI**: Global in Settings → Reader → Accessibility Tab; Quick access in Reader Bottom Sheet → TTS Tab ("Text Cleanup" section)
+  - **Commits**: 2d35beff0 (pipeline), 1a1ffb00d (regex safety), aeec7abb6 (per-novel overrides), b0b56f333 (substring mode + reorder), b47f527c0 (wiring tests), e4a78d623 (listener deps)
+  - **Tests**: 1235 passing (zero regressions)
+  - **Docs**: PRD at specs/tts-text-cleanup/PRD.md
 
 - Production Readiness Action Plan Implementation (2026-01-03) - ✅ COMPLETED
   - **Phase 1: Critical Security & Bug Fixes (P0)** - ✅ COMPLETED

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   getDetailedUpdatesFromDb,
   getUpdatedOverviewFromDb,
@@ -29,6 +29,10 @@ export const useLastUpdate = () => {
 export const useUpdates = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [updatesOverview, setUpdatesOverview] = useState<UpdateOverview[]>([]);
+  // Guards against a stale async overview fetch resolving after a newer one
+  // (e.g. a slow focus-triggered fetch landing after a deleteChapter().then(getUpdates)
+  // refetch) — mirrors useLibrary's loadRequestIdRef pattern.
+  const overviewRequestIdRef = useRef(0);
 
   const { lastUpdateTime, showLastUpdateTime, setLastUpdateTime } =
     useLastUpdate();
@@ -37,55 +41,71 @@ export const useUpdates = () => {
   const getDetailedUpdates = useCallback(
     async (novelId: number, onlyDownloadedChapters: boolean = false) => {
       setIsLoading(true);
-
-      let result: Update[] = await getDetailedUpdatesFromDb(
-        novelId,
-        onlyDownloadedChapters,
-      );
-      result = result.map(update => {
-        const parsedTime = dayjs(update.releaseTime);
-        return {
-          ...update,
-          releaseTime: parsedTime.isValid()
-            ? parsedTime.format('LL')
-            : update.releaseTime,
-          chapterNumber: update.chapterNumber
-            ? update.chapterNumber
-            : parseChapterNumber(update.novelName, update.name),
-        };
-      });
-      setIsLoading(false);
-      return result;
+      setError('');
+      try {
+        let result: Update[] = await getDetailedUpdatesFromDb(
+          novelId,
+          onlyDownloadedChapters,
+        );
+        result = result.map(update => {
+          const parsedTime = dayjs(update.releaseTime);
+          return {
+            ...update,
+            releaseTime: parsedTime.isValid()
+              ? parsedTime.format('LL')
+              : update.releaseTime,
+            chapterNumber: update.chapterNumber
+              ? update.chapterNumber
+              : parseChapterNumber(update.novelName, update.name),
+          };
+        });
+        return result;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
     },
     [],
   );
 
   const getUpdates = useCallback(async () => {
+    const requestId = ++overviewRequestIdRef.current;
     setIsLoading(true);
-    getUpdatedOverviewFromDb()
-      .then(res => {
-        setUpdatesOverview(res);
-        if (res.length) {
-          if (
-            !lastUpdateTime ||
-            dayjs(lastUpdateTime).isBefore(dayjs(res[0].updateDate))
-          ) {
-            setLastUpdateTime(res[0].updateDate);
-          }
-        }
-      })
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setIsLoading(false));
+    setError('');
+    try {
+      const res = await getUpdatedOverviewFromDb();
+      if (requestId !== overviewRequestIdRef.current) {
+        return;
+      }
+      setUpdatesOverview(res);
+      if (
+        res.length &&
+        (!lastUpdateTime ||
+          dayjs(lastUpdateTime).isBefore(dayjs(res[0].updateDate)))
+      ) {
+        setLastUpdateTime(res[0].updateDate);
+      }
+    } catch (err) {
+      if (requestId === overviewRequestIdRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      if (requestId === overviewRequestIdRef.current) {
+        setIsLoading(false);
+      }
+    }
   }, [lastUpdateTime, setLastUpdateTime]);
 
   useFocusEffect(
     useCallback(() => {
-      setIsLoading(true);
-      //? Push updates to the end of the stack to avoid lag
-      setTimeout(async () => {
-        await getUpdates();
-        setIsLoading(false);
+      // Push updates to the end of the stack to avoid lag; rely on getUpdates
+      // for isLoading gating via overviewRequestIdRef to avoid premature clear.
+      const timer = setTimeout(() => {
+        getUpdates();
       }, 0);
+      return () => clearTimeout(timer);
     }, [getUpdates]),
   );
 

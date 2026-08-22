@@ -1471,6 +1471,7 @@ window.reader = new (function () {
 
   // NEW: Debounced scroll handler to replace scrollend
   this.scrollDebounceTimer = null;
+  this.lastReadingActivityPost = 0;
   this.accumulatedScrollDelta = 0;
   this.DIRECTION_CHANGE_THRESHOLD = 50; // pixels
 
@@ -1506,6 +1507,14 @@ window.reader = new (function () {
 
     window.tts.lastKnownScrollY = currentScrollY;
 
+    // Notify native reading-time tracking about manual scrolling without
+    // flooding the React Native bridge on every scroll event.
+    const now = Date.now();
+    if (now - this.lastReadingActivityPost >= 250) {
+      this.lastReadingActivityPost = now;
+      this.post({ type: 'reading-activity' });
+    }
+
     // Debounce the actual processing
     if (this.scrollDebounceTimer) {
       clearTimeout(this.scrollDebounceTimer);
@@ -1514,6 +1523,17 @@ window.reader = new (function () {
     this.scrollDebounceTimer = setTimeout(() => {
       this.processScroll(currentScrollY);
     }, 150); // 150ms debounce
+  };
+
+  // Flush pending debounced save immediately (background visibility)
+  this.flushPendingProgressSave = () => {
+    if (window.tts && window.tts.reading) return;
+    if (!this.hasPerformedInitialScroll && this.suppressSaveOnScroll) return;
+    if (this.scrollDebounceTimer) {
+      clearTimeout(this.scrollDebounceTimer);
+      this.scrollDebounceTimer = null;
+    }
+    this.saveProgress();
   };
 
   this.processScroll = currentScrollY => {
@@ -1763,6 +1783,20 @@ window.reader = new (function () {
 
   document.addEventListener('scroll', this.onScroll, { passive: true });
 
+  // Ensure progress is not lost when app backgrounds mid-debounce
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      try {
+        this.flushPendingProgressSave();
+      } catch (e) {}
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    try {
+      this.flushPendingProgressSave();
+    } catch (e) {}
+  });
+
   // FIX: Enhance chapter titles for EPUB TTS synchronization
   // Only adds title if first few VISIBLE elements don't contain chapter title text
   this.enhanceChapterTitles = (html, chapterName) => {
@@ -2009,6 +2043,7 @@ window.tts = new (function () {
     'BR',
     'STRONG',
     'A',
+    'MARK',
     // Block elements (must match extractParagraphs BLOCK_TAGS)
     'P',
     'DIV',
@@ -4125,6 +4160,7 @@ document.addEventListener('message', __handleNativeMessage);
   this.initialY = null;
 
   reader.chapterElement.addEventListener('touchstart', e => {
+    this.post({ type: 'reading-activity' });
     this.initialX = e.changedTouches[0].screenX;
     this.initialY = e.changedTouches[0].screenY;
   });

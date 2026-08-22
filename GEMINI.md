@@ -27,12 +27,12 @@ pnpm run test:tts-wake-cycle
 ```
 
 ## Current Task
-Bluetooth TTS Media Button Support (2026-01-01) - ✅ COMPLETED
-- **Feature**: Bluetooth headset play/pause controls TTS playback
-- **Root Cause**: TTS audio played by `com.google.android.tts`, not our app, so MediaSession was "orphaned"
-- **Fix**: Silent audio workaround with proper `AudioAttributes` (USAGE_MEDIA, CONTENT_TYPE_MUSIC)
-- **Files**: `TTSForegroundService.kt`, `res/raw/silence.mp3`
-- **Test**: `adb shell cmd media_session dispatch play-pause`
+Upstream Feature Integration Roadmap (2026-08-19) - ✅ COMPLETED
+- **Phase 1**: In-Chapter Search (#1877) + RTL Language Support (#1717)
+- **Phase 2**: Reading Time Tracking & Inactivity Detection (#1899) + Stats Overhaul & Donut Charts (#1919)
+- **Phase 3**: Scheduled Background Library Updates
+- **Tests**: 1628 passing across 109 test suites (zero regressions)
+- **Docs**: PRD.md in root
 
 ## TTS Architecture (3-Layer Hybrid)
 

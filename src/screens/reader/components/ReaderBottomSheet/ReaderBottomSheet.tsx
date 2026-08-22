@@ -207,6 +207,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
     <BottomSheet
       bottomSheetRef={bottomSheetRef}
       snapPoints={[scaleDimension(360, uiScale), scaleDimension(600, uiScale)]}
+      enableContentPanningGesture={false}
     >
       <BottomSheetView style={styles(uiScale).flex}>
         <TabView
@@ -218,6 +219,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
           renderScene={renderScene}
           onIndexChange={setIndex}
           initialLayout={{ width: layout.width }}
+          swipeEnabled
           style={styles(uiScale).tabView}
         />
       </BottomSheetView>

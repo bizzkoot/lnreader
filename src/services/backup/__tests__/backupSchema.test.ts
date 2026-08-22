@@ -3,6 +3,7 @@
  */
 
 import {
+  backupMMKVData,
   detectBackupVersion,
   migrateBackup,
   validateAndRestoreMMKVEntries,
@@ -34,7 +35,33 @@ jest.mock('@specs/NativeFile');
 
 describe('Backup Schema Tests', () => {
   beforeEach(() => {
+    (MMKVStorage.getAllKeys as jest.Mock).mockReturnValue([
+      'falseValue',
+      'zeroValue',
+      'emptyValue',
+      'undefinedValue',
+    ]);
+    (MMKVStorage.getString as jest.Mock).mockImplementation((key: string) => {
+      if (key === 'emptyValue') return '';
+      return undefined;
+    });
+    (MMKVStorage.getBoolean as jest.Mock).mockImplementation((key: string) =>
+      key === 'falseValue' ? false : undefined,
+    );
+    (MMKVStorage.getNumber as jest.Mock).mockImplementation((key: string) =>
+      key === 'zeroValue' ? 0 : undefined,
+    );
     jest.clearAllMocks();
+  });
+
+  describe('legacy MMKV serialization', () => {
+    it('preserves false, zero, and empty-string values', () => {
+      expect(backupMMKVData()).toEqual({
+        falseValue: false,
+        zeroValue: 0,
+        emptyValue: '',
+      });
+    });
   });
 
   describe('detectBackupVersion', () => {

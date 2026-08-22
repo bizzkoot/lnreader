@@ -81,6 +81,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
               path: history.novelPath,
               name: history.novelName,
               pluginId: history.pluginId,
+              inLibrary: history.inLibrary,
             } as NovelInfo,
             chapter: history,
           },
@@ -93,10 +94,11 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
             navigate('ReaderStack', {
               screen: 'Novel',
               params: {
-                name: history.name,
+                name: history.novelName,
                 path: history.novelPath,
                 cover: history.novelCover,
                 pluginId: history.pluginId,
+                inLibrary: history.inLibrary,
               },
             })
           }

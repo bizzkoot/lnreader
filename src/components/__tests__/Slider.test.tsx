@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 
 import Slider, { shouldClaimPanResponder } from '../Slider/Slider';
 
@@ -9,15 +9,37 @@ jest.mock('@hooks/persisted', () => ({
   useTheme: () => mockUseTheme(),
 }));
 
-const responderEvent = (locationX: number) => ({
-  nativeEvent: { locationX },
-  touchHistory: {
-    indexOfSingleActiveTouch: -1,
-    mostRecentTimeStamp: 0,
-    numberActiveTouches: 0,
-    touchBank: [],
-  },
-});
+let testTimestamp = 100;
+
+const responderEvent = (
+  locationX: number,
+  pageX: number = locationX,
+  startX: number = locationX,
+) => {
+  testTimestamp += 16;
+  return {
+    nativeEvent: { locationX, pageX, touches: [{ identifier: 0 }] },
+    touchHistory: {
+      indexOfSingleActiveTouch: 0,
+      mostRecentTimeStamp: testTimestamp,
+      numberActiveTouches: 1,
+      touchBank: [
+        {
+          touchActive: true,
+          startPageX: startX,
+          startPageY: 100,
+          startTimeStamp: 0,
+          currentPageX: pageX,
+          currentPageY: 100,
+          currentTimeStamp: testTimestamp,
+          previousPageX: pageX,
+          previousPageY: 100,
+          previousTimeStamp: testTimestamp - 16,
+        },
+      ],
+    },
+  };
+};
 
 const accessibilityActionEvent = (actionName: string) => ({
   nativeEvent: { actionName },
@@ -50,23 +72,37 @@ describe('Slider', () => {
     return slider;
   };
 
-  // The slider's PanResponder never claims a touch at start
-  // (onStartShouldSetPanResponder => false), which makes RNTL treat it as
-  // non-interactive (fireEvent silently no-ops). We therefore drive the
-  // responder/layout/a11y handlers directly — they are the same props fireEvent
-  // would dispatch to.
-  const grant = (slider: ReturnType<typeof screen.getByTestId>, x: number) => {
+  // We drive the responder/layout/a11y handlers directly to simulate touch interactions.
+  const grant = (
+    slider: ReturnType<typeof screen.getByTestId>,
+    x: number,
+    pageX?: number,
+    startX?: number,
+  ) => {
     act(() => {
-      slider.props.onResponderGrant(responderEvent(x));
+      slider.props.onResponderGrant(responderEvent(x, pageX, startX));
+    });
+  };
+
+  const move = (
+    slider: ReturnType<typeof screen.getByTestId>,
+    x: number,
+    pageX?: number,
+    startX?: number,
+  ) => {
+    act(() => {
+      slider.props.onResponderMove(responderEvent(x, pageX, startX));
     });
   };
 
   const release = (
     slider: ReturnType<typeof screen.getByTestId>,
     x: number,
+    pageX?: number,
+    startX?: number,
   ) => {
     act(() => {
-      slider.props.onResponderRelease(responderEvent(x));
+      slider.props.onResponderRelease(responderEvent(x, pageX, startX));
     });
   };
 
@@ -108,6 +144,38 @@ describe('Slider', () => {
     grant(slider, 142);
 
     expect(onValueChange).toHaveBeenLastCalledWith(8);
+  });
+
+  it('updates value and handle position live during dragging gestures', () => {
+    const onValueChange = jest.fn();
+    const onSlidingComplete = jest.fn();
+    render(
+      <Slider
+        value={0}
+        min={0}
+        max={10}
+        step={1}
+        onValueChange={onValueChange}
+        onSlidingComplete={onSlidingComplete}
+      />,
+    );
+    const slider = layoutSlider();
+
+    // Touch down at x=20
+    grant(slider, 20);
+    expect(onValueChange).toHaveBeenLastCalledWith(1);
+
+    // Drag forward to x=100
+    move(slider, 100);
+    expect(onValueChange).toHaveBeenLastCalledWith(5);
+
+    // Drag further to x=180
+    move(slider, 180);
+    expect(onValueChange).toHaveBeenLastCalledWith(9);
+
+    // Release at current position
+    release(slider, 180);
+    expect(onSlidingComplete).toHaveBeenCalledWith(9);
   });
 
   it('uses the MD3 XS track, gap, and handle measurements by default', () => {
@@ -240,11 +308,10 @@ describe('Slider', () => {
         onSlidingComplete={onSlidingComplete}
       />,
     );
-    layoutSlider();
+    const slider = layoutSlider();
 
-    fireEvent(screen.getByTestId('slider-press-surface'), 'click', {
-      nativeEvent: { locationX: 142 },
-    });
+    grant(slider, 142);
+    release(slider, 142);
 
     expect(onValueChange).toHaveBeenLastCalledWith(8);
     expect(onSlidingComplete).toHaveBeenCalledWith(8);
@@ -263,91 +330,27 @@ describe('Slider', () => {
         onSlidingComplete={onSlidingComplete}
       />,
     );
-    layoutSlider();
+    const slider = layoutSlider();
 
-    fireEvent(screen.getByTestId('slider-press-surface'), 'click', {
-      nativeEvent: { locationX: 142 },
-    });
+    grant(slider, 142);
+    release(slider, 142);
 
     expect(onValueChange).not.toHaveBeenCalled();
     expect(onSlidingComplete).not.toHaveBeenCalled();
   });
 
-  it('does not claim responder at touch start, so vertical swipes reach the parent ScrollView', () => {
-    render(<Slider value={5} min={0} max={10} />);
+  it('claims responder at touch start while enabled to prevent pager interception', () => {
+    const { rerender } = render(<Slider value={5} min={0} max={10} />);
     const slider = screen.getByTestId('slider');
 
     const startShouldSet = slider.props.onStartShouldSetResponder as
       | ((event?: object) => boolean)
       | undefined;
     expect(startShouldSet).toBeDefined();
-    expect(
-      startShouldSet!({
-        nativeEvent: {},
-        touchHistory: {
-          indexOfSingleActiveTouch: -1,
-          mostRecentTimeStamp: 0,
-          numberActiveTouches: 1,
-          touchBank: [],
-        },
-      }),
-    ).toBe(false);
-  });
+    expect(startShouldSet!()).toBe(true);
 
-  it('claims only horizontal-dominant drags through the responder system', () => {
-    render(<Slider value={5} min={0} max={10} />);
-    const slider = screen.getByTestId('slider');
-
-    const moveCapture = slider.props.onMoveShouldSetResponderCapture as
-      | ((event?: object) => boolean)
-      | undefined;
-    const moveShouldSet = slider.props.onMoveShouldSetResponder as
-      | ((event?: object) => boolean)
-      | undefined;
-    expect(moveCapture).toBeDefined();
-    expect(moveShouldSet).toBeDefined();
-
-    // Build touchHistory entries whose current-vs-previous delta is the
-    // gesture movement between two events. PanResponder accumulates dx/dy
-    // across moves (capture phase), then the bubbling handler consults our
-    // predicate with the accumulated values.
-    const moveEvent = (
-      curX: number,
-      curY: number,
-      prevX: number,
-      prevY: number,
-      ts: number,
-    ) => ({
-      nativeEvent: { touches: [{ identifier: 0 }] },
-      touchHistory: {
-        numberActiveTouches: 1,
-        indexOfSingleActiveTouch: 0,
-        mostRecentTimeStamp: ts,
-        touchBank: [
-          {
-            touchActive: true,
-            startPageX: 100,
-            startPageY: 100,
-            startTimeStamp: 0,
-            currentPageX: curX,
-            currentPageY: curY,
-            currentTimeStamp: ts,
-            previousPageX: prevX,
-            previousPageY: prevY,
-            previousTimeStamp: ts - 1,
-          },
-        ],
-      },
-    });
-
-    // Horizontal move: delta (25, 0) => accumulated (25, 0) => claimed.
-    moveCapture!(moveEvent(125, 100, 100, 100, 100));
-    expect(moveShouldSet!(moveEvent(125, 100, 100, 100, 100))).toBe(true);
-
-    // Mostly-vertical move: delta (-23, 25) => accumulated (2, 25) => not
-    // claimed, so the parent ScrollView can scroll.
-    moveCapture!(moveEvent(102, 125, 125, 100, 200));
-    expect(moveShouldSet!(moveEvent(102, 125, 125, 100, 200))).toBe(false);
+    rerender(<Slider disabled value={5} min={0} max={10} />);
+    expect(slider.props.onStartShouldSetResponder!()).toBe(false);
   });
 });
 

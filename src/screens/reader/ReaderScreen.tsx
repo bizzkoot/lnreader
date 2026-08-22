@@ -3,6 +3,7 @@ import { useChapterGeneralSettings, useTheme } from '@hooks/persisted';
 
 import ReaderAppbar from './components/ReaderAppbar';
 import ReaderFooter from './components/ReaderFooter';
+import ReaderSearchbar from './components/ReaderSearchbar';
 
 // Using refactored WebViewReader with TTS logic extracted to useTTSController hook
 import WebViewReader from './components/WebViewReader';
@@ -19,6 +20,7 @@ import { useBackHandler } from '@hooks/index';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
+import { ReaderSearchResult, EMPTY_READER_SEARCH_RESULT } from './types';
 
 const Chapter = ({ route, navigation }: ChapterScreenProps) => {
   const [open, setOpen] = useState(false);
@@ -85,6 +87,70 @@ export const ChapterContent = ({
   const { hidden, loading, error, webViewRef, hideHeader, refetch } =
     useChapterContext();
 
+  // ── In-chapter search state ──────────────────────────────────────────
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchResult, setSearchResult] = useState<ReaderSearchResult>(
+    EMPTY_READER_SEARCH_RESULT,
+  );
+  const searchQueryRef = useRef('');
+
+  const handleSearch = useCallback(
+    (query: string) => {
+      searchQueryRef.current = query;
+      webViewRef?.current?.injectJavaScript(
+        `window.readerSearch.search(${JSON.stringify(query)}); true;`,
+      );
+    },
+    [webViewRef],
+  );
+
+  const handleSearchNext = useCallback(() => {
+    webViewRef?.current?.injectJavaScript(
+      `window.readerSearch.next(${JSON.stringify(searchQueryRef.current)}); true;`,
+    );
+  }, [webViewRef]);
+
+  const handleSearchPrevious = useCallback(() => {
+    webViewRef?.current?.injectJavaScript(
+      `window.readerSearch.previous(${JSON.stringify(searchQueryRef.current)}); true;`,
+    );
+  }, [webViewRef]);
+
+  const handleClearSearch = useCallback(() => {
+    searchQueryRef.current = '';
+    setSearchResult(EMPTY_READER_SEARCH_RESULT);
+    webViewRef?.current?.injectJavaScript('window.readerSearch.clear(); true;');
+  }, [webViewRef]);
+
+  const handleToggleSearch = useCallback(() => {
+    setSearchVisible(prev => {
+      if (prev) {
+        handleClearSearch();
+      }
+      return !prev;
+    });
+  }, [handleClearSearch]);
+
+  const handleCloseSearch = useCallback(() => {
+    setSearchVisible(false);
+    handleClearSearch();
+  }, [handleClearSearch]);
+
+  // Clear search on chapter change
+  useEffect(() => {
+    handleClearSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapter.id]);
+
+  // ── Back handler: search takes priority over drawer ──────────────────
+  useBackHandler(() => {
+    if (searchVisible) {
+      handleCloseSearch();
+      return true;
+    }
+    return false;
+  });
+
   const scrollToStart = () =>
     requestAnimationFrame(() => {
       webViewRef?.current?.injectJavaScript(
@@ -136,7 +202,11 @@ export const ChapterContent = ({
       {loading ? (
         <ChapterLoadingScreen />
       ) : (
-        <WebViewReader onPress={hideHeader} />
+        <WebViewReader
+          onPress={hideHeader}
+          onSearchResult={setSearchResult}
+          searchQuery={searchResult.query}
+        />
       )}
       <ReaderBottomSheetV2
         bottomSheetRef={readerSheetRef}
@@ -145,22 +215,37 @@ export const ChapterContent = ({
         adjustHighlightOffset={adjustHighlightOffset}
         resetHighlightOffset={resetHighlightOffset}
       />
-      {!hidden ? (
+      {!hidden && (
         <>
-          <ReaderAppbar
-            goBack={navigation.goBack}
-            theme={theme}
-            bookmarked={bookmarked}
-            setBookmarked={setBookmarked}
-          />
-          <ReaderFooter
-            readerSheetRef={readerSheetRef}
-            scrollToStart={scrollToStart}
-            navigation={navigation}
-            openDrawer={openDrawerI}
-          />
+          {searchVisible ? (
+            <ReaderSearchbar
+              theme={theme}
+              searchResult={searchResult}
+              onSearch={handleSearch}
+              onNext={handleSearchNext}
+              onPrevious={handleSearchPrevious}
+              onClose={handleCloseSearch}
+            />
+          ) : (
+            <ReaderAppbar
+              goBack={navigation.goBack}
+              theme={theme}
+              bookmarked={bookmarked}
+              setBookmarked={setBookmarked}
+              searchVisible={searchVisible}
+              onToggleSearch={handleToggleSearch}
+            />
+          )}
+          {!searchVisible && (
+            <ReaderFooter
+              readerSheetRef={readerSheetRef}
+              scrollToStart={scrollToStart}
+              navigation={navigation}
+              openDrawer={openDrawerI}
+            />
+          )}
         </>
-      ) : null}
+      )}
     </View>
   );
 };

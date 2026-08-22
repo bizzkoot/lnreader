@@ -257,6 +257,8 @@ export interface UseTTSControllerReturn {
   chapterTransitionTimeRef: RefObject<number>;
   /** Previous chapter ID ref (for TTS chapterId parameter in WebView commands) */
   prevChapterIdRef: RefObject<number>;
+  /** Whether TTS is currently reading (ref, updates without re-render) */
+  isTTSReadingRef: RefObject<boolean>;
 
   // === Utility Functions ===
   /** Resume TTS from stored state */
@@ -2429,12 +2431,14 @@ export function useTTSController(
               lastTTSPauseTimeRef.current = Date.now();
               latestParagraphIndexRef.current = idx;
               autoStartTTSRef.current = false;
-              isTTSReadingRef.current = false;
               isTTSPlayingRef.current = false;
               isTTSPausedRef.current = true;
               autoStopService.stop();
               await TTSHighlight.pause();
+              // Keep the reading flag set while updating the paused notification so
+              // it displays the paragraph currently being spoken, not the last one completed.
               updateTtsMediaNotificationState(false);
+              isTTSReadingRef.current = false;
               return;
             }
 
@@ -3698,6 +3702,7 @@ export function useTTSController(
     chaptersAutoPlayedRef,
     chapterTransitionTimeRef,
     prevChapterIdRef,
+    isTTSReadingRef,
 
     // Utility Functions (from utilities)
     resumeTTS,

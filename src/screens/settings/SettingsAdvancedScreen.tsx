@@ -174,7 +174,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
         title={getString('advancedSettings')}
         handleGoBack={() => navigation.goBack()}
@@ -279,10 +279,15 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
         <ConfirmationDialog
           message={getString('advancedSettingsScreen.clearUpdatesWarning')}
           visible={clearUpdatesDialog}
-          onSubmit={() => {
-            clearUpdates();
-            showToast(getString('advancedSettingsScreen.clearUpdatesMessage'));
-            hideClearUpdatesDialog();
+          onSubmit={async () => {
+            try {
+              await clearUpdates();
+              showToast(
+                getString('advancedSettingsScreen.clearUpdatesMessage'),
+              );
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : String(error));
+            }
           }}
           onDismiss={hideClearUpdatesDialog}
           theme={theme}

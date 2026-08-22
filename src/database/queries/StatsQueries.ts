@@ -2,6 +2,13 @@ import { countBy } from 'lodash-es';
 import { LibraryStats } from '../types';
 import { getAllAsync, getFirstAsync } from '../utils/helpers';
 
+// ponytail: single helper for comma-separated fields; filter Boolean removes empty entries
+// (previously duplicated in getNovelGenresFromDb, getNovelStatusFromDb, and StatsScreen.tsx)
+export const splitCsvField = (value: string | null | undefined): string[] => {
+  if (!value) return [];
+  return value.split(/\s*,\s*/).filter(Boolean);
+};
+
 interface NovelGenresRow {
   genres: string;
 }
@@ -117,11 +124,7 @@ export const getNovelGenresFromDb = async (): Promise<LibraryStats> => {
   const genres: string[] = [];
   await getAllAsync<NovelGenresRow>([getNovelGenresQuery]).then(res => {
     res.forEach((item: NovelGenresRow) => {
-      const novelGenres = item.genres?.split(/\s*,\s*/);
-
-      if (novelGenres?.length) {
-        genres.push(...novelGenres);
-      }
+      genres.push(...splitCsvField(item.genres));
     });
   });
   return { genres: countBy(genres) };
@@ -131,12 +134,196 @@ export const getNovelStatusFromDb = async (): Promise<LibraryStats> => {
   const status: string[] = [];
   await getAllAsync<NovelStatusRow>([getNovelStatusQuery]).then(res => {
     res.forEach((item: NovelStatusRow) => {
-      const novelStatus = item.status?.split(/\s*,\s*/);
-
-      if (novelStatus?.length) {
-        status.push(...novelStatus);
-      }
+      status.push(...splitCsvField(item.status));
     });
   });
   return { status: countBy(status) };
+};
+
+// --- Reading time tracking (PRD 3.2) --- raw-SQL aggregates over ReadingSession ---
+
+interface ReadingTimeRow {
+  total: number | null;
+}
+
+export interface ReadingTimeStats {
+  total: number;
+}
+
+const getTotalReadingTimeQuery = `SELECT COALESCE(SUM(duration), 0) as total FROM ReadingSession`;
+const getReadingTimeForNovelQuery = `SELECT COALESCE(SUM(duration), 0) as total FROM ReadingSession WHERE novelId = ?`;
+const getReadingTimeForChapterQuery = `SELECT COALESCE(SUM(duration), 0) as total FROM ReadingSession WHERE chapterId = ?`;
+const getReadingTimeGroupedByNovelQuery = `SELECT novelId, COALESCE(SUM(duration), 0) as total FROM ReadingSession GROUP BY novelId`;
+const getReadingTimeGroupedByChapterQuery = `SELECT chapterId, novelId, COALESCE(SUM(duration), 0) as total FROM ReadingSession GROUP BY chapterId`;
+
+export const getTotalReadingTime = async (): Promise<ReadingTimeStats> => {
+  const row = await getFirstAsync<ReadingTimeRow>([getTotalReadingTimeQuery]);
+  return { total: row?.total ?? 0 };
+};
+
+export const getReadingTimeForNovel = async (
+  novelId: number,
+): Promise<ReadingTimeStats> => {
+  const row = await getFirstAsync<ReadingTimeRow>([
+    getReadingTimeForNovelQuery,
+    [novelId],
+  ]);
+  return { total: row?.total ?? 0 };
+};
+
+export const getReadingTimeForChapter = async (
+  chapterId: number,
+): Promise<ReadingTimeStats> => {
+  const row = await getFirstAsync<ReadingTimeRow>([
+    getReadingTimeForChapterQuery,
+    [chapterId],
+  ]);
+  return { total: row?.total ?? 0 };
+};
+
+export const getReadingTimeGroupedByNovel = async (): Promise<
+  Array<{ novelId: number; total: number }>
+> => {
+  return (await getAllAsync<{ novelId: number; total: number }>([
+    getReadingTimeGroupedByNovelQuery,
+  ])) as Array<{ novelId: number; total: number }>;
+};
+
+export const getReadingTimeGroupedByChapter = async (): Promise<
+  Array<{ chapterId: number; novelId: number; total: number }>
+> => {
+  return (await getAllAsync<{
+    chapterId: number;
+    novelId: number;
+    total: number;
+  }>([getReadingTimeGroupedByChapterQuery])) as Array<{
+    chapterId: number;
+    novelId: number;
+    total: number;
+  }>;
+};
+
+// --- 3.3 additions (raw-SQL, no Drizzle) ---
+
+export interface AggregateStats extends LibraryStats {
+  totalReadingTime?: number;
+}
+
+interface AggregateRow {
+  novelsCount: number;
+  sourcesCount: number;
+  chaptersCount: number;
+  chaptersUnread: number;
+  chaptersDownloaded: number;
+  totalReadingTime: number | null;
+}
+
+const getAggregateStatsQuery = `
+  SELECT
+    COUNT(*) as novelsCount,
+    COUNT(DISTINCT pluginId) as sourcesCount,
+    COALESCE(SUM(totalChapters), 0) as chaptersCount,
+    COALESCE(SUM(chaptersUnread), 0) as chaptersUnread,
+    COALESCE(SUM(chaptersDownloaded), 0) as chaptersDownloaded,
+    COALESCE((SELECT SUM(duration) FROM ReadingSession JOIN Novel n2 ON ReadingSession.novelId = n2.id WHERE n2.inLibrary = 1), 0) as totalReadingTime
+  FROM Novel
+  WHERE inLibrary = 1
+`;
+
+export const getAggregateStatsFromDb = async (): Promise<AggregateStats> => {
+  const row = await getFirstAsync<AggregateRow>([getAggregateStatsQuery]);
+  if (!row) return {};
+  const chaptersCount = row.chaptersCount ?? 0;
+  const chaptersUnread = row.chaptersUnread ?? 0;
+  return {
+    novelsCount: row.novelsCount ?? 0,
+    sourcesCount: row.sourcesCount ?? 0,
+    chaptersCount,
+    chaptersUnread,
+    chaptersDownloaded: row.chaptersDownloaded ?? 0,
+    chaptersRead: Math.max(0, chaptersCount - chaptersUnread),
+    totalReadingTime: row.totalReadingTime ?? 0,
+  };
+};
+
+export interface NovelWithGenresRow {
+  id: number;
+  pluginId: string;
+  name: string;
+  path: string;
+  cover?: string;
+  genres?: string | null;
+  status?: string | null;
+  totalChapters: number;
+  chaptersUnread: number;
+  chaptersDownloaded: number;
+}
+
+const getNovelsWithGenresQueryFull = `
+  SELECT id, pluginId, name, path, cover, genres, status, totalChapters, chaptersUnread, chaptersDownloaded
+  FROM Novel
+  WHERE inLibrary = 1
+`;
+
+export const getNovelsWithGenresFromDb = async (): Promise<
+  NovelWithGenresRow[]
+> => {
+  const rows = await getAllAsync<NovelWithGenresRow>([
+    getNovelsWithGenresQueryFull,
+  ]);
+  return rows ?? [];
+};
+
+export interface TopNovelTimeRow {
+  id: number;
+  pluginId: string;
+  name: string;
+  path: string;
+  cover?: string | null;
+  timeSpent: number;
+}
+
+const getTopNovelsByReadingTimeQuery = `
+  SELECT Novel.id as id, Novel.pluginId as pluginId, Novel.name as name, Novel.path as path, Novel.cover as cover,
+         COALESCE(SUM(ReadingSession.duration), 0) as timeSpent
+  FROM Novel
+  JOIN ReadingSession ON Novel.id = ReadingSession.novelId
+  WHERE Novel.inLibrary = 1
+  GROUP BY Novel.id
+  HAVING timeSpent > 0
+  ORDER BY timeSpent DESC
+  LIMIT ?
+`;
+
+export const getTopNovelsByReadingTimeFromDb = async (
+  limit = 10,
+): Promise<TopNovelTimeRow[]> => {
+  const safeLimit = Number.isFinite(limit)
+    ? Math.max(1, Math.min(50, Math.floor(limit)))
+    : 10;
+  const rows = await getAllAsync<TopNovelTimeRow>([
+    getTopNovelsByReadingTimeQuery,
+    [safeLimit],
+  ]);
+  return (rows ?? []) as TopNovelTimeRow[];
+};
+
+export const insertReadingSession = async (params: {
+  novelId: number;
+  chapterId: number;
+  startTime: number;
+  duration: number;
+}): Promise<void> => {
+  const { novelId, chapterId, startTime, duration } = params;
+  if (!Number.isFinite(novelId) || !Number.isFinite(chapterId)) return;
+  if (!Number.isFinite(duration) || duration < 1000) return;
+  if (!Number.isFinite(startTime)) return;
+  const { db } = await import('@database/db');
+  await db.runAsync(
+    'INSERT INTO ReadingSession (novelId, chapterId, startTime, duration) VALUES (?, ?, ?, ?)',
+    novelId,
+    chapterId,
+    startTime,
+    Math.round(duration),
+  );
 };

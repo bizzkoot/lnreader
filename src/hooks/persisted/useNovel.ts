@@ -9,7 +9,7 @@ import {
   insertNovelAndChapters,
 } from '@database/queries/NovelQueries';
 import {
-  bookmarkChapter as _bookmarkChapter,
+  bookmarkChapters as _bookmarkChapters,
   markChapterRead as _markChapterRead,
   markChaptersRead as _markChaptersRead,
   markPreviuschaptersRead as _markPreviuschaptersRead,
@@ -140,10 +140,11 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   const updateChapter = useCallback(
     (index: number, update: Partial<ChapterInfo>) => {
       if (novel) {
-        _setChapters(chs => {
-          chs[index] = { ...chs[index], ...update };
-          return chs;
-        });
+        _setChapters(chs =>
+          chs.map((chapter, chapterIndex) =>
+            chapterIndex === index ? { ...chapter, ...update } : chapter,
+          ),
+        );
       }
     },
     [novel],
@@ -396,9 +397,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const bookmarkChapters = useCallback(
     (_chapters: ChapterInfo[]) => {
-      _chapters.map(_chapter => {
-        _bookmarkChapter(_chapter.id);
-      });
+      _bookmarkChapters(_chapters.map(_chapter => _chapter.id));
       mutateChapters(chs =>
         chs.map(chapter => {
           if (_chapters.some(_c => _c.id === chapter.id)) {
@@ -449,7 +448,8 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const updateChapterProgress = useCallback(
     (chapterId: number, progress: number) => {
-      _updateChapterProgress(chapterId, Math.min(progress, 100));
+      const clampedProgress = Math.min(progress, 100);
+      _updateChapterProgress(chapterId, clampedProgress);
 
       mutateChapters(chs =>
         chs.map(c => {
@@ -458,7 +458,7 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
           }
           return {
             ...c,
-            progress,
+            progress: clampedProgress,
           };
         }),
       );
@@ -548,7 +548,11 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   const deleteChapters = useCallback(
     (_chaters: ChapterInfo[]) => {
       if (novel) {
-        _deleteChapters(novel.pluginId, novel.id, _chaters).then(() => {
+        _deleteChapters(
+          novel.pluginId,
+          novel.id,
+          _chaters.map(_chapter => _chapter.id),
+        ).then(() => {
           showToast(
             getString('updatesScreen.deletedChapters', {
               num: _chaters.length,

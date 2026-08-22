@@ -1,66 +1,143 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import {
+  SceneRendererProps,
+  TabView,
+  NavigationState,
+} from 'react-native-tab-view';
 
 import { useTheme, useAppSettings } from '@hooks/persisted';
 import { getString } from '@strings/translations';
-
+import { scaleDimension } from '@theme/scaling';
 import {
   Appbar,
   ErrorScreenV2,
   LoadingScreenV2,
   SafeAreaView,
+  TopTabBar,
 } from '@components';
-
 import { LibraryStats } from '@database/types';
 import {
-  getChaptersDownloadedCountFromDb,
-  getChaptersReadCountFromDb,
-  getChaptersTotalCountFromDb,
-  getChaptersUnreadCountFromDb,
-  getLibraryStatsFromDb,
-  getNovelGenresFromDb,
-  getNovelStatusFromDb,
+  AggregateStats,
+  getAggregateStatsFromDb,
+  getNovelsWithGenresFromDb,
+  getTopNovelsByReadingTimeFromDb,
+  NovelWithGenresRow,
+  splitCsvField,
+  TopNovelTimeRow,
 } from '@database/queries/StatsQueries';
-import { Row } from '@components/Common';
-import { overlay } from 'react-native-paper';
-import { translateNovelStatus } from '@utils/translateEnum';
+import { countBy } from 'lodash-es';
 
-import { scaleDimension } from '@theme/scaling';
-import AppText from '@components/AppText';
+import OverviewTab from './components/OverviewTab';
+import TimeTab from './components/TimeTab';
+import PluginsTab from './components/PluginsTab';
+
+type Route = { key: string; title: string };
 
 const StatsScreen = () => {
   const theme = useTheme();
   const { goBack } = useNavigation();
   const { uiScale = 1.0 } = useAppSettings();
+  const layout = useWindowDimensions();
   const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
 
+  const [index, setIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState<LibraryStats>({});
-  const [error, setError] = useState<any>();
+  const [stats, setStats] = useState<AggregateStats & LibraryStats>({});
+  const [novels, setNovels] = useState<NovelWithGenresRow[]>([]);
+  const [topNovels, setTopNovels] = useState<TopNovelTimeRow[]>([]);
+  const [error, setError] = useState<unknown>();
 
-  const getStats = async () => {
+  const mountedRef = React.useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError(undefined);
     try {
-      const res = await Promise.all([
-        getLibraryStatsFromDb(),
-        getChaptersTotalCountFromDb(),
-        getChaptersReadCountFromDb(),
-        getChaptersUnreadCountFromDb(),
-        getChaptersDownloadedCountFromDb(),
-        getNovelGenresFromDb(),
-        getNovelStatusFromDb(),
+      const [agg, novelsWithGenres, top] = await Promise.all([
+        getAggregateStatsFromDb(),
+        getNovelsWithGenresFromDb(),
+        getTopNovelsByReadingTimeFromDb(10),
       ]);
-      setStats(Object.assign(...res));
-    } catch (err) {
-      setError(err);
+      if (!mountedRef.current) return;
+      const genres: string[] = [];
+      const status: string[] = [];
+      novelsWithGenres.forEach(n => {
+        genres.push(...splitCsvField(n.genres));
+        status.push(...splitCsvField(n.status));
+      });
+
+      const merged: AggregateStats & LibraryStats = {
+        ...agg,
+        genres: countBy(genres),
+        status: countBy(status),
+      };
+      setStats(merged);
+      setNovels(novelsWithGenres);
+      setTopNovels(top);
+    } catch (e) {
+      if (mountedRef.current) setError(e);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    getStats();
-  }, []);
+    load();
+  }, [load]);
+
+  const routes: Route[] = useMemo(
+    () => [
+      {
+        key: 'overview',
+        title: getString('statsScreen.tabs.overview') || 'Overview',
+      },
+      { key: 'time', title: getString('statsScreen.tabs.time') || 'Time' },
+      {
+        key: 'plugins',
+        title: getString('statsScreen.tabs.plugins') || 'Plugins',
+      },
+    ],
+    [],
+  );
+
+  const renderScene = useCallback(
+    ({ route }: { route: Route }) => {
+      switch (route.key) {
+        case 'overview':
+          return <OverviewTab stats={stats} novels={novels} />;
+        case 'time':
+          return <TimeTab stats={stats} topNovels={topNovels} />;
+        case 'plugins':
+          return <PluginsTab novels={novels} />;
+        default:
+          return null;
+      }
+    },
+    [stats, novels, topNovels],
+  );
+
+  const renderTabBar = useCallback(
+    (
+      props: SceneRendererProps & { navigationState: NavigationState<Route> },
+    ) => (
+      <TopTabBar
+        {...props}
+        scrollEnabled={false}
+        indicatorStyle={{ backgroundColor: theme.primary, height: 3 }}
+        style={{ backgroundColor: theme.surface, elevation: 0 }}
+        activeColor={theme.primary}
+        inactiveColor={theme.secondary}
+        android_ripple={{ color: theme.rippleColor }}
+      />
+    ),
+    [theme.primary, theme.rippleColor, theme.secondary, theme.surface],
+  );
 
   const Header = (
     <Appbar
@@ -72,134 +149,48 @@ const StatsScreen = () => {
 
   if (error) {
     return (
-      <>
+      <SafeAreaView style={styles.safe} excludeTop>
         {Header}
         <ErrorScreenV2 error={error} />
-      </>
+      </SafeAreaView>
     );
   }
   if (isLoading) {
     return (
-      <>
+      <SafeAreaView style={styles.safe} excludeTop>
         {Header}
         <LoadingScreenV2 theme={theme} />
-      </>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView>
+    <SafeAreaView style={styles.safe} excludeTop>
       {Header}
-      <ScrollView
-        style={styles.screenCtn}
-        contentContainerStyle={styles.contentCtn}
-      >
-        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-          {getString('generalSettings')}
-        </AppText>
-        <Row style={styles.statsRow}>
-          <StatsCard
-            label={getString('statsScreen.titlesInLibrary')}
-            value={stats.novelsCount}
-          />
-          <StatsCard
-            label={getString('statsScreen.readChapters')}
-            value={stats.chaptersRead}
-          />
-          <StatsCard
-            label={getString('statsScreen.totalChapters')}
-            value={stats.chaptersCount}
-          />
-        </Row>
-        <Row style={styles.statsRow}>
-          <StatsCard
-            label={getString('statsScreen.unreadChapters')}
-            value={stats.chaptersUnread}
-          />
-          <StatsCard
-            label={getString('statsScreen.downloadedChapters')}
-            value={stats.chaptersDownloaded}
-          />
-        </Row>
-        <Row style={styles.statsRow}>
-          <StatsCard
-            label={getString('statsScreen.sources')}
-            value={stats.sourcesCount}
-          />
-        </Row>
-        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-          {getString('statsScreen.genreDistribution')}
-        </AppText>
-        <Row style={StyleSheet.flatten([styles.statsRow, styles.genreRow])}>
-          {Object.entries(stats.genres || {}).map(item => (
-            <StatsCard key={item[0]} label={item[0]} value={item[1]} />
-          ))}
-        </Row>
-        <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-          {getString('statsScreen.statusDistribution')}
-        </AppText>
-        <Row style={StyleSheet.flatten([styles.statsRow, styles.genreRow])}>
-          {Object.entries(stats.status || {}).map(item => (
-            <StatsCard
-              key={item[0]}
-              label={translateNovelStatus(item[0])}
-              value={item[1]}
-            />
-          ))}
-        </Row>
-      </ScrollView>
+      <TabView
+        navigationState={{ index, routes }}
+        renderScene={renderScene}
+        renderTabBar={renderTabBar}
+        onIndexChange={setIndex}
+        initialLayout={{ width: layout.width }}
+        lazy
+        commonOptions={{ labelStyle: { textTransform: 'capitalize' } as any }}
+      />
     </SafeAreaView>
   );
 };
 
 export default StatsScreen;
 
-export const StatsCard: React.FC<{ label: string; value?: number }> = ({
-  label,
-  value = 0,
-}) => {
-  const theme = useTheme();
-  const { uiScale = 1.0 } = useAppSettings();
-  const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
-
-  if (!label) {
-    return null;
-  }
-
-  return (
-    <View
-      style={[
-        styles.statsCardCtn,
-        {
-          backgroundColor: theme.isDark
-            ? overlay(2, theme.surface)
-            : theme.secondaryContainer,
-        },
-      ]}
-    >
-      <AppText style={[styles.statsVal, { color: theme.primary }]}>
-        {value}
-      </AppText>
-      <AppText style={{ color: theme.onSurface }}> {label}</AppText>
-    </View>
-  );
-};
+export { default as StatsCard } from './components/StatsCard';
 
 const createStyles = (uiScale: number) =>
   StyleSheet.create({
-    contentCtn: {
-      paddingBottom: 40,
-    },
-    genreRow: {
-      flexWrap: 'wrap',
-    },
-    header: {
-      fontWeight: 'bold',
-      paddingVertical: 16,
-    },
-    screenCtn: {
-      paddingHorizontal: 16,
-    },
+    safe: { flex: 1 },
+    contentCtn: { paddingBottom: 40 },
+    genreRow: { flexWrap: 'wrap' },
+    header: { fontWeight: 'bold', paddingVertical: 16 },
+    screenCtn: { paddingHorizontal: 16 },
     statsCardCtn: {
       alignItems: 'center',
       borderRadius: 12,
@@ -208,13 +199,8 @@ const createStyles = (uiScale: number) =>
       margin: 4,
       paddingHorizontal: 8,
       paddingVertical: 12,
+      minWidth: 92,
     },
-    statsRow: {
-      justifyContent: 'center',
-      marginBottom: 8,
-    },
-    statsVal: {
-      fontSize: scaleDimension(16, uiScale),
-      fontWeight: 'bold',
-    },
+    statsRow: { justifyContent: 'center', marginBottom: 8 },
+    statsVal: { fontSize: scaleDimension(16, uiScale), fontWeight: 'bold' },
   });

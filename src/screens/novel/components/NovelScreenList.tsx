@@ -51,6 +51,7 @@ type NovelScreenListProps = {
     path: string;
     pluginId: string;
     cover?: string;
+    inLibrary?: boolean;
   };
 };
 
@@ -161,7 +162,7 @@ const NovelScreenList = ({
   const onRefreshPage = async (page: string) => {
     if (novel.id !== 'NO_ID') {
       setUpdating(true);
-      updateNovelPage(pluginId, novel.path, novel.id, page, {
+      updateNovelPage(pluginId, novel.path, novel.id, page, novel.name, {
         downloadNewChapters,
       })
         .then(() => getNovel())
@@ -181,8 +182,13 @@ const NovelScreenList = ({
     />
   );
 
+  const selectedIdSet = React.useMemo(
+    () => new Set(selected.map(obj => obj.id)),
+    [selected],
+  );
+
   const isSelected = (id: number) => {
-    return selected.some(obj => obj.id === id);
+    return selectedIdSet.has(id);
   };
 
   const onSelectPress = (chapter: ChapterInfo) => {
@@ -204,7 +210,7 @@ const NovelScreenList = ({
       }
       setSelected(sel => [...sel, chapter]);
     } else {
-      if (selected.length === chapters.length) {
+      if (selected.length >= chapters.length) {
         return;
       }
 

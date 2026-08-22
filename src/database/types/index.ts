@@ -53,9 +53,11 @@ export interface DownloadedChapter extends ChapterInfo {
   novelName: string;
   novelPath: string;
   novelCover: string;
+  inLibrary?: boolean;
 }
 
 export interface History extends ChapterInfo {
+  inLibrary: boolean;
   pluginId: string;
   novelName: string;
   novelPath: string;
@@ -69,9 +71,11 @@ export interface Update extends ChapterInfo {
   novelName: string;
   novelPath: string;
   novelCover: string;
+  inLibrary?: boolean;
 }
 
 export interface UpdateOverview {
+  inLibrary: boolean;
   novelId: number;
   novelName: string;
   updateDate: string;
@@ -103,6 +107,7 @@ export interface LibraryStats {
   sourcesCount?: number;
   genres?: Record<string, number>;
   status?: Record<string, number>;
+  totalReadingTime?: number;
 }
 
 export interface BackupNovel extends NovelInfo {
@@ -116,6 +121,7 @@ export interface BackupCategory extends Category {
 export interface Repository {
   id: number;
   url: string;
+  enabled: boolean;
 }
 
 export * from './migration';

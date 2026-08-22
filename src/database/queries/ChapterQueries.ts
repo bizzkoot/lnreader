@@ -12,6 +12,18 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import { db } from '@database/db';
 import NativeFile from '@specs/NativeFile';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
+import { createNovelTriggerQueryUpdate } from '@database/tables/NovelTable';
+
+const CHAPTER_ID_BATCH_SIZE = 500;
+const chunkChapterIds = (chapterIds: number[]) =>
+  Array.from(
+    { length: Math.ceil(chapterIds.length / CHAPTER_ID_BATCH_SIZE) },
+    (_, index) =>
+      chapterIds.slice(
+        index * CHAPTER_ID_BATCH_SIZE,
+        (index + 1) * CHAPTER_ID_BATCH_SIZE,
+      ),
+  );
 
 // #region Mutations
 
@@ -39,34 +51,32 @@ export const insertChapters = async (
         chapterName,
         chapter.releaseTime || '',
         novelId,
-        chapter.chapterNumber || null,
+        chapter.chapterNumber ?? null,
         chapterPage,
         index,
         chapter.path,
         novelId,
       );
 
-      const insertId = result.lastInsertRowId;
-
-      if (!insertId || insertId < 0) {
+      if (result.changes === 0) {
         await tx.runAsync(
           `
             UPDATE Chapter SET
               page = ?, position = ?, name = ?, releaseTime = ?, chapterNumber = ?
-            WHERE path = ? AND novelId = ? AND (page != ? OR position != ? OR name != ? OR releaseTime != ? OR chapterNumber != ?);
+            WHERE path = ? AND novelId = ? AND (page IS NOT ? OR position IS NOT ? OR name IS NOT ? OR releaseTime IS NOT ? OR chapterNumber IS NOT ?);
           `,
           chapterPage,
           index,
           chapterName,
           chapter.releaseTime || '',
-          chapter.chapterNumber || null,
+          chapter.chapterNumber ?? null,
           chapter.path,
           novelId,
           chapterPage,
           index,
           chapterName,
           chapter.releaseTime || '',
-          chapter.chapterNumber || null,
+          chapter.chapterNumber ?? null,
         );
       }
     }
@@ -76,10 +86,18 @@ export const insertChapters = async (
 export const markChapterRead = (chapterId: number) =>
   db.runAsync('UPDATE Chapter SET `unread` = 0 WHERE id = ?', chapterId);
 
-export const markChaptersRead = (chapterIds: number[]) =>
-  db.execAsync(
-    `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${chapterIds.join(',')})`,
-  );
+export const markChaptersRead = async (chapterIds: number[]) => {
+  if (!chapterIds.length) {
+    return;
+  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET \`unread\` = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
+};
 
 export const markChapterUnread = (chapterId: number) => {
   // Clear MMKV saved progress when marking unread
@@ -87,14 +105,21 @@ export const markChapterUnread = (chapterId: number) => {
   return db.runAsync('UPDATE Chapter SET `unread` = 1 WHERE id = ?', chapterId);
 };
 
-export const markChaptersUnread = (chapterIds: number[]) => {
+export const markChaptersUnread = async (chapterIds: number[]) => {
+  if (!chapterIds.length) {
+    return;
+  }
   // Clear MMKV saved progress for all chapters being marked unread
   chapterIds.forEach(id => {
     MMKVStorage.delete(`chapter_progress_${id}`);
   });
-  return db.execAsync(
-    `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${chapterIds.join(',')})`,
-  );
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET \`unread\` = 1 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const markAllChaptersRead = (novelId: number) =>
@@ -147,21 +172,26 @@ export const deleteChapter = async (
 export const deleteChapters = async (
   pluginId: string,
   novelId: number,
-  chapters?: ChapterInfo[],
+  chapterIds?: number[],
 ) => {
-  if (!chapters?.length) {
+  if (!chapterIds?.length) {
     return;
   }
-  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
-
-  await Promise.all(
-    chapters?.map(chapter =>
-      deleteDownloadedFiles(pluginId, novelId, chapter.id),
-    ),
-  );
-  await db.execAsync(
-    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-  );
+  // Remove downloaded files first (independent of the DB transaction).
+  for (const ids of chunkChapterIds(chapterIds)) {
+    await Promise.all(
+      ids.map(chapterId => deleteDownloadedFiles(pluginId, novelId, chapterId)),
+    );
+  }
+  // Apply all flag updates atomically so a mid-batch failure cannot leave a
+  // partially-marked chapter set.
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
@@ -169,29 +199,39 @@ export const deleteDownloads = async (chapters: DownloadedChapter[]) => {
     return;
   }
   await Promise.all(
-    chapters?.map(chapter => {
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
-    }),
+    chapters.map(chapter =>
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id),
+    ),
   );
-  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
-  await db.execAsync(
-    `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-  );
+  const chapterIds = chapters.map(chapter => chapter.id);
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
 };
 
 export const deleteReadChaptersFromDb = async () => {
   const chapters = await getReadDownloadedChapters();
-  await Promise.all(
-    chapters?.map(chapter => {
-      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id);
-    }),
-  );
-  const chapterIdsString = chapters?.map(chapter => chapter.id).toString();
-  if (chapterIdsString) {
-    await db.execAsync(
-      `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${chapterIdsString})`,
-    );
+  if (!chapters.length) {
+    showToast(getString('novelScreen.readChaptersDeleted'));
+    return;
   }
+  await Promise.all(
+    chapters.map(chapter =>
+      deleteDownloadedFiles(chapter.pluginId, chapter.novelId, chapter.id),
+    ),
+  );
+  const chapterIds = chapters.map(chapter => chapter.id);
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET isDownloaded = 0 WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
   showToast(getString('novelScreen.readChaptersDeleted'));
 };
 
@@ -209,20 +249,41 @@ export const updateChapterTTSState = (chapterId: number, ttsState: string) =>
     chapterId,
   );
 
-export const updateChapterProgressByIds = (
+export const updateChapterProgressByIds = async (
   chapterIds: number[],
   progress: number,
-) =>
-  db.runAsync(
-    `UPDATE Chapter SET progress = ? WHERE id in (${chapterIds.join(',')})`,
-    progress,
-  );
+) => {
+  if (!chapterIds.length) {
+    return;
+  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.runAsync(
+        `UPDATE Chapter SET progress = ? WHERE id in (${ids.join(',')})`,
+        progress,
+      );
+    }
+  });
+};
 
 export const bookmarkChapter = (chapterId: number) =>
   db.runAsync(
     'UPDATE Chapter SET bookmark = (CASE WHEN bookmark = 0 THEN 1 ELSE 0 END) WHERE id = ?',
     chapterId,
   );
+
+export const bookmarkChapters = async (chapterIds: number[]) => {
+  if (!chapterIds.length) {
+    return;
+  }
+  await db.withExclusiveTransactionAsync(async tx => {
+    for (const ids of chunkChapterIds(chapterIds)) {
+      await tx.execAsync(
+        `UPDATE Chapter SET bookmark = (CASE WHEN bookmark = 0 THEN 1 ELSE 0 END) WHERE id IN (${ids.join(',')})`,
+      );
+    }
+  });
+};
 
 export const markPreviuschaptersRead = (chapterId: number, novelId: number) =>
   db.runAsync(
@@ -264,8 +325,17 @@ export const markChaptersBeforePositionRead = (
     position,
   );
 
-export const clearUpdates = () =>
-  db.execAsync('UPDATE Chapter SET updatedTime = NULL');
+export const clearUpdates = async (): Promise<void> => {
+  await db.withExclusiveTransactionAsync(async tx => {
+    // The chapter update trigger recalculates novel aggregates once per row.
+    // Bypass it for this database-wide operation and update the one affected
+    // aggregate in bulk instead.
+    await tx.execAsync('DROP TRIGGER IF EXISTS update_novel_stats_on_update');
+    await tx.execAsync('UPDATE Chapter SET updatedTime = NULL');
+    await tx.execAsync('UPDATE Novel SET lastUpdatedAt = NULL');
+    await tx.execAsync(createNovelTriggerQueryUpdate);
+  });
+};
 
 export const resetFutureChaptersProgress = async (
   novelId: number,
@@ -406,6 +476,41 @@ export const getPageChapters = (
   );
 };
 
+export const getPageChapterIds = async (
+  novelId: number,
+  filter?: string,
+  page?: string,
+): Promise<number[]> => {
+  const rows = await db.getAllAsync<{ id: number }>(
+    `SELECT id FROM Chapter WHERE novelId = ? AND page = ? ${filter || ''} ORDER BY position ASC`,
+    novelId,
+    page || '1',
+  );
+  return (rows ?? []).map(row => row.id);
+};
+
+export const getChaptersByIds = async (
+  chapterIds: number[],
+): Promise<ChapterInfo[]> => {
+  if (!chapterIds.length) {
+    return [];
+  }
+  const chapters = await Promise.all(
+    chunkChapterIds(chapterIds).map(ids =>
+      db.getAllAsync<ChapterInfo>(
+        `SELECT * FROM Chapter WHERE id IN (${ids.join(',')})`,
+      ),
+    ),
+  );
+  const chaptersById = new Map(
+    chapters.flat().map(chapter => [chapter.id, chapter]),
+  );
+  return chapterIds.flatMap(chapterId => {
+    const chapter = chaptersById.get(chapterId);
+    return chapter ? [chapter] : [];
+  });
+};
+
 export const getChapterCount = (novelId: number, page: string = '1') =>
   db.getFirstSync<{ 'COUNT(*)': number }>(
     'SELECT COUNT(*) FROM Chapter WHERE novelId = ? AND page = ?',
@@ -521,7 +626,7 @@ export const getDownloadedChapters = () =>
   db.getAllAsync<DownloadedChapter>(`
     SELECT
       Chapter.*,
-      Novel.pluginId, Novel.name as novelName, Novel.cover as novelCover, Novel.path as novelPath
+      Novel.pluginId, Novel.name as novelName, Novel.cover as novelCover, Novel.path as novelPath, Novel.inLibrary as inLibrary
     FROM Chapter
     JOIN Novel
     ON Chapter.novelId = Novel.id
@@ -533,6 +638,18 @@ export const getNovelDownloadedChapters = (
   startPosition?: number,
   endPosition?: number,
 ) => {
+  if (
+    (startPosition !== undefined || endPosition !== undefined) &&
+    (startPosition === undefined ||
+      endPosition === undefined ||
+      !Number.isInteger(startPosition) ||
+      !Number.isInteger(endPosition) ||
+      startPosition < 1 ||
+      endPosition < startPosition)
+  ) {
+    return Promise.resolve([] as ChapterInfo[]);
+  }
+
   if (startPosition !== undefined && endPosition !== undefined) {
     // Range positions are global ordinals over the flat (page, position)-ordered
     // downloaded list. position alone is per-page (it resets in insertChapters),
@@ -557,6 +674,7 @@ export const getUpdatedOverviewFromDb = () =>
   Novel.name AS novelName,
   Novel.cover AS novelCover,
   Novel.path AS novelPath,
+  Novel.inLibrary AS inLibrary,
   DATE(Chapter.updatedTime) AS updateDate,
   COUNT(*) AS updatesPerDay
 FROM
@@ -575,6 +693,15 @@ ORDER BY
   novelId;
 `);
 
+/**
+ * Predicates intentionally differ from getUpdatedOverviewFromDb (matches upstream):
+ * - onlyDownloadableChapters=false → WHERE updatedTime IS NOT NULL ("updates" tab)
+ * - onlyDownloadableChapters=true  → WHERE isDownloaded=1 (all offline chapters for this novel,
+ *   including rows that never received an update). Overview counts only updates, so the
+ *   two results legitimately diverge. If download-only should mean "downloaded updates",
+ *   add `AND updatedTime IS NOT NULL` here (one-line patch) and update the tab label.
+ * Upstream reference: src/database/queries/ChapterQueries.ts:getDetailedUpdatesQuery (master).
+ */
 export const getDetailedUpdatesFromDb = async (
   novelId: number,
   onlyDownloadableChapters?: boolean,
@@ -583,7 +710,7 @@ export const getDetailedUpdatesFromDb = async (
     `
 SELECT
   Chapter.*,
-  pluginId, Novel.id as novelId, Novel.name as novelName, Novel.path as novelPath, cover as novelCover
+  pluginId, Novel.id as novelId, Novel.name as novelName, Novel.path as novelPath, cover as novelCover, Novel.inLibrary AS inLibrary
 FROM
   Chapter
 JOIN

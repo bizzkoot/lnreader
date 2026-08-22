@@ -15,13 +15,17 @@ const updateNovelMetadata = async (
   const { name, summary, author, artist, genres, status, totalPages } = novel;
   let cover = novel.cover;
   const novelDir = NOVEL_STORAGE + '/' + pluginId + '/' + novelId;
-  if (NativeFile.exists(novelDir)) {
+  if (!NativeFile.exists(novelDir)) {
     NativeFile.mkdir(novelDir);
   }
   if (cover) {
     const novelCoverPath = novelDir + '/cover.png';
     const novelCoverUri = 'file://' + novelCoverPath;
-    downloadFile(cover, novelCoverPath, getPlugin(pluginId)?.imageRequestInit);
+    await downloadFile(
+      cover,
+      novelCoverPath,
+      getPlugin(pluginId)?.imageRequestInit,
+    );
     cover = novelCoverUri + '?' + Date.now();
   }
 
@@ -80,16 +84,15 @@ const updateNovelChapters = (
         name,
         releaseTime || null,
         novelId,
-        chapterNumber || null,
+        chapterNumber ?? null,
         chapterPage,
         position,
         path,
         novelId,
       );
 
-      const insertId = result.lastInsertRowId;
-
-      if (insertId && insertId >= 0) {
+      if (result.changes > 0) {
+        const insertId = result.lastInsertRowId;
         if (downloadNewChapters) {
           ServiceManager.manager.addTask({
             name: 'DOWNLOAD_CHAPTER',
@@ -104,19 +107,21 @@ const updateNovelChapters = (
         await tx.runAsync(
           `
             UPDATE Chapter SET
-              name = ?, releaseTime = ?, updatedTime = datetime('now','localtime'), page = ?, position = ?
-            WHERE path = ? AND novelId = ? AND (name != ? OR releaseTime != ? OR page != ? OR position != ?);
+              name = ?, releaseTime = ?, updatedTime = datetime('now','localtime'), page = ?, position = ?, chapterNumber = ?
+            WHERE path = ? AND novelId = ? AND (name IS NOT ? OR releaseTime IS NOT ? OR page IS NOT ? OR position IS NOT ? OR chapterNumber IS NOT ?);
           `,
           name,
           releaseTime || null,
           chapterPage,
           position,
+          chapterNumber ?? null,
           path,
           novelId,
           name,
           releaseTime || null,
           chapterPage,
           position,
+          chapterNumber ?? null,
         );
       }
     }
@@ -159,12 +164,13 @@ const updateNovelPage = async (
   novelPath: string,
   novelId: number,
   page: string,
+  novelName: string,
   options: Pick<UpdateNovelOptions, 'downloadNewChapters'>,
 ) => {
   const { downloadNewChapters } = options;
   const sourcePage = await fetchPage(pluginId, novelPath, page);
-  updateNovelChapters(
-    pluginId,
+  await updateNovelChapters(
+    novelName,
     novelId,
     sourcePage.chapters || [],
     downloadNewChapters,

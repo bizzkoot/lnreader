@@ -31,7 +31,13 @@ import { AppearanceSettingsScreenProps } from '@navigators/types';
 import { getString } from '@strings/translations';
 import { darkThemes, lightThemes } from '@theme/md3';
 import { ThemeColors } from '@theme/types';
-import { scaleDimension } from '@theme/scaling';
+import {
+  clampUIScale,
+  scaleDimension,
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  UI_SCALE_STEP,
+} from '@theme/scaling';
 import {
   DYNAMIC_THEME_ID,
   getSystemDynamicTheme,
@@ -87,9 +93,11 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
     return [dynamicTheme, ...themes];
   }, [actualThemeMode, theme]);
 
-  // UI Scale slider local state
-  const [localUiScale, setLocalUiScale] = useState(uiScale);
-  const [_isDraggingScale, setIsDraggingScale] = useState(false);
+  // UI Scale slider local state — synced to persisted uiScale
+  const [localUiScale, setLocalUiScale] = useState(() => clampUIScale(uiScale));
+  React.useEffect(() => {
+    setLocalUiScale(clampUIScale(uiScale));
+  }, [uiScale]);
 
   /**
    * Accent Color Modal
@@ -260,7 +268,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
   );
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
         title={getString('appearance')}
         handleGoBack={navigation.goBack}
@@ -347,7 +355,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               <Pressable
                 style={styles.sliderButton}
                 onPress={() => {
-                  const newValue = Math.max(0.2, localUiScale - 0.05);
+                  const newValue = clampUIScale(localUiScale - UI_SCALE_STEP);
                   setLocalUiScale(newValue);
                   setAppSettings({ uiScale: newValue });
                 }}
@@ -361,25 +369,25 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
               <Slider
                 style={styles.slider}
                 value={localUiScale}
-                min={0.8}
-                max={1.3}
-                step={0.05}
+                min={UI_SCALE_MIN}
+                max={UI_SCALE_MAX}
+                step={UI_SCALE_STEP}
                 showValueIndicator
                 formatValue={value => `${Math.round(value * 100)}%`}
                 accessibilityLabel="UI Scale"
                 onValueChange={value => {
-                  setIsDraggingScale(true);
                   setLocalUiScale(value);
                 }}
                 onSlidingComplete={value => {
-                  setIsDraggingScale(false);
-                  setAppSettings({ uiScale: value });
+                  const clamped = clampUIScale(value);
+                  setLocalUiScale(clamped);
+                  setAppSettings({ uiScale: clamped });
                 }}
               />
               <Pressable
                 style={styles.sliderButton}
                 onPress={() => {
-                  const newValue = Math.min(1.3, localUiScale + 0.05);
+                  const newValue = clampUIScale(localUiScale + UI_SCALE_STEP);
                   setLocalUiScale(newValue);
                   setAppSettings({ uiScale: newValue });
                 }}
@@ -398,7 +406,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
                   { color: theme.onSurfaceVariant },
                 ]}
               >
-                20%
+                80%
               </AppText>
               <AppText
                 style={[
@@ -414,7 +422,7 @@ const AppearanceSettings = ({ navigation }: AppearanceSettingsScreenProps) => {
                   { color: theme.onSurfaceVariant },
                 ]}
               >
-                150%
+                130%
               </AppText>
             </View>
           </View>

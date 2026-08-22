@@ -190,6 +190,15 @@
     "setModalEmptyMsg": "ليس لديك تصنيف. اضغط على زر تعديل لإنشاء واحد لتنظيم مكتبتك"
   },
   "repositories": {
+    "deleteDescription": "Do you wish to delete repository \"%{url}\"?",
+    "deleteTitle": "Delete repository",
+    "disable": "Disable",
+    "disableTitle": "Disable repository?",
+    "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",
+    "duplicateUrl": "A repository with this URL already exists!",
+    "invalidUrl": "Repository URL must be a secure plugins.min.json URL",
+    "title": "Repositories",
+    "toggle": "Toggle %{name} repository",
     "emptyMsg": "You have no repositories. Add your first plugin repository to get started."
   },
   "common": {
@@ -235,7 +244,9 @@
     "sort": "الفرز",
     "submit": "إرسال",
     "loading": "Loading ...",
-    "warning": "Warning"
+    "warning": "Warning",
+    "later": "Later",
+    "skipVersion": "Skip version"
   },
   "webview": {
     "refresh": "Refresh",
@@ -406,7 +417,7 @@
     },
     "coverSaved": "Cover saved",
     "coverNotSaved": "Cover not saved",
-    "deleteChapterError": "Cant delete chapter chapter folder",
+    "deleteChapterError": "Can't delete the chapter folder",
     "deleteMessage": "Delete downloaded chapters?",
     "deletedAllDownloads": "Deleted all Downloads",
     "download": {
@@ -414,8 +425,8 @@
       "customAmount": "Download custom amount",
       "delete": "Delete downloads",
       "next": "Next chapter",
-      "next10": "Next 10 chapter",
-      "next5": "Next 5 chapter",
+      "next10": "Next 10 chapters",
+      "next5": "Next 5 chapters",
       "unread": "Unread"
     },
     "edit": {
@@ -487,7 +498,7 @@
       "scrollToCurrentChapter": "التمرير إلى الفصل الحالي",
       "scrollToTop": "التمرير إلى الأعلى"
     },
-    "emptyChapterMessage": "<p>Chapter is empty.</p><p>Report on <a href='https://github.com/LNReader/lnreader-sources/issues/new/choose'>GitHub</a> if it's available in WebView.</p><p>Plugin: %{pluginId}</p><p>Novel: %{novelName}</p><p>Chapter: %{chapterName}</p>",
+    "emptyChapterMessage": "<h2>تعذر تحميل الفصل</h2><p>لم يتم العثور على محتوى قابل للقراءة. تحقق من الفصل في WebView؛ إذا تم تحميله هناك، <a href='%{reportUrl}'>فأبلغ عن مشكلة الإضافة</a>.</p><p>الإضافة: %{pluginId}<br>الرواية: %{novelName}<br>الفصل: %{chapterName}</p>",
     "finished": "انتهى",
     "nextChapter": "Next: %{name}",
     "noNextChapter": "لا يوجد فصل اخر",

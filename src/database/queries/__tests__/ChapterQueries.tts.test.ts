@@ -2,25 +2,25 @@ import { db } from '@database/db';
 import * as ChapterQueries from '../ChapterQueries';
 
 // Mock the database module
-jest.mock('@database/db', () => ({
-  db: {
-    runAsync: jest.fn(() =>
-      Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
-    ),
-    execAsync: jest.fn(() => Promise.resolve()),
-    withExclusiveTransactionAsync: jest.fn(callback =>
-      callback({
-        runAsync: jest.fn(() =>
-          Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
-        ),
-      }),
-    ),
-    getAllAsync: jest.fn(() => Promise.resolve([])),
-    getFirstAsync: jest.fn(() => Promise.resolve(null)),
-    getFirstSync: jest.fn(() => null),
-    getAllSync: jest.fn(() => []),
-  },
-}));
+jest.mock('@database/db', () => {
+  const execAsync = jest.fn(() => Promise.resolve());
+  const runAsync = jest.fn(() =>
+    Promise.resolve({ lastInsertRowId: 1, changes: 1 }),
+  );
+  return {
+    db: {
+      runAsync,
+      execAsync,
+      withExclusiveTransactionAsync: jest.fn(callback =>
+        callback({ runAsync, execAsync }),
+      ),
+      getAllAsync: jest.fn(() => Promise.resolve([])),
+      getFirstAsync: jest.fn(() => Promise.resolve(null)),
+      getFirstSync: jest.fn(() => null),
+      getAllSync: jest.fn(() => []),
+    },
+  };
+});
 
 jest.mock('@utils/showToast', () => ({
   showToast: jest.fn(),

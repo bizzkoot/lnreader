@@ -8,6 +8,7 @@ import {
   createRepository,
   getRepositoriesFromDb,
   isRepoUrlDuplicated,
+  setRepositoryEnabled,
   updateRepository,
 } from '@database/queries/RepositoryQueries';
 import { Repository } from '@database/types';
@@ -20,6 +21,7 @@ import RepositoryCard from './components/RepositoryCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RespositorySettingsScreenProps } from '@navigators/types';
 import { showToast } from '@utils/showToast';
+import { isValidRepositoryUrl } from '@services/backup/utils';
 
 const SettingsBrowseScreen = ({
   route: { params },
@@ -32,9 +34,18 @@ const SettingsBrowseScreen = ({
   const [repositories, setRepositories] = useState<Repository[]>(
     getRepositoriesFromDb(),
   );
-  const getRepositories = () => {
+  const getRepositories = useCallback(() => {
     setRepositories(getRepositoriesFromDb());
-  };
+  }, []);
+
+  const handleRepositoryDeleted = useCallback(async () => {
+    getRepositories();
+    try {
+      await refreshPlugins({ clearUnavailableUpdates: true });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error));
+    }
+  }, [getRepositories, refreshPlugins]);
 
   const {
     value: addRepositoryModalVisible,
@@ -44,15 +55,13 @@ const SettingsBrowseScreen = ({
 
   const upsertRepository = useCallback(
     (repositoryUrl: string, repository?: Repository) => {
-      if (
-        !new RegExp(/https?:\/\/(.*)plugins\.min\.json/).test(repositoryUrl)
-      ) {
-        showToast('Repository URL is invalid');
+      if (!isValidRepositoryUrl(repositoryUrl)) {
+        showToast(getString('repositories.invalidUrl'));
         return;
       }
 
-      if (isRepoUrlDuplicated(repositoryUrl)) {
-        showToast('A respository with this url already exists!');
+      if (isRepoUrlDuplicated(repositoryUrl, repository?.id)) {
+        showToast(getString('repositories.duplicateUrl'));
       } else {
         if (repository) {
           updateRepository(repository.id, repositoryUrl);
@@ -60,10 +69,27 @@ const SettingsBrowseScreen = ({
           createRepository(repositoryUrl);
         }
         getRepositories();
-        refreshPlugins();
+        refreshPlugins().catch(error => {
+          showToast(error instanceof Error ? error.message : String(error));
+        });
       }
     },
-    [refreshPlugins],
+    [getRepositories, refreshPlugins],
+  );
+
+  const toggleRepository = useCallback(
+    async (repository: Repository) => {
+      try {
+        setRepositoryEnabled(repository.id, !repository.enabled);
+        getRepositories();
+        await refreshPlugins({
+          clearUnavailableUpdates: repository.enabled,
+        });
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [getRepositories, refreshPlugins],
   );
 
   useEffect(() => {
@@ -73,9 +99,9 @@ const SettingsBrowseScreen = ({
   }, [params, upsertRepository]);
 
   return (
-    <SafeAreaView>
+    <SafeAreaView excludeTop>
       <Appbar
-        title={'Repositories'}
+        title={getString('repositories.title')}
         handleGoBack={() => {
           if (navigation.canGoBack()) {
             navigation.goBack();
@@ -90,7 +116,8 @@ const SettingsBrowseScreen = ({
         renderItem={({ item }) => (
           <RepositoryCard
             repository={item}
-            refetchRepositories={getRepositories}
+            refetchRepositories={handleRepositoryDeleted}
+            toggleRepository={toggleRepository}
             upsertRepository={upsertRepository}
           />
         )}

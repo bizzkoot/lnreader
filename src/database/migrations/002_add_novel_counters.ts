@@ -1,25 +1,23 @@
 import { SQLiteDatabase } from 'expo-sqlite';
 
 import { Migration } from '../types/migration';
-import { createRateLimitedLogger } from '@utils/rateLimitedLogger';
 
-const migration002Log = createRateLimitedLogger('Migration002', {
-  windowMs: 1500,
-});
+const tableExists = (db: SQLiteDatabase, tableName: string): boolean => {
+  return (
+    db.getAllSync<{ name: string }>(`PRAGMA table_info(${tableName})`).length >
+    0
+  );
+};
 
 const columnExists = (
   db: SQLiteDatabase,
   tableName: string,
   columnName: string,
 ): boolean => {
-  try {
-    const columns = db.getAllSync<{ name: string }>(
-      `PRAGMA table_info(${tableName})`,
-    );
-    return columns.some(col => col.name === columnName);
-  } catch {
-    return false;
-  }
+  const columns = db.getAllSync<{ name: string }>(
+    `PRAGMA table_info(${tableName})`,
+  );
+  return columns.some(col => col.name === columnName);
 };
 
 /**
@@ -32,32 +30,28 @@ export const migration002: Migration = {
   version: 2,
   description: 'Add counter columns and triggers to Novel table',
   migrate: db => {
-    const addColumnSafely = (columnName: string, columnDefinition: string) => {
+    // A truly empty database is initialized with the current schema before
+    // migrations run. Keep the migration a no-op for that test/bootstrap case;
+    // never treat a failure on an existing table as a successful migration.
+    if (!tableExists(db, 'Novel')) {
+      return;
+    }
+
+    const addColumn = (columnName: string, columnDefinition: string) => {
       if (!columnExists(db, 'Novel', columnName)) {
-        try {
-          db.runSync(`
-            ALTER TABLE Novel 
-            ADD COLUMN ${columnName} ${columnDefinition}
-          `);
-        } catch (error) {
-          // Gracefully handle ALTER TABLE failures (e.g., table doesn't exist)
-          // Columns will be created when table is created in initial schema
-          migration002Log.warn(
-            'add-column-failed',
-            `Failed to add column ${columnName} to Novel table:`,
-            error,
-          );
-        }
+        db.runSync(`
+          ALTER TABLE Novel
+          ADD COLUMN ${columnName} ${columnDefinition}
+        `);
       }
     };
 
-    addColumnSafely('chaptersDownloaded', 'INTEGER DEFAULT 0');
-    addColumnSafely('chaptersUnread', 'INTEGER DEFAULT 0');
-    addColumnSafely('totalChapters', 'INTEGER DEFAULT 0');
-    addColumnSafely('lastReadAt', 'TEXT');
-    addColumnSafely('lastUpdatedAt', 'TEXT');
+    addColumn('chaptersDownloaded', 'INTEGER DEFAULT 0');
+    addColumn('chaptersUnread', 'INTEGER DEFAULT 0');
+    addColumn('totalChapters', 'INTEGER DEFAULT 0');
+    addColumn('lastReadAt', 'TEXT');
+    addColumn('lastUpdatedAt', 'TEXT');
 
-    // Verify all columns exist before running UPDATE queries to prevent SQL errors
     const allColumnsExist =
       columnExists(db, 'Novel', 'chaptersDownloaded') &&
       columnExists(db, 'Novel', 'chaptersUnread') &&
@@ -65,9 +59,11 @@ export const migration002: Migration = {
       columnExists(db, 'Novel', 'lastReadAt') &&
       columnExists(db, 'Novel', 'lastUpdatedAt');
 
-    if (allColumnsExist) {
-      try {
-        db.runSync(`
+    if (!allColumnsExist) {
+      throw new Error('Migration 2 failed to create Novel counter columns');
+    }
+
+    db.runSync(`
           UPDATE Novel
           SET chaptersDownloaded = (
             SELECT COUNT(*)
@@ -75,9 +71,9 @@ export const migration002: Migration = {
             WHERE Chapter.novelId = Novel.id 
               AND Chapter.isDownloaded = 1
           )
-        `);
+    `);
 
-        db.runSync(`
+    db.runSync(`
           UPDATE Novel
           SET chaptersUnread = (
             SELECT COUNT(*)
@@ -85,42 +81,33 @@ export const migration002: Migration = {
             WHERE Chapter.novelId = Novel.id 
               AND Chapter.unread = 1
           )
-        `);
+    `);
 
-        db.runSync(`
+    db.runSync(`
           UPDATE Novel
           SET totalChapters = (
             SELECT COUNT(*)
             FROM Chapter
             WHERE Chapter.novelId = Novel.id
           )
-        `);
+    `);
 
-        db.runSync(`
+    db.runSync(`
           UPDATE Novel
           SET lastReadAt = (
             SELECT MAX(readTime)
             FROM Chapter
             WHERE Chapter.novelId = Novel.id
           )
-        `);
+    `);
 
-        db.runSync(`
+    db.runSync(`
           UPDATE Novel
           SET lastUpdatedAt = (
             SELECT MAX(updatedTime)
             FROM Chapter
             WHERE Chapter.novelId = Novel.id
           )
-        `);
-      } catch (error) {
-        // Gracefully handle UPDATE failures - columns already added with defaults
-        migration002Log.warn(
-          'populate-failed',
-          'Failed to populate counter columns in Novel table:',
-          error,
-        );
-      }
-    }
+    `);
   },
 };
