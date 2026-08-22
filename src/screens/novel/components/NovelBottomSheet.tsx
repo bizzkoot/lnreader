@@ -222,6 +222,7 @@ const ChaptersSettingsSheet = ({
     <BottomSheet
       snapPoints={[scaleDimension(240, uiScale)]}
       bottomSheetRef={bottomSheetRef}
+      enableContentPanningGesture={false}
     >
       <BottomSheetView style={styles(uiScale).contentContainer}>
         <TabView

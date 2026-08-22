@@ -31,14 +31,12 @@ const STOP_SIZE = 4;
 const HORIZONTAL_CLAIM_THRESHOLD = 6;
 
 /**
- * Responder-claim decision for the slider's PanResponder.
+ * Responder-claim decision for the slider's PanResponder on move.
  *
- * The slider never claims a touch at start: on Android a JS responder claim
- * at touch-start blocks the parent native ScrollView from scrolling, so a
- * vertical swipe that begins on the track would be swallowed. Instead we only
- * claim once the gesture is clearly horizontal-dominant, letting vertical
- * swipes pass through to the parent and taps fall through to the Pressable
- * wrapper (which jumps the handle).
+ * The slider claims touches at start when enabled so that nested horizontal
+ * pagers (e.g. ViewPager2 / TabView) do not intercept horizontal slider drags.
+ * shouldClaimPanResponder serves as an additional horizontal-dominance guard
+ * during active moves.
  */
 export const shouldClaimPanResponder = (
   dx: number,
@@ -250,7 +248,7 @@ const Slider: React.FC<SliderProps> = ({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponder: () => !disabledRef.current,
         onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: (_evt, gestureState) =>
           shouldClaimPanResponder(

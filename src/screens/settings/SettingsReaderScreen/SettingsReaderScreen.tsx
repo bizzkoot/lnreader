@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { BottomSheetView } from '@gorhom/bottom-sheet';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { useNavigation } from '@react-navigation/native';
 import WebView from 'react-native-webview';
@@ -414,8 +415,9 @@ const SettingsReaderScreen = () => {
       <BottomSheet
         bottomSheetRef={bottomSheetRef}
         snapPoints={[BOTTOM_SHEET_HEIGHT]}
+        enableContentPanningGesture={false}
       >
-        <View style={styles.bottomSheetContent}>
+        <BottomSheetView style={styles.bottomSheetContent}>
           {/* Tab Bar */}
           <TabView
             commonOptions={tabOptions}
@@ -426,9 +428,10 @@ const SettingsReaderScreen = () => {
             initialLayout={{ width: screenWidth }}
             lazy
             lazyPreloadDistance={0}
-            swipeEnabled={false}
+            swipeEnabled
+            style={{ height: BOTTOM_SHEET_HEIGHT }}
           />
-        </View>
+        </BottomSheetView>
       </BottomSheet>
     </SafeAreaView>
   );

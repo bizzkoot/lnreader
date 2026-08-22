@@ -72,11 +72,7 @@ describe('Slider', () => {
     return slider;
   };
 
-  // The slider's PanResponder never claims a touch at start
-  // (onStartShouldSetPanResponder => false), which makes RNTL treat it as
-  // non-interactive (fireEvent silently no-ops). We therefore drive the
-  // responder/layout/a11y handlers directly — they are the same props fireEvent
-  // would dispatch to.
+  // We drive the responder/layout/a11y handlers directly to simulate touch interactions.
   const grant = (
     slider: ReturnType<typeof screen.getByTestId>,
     x: number,
@@ -343,7 +339,7 @@ describe('Slider', () => {
     expect(onSlidingComplete).not.toHaveBeenCalled();
   });
 
-  it('never claims responder at touch start (lets parent ScrollView handle vertical swipes)', () => {
+  it('claims responder at touch start while enabled to prevent pager interception', () => {
     const { rerender } = render(<Slider value={5} min={0} max={10} />);
     const slider = screen.getByTestId('slider');
 
@@ -351,7 +347,7 @@ describe('Slider', () => {
       | ((event?: object) => boolean)
       | undefined;
     expect(startShouldSet).toBeDefined();
-    expect(startShouldSet!()).toBe(false);
+    expect(startShouldSet!()).toBe(true);
 
     rerender(<Slider disabled value={5} min={0} max={10} />);
     expect(slider.props.onStartShouldSetResponder!()).toBe(false);

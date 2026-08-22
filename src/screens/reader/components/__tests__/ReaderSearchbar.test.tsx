@@ -33,6 +33,11 @@ const theme: any = {
 };
 
 describe('ReaderSearchbar', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+  });
+
   it('renders input with query value', () => {
     render(
       <ReaderSearchbar
