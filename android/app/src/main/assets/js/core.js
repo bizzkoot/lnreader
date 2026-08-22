@@ -1528,6 +1528,7 @@ window.reader = new (function () {
   // Flush pending debounced save immediately (background visibility)
   this.flushPendingProgressSave = () => {
     if (window.tts && window.tts.reading) return;
+    if (!this.hasPerformedInitialScroll && this.suppressSaveOnScroll) return;
     if (this.scrollDebounceTimer) {
       clearTimeout(this.scrollDebounceTimer);
       this.scrollDebounceTimer = null;
