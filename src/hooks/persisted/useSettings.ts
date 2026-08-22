@@ -417,7 +417,7 @@ const initialAppSettings: AppSettings = {
   /**
    * Reading time tracking (PRD 3.2)
    */
-  readingTimeTrackingEnabled: false,
+  readingTimeTrackingEnabled: true,
   readingTimeInactivityTimeoutMs: 0,
 
   /**

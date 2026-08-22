@@ -4,6 +4,7 @@ import { Svg, G, Path, Circle } from 'react-native-svg';
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import AppText from '@components/AppText';
+import { getString } from '@strings/translations';
 
 interface Entry {
   key: string;
@@ -85,7 +86,11 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
     else visibleEntries.push(e);
   }
   if (otherValue > 0) {
-    visibleEntries.push({ key: 'other', value: otherValue, label: 'Other' });
+    visibleEntries.push({
+      key: 'other',
+      value: otherValue,
+      label: getString('statsScreen.other'),
+    });
   }
 
   let angle = 0;
@@ -159,7 +164,7 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
             style={[styles.centerSub, { color: theme.onSurfaceVariant }]}
             numberOfLines={1}
           >
-            total
+            {getString('statsScreen.total')}
           </AppText>
         </View>
       </View>

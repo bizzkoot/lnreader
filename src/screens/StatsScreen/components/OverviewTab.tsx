@@ -68,7 +68,7 @@ const OverviewTab: React.FC<Props> = ({ stats, novels }) => {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-        {getString('generalSettings')}
+        {getString('statsScreen.libraryOverview')}
       </AppText>
       <View style={styles.cardsRow}>
         <StatsCard
@@ -100,7 +100,7 @@ const OverviewTab: React.FC<Props> = ({ stats, novels }) => {
       </View>
 
       <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-        Chapters
+        {getString('statsScreen.chapters')}
       </AppText>
       <ChapterBar
         chaptersCount={stats.chaptersCount ?? 0}
@@ -119,7 +119,7 @@ const OverviewTab: React.FC<Props> = ({ stats, novels }) => {
       <DistributionBar entries={genreEntries} colors={genrePalette} />
 
       <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-        Genre exploration
+        {getString('statsScreen.genreExploration')}
       </AppText>
       <GenreSection tree={genreTree} />
     </ScrollView>

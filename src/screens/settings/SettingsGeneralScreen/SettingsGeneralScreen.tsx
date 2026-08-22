@@ -6,6 +6,7 @@ import GridSizeModal from './modals/GridSizeModal';
 import AutoDownloadModal from './modals/AutoDownloadModal';
 import DownloadCooldownModal from './modals/DownloadCooldownModal';
 import AutomaticLibraryUpdateModal from './modals/AutomaticLibraryUpdateModal';
+import InactivityTimeoutModal from './modals/InactivityTimeoutModal';
 
 import {
   useAppSettings,
@@ -65,6 +66,8 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
     autoDownloadAmount = '10',
     chapterDownloadCooldownMs,
     automaticLibraryUpdateIntervalHours = 0,
+    readingTimeTrackingEnabled = true,
+    readingTimeInactivityTimeoutMs = 0,
     setAppSettings,
   } = useAppSettings();
 
@@ -123,6 +126,26 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
    * Automatic Library Update Modal
    */
   const automaticUpdateModalRef = useBoolean();
+
+  /**
+   * Inactivity Timeout Modal
+   */
+  const inactivityTimeoutModalRef = useBoolean();
+
+  const getInactivityTimeoutDescription = () => {
+    switch (readingTimeInactivityTimeoutMs) {
+      case 120000:
+        return getString('generalSettingsScreen.inactivity2min');
+      case 300000:
+        return getString('generalSettingsScreen.inactivity5min');
+      case 600000:
+        return getString('generalSettingsScreen.inactivity10min');
+      case 900000:
+        return getString('generalSettingsScreen.inactivity15min');
+      default:
+        return getString('generalSettingsScreen.inactivityNever');
+    }
+  };
 
   const getAutoDownloadRemainingDescription = () => {
     switch (autoDownloadOnRemaining) {
@@ -301,6 +324,31 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
           )}
           <List.Divider theme={theme} />
           <List.SubHeader theme={theme}>
+            {getString('generalSettingsScreen.readingTimeTracking')}
+          </List.SubHeader>
+          <SettingSwitch
+            label={getString('generalSettingsScreen.readingTimeTrackingSwitch')}
+            description={getString(
+              'generalSettingsScreen.readingTimeTrackingDesc',
+            )}
+            value={readingTimeTrackingEnabled}
+            onPress={() =>
+              setAppSettings({
+                readingTimeTrackingEnabled: !readingTimeTrackingEnabled,
+              })
+            }
+            theme={theme}
+          />
+          {readingTimeTrackingEnabled && (
+            <List.Item
+              title={getString('generalSettingsScreen.inactivityTimeout')}
+              description={getInactivityTimeoutDescription()}
+              onPress={inactivityTimeoutModalRef.setTrue}
+              theme={theme}
+            />
+          )}
+          <List.Divider theme={theme} />
+          <List.SubHeader theme={theme}>
             {getString('generalSettings')}
           </List.SubHeader>
           <List.Item
@@ -384,6 +432,11 @@ const GenralSettings: React.FC<GenralSettingsProps> = ({ navigation }) => {
       <AutomaticLibraryUpdateModal
         visible={automaticUpdateModalRef.value}
         onDismiss={automaticUpdateModalRef.setFalse}
+        theme={theme}
+      />
+      <InactivityTimeoutModal
+        visible={inactivityTimeoutModalRef.value}
+        onDismiss={inactivityTimeoutModalRef.setFalse}
         theme={theme}
       />
     </SafeAreaView>

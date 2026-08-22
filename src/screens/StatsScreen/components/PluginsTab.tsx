@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useAppSettings, useTheme } from '@hooks/persisted';
 import { scaleDimension } from '@theme/scaling';
 import AppText from '@components/AppText';
@@ -7,6 +7,9 @@ import { NovelWithGenresRow } from '@database/queries/StatsQueries';
 import { getPlugin } from '@plugins/pluginManager';
 import DistributionBar from './DistributionBar';
 import { getDonutPalette } from '../utils';
+import { getString } from '@strings/translations';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '@navigators/types';
 
 interface Props {
   novels: NovelWithGenresRow[];
@@ -14,6 +17,7 @@ interface Props {
 
 const PluginsTab: React.FC<Props> = ({ novels }) => {
   const theme = useTheme();
+  const { navigate } = useNavigation<NavigationProp<RootStackParamList>>();
   const { uiScale = 1.0 } = useAppSettings();
   const styles = useMemo(() => createStyles(uiScale), [uiScale]);
 
@@ -52,16 +56,20 @@ const PluginsTab: React.FC<Props> = ({ novels }) => {
     return (
       <View style={styles.empty}>
         <AppText style={{ color: theme.onSurfaceVariant }}>
-          No plugins in library
+          {getString('statsScreen.noPluginsInLibrary')}
         </AppText>
       </View>
     );
   }
 
+  const pluginsTitle = getString('statsScreen.tabs.plugins') || 'Plugins';
+  const titlesLabel =
+    getString('statsScreen.titlesInLibrary') || 'Titles in library';
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <AppText style={[styles.header, { color: theme.onSurfaceVariant }]}>
-        Plugins · {novels.length} novels
+        {pluginsTitle} · {novels.length} {titlesLabel.toLowerCase()}
       </AppText>
       <DistributionBar entries={entries} colors={palette} />
 
@@ -102,7 +110,26 @@ const PluginsTab: React.FC<Props> = ({ novels }) => {
               </View>
               <View style={styles.novelList}>
                 {group.novels.slice(0, 8).map(n => (
-                  <View key={n.id} style={styles.novelRow}>
+                  <Pressable
+                    key={n.id}
+                    onPress={() =>
+                      navigate('ReaderStack', {
+                        screen: 'Novel',
+                        params: {
+                          id: n.id,
+                          pluginId: n.pluginId,
+                          name: n.name,
+                          cover: n.cover ?? undefined,
+                          path: n.path,
+                          inLibrary: true,
+                        },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.novelRow,
+                      { opacity: pressed ? 0.7 : 1 },
+                    ]}
+                  >
                     <AppText
                       style={[styles.novelName, { color: theme.onSurface }]}
                       numberOfLines={1}
@@ -129,13 +156,15 @@ const PluginsTab: React.FC<Props> = ({ novels }) => {
                     >
                       {n.totalChapters}
                     </AppText>
-                  </View>
+                  </Pressable>
                 ))}
                 {group.novels.length > 8 ? (
                   <AppText
                     style={[styles.more, { color: theme.onSurfaceVariant }]}
                   >
-                    +{group.novels.length - 8} more
+                    {getString('statsScreen.moreNovels', {
+                      count: group.novels.length - 8,
+                    })}
                   </AppText>
                 ) : null}
               </View>

@@ -250,6 +250,7 @@ export interface NovelWithGenresRow {
   id: number;
   pluginId: string;
   name: string;
+  path: string;
   cover?: string;
   genres?: string | null;
   status?: string | null;
@@ -259,7 +260,7 @@ export interface NovelWithGenresRow {
 }
 
 const getNovelsWithGenresQueryFull = `
-  SELECT id, pluginId, name, cover, genres, status, totalChapters, chaptersUnread, chaptersDownloaded
+  SELECT id, pluginId, name, path, cover, genres, status, totalChapters, chaptersUnread, chaptersDownloaded
   FROM Novel
   WHERE inLibrary = 1
 `;
@@ -277,12 +278,13 @@ export interface TopNovelTimeRow {
   id: number;
   pluginId: string;
   name: string;
+  path: string;
   cover?: string | null;
   timeSpent: number;
 }
 
 const getTopNovelsByReadingTimeQuery = `
-  SELECT Novel.id as id, Novel.pluginId as pluginId, Novel.name as name, Novel.cover as cover,
+  SELECT Novel.id as id, Novel.pluginId as pluginId, Novel.name as name, Novel.path as path, Novel.cover as cover,
          COALESCE(SUM(ReadingSession.duration), 0) as timeSpent
   FROM Novel
   JOIN ReadingSession ON Novel.id = ReadingSession.novelId
