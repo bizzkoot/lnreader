@@ -693,6 +693,15 @@ ORDER BY
   novelId;
 `);
 
+/**
+ * Predicates intentionally differ from getUpdatedOverviewFromDb (matches upstream):
+ * - onlyDownloadableChapters=false → WHERE updatedTime IS NOT NULL ("updates" tab)
+ * - onlyDownloadableChapters=true  → WHERE isDownloaded=1 (all offline chapters for this novel,
+ *   including rows that never received an update). Overview counts only updates, so the
+ *   two results legitimately diverge. If download-only should mean "downloaded updates",
+ *   add `AND updatedTime IS NOT NULL` here (one-line patch) and update the tab label.
+ * Upstream reference: src/database/queries/ChapterQueries.ts:getDetailedUpdatesQuery (master).
+ */
 export const getDetailedUpdatesFromDb = async (
   novelId: number,
   onlyDownloadableChapters?: boolean,
