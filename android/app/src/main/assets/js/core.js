@@ -1525,6 +1525,16 @@ window.reader = new (function () {
     }, 150); // 150ms debounce
   };
 
+  // Flush pending debounced save immediately (background visibility)
+  this.flushPendingProgressSave = () => {
+    if (window.tts && window.tts.reading) return;
+    if (this.scrollDebounceTimer) {
+      clearTimeout(this.scrollDebounceTimer);
+      this.scrollDebounceTimer = null;
+    }
+    this.saveProgress();
+  };
+
   this.processScroll = currentScrollY => {
     // CRITICAL: Block scroll processing entirely during screen wake sync
     if (window.ttsScreenWakeSyncPending) {
@@ -1771,6 +1781,20 @@ window.reader = new (function () {
   };
 
   document.addEventListener('scroll', this.onScroll, { passive: true });
+
+  // Ensure progress is not lost when app backgrounds mid-debounce
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      try {
+        this.flushPendingProgressSave();
+      } catch (e) {}
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    try {
+      this.flushPendingProgressSave();
+    } catch (e) {}
+  });
 
   // FIX: Enhance chapter titles for EPUB TTS synchronization
   // Only adds title if first few VISIBLE elements don't contain chapter title text

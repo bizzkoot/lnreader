@@ -16,6 +16,8 @@ import React, {
   useState,
 } from 'react';
 import {
+  AppState,
+  AppStateStatus,
   NativeEventEmitter,
   NativeModules,
   StatusBar,
@@ -525,6 +527,25 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
   useBackHandler(() => {
     return tts.handleBackPress();
   });
+
+  // ============================================================================
+  // AppState: flush reading progress on background (non-TTS reading)
+  // ============================================================================
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        // TTS path has its own background handling; skip here
+        if ((tts as unknown as { isTTSReading?: boolean }).isTTSReading) {
+          return;
+        }
+        webViewRef.current?.injectJavaScript(
+          `(function(){try{if(window.reader&&window.reader.flushPendingProgressSave){window.reader.flushPendingProgressSave();}else if(window.reader&&window.reader.saveProgress&&!(window.tts&&window.tts.reading)){window.reader.saveProgress();}}catch(e){}} )();true;`,
+        );
+      }
+    });
+    return () => sub.remove();
+  }, [webViewRef, tts]);
 
   // ============================================================================
   // MMKV Settings Listener
