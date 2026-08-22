@@ -10,7 +10,7 @@ import {
   withPluginMutationLock,
 } from '@plugins/pluginManager';
 import { MMKVStorage, getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { getString } from '@strings/translations';
 import { withWriteLock } from './writeQueue';
 import {
@@ -39,6 +39,13 @@ export default function usePlugins() {
 
   const [lastUsedPlugin, setLastUsedPlugin] =
     useMMKVObject<PluginItem>(LAST_USED_PLUGIN);
+  // Migrate legacy string id stored under LAST_USED_PLUGIN (pre-object shape)
+  useEffect(() => {
+    const raw = getMMKVObject<unknown>(LAST_USED_PLUGIN);
+    if (typeof raw === 'string') {
+      MMKVStorage.delete(LAST_USED_PLUGIN);
+    }
+  }, []);
   const [pinnedPlugins = [], setPinnedPlugins] =
     useMMKVObject<string[]>(PINNED_PLUGINS);
   const [languagesFilter = [defaultLang], setLanguagesFilter] =
@@ -72,8 +79,8 @@ export default function usePlugins() {
   const refreshPlugins = useCallback(
     async ({ clearUnavailableUpdates = false }: RefreshPluginsOptions = {}) => {
       const requestId = ++refreshRequestIdRef.current;
-      const fetched = await fetchPlugins();
       await withWriteLock(async () => {
+        const fetched = await fetchPlugins();
         // Re-read while holding the write lock. An install/update cannot write
         // between this read and the reconciliation below.
         const installedPlugins =

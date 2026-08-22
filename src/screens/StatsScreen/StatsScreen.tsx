@@ -51,6 +51,12 @@ const StatsScreen = () => {
   const [topNovels, setTopNovels] = useState<TopNovelTimeRow[]>([]);
   const [error, setError] = useState<unknown>();
 
+  const mountedRef = React.useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(undefined);
@@ -60,7 +66,7 @@ const StatsScreen = () => {
         getNovelsWithGenresFromDb(),
         getTopNovelsByReadingTimeFromDb(10),
       ]);
-
+      if (!mountedRef.current) return;
       const genres: string[] = [];
       const status: string[] = [];
       novelsWithGenres.forEach(n => {
@@ -77,9 +83,9 @@ const StatsScreen = () => {
       setNovels(novelsWithGenres);
       setTopNovels(top);
     } catch (e) {
-      setError(e);
+      if (mountedRef.current) setError(e);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
   }, []);
 

@@ -13,6 +13,7 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
 import android.content.ComponentName
+import androidx.annotation.VisibleForTesting
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
@@ -71,9 +72,11 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     private var lastNotificationUpdateTime = 0L
     private val NOTIFICATION_UPDATE_THROTTLE_MS = 500L // Max 2 updates/second
     // Counter for notification updates — used by unit tests to verify throttling
+    @VisibleForTesting
     var notificationUpdateCount = 0
         private set
     /** Reset throttle timer and counter — for unit tests */
+    @VisibleForTesting
     fun resetNotificationTracking() {
         lastNotificationUpdateTime = 0L
         notificationUpdateCount = 0
@@ -353,6 +356,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     }
 
     /** Accessor for MediaSession — used by unit tests and potential future integrations */
+    @VisibleForTesting
     fun getMediaSession(): MediaSessionCompat? = mediaSession
 
     /** Progress text for notification and external consumers */

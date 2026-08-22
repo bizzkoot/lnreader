@@ -74,7 +74,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
     override fun unzip(sourceFilePath: String, distDirPath: String, promise: Promise) {
         Thread {
             val stagingDir = File(
-                File(distDirPath).absoluteFile.parentFile,
+                requireNotNull(File(distDirPath).absoluteFile.parentFile) { "distDirPath has no parent: $distDirPath" },
                 ".staging-${UUID.randomUUID()}",
             )
             try {
@@ -134,7 +134,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
     ) {
         Thread {
             val stagingDir = File(
-                File(distDirPath).absoluteFile.parentFile,
+                requireNotNull(File(distDirPath).absoluteFile.parentFile) { "distDirPath has no parent: $distDirPath" },
                 ".staging-${UUID.randomUUID()}",
             )
             var response: Response? = null
@@ -206,7 +206,7 @@ class NativeZipArchive(context: ReactApplicationContext) : NativeZipArchiveSpec(
                 }
             } else {
                 // Case 3: existing content — move aside, then rename staging into place
-                displaced = File(destDir.parentFile, ".displaced-${UUID.randomUUID()}")
+                displaced = File(requireNotNull(destDir.parentFile) { "destDir has no parent: $destDir" }, ".displaced-${UUID.randomUUID()}")
                 if (!destDir.renameTo(displaced)) {
                     throw IllegalStateException("Failed to back up existing destination")
                 }

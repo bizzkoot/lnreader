@@ -109,7 +109,7 @@ export function useTimeTracking(
         );
         return;
       }
-      if (!nId || !cId) {
+      if (nId == null || cId == null) {
         timeTrackLog.debug('flush-skip-missing-ids', `${reason}`);
         return;
       }
@@ -153,7 +153,7 @@ export function useTimeTracking(
     ) {
       return;
     }
-    if (!novelIdRef.current || !chapterIdRef.current) return;
+    if (novelIdRef.current == null || chapterIdRef.current == null) return;
     startTimeRef.current = Date.now();
     sessionNovelIdRef.current = novelIdRef.current;
     sessionChapterIdRef.current = chapterIdRef.current;
@@ -197,7 +197,7 @@ export function useTimeTracking(
       appStateRef.current !== 'background' &&
       appStateRef.current !== 'inactive'
     ) {
-      if (novelId && chapterId) {
+      if (novelId != null && chapterId != null) {
         tryStart();
       }
     }
@@ -207,22 +207,31 @@ export function useTimeTracking(
   // Chapter/novel change: flush previous session attributed to its captured ids, then start new.
   const prevChapterIdInternalRef = useRef<number | undefined>(chapterId);
   const prevNovelIdInternalRef = useRef<number | undefined>(novelId);
+  const chapterChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   useEffect(() => {
     const chapterChanged = prevChapterIdInternalRef.current !== chapterId;
     const novelChanged = prevNovelIdInternalRef.current !== novelId;
     if (chapterChanged || novelChanged) {
-      // If we were tracking, the session's captured ids are still the previous chapter's
-      // (sessionNovelIdRef/sessionChapterIdRef), so flushing now attributes correctly.
       if (isTrackingRef.current) {
         void doFlush('chapter-change');
       }
       prevChapterIdInternalRef.current = chapterId;
       prevNovelIdInternalRef.current = novelId;
-      // Start new session for new chapter if eligible (defer to let flush settle)
-      if (enabled && !isTTSActive && novelId && chapterId) {
-        setTimeout(() => tryStart(), 0);
+      if (chapterChangeTimerRef.current) {
+        clearTimeout(chapterChangeTimerRef.current);
+      }
+      if (enabled && !isTTSActive && novelId != null && chapterId != null) {
+        chapterChangeTimerRef.current = setTimeout(() => tryStart(), 0);
       }
     }
+    return () => {
+      if (chapterChangeTimerRef.current) {
+        clearTimeout(chapterChangeTimerRef.current);
+        chapterChangeTimerRef.current = null;
+      }
+    };
   }, [chapterId, novelId, enabled, isTTSActive, doFlush, tryStart]);
 
   // AppState listener
@@ -246,7 +255,7 @@ export function useTimeTracking(
 
   // Start on mount if eligible
   useEffect(() => {
-    if (enabled && !isTTSActive && novelId && chapterId) {
+    if (enabled && !isTTSActive && novelId != null && chapterId != null) {
       if (
         appStateRef.current !== 'background' &&
         appStateRef.current !== 'inactive'
