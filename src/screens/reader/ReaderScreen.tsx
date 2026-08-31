@@ -26,6 +26,7 @@ import { scaleDimension } from '@theme/scaling';
 import { getString } from '@strings/translations';
 import KeepScreenAwake from './components/KeepScreenAwake';
 import { ChapterContextProvider, useChapterContext } from './ChapterContext';
+import { useNovelContext } from '@screens/novel/NovelContext';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { useScaledDimensions } from '@hooks/useScaledDimensions';
 import { useBackHandler } from '@hooks/index';
@@ -80,6 +81,7 @@ export const ChapterContent = ({
   openDrawer,
 }: ChapterContentProps) => {
   const { bottom, left, right } = useSafeAreaInsets();
+  const { statusBarHeight } = useNovelContext();
   const scaledDimensions = useScaledDimensions();
   const { uiScale = 1.0 } = useAppSettings();
   const {
@@ -314,7 +316,9 @@ export const ChapterContent = ({
             'reader.hidden.val = false; true;',
           );
         }
-        dismissReturnBanner();
+        clearReturnTimer();
+        setShowReturnBanner(false);
+        setReturnCountdown(5);
       }
       return next;
     });
@@ -434,6 +438,7 @@ export const ChapterContent = ({
           onNext={handleSearchNext}
           onPrevious={handleSearchPrevious}
           onClose={handleCloseSearch}
+          statusBarHeight={statusBarHeight}
         />
       )}
       {!hidden && !searchVisible && (

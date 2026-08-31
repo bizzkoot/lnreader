@@ -39,6 +39,7 @@ interface ReaderSearchbarProps {
   onNext: () => void;
   onPrevious: () => void;
   onClose: () => void;
+  statusBarHeight?: number;
 }
 
 const ReaderSearchbar = ({
@@ -48,15 +49,17 @@ const ReaderSearchbar = ({
   onNext,
   onPrevious,
   onClose,
+  statusBarHeight,
 }: ReaderSearchbarProps) => {
   const scaledDimensions = useScaledDimensions();
   const { uiScale = 1.0 } = useAppSettings();
-  const statusBarHeight = StatusBar.currentHeight ?? 0;
+  const effectiveStatusBarHeight =
+    statusBarHeight || StatusBar.currentHeight || 0;
 
   const entering = () => {
     'worklet';
     return {
-      initialValues: { originY: -statusBarHeight, opacity: 0 },
+      initialValues: { originY: -effectiveStatusBarHeight, opacity: 0 },
       animations: {
         originY: withTiming(0, {
           duration: 250,
@@ -72,7 +75,7 @@ const ReaderSearchbar = ({
     return {
       initialValues: { originY: 0, opacity: 1 },
       animations: {
-        originY: withTiming(-statusBarHeight, {
+        originY: withTiming(-effectiveStatusBarHeight, {
           duration: 250,
           easing: fastOutSlowIn,
           reduceMotion: ReduceMotion.System,
@@ -94,8 +97,9 @@ const ReaderSearchbar = ({
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: scaledDimensions.padding.sm,
-          paddingTop: statusBarHeight + scaledDimensions.padding.xs,
+          paddingTop: effectiveStatusBarHeight + scaledDimensions.padding.xs,
           paddingBottom: scaledDimensions.padding.sm,
+          elevation: 4,
         },
         input: {
           flex: 1,
@@ -127,7 +131,7 @@ const ReaderSearchbar = ({
           marginHorizontal: 2,
         },
       }),
-    [theme, scaledDimensions, uiScale, statusBarHeight],
+    [theme, scaledDimensions, uiScale, effectiveStatusBarHeight],
   );
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
