@@ -315,6 +315,14 @@ export interface ChapterGeneralSettings {
    * paragraphs, so the RN <-> WebView paragraph index contract stays intact.
    */
   ttsTextCleanup: TtsTextCleanupSettings;
+  /**
+   * In-chapter search: what happens when the search bar is closed.
+   * - 'countdown': show 5s countdown banner and then return to the anchor scroll position before search (default)
+   * - 'immediate': return to anchor immediately without countdown
+   * - 'stay': stay at the current (search) position, never auto-return
+   * Search never mutates the saved last-read progress while open.
+   */
+  searchReturnBehavior: 'countdown' | 'immediate' | 'stay';
 }
 
 export interface ReaderTheme {
@@ -466,6 +474,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   continuousScrollStitchThreshold: 90,
   ttsShowGestureHints: true,
   ttsTextCleanup: DEFAULT_TTS_CLEANUP_SETTINGS,
+  searchReturnBehavior: 'countdown',
 };
 
 export const initialChapterReaderSettings: ChapterReaderSettings = {

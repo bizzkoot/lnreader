@@ -1,3 +1,20 @@
+// Mock react-native-reanimated (ESM) — provide light stub for Animated.View etc.
+jest.mock('react-native-reanimated', () => {
+  const React = require('react');
+  const RN = require('react-native');
+  const View = RN.View;
+  const MockedView = React.forwardRef((props, ref) =>
+    React.createElement(View, { ...props, ref }),
+  );
+  return {
+    __esModule: true,
+    default: { View: MockedView },
+    Easing: { bezier: () => () => ({}) },
+    ReduceMotion: { System: 0 },
+    withTiming: v => v,
+  };
+});
+
 // Mock all native modules and problematic ESM dependencies globally
 
 // Mock react-native-device-info

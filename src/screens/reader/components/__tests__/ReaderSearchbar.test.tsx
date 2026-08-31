@@ -17,6 +17,9 @@ jest.mock('@hooks/useScaledDimensions', () => ({
     borderRadius: { md: 8 },
   }),
 }));
+jest.mock('@hooks/persisted', () => ({
+  useAppSettings: () => ({ uiScale: 1.0 }),
+}));
 
 jest.mock('@strings/translations', () => ({
   getString: jest.fn((k: string) => k),
