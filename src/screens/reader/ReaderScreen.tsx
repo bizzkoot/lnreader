@@ -322,7 +322,14 @@ export const ChapterContent = ({
       }
       return next;
     });
-  }, [handleClearSearch, hidden, setHidden, webViewRef, dismissReturnBanner]);
+  }, [
+    handleClearSearch,
+    hidden,
+    setHidden,
+    webViewRef,
+    dismissReturnBanner,
+    clearReturnTimer,
+  ]);
 
   const handleCloseSearch = useCallback(() => {
     // Capture whether we had an anchor before clearing
@@ -356,10 +363,14 @@ export const ChapterContent = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapter.id]);
 
-  // ── Back handler: search takes priority over drawer ──────────────────
+  // ── Back handler: search & return banner take priority over drawer ───
   useBackHandler(() => {
     if (searchVisible) {
       handleCloseSearch();
+      return true;
+    }
+    if (showReturnBanner) {
+      dismissReturnBanner();
       return true;
     }
     return false;
