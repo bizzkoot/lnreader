@@ -256,8 +256,9 @@ const Slider: React.FC<SliderProps> = ({
         // AUD-GEST-03: keep drag value until controlled catches up, but
         // schedule a fallback clear so a parent that rejects/clamps to the
         // same value does not permanently freeze the thumb.
-        if (dragFallbackTimerRef.current)
+        if (dragFallbackTimerRef.current) {
           clearTimeout(dragFallbackTimerRef.current);
+        }
         dragFallbackTimerRef.current = setTimeout(() => {
           setDragValue(current =>
             current === completedValue ? null : current,
