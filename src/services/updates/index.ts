@@ -67,9 +67,13 @@ const updateLibrary = async (
     ) as LibraryNovelInfo[];
   }
 
-  if (libraryNovels.length > 0) {
+  // Only a full-library update advances the scheduler's global timestamp.
+  // Category updates must not postpone scheduled updates for the rest of the library.
+  if (!categoryId) {
     MMKVStorage.set(LAST_UPDATE_TIME, dayjs().format('YYYY-MM-DD HH:mm:ss'));
+  }
 
+  if (libraryNovels.length > 0) {
     const sourceQueues = groupNovelsByPlugin(libraryNovels);
     const activeNovels = new Map<string, string>();
     let completedNovels = 0;

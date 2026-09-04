@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import {
+  I18nManager,
   Keyboard,
   Pressable,
   StatusBar,
@@ -199,7 +200,7 @@ const ReaderSearchbar = ({
         accessibilityRole="button"
       >
         <MaterialCommunityIcons
-          name="arrow-left"
+          name={I18nManager.isRTL ? 'arrow-right' : 'arrow-left'}
           size={scaledDimensions.iconSize.md}
           color={theme.onSurface}
         />

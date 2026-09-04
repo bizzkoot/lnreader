@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { I18nManager, StyleSheet, View } from 'react-native';
 import color from 'color';
 
 import { Text } from 'react-native-paper';
@@ -97,7 +97,7 @@ const ReaderAppbar = ({
     >
       <View style={styles.appbar}>
         <IconButtonV2
-          name="arrow-left"
+          name={I18nManager.isRTL ? 'arrow-right' : 'arrow-left'}
           onPress={goBack}
           color={theme.onSurface}
           size={scaledDimensions.iconSize.md + 2}
