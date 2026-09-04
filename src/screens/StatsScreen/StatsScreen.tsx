@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   SceneRendererProps,
   TabView,
@@ -55,8 +55,12 @@ const StatsScreen = () => {
       mountedRef.current = false;
     };
   }, []);
+  // Silent refresh after first load: refocusing (e.g. back from a novel
+  // opened via Top-novels-by-time) must pick up new ReadingSession rows
+  // without flashing the full-screen loader.
+  const hasLoadedRef = React.useRef(false);
   const load = useCallback(async () => {
-    setIsLoading(true);
+    if (!hasLoadedRef.current) setIsLoading(true);
     setError(undefined);
     try {
       const [agg, novelsWithGenres, top] = await Promise.all([
@@ -80,6 +84,7 @@ const StatsScreen = () => {
       setStats(merged);
       setNovels(novelsWithGenres);
       setTopNovels(top);
+      hasLoadedRef.current = true;
     } catch (e) {
       if (mountedRef.current) setError(e);
     } finally {
@@ -87,9 +92,13 @@ const StatsScreen = () => {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Refetch on focus (fires on mount too): Time-tab rows navigate to
+  // ReaderStack Novel, so returning must show newly recorded time.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const routes: Route[] = useMemo(
     () => [

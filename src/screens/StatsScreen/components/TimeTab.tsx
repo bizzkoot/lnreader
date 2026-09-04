@@ -82,6 +82,19 @@ const TimeTab: React.FC<Props> = ({ stats, topNovels }) => {
             {getString('statsScreen.mins')}
           </AppText>
         </View>
+        <View
+          style={[
+            styles.timeBox,
+            { backgroundColor: theme.secondaryContainer },
+          ]}
+        >
+          <AppText style={[styles.timeVal, { color: theme.primary }]}>
+            {parts.seconds}
+          </AppText>
+          <AppText style={{ color: theme.onSurfaceVariant }}>
+            {getString('statsScreen.secs')}
+          </AppText>
+        </View>
       </View>
       <AppText style={[styles.sub, { color: theme.onSurfaceVariant }]}>
         {formatTimeSpent(totalMs)} {getString('statsScreen.total')}

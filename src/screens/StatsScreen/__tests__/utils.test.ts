@@ -12,8 +12,10 @@ describe('stats utils', () => {
       expect(formatTimeSpent(0)).toBe('0m');
       expect(formatTimeSpent(-100)).toBe('0m');
     });
-    it('formats <1m', () => {
-      expect(formatTimeSpent(30000)).toBe('<1m');
+    it('formats seconds under a minute', () => {
+      expect(formatTimeSpent(30000)).toBe('30s');
+      expect(formatTimeSpent(20000)).toBe('20s');
+      expect(formatTimeSpent(1000)).toBe('1s');
     });
     it('formats minutes', () => {
       expect(formatTimeSpent(90_000)).toBe('1m');
@@ -36,16 +38,25 @@ describe('stats utils', () => {
         days: 0,
         hours: 0,
         minutes: 0,
+        seconds: 0,
+      });
+      expect(formatTotalTimeParts(20000)).toEqual({
+        days: 0,
+        hours: 0,
+        minutes: 0,
+        seconds: 20,
       });
       expect(formatTotalTimeParts(90 * 60000)).toEqual({
         days: 0,
         hours: 1,
         minutes: 30,
+        seconds: 0,
       });
       expect(formatTotalTimeParts(1500 * 60000)).toEqual({
         days: 1,
         hours: 1,
         minutes: 0,
+        seconds: 0,
       });
     });
   });

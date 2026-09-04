@@ -687,6 +687,7 @@
     "days": "days",
     "hours": "hours",
     "mins": "mins",
+    "secs": "secs",
     "total": "total",
     "other": "Other",
     "tabs": {

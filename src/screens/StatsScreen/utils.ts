@@ -2,8 +2,9 @@ import Color from 'color';
 
 export const formatTimeSpent = (ms: number): string => {
   if (!Number.isFinite(ms) || ms <= 0) return '0m';
-  const totalMinutes = Math.floor(ms / 60000);
-  if (totalMinutes < 1) return '<1m';
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const totalMinutes = Math.floor(totalSeconds / 60);
   const days = Math.floor(totalMinutes / 1440);
   const hours = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
@@ -16,13 +17,17 @@ export const formatTimeSpent = (ms: number): string => {
 
 export const formatTotalTimeParts = (
   ms: number,
-): { days: number; hours: number; minutes: number } => {
-  if (!Number.isFinite(ms) || ms <= 0) return { days: 0, hours: 0, minutes: 0 };
-  const totalMinutes = Math.floor(ms / 60000);
+): { days: number; hours: number; minutes: number; seconds: number } => {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
   const days = Math.floor(totalMinutes / 1440);
   const hours = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
-  return { days, hours, minutes };
+  const seconds = totalSeconds % 60;
+  return { days, hours, minutes, seconds };
 };
 
 export const getDonutPalette = (

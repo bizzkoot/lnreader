@@ -588,6 +588,7 @@ export interface StringMap {
   'statsScreen.days': 'string';
   'statsScreen.hours': 'string';
   'statsScreen.mins': 'string';
+  'statsScreen.secs': 'string';
   'statsScreen.total': 'string';
   'statsScreen.other': 'string';
   'statsScreen.tabs.overview': 'string';
