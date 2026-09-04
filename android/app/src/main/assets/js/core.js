@@ -1528,7 +1528,7 @@ window.reader = new (function () {
   // Flush pending debounced save immediately (background visibility)
   this.flushPendingProgressSave = () => {
     if (window.tts && window.tts.reading) return;
-    if (!this.hasPerformedInitialScroll && this.suppressSaveOnScroll) return;
+    if (!this.hasPerformedInitialScroll || this.suppressSaveOnScroll) return;
     if (this.scrollDebounceTimer) {
       clearTimeout(this.scrollDebounceTimer);
       this.scrollDebounceTimer = null;
@@ -3344,8 +3344,11 @@ window.pageReader = new (function () {
       return;
     }
     this.page.val = destPage;
-    reader.chapterElement.style.transform =
-      'translateX(-' + destPage * 100 + '%)';
+    const isRTL =
+      document.documentElement.dir === 'rtl' || document.body.dir === 'rtl';
+    reader.chapterElement.style.transform = isRTL
+      ? 'translateX(' + destPage * 100 + '%)'
+      : 'translateX(-' + destPage * 100 + '%)';
 
     const newProgress = parseInt(
       ((pageReader.page.val + 1) / pageReader.totalPages.val) * 100,
@@ -4118,12 +4121,18 @@ document.addEventListener('message', __handleNativeMessage);
 
     if (reader.generalSettings.val.pageReader) {
       const position = detectTapPosition(x, y, true);
+      const isRTL =
+        document.documentElement.dir === 'rtl' || document.body.dir === 'rtl';
       if (position === 'left') {
-        pageReader.movePage(pageReader.page.val - 1);
+        pageReader.movePage(
+          isRTL ? pageReader.page.val + 1 : pageReader.page.val - 1,
+        );
         return;
       }
       if (position === 'right') {
-        pageReader.movePage(pageReader.page.val + 1);
+        pageReader.movePage(
+          isRTL ? pageReader.page.val - 1 : pageReader.page.val + 1,
+        );
         return;
       }
     } else {
@@ -4156,37 +4165,58 @@ document.addEventListener('message', __handleNativeMessage);
 
 // swipe handler
 (function () {
-  this.initialX = null;
-  this.initialY = null;
+  function isRTL() {
+    return (
+      document.documentElement.dir === 'rtl' || document.body.dir === 'rtl'
+    );
+  }
+  let initialX = null;
+  let initialY = null;
 
   reader.chapterElement.addEventListener('touchstart', e => {
-    this.post({ type: 'reading-activity' });
-    this.initialX = e.changedTouches[0].screenX;
-    this.initialY = e.changedTouches[0].screenY;
+    reader.post({ type: 'reading-activity' });
+    initialX = e.changedTouches[0].screenX;
+    initialY = e.changedTouches[0].screenY;
   });
 
   reader.chapterElement.addEventListener('touchmove', e => {
     if (reader.generalSettings.val.pageReader) {
       const diffX =
-        (e.changedTouches[0].screenX - this.initialX) / reader.layoutWidth;
+        (e.changedTouches[0].screenX - initialX) / reader.layoutWidth;
       reader.chapterElement.style.transition = 'unset';
-      reader.chapterElement.style.transform =
-        'translateX(-' + (pageReader.page.val - diffX) * 100 + '%)';
+      if (isRTL()) {
+        reader.chapterElement.style.transform =
+          'translateX(' + (pageReader.page.val - diffX) * 100 + '%)';
+      } else {
+        reader.chapterElement.style.transform =
+          'translateX(-' + (pageReader.page.val - diffX) * 100 + '%)';
+      }
     }
   });
 
   reader.chapterElement.addEventListener('touchend', e => {
-    const diffX = e.changedTouches[0].screenX - this.initialX;
-    const diffY = e.changedTouches[0].screenY - this.initialY;
+    const diffX = e.changedTouches[0].screenX - initialX;
+    const diffY = e.changedTouches[0].screenY - initialY;
     if (reader.generalSettings.val.pageReader) {
       reader.chapterElement.style.transition = '200ms';
       const diffXPercentage = diffX / reader.layoutWidth;
-      if (diffXPercentage < -0.3) {
-        pageReader.movePage(pageReader.page.val + 1);
-      } else if (diffXPercentage > 0.3) {
-        pageReader.movePage(pageReader.page.val - 1);
+      const rtl = isRTL();
+      if (rtl) {
+        if (diffXPercentage < -0.3) {
+          pageReader.movePage(pageReader.page.val - 1);
+        } else if (diffXPercentage > 0.3) {
+          pageReader.movePage(pageReader.page.val + 1);
+        } else {
+          pageReader.movePage(pageReader.page.val);
+        }
       } else {
-        pageReader.movePage(pageReader.page.val);
+        if (diffXPercentage < -0.3) {
+          pageReader.movePage(pageReader.page.val + 1);
+        } else if (diffXPercentage > 0.3) {
+          pageReader.movePage(pageReader.page.val - 1);
+        } else {
+          pageReader.movePage(pageReader.page.val);
+        }
       }
       return;
     }
@@ -4201,12 +4231,23 @@ document.addEventListener('message', __handleNativeMessage);
       Math.abs(diffX) > Math.abs(diffY) * 2 &&
       Math.abs(diffX) > 180
     ) {
-      if (diffX < 0 && this.initialX >= window.innerWidth / 2) {
-        e.preventDefault();
-        reader.post({ type: 'next' });
-      } else if (diffX > 0 && this.initialX <= window.innerWidth / 2) {
-        e.preventDefault();
-        reader.post({ type: 'prev' });
+      const rtl = isRTL();
+      if (rtl) {
+        if (diffX < 0 && initialX >= window.innerWidth / 2) {
+          e.preventDefault();
+          reader.post({ type: 'prev' });
+        } else if (diffX > 0 && initialX <= window.innerWidth / 2) {
+          e.preventDefault();
+          reader.post({ type: 'next' });
+        }
+      } else {
+        if (diffX < 0 && initialX >= window.innerWidth / 2) {
+          e.preventDefault();
+          reader.post({ type: 'next' });
+        } else if (diffX > 0 && initialX <= window.innerWidth / 2) {
+          e.preventDefault();
+          reader.post({ type: 'prev' });
+        }
       }
     }
   });

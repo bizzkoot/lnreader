@@ -27,3 +27,10 @@ body.page-reader > #LNReader-chapter {
   z-index: 888888;
   background-color: var(--readerSettings-theme);
 }
+
+/* RTL: mirror off-screen chapter transition (physical left → logical inline-end) */
+html[dir='rtl'] .transition-chapter,
+body[dir='rtl'] .transition-chapter {
+  left: auto;
+  right: 100vw;
+}
