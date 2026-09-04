@@ -45,12 +45,21 @@ export const getDonutPalette = (
 };
 
 // Genre taxonomy helpers
+// Unicode-aware: preserves CJK, Cyrillic, accented letters via \p{L}\p{N}
 export const normalizeGenre = (genre: string): string => {
   const trimmed = genre.trim();
   if (!trimmed) return '';
-  const lower = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '');
+  let lower: string;
+  try {
+    lower = trimmed.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  } catch {
+    // Fallback for engines without Unicode property escapes
+    lower = trimmed.toLocaleLowerCase().replace(/[^a-z0-9]/g, '');
+  }
   if (!lower) return '';
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
+  // Uppercase first codepoint (handles single-char CJK correctly as no-op)
+  const first = lower.charAt(0).toLocaleUpperCase();
+  return first + lower.slice(1);
 };
 
 export interface TaxonomyNode {

@@ -27,6 +27,9 @@ export interface UseTimeTrackingReturn {
 }
 
 const MIN_SESSION_MS = 1000;
+const MAX_SESSION_MS = 12 * 3600 * 1000; // 12h cap guards Date.now NTP/zone skew (AUD-TIME-05)
+const CHECKPOINT_INTERVAL_MS = 60_000;
+const CHECKPOINT_MIN_MS = 30_000;
 
 /**
  * Production-safe dual-mode reading time tracker.
@@ -58,6 +61,11 @@ export function useTimeTracking(
   const sessionManualNovelIdRef = useRef<number | undefined>(undefined);
   const sessionManualChapterIdRef = useRef<number | undefined>(undefined);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityAtRef = useRef<number | null>(null);
+  const backgroundEnterAtRef = useRef<number | null>(null);
+  const checkpointIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
   // TTS mode state
   const ttsStartTimeRef = useRef<number | null>(null);
@@ -96,6 +104,21 @@ export function useTimeTracking(
     }
   }, []);
 
+  const sanitizeDuration = useCallback((duration: number): number => {
+    if (!Number.isFinite(duration) || duration < 0) {
+      timeTrackLog.debug('duration-non-monotonic', `duration=${duration}`);
+      return 0;
+    }
+    if (duration > MAX_SESSION_MS) {
+      timeTrackLog.warn(
+        'duration-capped',
+        `capped ${duration} to ${MAX_SESSION_MS}`,
+      );
+      return MAX_SESSION_MS;
+    }
+    return duration;
+  }, []);
+
   const persistSession = useCallback(
     async (
       nId: number | undefined,
@@ -105,6 +128,7 @@ export function useTimeTracking(
       mode: 'manual' | 'tts',
       reason: string,
     ) => {
+      duration = sanitizeDuration(duration);
       if (duration < MIN_SESSION_MS) {
         timeTrackLog.debug(
           `${mode}-flush-skip-short`,
@@ -132,7 +156,7 @@ export function useTimeTracking(
         timeTrackLog.warn(`${mode}-insert-failed`, String(e));
       }
     },
-    [],
+    [sanitizeDuration],
   );
 
   const doFlushManual = useCallback(
@@ -141,21 +165,28 @@ export function useTimeTracking(
         clearInactivityTimer();
         return;
       }
-      const now = Date.now();
       const startTime = manualStartTimeRef.current;
-      const duration = now - startTime;
+      let duration: number;
+      // AUD-TIME-02: exclude idle window from inactivity flush
+      if (reason === 'inactivity' && lastActivityAtRef.current != null) {
+        duration = lastActivityAtRef.current - startTime;
+      } else {
+        duration = Date.now() - startTime;
+      }
+      duration = sanitizeDuration(duration);
       const nId = sessionManualNovelIdRef.current;
       const cId = sessionManualChapterIdRef.current;
 
       clearInactivityTimer();
       isManualTrackingRef.current = false;
       manualStartTimeRef.current = null;
+      lastActivityAtRef.current = null;
       sessionManualNovelIdRef.current = undefined;
       sessionManualChapterIdRef.current = undefined;
 
       await persistSession(nId, cId, startTime, duration, 'manual', reason);
     },
-    [clearInactivityTimer, persistSession],
+    [clearInactivityTimer, persistSession, sanitizeDuration],
   );
 
   const doFlushTts = useCallback(
@@ -163,9 +194,20 @@ export function useTimeTracking(
       if (!isTtsTrackingRef.current || ttsStartTimeRef.current === null) {
         return;
       }
-      const now = Date.now();
       const startTime = ttsStartTimeRef.current;
-      const duration = now - startTime;
+      let endTime = Date.now();
+      // AUD-TIME-03: if TTS was paused while JS suspended in background/Doze,
+      // polling fires late. Cap end to background-enter time to avoid counting
+      // hours of silent paused time as playback.
+      if (
+        reason === 'tts-inactive-poll' &&
+        (appStateRef.current === 'background' ||
+          appStateRef.current === 'inactive') &&
+        backgroundEnterAtRef.current != null
+      ) {
+        endTime = backgroundEnterAtRef.current;
+      }
+      const duration = sanitizeDuration(endTime - startTime);
       const nId = sessionTtsNovelIdRef.current;
       const cId = sessionTtsChapterIdRef.current;
 
@@ -176,7 +218,7 @@ export function useTimeTracking(
 
       await persistSession(nId, cId, startTime, duration, 'tts', reason);
     },
-    [persistSession],
+    [persistSession, sanitizeDuration],
   );
 
   const scheduleInactivityTimer = useCallback(() => {
@@ -200,7 +242,9 @@ export function useTimeTracking(
       return;
     }
     if (novelIdRef.current == null || chapterIdRef.current == null) return;
-    manualStartTimeRef.current = Date.now();
+    const now = Date.now();
+    manualStartTimeRef.current = now;
+    lastActivityAtRef.current = now;
     sessionManualNovelIdRef.current = novelIdRef.current;
     sessionManualChapterIdRef.current = chapterIdRef.current;
     isManualTrackingRef.current = true;
@@ -232,6 +276,7 @@ export function useTimeTracking(
       tryStartManual();
       return;
     }
+    lastActivityAtRef.current = Date.now();
     scheduleInactivityTimer();
   }, [scheduleInactivityTimer, tryStartManual]);
 
@@ -270,12 +315,31 @@ export function useTimeTracking(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, isTTSActive, novelId, chapterId]);
 
-  // Chapter/novel change: flush previous session and start new
+  // Chapter/novel change: flush previous session and start new (AUD-TIME-06)
+  // Timer cleanup is scoped to actual chapter/novel changes, not every re-render,
+  // to avoid clearing the scheduled starter on unrelated dep changes.
   const prevChapterIdInternalRef = useRef<number | undefined>(chapterId);
   const prevNovelIdInternalRef = useRef<number | undefined>(novelId);
   const chapterChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  // Refs for callbacks to avoid effect re-trigger on identity change
+  const doFlushManualRef = useRef(doFlushManual);
+  const doFlushTtsRef = useRef(doFlushTts);
+  const tryStartManualRef = useRef(tryStartManual);
+  const tryStartTtsRef = useRef(tryStartTts);
+  useEffect(() => {
+    doFlushManualRef.current = doFlushManual;
+  }, [doFlushManual]);
+  useEffect(() => {
+    doFlushTtsRef.current = doFlushTts;
+  }, [doFlushTts]);
+  useEffect(() => {
+    tryStartManualRef.current = tryStartManual;
+  }, [tryStartManual]);
+  useEffect(() => {
+    tryStartTtsRef.current = tryStartTts;
+  }, [tryStartTts]);
 
   useEffect(() => {
     const chapterChanged = prevChapterIdInternalRef.current !== chapterId;
@@ -283,54 +347,59 @@ export function useTimeTracking(
 
     if (chapterChanged || novelChanged) {
       if (isManualTrackingRef.current) {
-        void doFlushManual('chapter-change');
+        void doFlushManualRef.current('chapter-change');
       }
       if (isTtsTrackingRef.current) {
-        void doFlushTts('chapter-change');
+        void doFlushTtsRef.current('chapter-change');
       }
       prevChapterIdInternalRef.current = chapterId;
       prevNovelIdInternalRef.current = novelId;
 
       if (chapterChangeTimerRef.current) {
         clearTimeout(chapterChangeTimerRef.current);
+        chapterChangeTimerRef.current = null;
       }
       if (enabled && novelId != null && chapterId != null) {
         chapterChangeTimerRef.current = setTimeout(() => {
+          chapterChangeTimerRef.current = null;
           if (ttsActiveRef.current) {
-            tryStartTts();
+            tryStartTtsRef.current();
           } else if (
             appStateRef.current !== 'background' &&
             appStateRef.current !== 'inactive'
           ) {
-            tryStartManual();
+            tryStartManualRef.current();
           }
         }, 0);
       }
     }
+    // Cleanup only the timer for this chapter change, not on every dep churn
+    return () => {
+      // Do not clear here unless unmount; chapter-change timer is one-shot
+    };
+  }, [chapterId, novelId, enabled]);
+
+  // Unmount cleanup for chapterChangeTimer
+  useEffect(() => {
     return () => {
       if (chapterChangeTimerRef.current) {
         clearTimeout(chapterChangeTimerRef.current);
         chapterChangeTimerRef.current = null;
       }
     };
-  }, [
-    chapterId,
-    novelId,
-    enabled,
-    doFlushManual,
-    doFlushTts,
-    tryStartManual,
-    tryStartTts,
-  ]);
+  }, []);
 
   // AppState listener (manual pauses in background, TTS continues)
+  // Also tracks backgroundEnterAt for AUD-TIME-03 drift capping.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       const prev = appStateRef.current;
       appStateRef.current = next;
       if (next === 'background' || next === 'inactive') {
+        backgroundEnterAtRef.current = Date.now();
         void doFlushManual(`appstate-${next}`);
       } else if (next === 'active' && prev !== 'active') {
+        backgroundEnterAtRef.current = null;
         if (enabledRef.current && !ttsActiveRef.current) {
           tryStartManual();
         }
@@ -368,6 +437,49 @@ export function useTimeTracking(
       scheduleInactivityTimer();
     }
   }, [inactivityTimeoutMs, scheduleInactivityTimer]);
+
+  // AUD-TIME-04: Periodic checkpoint to limit loss on SIGKILL / LMK.
+  // Inserts incremental sessions every CHECKPOINT_INTERVAL_MS and resets start,
+  // so at most one interval is lost if the process is killed.
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => {
+      const now = Date.now();
+      if (
+        isManualTrackingRef.current &&
+        manualStartTimeRef.current != null &&
+        !ttsActiveRef.current
+      ) {
+        const dur = sanitizeDuration(now - manualStartTimeRef.current);
+        if (dur >= CHECKPOINT_MIN_MS) {
+          const nId = sessionManualNovelIdRef.current;
+          const cId = sessionManualChapterIdRef.current;
+          const start = manualStartTimeRef.current;
+          // Reset before async to avoid double-count on next tick
+          manualStartTimeRef.current = now;
+          lastActivityAtRef.current = now;
+          void persistSession(nId, cId, start, dur, 'manual', 'checkpoint');
+        }
+      }
+      if (isTtsTrackingRef.current && ttsStartTimeRef.current != null) {
+        const dur = sanitizeDuration(now - ttsStartTimeRef.current);
+        if (dur >= CHECKPOINT_MIN_MS) {
+          const nId = sessionTtsNovelIdRef.current;
+          const cId = sessionTtsChapterIdRef.current;
+          const start = ttsStartTimeRef.current;
+          ttsStartTimeRef.current = now;
+          void persistSession(nId, cId, start, dur, 'tts', 'checkpoint');
+        }
+      }
+    }, CHECKPOINT_INTERVAL_MS);
+    // @ts-ignore
+    id.unref?.();
+    checkpointIntervalRef.current = id;
+    return () => {
+      clearInterval(id);
+      checkpointIntervalRef.current = null;
+    };
+  }, [enabled, persistSession, sanitizeDuration]);
 
   // Poll TTS ref for changes that don't trigger re-render
   useEffect(() => {

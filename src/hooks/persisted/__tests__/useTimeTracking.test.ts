@@ -86,8 +86,8 @@ describe('useTimeTracking (Dual-Mode: Manual + TTS)', () => {
     );
   });
 
-  it('auto-pauses manual reading after inactivity timeout', async () => {
-    renderHook(() =>
+  it('auto-pauses manual reading after inactivity timeout (idle excluded)', async () => {
+    const { result } = renderHook(() =>
       useTimeTracking({
         novelId: 2,
         chapterId: 20,
@@ -97,17 +97,26 @@ describe('useTimeTracking (Dual-Mode: Manual + TTS)', () => {
       }),
     );
 
-    // Advance past inactivity timeout (5s)
+    // Simulate activity at 2s (e.g., scroll) – lastActivity = 2s
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+    act(() => {
+      result.current.recordActivity();
+    });
+
+    // Advance past inactivity timeout (5s after last activity → fires at ~7s)
     await act(async () => {
       jest.advanceTimersByTime(5001);
     });
 
+    // AUD-TIME-02: idle window (5s) excluded, duration = lastActivity(2s) - start(0) = 2000
     expect(mockRunAsync).toHaveBeenCalledWith(
       'INSERT INTO ReadingSession (novelId, chapterId, startTime, duration) VALUES (?, ?, ?, ?)',
       2,
       20,
       expect.any(Number),
-      5000,
+      2000,
     );
   });
 
