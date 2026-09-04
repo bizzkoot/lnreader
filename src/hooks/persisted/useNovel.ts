@@ -429,7 +429,8 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
 
   const markChapterRead = useCallback(
     (chapterId: number) => {
-      _markChapterRead(chapterId);
+      // AUD-PERS-03: handle async rejection; DB may be busy/locked on backgrounding
+      _markChapterRead(chapterId).catch(() => {});
 
       mutateChapters(chs =>
         chs.map(c => {
@@ -449,7 +450,8 @@ export const useNovel = (novelOrPath: string | NovelInfo, pluginId: string) => {
   const updateChapterProgress = useCallback(
     (chapterId: number, progress: number) => {
       const clampedProgress = Math.min(progress, 100);
-      _updateChapterProgress(chapterId, clampedProgress);
+      // AUD-PERS-03: attach rejection handling
+      _updateChapterProgress(chapterId, clampedProgress).catch(() => {});
 
       mutateChapters(chs =>
         chs.map(c => {

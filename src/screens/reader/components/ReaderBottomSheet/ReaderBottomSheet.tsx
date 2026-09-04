@@ -12,6 +12,7 @@ import React, {
   useState,
   useCallback,
   Suspense,
+  useEffect,
 } from 'react';
 import Color from 'color';
 
@@ -34,6 +35,7 @@ import ReaderTTSTab from './ReaderTTSTab';
 import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types';
 import { StringMap } from '@strings/types';
 import { NovelInfo } from '@database/types';
+import { subscribeSliderDragging } from '@components/Slider/sliderDragState';
 
 type TabViewLabelProps = {
   route: {
@@ -184,6 +186,12 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
   );
 
   const [index, setIndex] = useState(0);
+  const [isSliderDragging, setIsSliderDragging] = useState(false);
+
+  // AUD-GEST-02: disable ViewPager swipe while a Slider thumb is being dragged
+  // so a fast horizontal drag is not intercepted as a tab fling that would
+  // commit a half-dragged value.
+  useEffect(() => subscribeSliderDragging(setIsSliderDragging), []);
 
   const renderTabBar = useCallback(
     (props: any) => (
@@ -219,7 +227,7 @@ const ReaderBottomSheetV2: React.FC<ReaderBottomSheetV2Props> = ({
           renderScene={renderScene}
           onIndexChange={setIndex}
           initialLayout={{ width: layout.width }}
-          swipeEnabled
+          swipeEnabled={!isSliderDragging}
           style={styles(uiScale).tabView}
         />
       </BottomSheetView>

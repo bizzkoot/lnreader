@@ -2134,23 +2134,16 @@ export function useTTSController(
                   'media-nav-next',
                   `5 paragraphs reached after NEXT, marking chapter ${sourceChapterId} as 100%`,
                 );
-                updateChapterProgressDb(sourceChapterId, 100);
+                // AUD-PERS-03: attach rejection handler to fire-and-forget DB write
+                updateChapterProgressDb(sourceChapterId, 100).catch(() => {});
               } else if (direction === 'PREV') {
                 ttsCtrlLog.debug(
                   'media-nav-prev',
                   `5 paragraphs reached after PREV, marking chapter ${sourceChapterId} as in-progress`,
                 );
-                try {
-                  updateChapterProgressDb(sourceChapterId, 1);
-                } catch (e) {
-                  ttsCtrlLog.warn(
-                    'mark-in-progress-failed',
-                    'Failed to mark source chapter in-progress',
-                    e,
-                  );
-                }
+                updateChapterProgressDb(sourceChapterId, 1).catch(() => {});
               } else {
-                updateChapterProgressDb(sourceChapterId, 100);
+                updateChapterProgressDb(sourceChapterId, 100).catch(() => {});
               }
 
               // FIX: Clear refs AFTER confirmation (moved from useChapterTransition)

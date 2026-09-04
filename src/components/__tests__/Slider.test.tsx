@@ -339,7 +339,7 @@ describe('Slider', () => {
     expect(onSlidingComplete).not.toHaveBeenCalled();
   });
 
-  it('claims responder at touch start while enabled to prevent pager interception', () => {
+  it('defers responder claim to move so vertical scroll is not blocked (AUD-GEST-01)', () => {
     const { rerender } = render(<Slider value={5} min={0} max={10} />);
     const slider = screen.getByTestId('slider');
 
@@ -347,7 +347,8 @@ describe('Slider', () => {
       | ((event?: object) => boolean)
       | undefined;
     expect(startShouldSet).toBeDefined();
-    expect(startShouldSet!()).toBe(true);
+    // AUD-GEST-01: start claim is deferred to onMoveShouldSetResponder
+    expect(startShouldSet!()).toBe(false);
 
     rerender(<Slider disabled value={5} min={0} max={10} />);
     expect(slider.props.onStartShouldSetResponder!()).toBe(false);

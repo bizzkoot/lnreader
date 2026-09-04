@@ -536,6 +536,14 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
 
   // ============================================================================
   // AppState: flush reading progress on background (non-TTS reading)
+  // AUD-PERS-02: Non-TTS reading has no ForegroundService. On Android 11+
+  // the WebView→Bridge→Hermes→SQLite chain can be frozen/killed before
+  // db.runAsync() completes. MMKV is synchronous (C++ JSI) and survives,
+  // so paragraph index is durable even if the DB write is lost; the next
+  // foreground will reconcile via Math.max(mmkv, db). A ForegroundService
+  // would be required to fully guarantee DB delivery — out of scope here.
+  // The flush below is best-effort plus the synchronous MMKV path in
+  // useChapter.saveProgress.
   // ============================================================================
 
   const isTTSReadingRef = useRef(false);
