@@ -450,6 +450,15 @@ export function useTimeTracking(
         manualStartTimeRef.current != null &&
         !ttsActiveRef.current
       ) {
+        const lastActivity = lastActivityAtRef.current;
+        if (
+          lastActivity != null &&
+          inactivityMsRef.current > 0 &&
+          now - lastActivity >= inactivityMsRef.current
+        ) {
+          void doFlushManual('inactivity');
+          return;
+        }
         const dur = sanitizeDuration(now - manualStartTimeRef.current);
         if (dur >= CHECKPOINT_MIN_MS) {
           const nId = sessionManualNovelIdRef.current;
@@ -479,7 +488,7 @@ export function useTimeTracking(
       clearInterval(id);
       checkpointIntervalRef.current = null;
     };
-  }, [enabled, persistSession, sanitizeDuration]);
+  }, [doFlushManual, enabled, persistSession, sanitizeDuration]);
 
   // Poll TTS ref for changes that don't trigger re-render
   useEffect(() => {

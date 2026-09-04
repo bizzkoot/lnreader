@@ -108,6 +108,8 @@ export interface LibraryStats {
   genres?: Record<string, number>;
   status?: Record<string, number>;
   totalReadingTime?: number;
+  /** Number of distinct chapters represented by recorded reading sessions. */
+  readingChapters?: number;
 }
 
 export interface BackupNovel extends NovelInfo {

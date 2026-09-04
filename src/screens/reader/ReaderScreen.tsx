@@ -176,8 +176,6 @@ export const ChapterContent = ({
     setShowReturnBanner(false);
     setReturnCountdown(5);
     // Clear anchor — user chose to stay where search left them.
-    // Set a brief bypass so the immediate saveProgress is not dropped by the
-    // isSearchActive gate (React state commitment is async).
     webViewRef?.current?.injectJavaScript(
       `(function(){
         try {
@@ -185,7 +183,6 @@ export const ChapterContent = ({
           window.__searchAnchorPage = null;
           window.__searchAnchorPIdx = null;
           window.__isSearching = false;
-          window.__searchSaveBypassUntil = Date.now() + 1500;
           if (window.reader && typeof window.reader.saveProgress === 'function') {
             window.reader.saveProgress();
           }

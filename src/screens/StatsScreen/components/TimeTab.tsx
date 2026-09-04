@@ -25,20 +25,17 @@ const TimeTab: React.FC<Props> = ({ stats, topNovels }) => {
   const totalMs = stats.totalReadingTime ?? 0;
   const parts = formatTotalTimeParts(totalMs);
 
-  // AUD-STAT-02: Do not divide lifetime chaptersRead (pre-migration) by post-migration totalMs.
-  // Velocity is meaningful only when reading-time sample is sufficient; otherwise show empty state.
+  // Use only chapters represented in ReadingSession. chaptersRead is a lifetime
+  // library counter and predates reading-time tracking.
   const velocity = useMemo(() => {
-    const chaptersRead = stats.chaptersRead ?? 0;
+    const chaptersRead = stats.readingChapters ?? 0;
     if (totalMs < 60000 || !chaptersRead) return null;
     const hours = totalMs / 3600000;
-    const cph = hours ? chaptersRead / hours : 0;
-    const minsPerChapter = chaptersRead ? totalMs / 60000 / chaptersRead : 0;
-    // Guard against distortion: lifetime counts (e.g. 1000) / small session time (5m) -> absurd cph
-    // Heuristic thresholds: >50 ch/h or <0.5 min/ch is implausible for light novels
+    const cph = chaptersRead / hours;
+    const minsPerChapter = totalMs / 60000 / chaptersRead;
     if (!Number.isFinite(cph) || !Number.isFinite(minsPerChapter)) return null;
-    if (cph > 50 || minsPerChapter < 0.5) return null;
     return { cph, minsPerChapter };
-  }, [stats.chaptersRead, totalMs]);
+  }, [stats.readingChapters, totalMs]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>

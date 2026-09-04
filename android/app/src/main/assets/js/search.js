@@ -172,8 +172,9 @@ window.readerSearch = new (function () {
         let child = node.firstChild;
         let cSteps = 0;
         while (child && cSteps < 50) {
-          if (child.nodeType === Node.ELEMENT_NODE && matchesSelector(child))
+          if (child.nodeType === Node.ELEMENT_NODE && matchesSelector(child)) {
             return true;
+          }
           child = child.nextSibling;
           cSteps += 1;
         }
@@ -300,6 +301,7 @@ window.readerSearch = new (function () {
     const end = start + length;
     // Per-text-node wrapping to preserve DOM hierarchy (no cross-tag transplant).
     // Reverse order keeps offsets stable for earlier matches in same segment.
+    let lastMark = null;
     for (let i = segment.entries.length - 1; i >= 0; i -= 1) {
       const entry = segment.entries[i];
       if (entry.end <= start || entry.start >= end) continue;
@@ -309,8 +311,9 @@ window.readerSearch = new (function () {
       const localEnd = overlapEnd - entry.start;
       const node = entry.node;
       const textLen = (node.nodeValue || '').length;
-      if (localStart < 0 || localEnd > textLen || localStart >= localEnd)
+      if (localStart < 0 || localEnd > textLen || localStart >= localEnd) {
         continue;
+      }
       // Split to isolate match text: [before][match][after]
       let matchNode = node;
       if (localEnd < textLen) {
@@ -324,16 +327,21 @@ window.readerSearch = new (function () {
       mark.textContent = matchNode.nodeValue;
       if (matchNode.parentNode) {
         matchNode.parentNode.replaceChild(mark, matchNode);
+        lastMark = mark;
       }
     }
+    return lastMark;
   };
 
   this.wrapSinglePosition = pos => {
     // Lazily render a single virtual match (beyond MAX_RENDERED_MATCHES)
+    if (pos.mark && reader.chapterElement.contains(pos.mark)) {
+      return pos.mark;
+    }
     const segment = pos.segment;
     const start = pos.offset;
     const length = pos.length;
-    this.wrapSegmentMatch(segment, start, length);
+    pos.mark = this.wrapSegmentMatch(segment, start, length);
     // Refresh matches list from DOM and return the newly created mark
     const all = Array.from(
       reader.chapterElement.querySelectorAll('mark.lnreader-search-match'),
@@ -403,7 +411,7 @@ window.readerSearch = new (function () {
         m.classList.remove('lnreader-search-match-active'),
       );
     }
-    let logical = ((index % totalForNav) + totalForNav) % totalForNav;
+    const logical = ((index % totalForNav) + totalForNav) % totalForNav;
     this.index = logical;
     // If beyond rendered, lazily render that match
     if (logical >= this.matches.length && logical < this.total) {

@@ -72,7 +72,11 @@ describe('TimeTab — UI & Navigation Regression', () => {
     // 2 hours = 7200000 ms, 10 chapters
     render(
       <TimeTab
-        stats={{ chaptersRead: 10, totalReadingTime: 7200000 }}
+        stats={{
+          chaptersRead: 1000,
+          readingChapters: 10,
+          totalReadingTime: 7200000,
+        }}
         topNovels={[]}
       />,
     );

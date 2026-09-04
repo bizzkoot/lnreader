@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Dialog, Portal } from 'react-native-paper';
-import { StyleSheet } from 'react-native';
+import { Alert, I18nManager, StyleSheet } from 'react-native';
 import AppText from '@components/AppText';
 
 import { useTheme } from '@hooks/persisted';
@@ -82,6 +82,26 @@ const LanguagePickerModal: React.FC<LanguagePickerModalProps> = ({
   const handleLanguageSelect = (locale: string) => {
     setLocale(locale);
     onDismiss();
+
+    const isRtlLocale = [
+      'ar',
+      'he',
+      'fa',
+      'ur',
+      'ps',
+      'sd',
+      'ug',
+      'yi',
+      'ckb',
+      'dv',
+    ].includes(locale.split(/[-_]/)[0].toLowerCase());
+    I18nManager.allowRTL(true);
+    I18nManager.forceRTL(isRtlLocale);
+    Alert.alert(
+      getString('appearanceScreen.appLanguage'),
+      getString('appearanceScreen.languagePickerModal.restartNote'),
+      [{ text: getString('common.ok') }],
+    );
   };
 
   return (
