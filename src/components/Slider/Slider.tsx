@@ -132,6 +132,8 @@ const Slider: React.FC<SliderProps> = ({
   const [isActive, setIsActive] = useState(false);
   const [dragValue, setDragValue] = useState<number | null>(null);
   const startXRef = React.useRef(0);
+  const touchStartXRef = React.useRef(0);
+  const panGestureRef = React.useRef(false);
 
   const disabledRef = React.useRef(disabled);
   disabledRef.current = disabled;
@@ -297,6 +299,7 @@ const Slider: React.FC<SliderProps> = ({
         onPanResponderTerminationRequest: () => !isActiveRef.current,
         onPanResponderGrant: event => {
           if (disabledRef.current) return;
+          panGestureRef.current = true;
           setIsActive(true);
           isActiveRef.current = true;
           setSliderDragging(true);
@@ -323,6 +326,7 @@ const Slider: React.FC<SliderProps> = ({
         },
         onPanResponderTerminate: () => {
           if (disabledRef.current) return;
+          panGestureRef.current = false;
           setIsActive(false);
           isActiveRef.current = false;
           setSliderDragging(false);
@@ -388,6 +392,25 @@ const Slider: React.FC<SliderProps> = ({
     <View
       {...viewProps}
       {...panResponder.panHandlers}
+      onTouchStart={event => {
+        panGestureRef.current = false;
+        touchStartXRef.current = event.nativeEvent.locationX;
+        viewProps.onTouchStart?.(event);
+      }}
+      onTouchEnd={event => {
+        if (
+          !disabledRef.current &&
+          !panGestureRef.current &&
+          Math.abs(event.nativeEvent.locationX - touchStartXRef.current) <
+            HORIZONTAL_CLAIM_THRESHOLD
+        ) {
+          const nextValue = updateFromPositionRef.current(
+            event.nativeEvent.locationX,
+          );
+          onSlidingCompleteRef.current?.(nextValue);
+        }
+        viewProps.onTouchEnd?.(event);
+      }}
       testID={testID}
       accessible
       accessibilityRole="adjustable"
