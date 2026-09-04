@@ -1004,9 +1004,22 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
             }
 
             // Search UX: do not mutate last-read while the search overlay is open — anchor is restored on close.
+            // Exception: TTS progress (paragraph-indexed) must not be dropped, and a "Stay Here" save
+            // that carries paragraphIndex should also be preserved even if isSearchActive is still true
+            // due to async React state propagation.
             if (isSearchActiveRef.current) {
-              readerLog.debug('save-ignore-while-searching');
-              break;
+              const isTtsOrParagraphSave =
+                typeof event.paragraphIndex === 'number';
+              if (!isTtsOrParagraphSave) {
+                readerLog.debug('save-ignore-while-searching');
+                break;
+              }
+              // Paragraph-indexed saves are allowed during search; they are
+              // authoritative (TTS or explicit Stay Here). Log but proceed.
+              readerLog.debug(
+                'save-allow-during-search-paragraph',
+                String(event.paragraphIndex),
+              );
             }
 
             const savePercent =

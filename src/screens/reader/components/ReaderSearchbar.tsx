@@ -236,35 +236,27 @@ const ReaderSearchbar = ({
           <Pressable
             style={styles.button}
             onPress={onPrevious}
-            disabled={!hasResults || current <= 1}
+            disabled={!hasResults}
             accessibilityLabel={getString('readerScreen.search.previousMatch')}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="chevron-up"
               size={scaledDimensions.iconSize.md}
-              color={
-                !hasResults || current <= 1
-                  ? theme.onSurfaceVariant
-                  : theme.onSurface
-              }
+              color={!hasResults ? theme.onSurfaceVariant : theme.onSurface}
             />
           </Pressable>
           <Pressable
             style={styles.button}
             onPress={onNext}
-            disabled={!hasResults || current >= total}
+            disabled={!hasResults}
             accessibilityLabel={getString('readerScreen.search.nextMatch')}
             accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name="chevron-down"
               size={scaledDimensions.iconSize.md}
-              color={
-                !hasResults || current >= total
-                  ? theme.onSurfaceVariant
-                  : theme.onSurface
-              }
+              color={!hasResults ? theme.onSurfaceVariant : theme.onSurface}
             />
           </Pressable>
           <Text

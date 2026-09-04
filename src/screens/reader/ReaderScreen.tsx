@@ -175,7 +175,9 @@ export const ChapterContent = ({
     clearReturnTimer();
     setShowReturnBanner(false);
     setReturnCountdown(5);
-    // Clear anchor — user chose to stay where search left them
+    // Clear anchor — user chose to stay where search left them.
+    // Set a brief bypass so the immediate saveProgress is not dropped by the
+    // isSearchActive gate (React state commitment is async).
     webViewRef?.current?.injectJavaScript(
       `(function(){
         try {
@@ -183,6 +185,7 @@ export const ChapterContent = ({
           window.__searchAnchorPage = null;
           window.__searchAnchorPIdx = null;
           window.__isSearching = false;
+          window.__searchSaveBypassUntil = Date.now() + 1500;
           if (window.reader && typeof window.reader.saveProgress === 'function') {
             window.reader.saveProgress();
           }
@@ -202,11 +205,9 @@ export const ChapterContent = ({
           var p = window.__searchAnchorPage;
           var isPage = !!(window.reader && window.reader.generalSettings && window.reader.generalSettings.val && window.reader.generalSettings.val.pageReader && window.pageReader && p != null);
 
-          if (window.tts && (window.tts.reading || (window.tts.currentElement && window.tts.currentElement !== (window.reader ? window.reader.chapterElement : null)))) {
-            // Priority 1: If TTS is active or on an element, scroll back to the active TTS element
-            if (typeof window.tts.scrollToElement === 'function') {
-              window.tts.scrollToElement(window.tts.currentElement);
-            }
+          if (window.tts && window.tts.reading && window.tts.currentElement && typeof window.tts.scrollToElement === 'function') {
+            // Priority 1: Only when TTS is actively reading; otherwise anchor (y/p) is authoritative.
+            window.tts.scrollToElement(window.tts.currentElement);
           } else if (isPage) {
             // Priority 2: Paged reader mode
             window.pageReader.movePage(p);
@@ -218,6 +219,7 @@ export const ChapterContent = ({
           window.__searchAnchorPage = null;
           window.__searchAnchorPIdx = null;
           window.__isSearching = false;
+          window.__searchSaveBypassUntil = 0;
         } catch(e) {}
       })(); true;`,
     );
