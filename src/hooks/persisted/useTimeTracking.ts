@@ -30,6 +30,8 @@ const MIN_SESSION_MS = 1000;
 const MAX_SESSION_MS = 12 * 3600 * 1000; // 12h cap guards Date.now NTP/zone skew (AUD-TIME-05)
 const CHECKPOINT_INTERVAL_MS = 60_000;
 const CHECKPOINT_MIN_MS = 30_000;
+const TTS_POLL_INTERVAL_MS = 700;
+const TTS_HEARTBEAT_GRACE_MS = 2000;
 
 /**
  * Production-safe dual-mode reading time tracker.
@@ -62,13 +64,13 @@ export function useTimeTracking(
   const sessionManualChapterIdRef = useRef<number | undefined>(undefined);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityAtRef = useRef<number | null>(null);
-  const backgroundEnterAtRef = useRef<number | null>(null);
   const checkpointIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
 
   // TTS mode state
   const ttsStartTimeRef = useRef<number | null>(null);
+  const lastTtsHeartbeatRef = useRef<number | null>(null);
   const isTtsTrackingRef = useRef(false);
   const sessionTtsNovelIdRef = useRef<number | undefined>(undefined);
   const sessionTtsChapterIdRef = useRef<number | undefined>(undefined);
@@ -195,24 +197,36 @@ export function useTimeTracking(
         return;
       }
       const startTime = ttsStartTimeRef.current;
-      let endTime = Date.now();
-      // AUD-TIME-03: if TTS was paused while JS suspended in background/Doze,
-      // polling fires late. Cap end to background-enter time to avoid counting
-      // hours of silent paused time as playback.
+      const now = Date.now();
+      let endTime = now;
+
+      // AUD-TIME-03 (Corrected): If the poller fired late due to Android Doze / JS suspension,
+      // cap endTime to the last confirmed active heartbeat (+ poll interval).
+      // If playback paused normally in background (headset/notification/audio-end),
+      // now - lastTtsHeartbeatRef <= TTS_HEARTBEAT_GRACE_MS, so legitimate background playback
+      // is fully preserved without truncation.
       if (
         reason === 'tts-inactive-poll' &&
-        (appStateRef.current === 'background' ||
-          appStateRef.current === 'inactive') &&
-        backgroundEnterAtRef.current != null
+        lastTtsHeartbeatRef.current !== null &&
+        now - lastTtsHeartbeatRef.current > TTS_HEARTBEAT_GRACE_MS
       ) {
-        endTime = backgroundEnterAtRef.current;
+        endTime = Math.max(
+          startTime,
+          lastTtsHeartbeatRef.current + TTS_POLL_INTERVAL_MS,
+        );
+        timeTrackLog.warn(
+          'tts-flush-capped-doze-drift',
+          `capped drift from ${now - startTime}ms to ${endTime - startTime}ms`,
+        );
       }
+
       const duration = sanitizeDuration(endTime - startTime);
       const nId = sessionTtsNovelIdRef.current;
       const cId = sessionTtsChapterIdRef.current;
 
       isTtsTrackingRef.current = false;
       ttsStartTimeRef.current = null;
+      lastTtsHeartbeatRef.current = null;
       sessionTtsNovelIdRef.current = undefined;
       sessionTtsChapterIdRef.current = undefined;
 
@@ -260,7 +274,9 @@ export function useTimeTracking(
     if (!enabledRef.current) return;
     if (!ttsActiveRef.current) return;
     if (novelIdRef.current == null || chapterIdRef.current == null) return;
-    ttsStartTimeRef.current = Date.now();
+    const now = Date.now();
+    ttsStartTimeRef.current = now;
+    lastTtsHeartbeatRef.current = now;
     sessionTtsNovelIdRef.current = novelIdRef.current;
     sessionTtsChapterIdRef.current = chapterIdRef.current;
     isTtsTrackingRef.current = true;
@@ -390,16 +406,13 @@ export function useTimeTracking(
   }, []);
 
   // AppState listener (manual pauses in background, TTS continues)
-  // Also tracks backgroundEnterAt for AUD-TIME-03 drift capping.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       const prev = appStateRef.current;
       appStateRef.current = next;
       if (next === 'background' || next === 'inactive') {
-        backgroundEnterAtRef.current = Date.now();
         void doFlushManual(`appstate-${next}`);
       } else if (next === 'active' && prev !== 'active') {
-        backgroundEnterAtRef.current = null;
         if (enabledRef.current && !ttsActiveRef.current) {
           tryStartManual();
         }
@@ -471,12 +484,16 @@ export function useTimeTracking(
         }
       }
       if (isTtsTrackingRef.current && ttsStartTimeRef.current != null) {
-        const dur = sanitizeDuration(now - ttsStartTimeRef.current);
+        const rawDur = now - ttsStartTimeRef.current;
+        const dur = sanitizeDuration(
+          Math.min(rawDur, CHECKPOINT_INTERVAL_MS + TTS_HEARTBEAT_GRACE_MS),
+        );
         if (dur >= CHECKPOINT_MIN_MS) {
           const nId = sessionTtsNovelIdRef.current;
           const cId = sessionTtsChapterIdRef.current;
           const start = ttsStartTimeRef.current;
           ttsStartTimeRef.current = now;
+          lastTtsHeartbeatRef.current = now;
           void persistSession(nId, cId, start, dur, 'tts', 'checkpoint');
         }
       }
@@ -495,6 +512,10 @@ export function useTimeTracking(
     if (!isTTSActiveRef) return;
     const interval = setInterval(() => {
       const current = getIsTTSActive();
+      if (current) {
+        // Record heartbeat while TTS is confirmed active
+        lastTtsHeartbeatRef.current = Date.now();
+      }
       if (current !== ttsActiveRef.current) {
         ttsActiveRef.current = current;
         if (current) {
@@ -514,7 +535,7 @@ export function useTimeTracking(
           }
         }
       }
-    }, 700);
+    }, TTS_POLL_INTERVAL_MS);
     // @ts-ignore - NodeJS vs RN timeout types
     interval.unref?.();
     return () => clearInterval(interval);

@@ -222,4 +222,153 @@ describe('useTimeTracking (Dual-Mode: Manual + TTS)', () => {
       4000,
     );
   });
+
+  it('preserves full background TTS reading time when paused via lockscreen/media button', async () => {
+    const isTTSActiveRef = { current: true };
+    renderHook(() =>
+      useTimeTracking({
+        novelId: 10,
+        chapterId: 100,
+        enabled: true,
+        inactivityTimeoutMs: 0,
+        isTTSActiveRef,
+      }),
+    );
+
+    // 10s playback in foreground
+    act(() => {
+      jest.advanceTimersByTime(10000);
+    });
+
+    // App enters background (screen turned off / user locks phone)
+    act(() => {
+      appStateListener?.('background');
+    });
+
+    // User listens for 40 seconds in background
+    act(() => {
+      jest.advanceTimersByTime(40000);
+    });
+
+    // User pauses via lockscreen notification / headset (ref changes, no component re-render)
+    isTTSActiveRef.current = false;
+
+    // Advance 700ms for polling interval to detect pause
+    await act(async () => {
+      jest.advanceTimersByTime(700);
+    });
+
+    // Total reading time must include foreground + background (~50s)
+    expect(mockRunAsync).toHaveBeenCalledWith(
+      'INSERT INTO ReadingSession (novelId, chapterId, startTime, duration) VALUES (?, ?, ?, ?)',
+      10,
+      100,
+      expect.any(Number),
+      expect.any(Number),
+    );
+    const call1 = mockRunAsync.mock.calls[mockRunAsync.mock.calls.length - 1];
+    expect(call1[4]).toBeGreaterThanOrEqual(50000);
+    expect(call1[4]).toBeLessThanOrEqual(51500);
+  });
+
+  it('tracks background TTS playback started while screen is already off', async () => {
+    const isTTSActiveRef = { current: false };
+    AppState.currentState = 'background';
+
+    renderHook(() =>
+      useTimeTracking({
+        novelId: 10,
+        chapterId: 100,
+        enabled: true,
+        inactivityTimeoutMs: 0,
+        isTTSActiveRef,
+      }),
+    );
+
+    // Screen has been off in background for 60 seconds
+    act(() => {
+      appStateListener?.('background');
+      jest.advanceTimersByTime(60000);
+    });
+
+    // User presses Play on Bluetooth headset while screen is still off
+    isTTSActiveRef.current = true;
+    await act(async () => {
+      jest.advanceTimersByTime(700);
+    });
+
+    // Plays for 45 seconds in background
+    act(() => {
+      jest.advanceTimersByTime(45000);
+    });
+
+    // User presses Pause on Bluetooth headset
+    isTTSActiveRef.current = false;
+    await act(async () => {
+      jest.advanceTimersByTime(700);
+    });
+
+    // Must record full background session (~45s), NOT 0
+    expect(mockRunAsync).toHaveBeenCalledWith(
+      'INSERT INTO ReadingSession (novelId, chapterId, startTime, duration) VALUES (?, ?, ?, ?)',
+      10,
+      100,
+      expect.any(Number),
+      expect.any(Number),
+    );
+    const call2 = mockRunAsync.mock.calls[mockRunAsync.mock.calls.length - 1];
+    expect(call2[4]).toBeGreaterThanOrEqual(45000);
+    expect(call2[4]).toBeLessThanOrEqual(47000);
+  });
+
+  it('caps Doze drift if poller is suspended and wakes up hours later', async () => {
+    const isTTSActiveRef = { current: true };
+    renderHook(() =>
+      useTimeTracking({
+        novelId: 10,
+        chapterId: 100,
+        enabled: true,
+        inactivityTimeoutMs: 0,
+        isTTSActiveRef,
+      }),
+    );
+
+    // Play for 30s
+    act(() => {
+      jest.advanceTimersByTime(30000);
+    });
+
+    // TTS stops at t = 30s
+    isTTSActiveRef.current = false;
+
+    // Simulate extreme Doze suspension: JS timers frozen for 2 hours (7,200,000 ms)
+    const originalDateNow = Date.now;
+    try {
+      let fakeNow = originalDateNow() + 30000;
+      jest.spyOn(Date, 'now').mockImplementation(() => fakeNow);
+
+      // 2 hours pass while device is suspended in Doze
+      fakeNow += 2 * 3600 * 1000;
+
+      // Device wakes up and poller finally runs
+      await act(async () => {
+        jest.advanceTimersByTime(700);
+      });
+
+      // Duration should be capped to heartbeat (~30s) + grace window, NOT 2 hours!
+      expect(mockRunAsync).toHaveBeenCalledWith(
+        'INSERT INTO ReadingSession (novelId, chapterId, startTime, duration) VALUES (?, ?, ?, ?)',
+        10,
+        100,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      const call = mockRunAsync.mock.calls[mockRunAsync.mock.calls.length - 1];
+      const recordedDuration = call[4];
+      expect(recordedDuration).toBeLessThanOrEqual(35000);
+      expect(recordedDuration).toBeGreaterThanOrEqual(30000);
+    } finally {
+      Date.now = originalDateNow;
+    }
+  });
 });

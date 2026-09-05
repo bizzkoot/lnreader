@@ -185,4 +185,85 @@ describe('reading-time simulation (scroll vs TTS → Statistics)', () => {
     });
     expect(formatTimeSpent(simulatedTotalReadingTime())).toBe('5m');
   });
+
+  it('(d) combined manual reading + TTS: statistics shows the sum of both', async () => {
+    const isTTSActiveRef = { current: false };
+    const { result, unmount, rerender } = renderHook(
+      ({ isTTS }: { isTTS: boolean }) =>
+        useTimeTracking({
+          novelId: 4,
+          chapterId: 40,
+          enabled: true,
+          inactivityTimeoutMs: 0,
+          isTTSActive: isTTS,
+          isTTSActiveRef,
+        }),
+      { initialProps: { isTTS: false } },
+    );
+
+    // 1. Manual reading for 20 seconds with user activity (e.g. scrolling)
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      act(() => {
+        result.current.recordActivity();
+      });
+    }
+
+    // 2. User starts TTS: manual session flushes, TTS starts
+    isTTSActiveRef.current = true;
+    await act(async () => {
+      rerender({ isTTS: true });
+    });
+
+    // 3. TTS plays for 40 seconds (including 30s in background)
+    act(() => {
+      jest.advanceTimersByTime(10000);
+    });
+    act(() => {
+      appStateListener?.('background');
+    });
+    act(() => {
+      jest.advanceTimersByTime(30000);
+    });
+
+    // 4. Return to foreground and stop TTS
+    act(() => {
+      appStateListener?.('active');
+    });
+    isTTSActiveRef.current = false;
+    await act(async () => {
+      rerender({ isTTS: false });
+    });
+
+    // 5. Exit reader
+    await act(async () => {
+      unmount();
+    });
+
+    // Both manual session (20s) and TTS session (40s) are recorded in ReadingSession
+    expect(sessionRows).toHaveLength(2);
+    expect(sessionRows[0]).toMatchObject({
+      novelId: 4,
+      chapterId: 40,
+      duration: 20000,
+    });
+    expect(sessionRows[1]).toMatchObject({
+      novelId: 4,
+      chapterId: 40,
+      duration: 40000,
+    });
+
+    // Total reading time in Statistics reflects the exact sum of both (20s + 40s = 60s)
+    const total = simulatedTotalReadingTime();
+    expect(total).toBe(60000);
+    expect(formatTotalTimeParts(total)).toEqual({
+      days: 0,
+      hours: 0,
+      minutes: 1,
+      seconds: 0,
+    });
+    expect(formatTimeSpent(total)).toBe('1m');
+  });
 });
