@@ -1,5 +1,6 @@
 import React, { memo, useRef, useState, useMemo } from 'react';
 import {
+  I18nManager,
   Pressable,
   StyleSheet,
   TextInput,
@@ -112,7 +113,13 @@ const Searchbar: React.FC<SearcbarProps> = ({
         style={styles.searchbar}
       >
         <IconButtonV2
-          name={handleBackAction ? 'arrow-left' : leftIcon}
+          name={
+            handleBackAction && I18nManager.isRTL
+              ? 'arrow-right'
+              : handleBackAction
+                ? 'arrow-left'
+                : leftIcon
+          }
           color={theme.onSurface}
           onPress={() => {
             if (handleBackAction) {

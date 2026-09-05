@@ -75,9 +75,6 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
   const innerR = outerR * 0.62;
   const cx = size / 2;
   const cy = size / 2;
-  const isSingleFull =
-    entries.length === 1 && Math.abs(entries[0].value - sum) < 0.001;
-
   const visibleEntries: Entry[] = [];
   let otherValue = 0;
   for (const e of entries) {
@@ -92,6 +89,19 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
       label: getString('statsScreen.other'),
     });
   }
+
+  // Latent 360° arc collapse (AUD-STAT-01): SVG arc with identical start/end coords is omitted.
+  // Use Circle fallback when a single visible slice spans ~360° (covers raw single-entry
+  // and multi-entry where one value dominates 100% after small-slice filtering).
+  const isSingleFull =
+    visibleEntries.length === 1 &&
+    Math.abs(visibleEntries[0].value - sum) < 0.001;
+  // Also detect near-full sweep that would collapse even with rounding
+  const isEffectivelyFull =
+    visibleEntries.length === 1 &&
+    sum > 0 &&
+    (visibleEntries[0].value / sum) * 360 >= 359.9;
+  const useCircleFallback = isSingleFull || isEffectivelyFull;
 
   let angle = 0;
   const segments = visibleEntries
@@ -115,13 +125,13 @@ const DistributionBar: React.FC<Props> = ({ entries, colors, total }) => {
       <View style={styles.donutWrap}>
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <G>
-            {isSingleFull ? (
+            {useCircleFallback ? (
               <>
                 <Circle
                   cx={cx}
                   cy={cy}
                   r={outerR}
-                  fill={colors[entries[0].key] ?? theme.primary}
+                  fill={colors[visibleEntries[0].key] ?? theme.primary}
                 />
                 <Circle cx={cx} cy={cy} r={innerR} fill={theme.surface} />
               </>

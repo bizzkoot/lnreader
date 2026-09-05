@@ -13,7 +13,7 @@ const GenreSection: React.FC<Props> = ({ tree }) => {
   const theme = useTheme();
   const { uiScale = 1.0 } = useAppSettings();
   const styles = React.useMemo(() => createStyles(uiScale), [uiScale]);
-  const max = Math.max(...tree.map(n => n.count), 1);
+  const max = tree.reduce((m, n) => (n.count > m ? n.count : m), 1);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (genre: string) => {

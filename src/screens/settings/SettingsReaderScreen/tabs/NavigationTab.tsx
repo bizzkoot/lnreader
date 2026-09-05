@@ -17,6 +17,7 @@ import ContinuousScrollingModal from '../Modals/ContinuousScrollingModal';
 import ChapterBoundaryModal from '../Modals/ChapterBoundaryModal';
 import TransitionThresholdModal from '../Modals/TransitionThresholdModal';
 import StitchThresholdModal from '../Modals/StitchThresholdModal';
+import SearchReturnBehaviorModal from '../Modals/SearchReturnBehaviorModal';
 
 const NavigationTab: React.FC = () => {
   const theme = useTheme();
@@ -35,6 +36,7 @@ const NavigationTab: React.FC = () => {
     continuousScrollBoundary = 'bordered',
     continuousScrollTransitionThreshold = 15,
     continuousScrollStitchThreshold = 90,
+    searchReturnBehavior = 'countdown',
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -67,6 +69,12 @@ const NavigationTab: React.FC = () => {
     value: stitchThresholdModalVisible,
     setTrue: showStitchThresholdModal,
     setFalse: hideStitchThresholdModal,
+  } = useBoolean();
+
+  const {
+    value: searchReturnModalVisible,
+    setTrue: showSearchReturnModal,
+    setFalse: hideSearchReturnModal,
   } = useBoolean();
 
   const styles = React.useMemo(
@@ -236,6 +244,28 @@ const NavigationTab: React.FC = () => {
 
       <View style={styles.section}>
         <List.SubHeader theme={theme}>
+          {getString('readerSettings.searchReturnBehavior.header')}
+        </List.SubHeader>
+        <List.InfoItem
+          title={getString('readerSettings.searchReturnBehavior.info')}
+          theme={theme}
+        />
+        <List.Item
+          title={getString('readerSettings.searchReturnBehavior.title')}
+          description={
+            searchReturnBehavior === 'countdown'
+              ? getString('readerSettings.searchReturnBehavior.countdown')
+              : searchReturnBehavior === 'immediate'
+                ? getString('readerSettings.searchReturnBehavior.immediate')
+                : getString('readerSettings.searchReturnBehavior.stay')
+          }
+          onPress={showSearchReturnModal}
+          theme={theme}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <List.SubHeader theme={theme}>
           {getString('readerScreen.bottomSheet.autoscroll')}
         </List.SubHeader>
         <SettingSwitch
@@ -336,6 +366,16 @@ const NavigationTab: React.FC = () => {
             continuousScrollStitchThreshold: value,
           });
         }}
+      />
+      <SearchReturnBehaviorModal
+        visible={searchReturnModalVisible}
+        onDismiss={hideSearchReturnModal}
+        currentValue={
+          searchReturnBehavior as 'countdown' | 'immediate' | 'stay'
+        }
+        onSelect={value =>
+          setChapterGeneralSettings({ searchReturnBehavior: value })
+        }
       />
     </BottomSheetScrollView>
   );

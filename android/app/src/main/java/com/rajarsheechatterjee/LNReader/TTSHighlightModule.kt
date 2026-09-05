@@ -131,6 +131,36 @@ class TTSHighlightModule(private val reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Native speaking-time clock for background reading-time reconciliation.
+     * Resolves {spokenMs, speaking}: total utterance-active ms this process
+     * lifetime, plus whether audio is currently flowing. The RN layer uses the
+     * delta across app backgrounding to credit listening time that JS timers
+     * (frozen under Doze) could not observe. Rejects when unbound so callers
+     * can fail open to the legacy JS-only accounting.
+     */
+    @ReactMethod
+    fun getTtsPlaybackClock(promise: Promise) {
+        if (isBound && ttsService != null) {
+            try {
+                val clock = Arguments.createMap()
+                clock.putDouble(
+                    "spokenMs",
+                    (ttsService?.getSpokenPlaybackMs() ?: 0L).toDouble(),
+                )
+                clock.putBoolean(
+                    "speaking",
+                    ttsService?.isSpeakingActive() ?: false,
+                )
+                promise.resolve(clock)
+            } catch (e: Exception) {
+                promise.reject("TTS_CLOCK_ERROR", e.message)
+            }
+        } else {
+            promise.reject("TTS_NOT_READY", "TTS Service is not bound")
+        }
+    }
+
     @ReactMethod
     fun stop(promise: Promise) {
         if (isBound && ttsService != null) {

@@ -35,6 +35,7 @@ jest.mock('@strings/translations', () => ({
       'statsScreen.days': 'days',
       'statsScreen.hours': 'hours',
       'statsScreen.mins': 'mins',
+      'statsScreen.secs': 'secs',
       'statsScreen.total': 'total',
       'statsScreen.readingVelocity': 'Reading velocity',
       'statsScreen.chaptersPerHour': 'chapters / hour',
@@ -68,11 +69,27 @@ describe('TimeTab — UI & Navigation Regression', () => {
     expect(screen.getByText('No reading time recorded yet.')).toBeTruthy();
   });
 
+  it('shows seconds so sub-minute sessions visibly register', () => {
+    render(
+      <TimeTab
+        stats={{ chaptersRead: 2, totalReadingTime: 20000 }}
+        topNovels={[]}
+      />,
+    );
+    expect(screen.getByText('20')).toBeTruthy();
+    expect(screen.getByText('secs')).toBeTruthy();
+    expect(screen.getByText('20s total')).toBeTruthy();
+  });
+
   it('calculates reading velocity when time is >= 1 minute', () => {
     // 2 hours = 7200000 ms, 10 chapters
     render(
       <TimeTab
-        stats={{ chaptersRead: 10, totalReadingTime: 7200000 }}
+        stats={{
+          chaptersRead: 1000,
+          readingChapters: 10,
+          totalReadingTime: 7200000,
+        }}
         topNovels={[]}
       />,
     );

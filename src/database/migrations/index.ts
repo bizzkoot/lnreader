@@ -14,6 +14,7 @@ import { migration003 } from './003_add_tts_state';
 import { migration004 } from './004_recreate_novel_triggers';
 import { migration005 } from './005_add_repository_enabled';
 import { migration006 } from './006_add_reading_time_tracking';
+import { migration007 } from './007_add_novel_inLibrary_index';
 
 export const migrations: Migration[] = [
   migration002,
@@ -21,4 +22,5 @@ export const migrations: Migration[] = [
   migration004,
   migration005,
   migration006,
+  migration007,
 ];

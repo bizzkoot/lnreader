@@ -25,14 +25,17 @@ const TimeTab: React.FC<Props> = ({ stats, topNovels }) => {
   const totalMs = stats.totalReadingTime ?? 0;
   const parts = formatTotalTimeParts(totalMs);
 
+  // Use only chapters represented in ReadingSession. chaptersRead is a lifetime
+  // library counter and predates reading-time tracking.
   const velocity = useMemo(() => {
-    const chaptersRead = stats.chaptersRead ?? 0;
+    const chaptersRead = stats.readingChapters ?? 0;
     if (totalMs < 60000 || !chaptersRead) return null;
     const hours = totalMs / 3600000;
-    const cph = hours ? chaptersRead / hours : 0;
-    const minsPerChapter = chaptersRead ? totalMs / 60000 / chaptersRead : 0;
+    const cph = chaptersRead / hours;
+    const minsPerChapter = totalMs / 60000 / chaptersRead;
+    if (!Number.isFinite(cph) || !Number.isFinite(minsPerChapter)) return null;
     return { cph, minsPerChapter };
-  }, [stats.chaptersRead, totalMs]);
+  }, [stats.readingChapters, totalMs]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -77,6 +80,19 @@ const TimeTab: React.FC<Props> = ({ stats, topNovels }) => {
           </AppText>
           <AppText style={{ color: theme.onSurfaceVariant }}>
             {getString('statsScreen.mins')}
+          </AppText>
+        </View>
+        <View
+          style={[
+            styles.timeBox,
+            { backgroundColor: theme.secondaryContainer },
+          ]}
+        >
+          <AppText style={[styles.timeVal, { color: theme.primary }]}>
+            {parts.seconds}
+          </AppText>
+          <AppText style={{ color: theme.onSurfaceVariant }}>
+            {getString('statsScreen.secs')}
           </AppText>
         </View>
       </View>

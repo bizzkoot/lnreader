@@ -611,9 +611,30 @@
     "noNextChapter": "There's no next chapter",
     "noPreviousChapter": "There's no previous chapter",
     "searchPlaceholder": "Search chapter",
-    "searchMinLength": "Enter at least %{count} characters to search"
+    "searchMinLength": "Enter at least %{count} characters to search",
+    "search": {
+      "returnBannerCountdown": "Returning to last read position in %{seconds}s",
+      "returnNow": "Return now",
+      "stayHere": "Stay here",
+      "closeSearch": "Close search",
+      "clearSearch": "Clear search",
+      "previousMatch": "Previous match",
+      "nextMatch": "Next match",
+      "totalMatches": "(%{count} total)"
+    }
   },
   "readerSettings": {
+    "searchReturnBehavior": {
+      "header": "In-chapter search",
+      "info": "Search never changes your saved position while open. On close, choose what happens to the scroll position. Default is a 5s countdown that auto-returns to where you were before searching.",
+      "title": "On close: return to last read",
+      "countdown": "Countdown 5s then return",
+      "immediate": "Return immediately",
+      "stay": "Stay where search left you",
+      "countdownDesc": "Show banner and auto-return after 5s",
+      "immediateDesc": "Jump back without countdown",
+      "stayDesc": "Never auto-return"
+    },
     "autoScrollInterval": "Scroll interval (seconds)",
     "autoScrollOffset": "Scroll offset (screen heights)",
     "backgroundColor": "Background color",
@@ -666,6 +687,7 @@
     "days": "days",
     "hours": "hours",
     "mins": "mins",
+    "secs": "secs",
     "total": "total",
     "other": "Other",
     "tabs": {

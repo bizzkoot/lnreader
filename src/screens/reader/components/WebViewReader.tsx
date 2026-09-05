@@ -95,6 +95,7 @@ type WebViewReaderProps = {
   onPress(): void;
   onSearchResult?(result: import('../types').ReaderSearchResult): void;
   searchQuery?: string;
+  isSearchActive?: boolean;
 };
 
 const { RNDeviceInfo } = NativeModules;
@@ -153,6 +154,7 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
   onPress,
   onSearchResult,
   searchQuery = '',
+  isSearchActive = false,
 }) => {
   const {
     novel,
@@ -176,6 +178,10 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
 
   const webViewNonceRef = useRef<string>(createWebViewNonce());
   const allowMessageRef = useRef(createMessageRateLimiter());
+  const isSearchActiveRef = useRef(isSearchActive);
+  useEffect(() => {
+    isSearchActiveRef.current = isSearchActive;
+  }, [isSearchActive]);
 
   // Chapter transition state for invisible reload
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -427,7 +433,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
   });
 
   // ============================================================================
-  // Reading time tracking (PRD 3.2) — manual reading only, pauses during TTS PLAYING
+  // Reading time tracking (PRD 3.2) — dual-mode: manual pauses during TTS
+  // PLAYING; TTS stretches are reconciled against the native speaking clock
+  // so background listening survives Doze (see useTimeTracking).
   // ============================================================================
   const { readingTimeTrackingEnabled, readingTimeInactivityTimeoutMs } =
     useAppSettings();
@@ -530,6 +538,14 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
 
   // ============================================================================
   // AppState: flush reading progress on background (non-TTS reading)
+  // AUD-PERS-02: Non-TTS reading has no ForegroundService. On Android 11+
+  // the WebView→Bridge→Hermes→SQLite chain can be frozen/killed before
+  // db.runAsync() completes. MMKV is synchronous (C++ JSI) and survives,
+  // so paragraph index is durable even if the DB write is lost; the next
+  // foreground will reconcile via Math.max(mmkv, db). A ForegroundService
+  // would be required to fully guarantee DB delivery — out of scope here.
+  // The flush below is best-effort plus the synchronous MMKV path in
+  // useChapter.saveProgress.
   // ============================================================================
 
   const isTTSReadingRef = useRef(false);
@@ -995,6 +1011,25 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
                 `from=${String(event.chapterId)} current=${chapter.id}`,
               );
               break;
+            }
+
+            // Search UX: do not mutate last-read while the search overlay is open — anchor is restored on close.
+            // Exception: TTS progress (paragraph-indexed) must not be dropped, and a "Stay Here" save
+            // that carries paragraphIndex should also be preserved even if isSearchActive is still true
+            // due to async React state propagation.
+            if (isSearchActiveRef.current) {
+              const isTtsOrParagraphSave =
+                typeof event.paragraphIndex === 'number';
+              if (!isTtsOrParagraphSave) {
+                readerLog.debug('save-ignore-while-searching');
+                break;
+              }
+              // Paragraph-indexed saves are allowed during search; they are
+              // authoritative (TTS or explicit Stay Here). Log but proceed.
+              readerLog.debug(
+                'save-allow-during-search-paragraph',
+                String(event.paragraphIndex),
+              );
             }
 
             const savePercent =

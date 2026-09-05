@@ -38,11 +38,15 @@ const PluginsTab: React.FC<Props> = ({ novels }) => {
       .sort((a, b) => b.count - a.count);
   }, [novels]);
 
-  const entries = grouped.map(g => ({
-    key: g.pluginId,
-    value: g.count,
-    label: g.name,
-  }));
+  const entries = useMemo(
+    () =>
+      grouped.map(g => ({
+        key: g.pluginId,
+        value: g.count,
+        label: g.name,
+      })),
+    [grouped],
+  );
   const palette = useMemo(
     () =>
       getDonutPalette(
@@ -75,8 +79,8 @@ const PluginsTab: React.FC<Props> = ({ novels }) => {
 
       <View style={styles.sections}>
         {grouped.map(group => {
-          const maxChapters = Math.max(
-            ...group.novels.map(n => n.totalChapters),
+          const maxChapters = group.novels.reduce(
+            (m, n) => (n.totalChapters > m ? n.totalChapters : m),
             1,
           );
           return (

@@ -37,6 +37,7 @@ window.readerSearch = new (function () {
   this.query = '';
   this.index = -1;
   this.matches = [];
+  this.matchPositions = [];
   this.total = 0;
   this.isTruncated = false;
   this.searchToken = 0;
@@ -109,6 +110,7 @@ window.readerSearch = new (function () {
     });
 
     this.matches = [];
+    this.matchPositions = [];
     this.index = -1;
     this.total = 0;
     this.isTruncated = false;
@@ -144,17 +146,53 @@ window.readerSearch = new (function () {
   };
 
   this.hasElementBetween = (previousNode, nextNode, selector) => {
-    const range = document.createRange();
-
-    try {
-      range.setStartAfter(previousNode);
-      range.setEndBefore(nextNode);
-      return !!range.cloneContents().querySelector(selector);
-    } catch {
-      return false;
-    } finally {
-      range.detach?.();
+    // Bounded DOM walk without cloneContents to avoid synchronous subtree cloning.
+    const selectors = selector.split(',').map(s => s.trim().toLowerCase());
+    const matchesSelector = el => {
+      const name = (el.nodeName || '').toLowerCase();
+      return selectors.some(sel => sel === name);
+    };
+    let node = previousNode;
+    let steps = 0;
+    const maxSteps = 400;
+    while (node && node !== nextNode && steps < maxSteps) {
+      if (node.nextSibling) {
+        node = node.nextSibling;
+      } else {
+        let p = node.parentNode;
+        while (p && p !== reader.chapterElement && !p.nextSibling) {
+          p = p.parentNode;
+        }
+        node = p ? p.nextSibling : null;
+      }
+      if (!node || node === nextNode) break;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (matchesSelector(node)) return true;
+        // Check immediate children one level without deep clone
+        let child = node.firstChild;
+        let cSteps = 0;
+        while (child && cSteps < 50) {
+          if (child.nodeType === Node.ELEMENT_NODE && matchesSelector(child)) {
+            return true;
+          }
+          child = child.nextSibling;
+          cSteps += 1;
+        }
+      }
+      steps += 1;
+      // If we traversed up beyond common ancestor, compare document position
+      if (
+        node &&
+        nextNode &&
+        node.compareDocumentPosition &&
+        node.compareDocumentPosition(nextNode) &
+          Node.DOCUMENT_POSITION_FOLLOWING &&
+        steps > 50
+      ) {
+        // still before nextNode, continue
+      }
     }
+    return false;
   };
 
   this.getTextSegments = () => {
@@ -259,37 +297,59 @@ window.readerSearch = new (function () {
     };
   };
 
-  this.removeEmptyInlineTextElement = node => {
-    if (
-      !node ||
-      node.nodeType !== Node.ELEMENT_NODE ||
-      !INLINE_TEXT_ELEMENTS.has(node.nodeName) ||
-      node.textContent ||
-      node.querySelector('img, svg, canvas, video, audio, iframe')
-    ) {
-      return;
-    }
-
-    const parent = node.parentNode;
-    parent?.removeChild(node);
-    this.removeEmptyInlineTextElement(parent);
-  };
-
   this.wrapSegmentMatch = (segment, start, length) => {
     const end = start + length;
-    const range = document.createRange();
-    const mark = document.createElement('mark');
-    const startPosition = this.getTextPosition(segment, start);
-    const endPosition = this.getTextPosition(segment, end, true);
+    // Per-text-node wrapping to preserve DOM hierarchy (no cross-tag transplant).
+    // Reverse order keeps offsets stable for earlier matches in same segment.
+    let lastMark = null;
+    for (let i = segment.entries.length - 1; i >= 0; i -= 1) {
+      const entry = segment.entries[i];
+      if (entry.end <= start || entry.start >= end) continue;
+      const overlapStart = Math.max(start, entry.start);
+      const overlapEnd = Math.min(end, entry.end);
+      const localStart = overlapStart - entry.start;
+      const localEnd = overlapEnd - entry.start;
+      const node = entry.node;
+      const textLen = (node.nodeValue || '').length;
+      if (localStart < 0 || localEnd > textLen || localStart >= localEnd) {
+        continue;
+      }
+      // Split to isolate match text: [before][match][after]
+      let matchNode = node;
+      if (localEnd < textLen) {
+        matchNode.splitText(localEnd);
+      }
+      if (localStart > 0) {
+        matchNode = matchNode.splitText(localStart);
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'lnreader-search-match';
+      mark.textContent = matchNode.nodeValue;
+      if (matchNode.parentNode) {
+        matchNode.parentNode.replaceChild(mark, matchNode);
+        lastMark = mark;
+      }
+    }
+    return lastMark;
+  };
 
-    mark.className = 'lnreader-search-match';
-    range.setStart(startPosition.node, startPosition.offset);
-    range.setEnd(endPosition.node, endPosition.offset);
-    mark.appendChild(range.extractContents());
-    range.insertNode(mark);
-    this.removeEmptyInlineTextElement(mark.previousSibling);
-    this.removeEmptyInlineTextElement(mark.nextSibling);
-    range.detach?.();
+  this.wrapSinglePosition = pos => {
+    // Lazily render a single virtual match (beyond MAX_RENDERED_MATCHES)
+    if (pos.mark && reader.chapterElement.contains(pos.mark)) {
+      return pos.mark;
+    }
+    const segment = pos.segment;
+    const start = pos.offset;
+    const length = pos.length;
+    pos.mark = this.wrapSegmentMatch(segment, start, length);
+    // Refresh matches list from DOM and return the newly created mark
+    const all = Array.from(
+      reader.chapterElement.querySelectorAll('mark.lnreader-search-match'),
+    );
+    this.matches = all;
+    // Find mark that corresponds to pos (last created for that segment range)
+    // Return last match if we cannot pinpoint
+    return all[all.length - 1] || null;
   };
 
   this.hasLiveMatches = () => {
@@ -334,18 +394,58 @@ window.readerSearch = new (function () {
   };
 
   this.focus = index => {
-    if (!this.matches.length) {
+    if (!this.total) {
       this.index = -1;
       this.emit();
       return;
     }
-
-    this.matches[this.index]?.classList.remove('lnreader-search-match-active');
-    this.index =
-      ((index % this.matches.length) + this.matches.length) %
-      this.matches.length;
-
-    const match = this.matches[this.index];
+    const totalForNav = this.total || this.matches.length;
+    // Clear previous active
+    if (this.index >= 0 && this.index < this.matches.length) {
+      this.matches[this.index]?.classList.remove(
+        'lnreader-search-match-active',
+      );
+    } else if (this.matchPositions[this.index]) {
+      // Virtual active was a lazily created mark, clear by index fallback
+      this.matches.forEach(m =>
+        m.classList.remove('lnreader-search-match-active'),
+      );
+    }
+    const logical = ((index % totalForNav) + totalForNav) % totalForNav;
+    this.index = logical;
+    // If beyond rendered, lazily render that match
+    if (logical >= this.matches.length && logical < this.total) {
+      const pos = this.matchPositions[logical];
+      if (pos) {
+        this.wrapSinglePosition(pos);
+        // If wrap produced a mark, logical now points to last inserted; find its index
+        // Re-resolve logical to the actual mark position (last element)
+        // But keep logical for emit counting; map highlight to the newly created mark
+        const newIdx = this.matches.length - 1;
+        // Ensure matchPositions length matches matches for future clears
+        // Highlight the newly created mark
+        const match = this.matches[newIdx];
+        if (match) {
+          match.classList.add('lnreader-search-match-active');
+          this.scrollToMatch(match);
+          this.emit();
+          return;
+        }
+        // Fallback: scroll to segment block position
+        try {
+          const startPos = this.getTextPosition(pos.segment, pos.offset);
+          const el = startPos.node.parentElement || pos.segment.block;
+          if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } catch {}
+        this.emit();
+        return;
+      }
+    }
+    const match = this.matches[logical];
+    if (!match) {
+      this.emit();
+      return;
+    }
     match.classList.add('lnreader-search-match-active');
     this.scrollToMatch(match);
     this.emit();
@@ -360,12 +460,12 @@ window.readerSearch = new (function () {
     this.isTruncated = this.matches.length < this.total;
     this.refreshLayout();
 
-    if (!this.matches.length) {
+    if (!this.total) {
       this.emit(query);
       return;
     }
 
-    this.focus(Math.max(0, Math.min(preferredIndex, this.matches.length - 1)));
+    this.focus(Math.max(0, Math.min(preferredIndex, this.total - 1)));
   };
 
   this.search = (query, preferredIndex = 0) => {
@@ -389,6 +489,7 @@ window.readerSearch = new (function () {
     let totalMatchCount = 0;
     let renderedMatchCount = 0;
 
+    const matchPositions = [];
     const processBatch = () => {
       if (searchToken !== this.searchToken || term !== this.query) {
         this.pendingSearchTimer = null;
@@ -403,6 +504,13 @@ window.readerSearch = new (function () {
       while (textSegmentIndex < batchEnd) {
         const segment = textSegments[textSegmentIndex];
         const matches = this.findSegmentMatches(segment, normalizedTerm);
+        matches.forEach(matchIndex => {
+          matchPositions.push({
+            segment,
+            offset: matchIndex,
+            length: normalizedTerm.length,
+          });
+        });
         const renderableMatches = matches.slice(
           0,
           Math.max(0, MAX_RENDERED_MATCHES - renderedMatchCount),
@@ -422,6 +530,7 @@ window.readerSearch = new (function () {
         return;
       }
 
+      this.matchPositions = matchPositions;
       this.finishSearch(term, preferredIndex, totalMatchCount);
     };
 

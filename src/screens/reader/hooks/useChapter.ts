@@ -214,14 +214,28 @@ export default function useChapter(
   const saveProgress = useCallback(
     (percentage: number, paragraphIndex?: number, ttsState?: string) => {
       if (!incognitoMode) {
-        updateChapterProgress(chapter.id, percentage > 100 ? 100 : percentage);
-
+        // AUD-PERS-02/03: MMKV is synchronous (JSI) and survives process
+        // freeze; keep it first. DB writes are async via Hermes→SQLite and
+        // can be lost if Android freezes the process mid-backgrounding. The
+        // AppState WebView flush in WebViewReader + this direct DB write
+        // provide a best-effort dual path; a ForegroundService would be
+        // required to fully guarantee delivery, which is out of scope here.
         if (paragraphIndex !== undefined) {
-          MMKVStorage.set(`chapter_progress_${chapter.id}`, paragraphIndex);
+          try {
+            MMKVStorage.set(`chapter_progress_${chapter.id}`, paragraphIndex);
+          } catch {
+            // ignore MMKV write failure
+          }
         }
 
+        // Persist progress to DB (via useNovel wrapper which now has .catch).
+        // Wrapper is void-returning; underlying _updateChapterProgress has
+        // rejection handling there. Keep MMKV first as the synchronous fall-back
+        // that survives process freeze (AUD-PERS-02).
+        updateChapterProgress(chapter.id, percentage > 100 ? 100 : percentage);
+
         if (ttsState) {
-          updateChapterTTSState(chapter.id, ttsState);
+          updateChapterTTSState(chapter.id, ttsState).catch(() => {});
         }
 
         if (percentage >= 97) {

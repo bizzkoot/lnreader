@@ -142,6 +142,20 @@
   transform: translate(-0.95rem, -1rem);
 }
 
+/* RTL: thumb must anchor from inline-end so progress-right expansion stays on track */
+html[dir='rtl'] #ToolWrapper.horizontal > #ScrollBar #scrollbar-thumb-wrapper,
+body[dir='rtl'] #ToolWrapper.horizontal > #ScrollBar #scrollbar-thumb-wrapper {
+  left: auto;
+  right: 100%;
+  transform: translate(0.95rem, -1rem);
+}
+
+/* RTL: progress fills from the right edge (page 1 at right) */
+html[dir='rtl'] #ToolWrapper.horizontal > #ScrollBar #scrollbar-progress,
+body[dir='rtl'] #ToolWrapper.horizontal > #ScrollBar #scrollbar-progress {
+  margin-left: auto;
+}
+
 #ToolWrapper.horizontal > #ScrollBar #scrollbar-thumb {
   top: 100%;
   height: 1rem;

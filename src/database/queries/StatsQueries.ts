@@ -207,6 +207,7 @@ export const getReadingTimeGroupedByChapter = async (): Promise<
 
 export interface AggregateStats extends LibraryStats {
   totalReadingTime?: number;
+  readingChapters?: number;
 }
 
 interface AggregateRow {
@@ -216,6 +217,7 @@ interface AggregateRow {
   chaptersUnread: number;
   chaptersDownloaded: number;
   totalReadingTime: number | null;
+  readingChapters: number;
 }
 
 const getAggregateStatsQuery = `
@@ -225,7 +227,8 @@ const getAggregateStatsQuery = `
     COALESCE(SUM(totalChapters), 0) as chaptersCount,
     COALESCE(SUM(chaptersUnread), 0) as chaptersUnread,
     COALESCE(SUM(chaptersDownloaded), 0) as chaptersDownloaded,
-    COALESCE((SELECT SUM(duration) FROM ReadingSession JOIN Novel n2 ON ReadingSession.novelId = n2.id WHERE n2.inLibrary = 1), 0) as totalReadingTime
+    COALESCE((SELECT SUM(duration) FROM ReadingSession JOIN Novel n2 ON ReadingSession.novelId = n2.id WHERE n2.inLibrary = 1), 0) as totalReadingTime,
+    COALESCE((SELECT COUNT(DISTINCT ReadingSession.chapterId) FROM ReadingSession JOIN Novel n2 ON ReadingSession.novelId = n2.id WHERE n2.inLibrary = 1), 0) as readingChapters
   FROM Novel
   WHERE inLibrary = 1
 `;
@@ -243,6 +246,7 @@ export const getAggregateStatsFromDb = async (): Promise<AggregateStats> => {
     chaptersDownloaded: row.chaptersDownloaded ?? 0,
     chaptersRead: Math.max(0, chaptersCount - chaptersUnread),
     totalReadingTime: row.totalReadingTime ?? 0,
+    readingChapters: row.readingChapters ?? 0,
   };
 };
 

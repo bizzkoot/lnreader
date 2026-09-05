@@ -14,6 +14,7 @@ import {
 import Color from 'color';
 
 import { useTheme } from '@hooks/persisted';
+import { setSliderDragging } from './sliderDragState';
 
 const TOUCH_TARGET_HEIGHT = 48;
 const MAX_RENDERED_STOPS = 100;
@@ -102,6 +103,8 @@ export interface SliderProps extends Omit<
   onValueChange?: (value: number) => void;
   onSlidingComplete?: (value: number) => void;
   style?: StyleProp<ViewStyle>;
+  /** Called when drag starts/ends so parents can disable competing gestures (AUD-GEST-02). */
+  onDragStateChange?: (dragging: boolean) => void;
 }
 
 const Slider: React.FC<SliderProps> = ({
@@ -119,6 +122,7 @@ const Slider: React.FC<SliderProps> = ({
   handleColor,
   onValueChange,
   onSlidingComplete,
+  onDragStateChange,
   style,
   testID = 'slider',
   ...viewProps
@@ -128,15 +132,23 @@ const Slider: React.FC<SliderProps> = ({
   const [isActive, setIsActive] = useState(false);
   const [dragValue, setDragValue] = useState<number | null>(null);
   const startXRef = React.useRef(0);
+  const touchStartXRef = React.useRef(0);
+  const panGestureRef = React.useRef(false);
 
   const disabledRef = React.useRef(disabled);
   disabledRef.current = disabled;
+  const isActiveRef = React.useRef(false);
 
   const onSlidingCompleteRef = React.useRef(onSlidingComplete);
   onSlidingCompleteRef.current = onSlidingComplete;
 
   const onValueChangeRef = React.useRef(onValueChange);
   onValueChangeRef.current = onValueChange;
+  const onDragStateChangeRef = React.useRef(onDragStateChange);
+  onDragStateChangeRef.current = onDragStateChange;
+  const dragFallbackTimerRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const sizeTokens = SIZE_TOKENS[size];
   const containerHeight = Math.max(
@@ -155,7 +167,13 @@ const Slider: React.FC<SliderProps> = ({
   const [lastControlledValue, setLastControlledValue] = useState(boundedValue);
   if (boundedValue !== lastControlledValue) {
     setLastControlledValue(boundedValue);
-    if (!isActive) setDragValue(null);
+    if (!isActive) {
+      setDragValue(null);
+      if (dragFallbackTimerRef.current) {
+        clearTimeout(dragFallbackTimerRef.current);
+        dragFallbackTimerRef.current = null;
+      }
+    }
   }
   const displayedValue =
     dragValue === null ? boundedValue : clamp(dragValue, min, safeMax);
@@ -231,8 +249,23 @@ const Slider: React.FC<SliderProps> = ({
     (locationX: number) => {
       const completedValue = updateFromPosition(locationX);
       setIsActive(false);
+      isActiveRef.current = false;
+      setSliderDragging(false);
+      onDragStateChangeRef.current?.(false);
       if (completedValue === boundedValueRef.current) {
         setDragValue(null);
+      } else {
+        // AUD-GEST-03: keep drag value until controlled catches up, but
+        // schedule a fallback clear so a parent that rejects/clamps to the
+        // same value does not permanently freeze the thumb.
+        if (dragFallbackTimerRef.current) {
+          clearTimeout(dragFallbackTimerRef.current);
+        }
+        dragFallbackTimerRef.current = setTimeout(() => {
+          setDragValue(current =>
+            current === completedValue ? null : current,
+          );
+        }, 400);
       }
       onSlidingCompleteRef.current?.(completedValue);
     },
@@ -248,7 +281,10 @@ const Slider: React.FC<SliderProps> = ({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabledRef.current,
+        // AUD-GEST-01: defer claim to move so vertical scroll inside slider
+        // bounds is not blocked on ACTION_DOWN. Horizontal dominance is
+        // decided in onMoveShouldSetPanResponder via shouldClaimPanResponder.
+        onStartShouldSetPanResponder: () => false,
         onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: (_evt, gestureState) =>
           shouldClaimPanResponder(
@@ -257,10 +293,17 @@ const Slider: React.FC<SliderProps> = ({
             disabledRef.current,
           ),
         onMoveShouldSetPanResponderCapture: () => false,
-        onPanResponderTerminationRequest: () => false,
+        // AUD-GEST-01: allow parent to steal the gesture when the slider
+        // is not actively dragging horizontally; deny only while mid-drag
+        // so vertical scroll isn't permanently locked out.
+        onPanResponderTerminationRequest: () => !isActiveRef.current,
         onPanResponderGrant: event => {
           if (disabledRef.current) return;
+          panGestureRef.current = true;
           setIsActive(true);
+          isActiveRef.current = true;
+          setSliderDragging(true);
+          onDragStateChangeRef.current?.(true);
           const locX = event.nativeEvent?.locationX ?? 0;
           startXRef.current = locX;
           updateFromPositionRef.current(locX);
@@ -283,12 +326,18 @@ const Slider: React.FC<SliderProps> = ({
         },
         onPanResponderTerminate: () => {
           if (disabledRef.current) return;
+          panGestureRef.current = false;
           setIsActive(false);
-          const currentVal = displayedValueRef.current;
-          if (currentVal === boundedValueRef.current) {
-            setDragValue(null);
+          isActiveRef.current = false;
+          setSliderDragging(false);
+          onDragStateChangeRef.current?.(false);
+          if (dragFallbackTimerRef.current) {
+            clearTimeout(dragFallbackTimerRef.current);
+            dragFallbackTimerRef.current = null;
           }
-          onSlidingCompleteRef.current?.(currentVal);
+          // AUD-GEST-02: native ViewPager stole the gesture; do not commit
+          // a half-dragged value. Revert to the controlled value.
+          setDragValue(null);
         },
       }),
     [],
@@ -298,6 +347,19 @@ const Slider: React.FC<SliderProps> = ({
     const nextWidth = event.nativeEvent.layout.width;
     widthRef.current = nextWidth;
     setWidth(nextWidth);
+  }, []);
+
+  // Ensure global drag flag is cleared if the slider unmounts mid-drag (e.g. tab switch).
+  React.useEffect(() => {
+    return () => {
+      if (isActiveRef.current) {
+        setSliderDragging(false);
+      }
+      if (dragFallbackTimerRef.current) {
+        clearTimeout(dragFallbackTimerRef.current);
+        dragFallbackTimerRef.current = null;
+      }
+    };
   }, []);
 
   const changeBy = useCallback(
@@ -330,6 +392,25 @@ const Slider: React.FC<SliderProps> = ({
     <View
       {...viewProps}
       {...panResponder.panHandlers}
+      onTouchStart={event => {
+        panGestureRef.current = false;
+        touchStartXRef.current = event.nativeEvent.locationX;
+        viewProps.onTouchStart?.(event);
+      }}
+      onTouchEnd={event => {
+        if (
+          !disabledRef.current &&
+          !panGestureRef.current &&
+          Math.abs(event.nativeEvent.locationX - touchStartXRef.current) <
+            HORIZONTAL_CLAIM_THRESHOLD
+        ) {
+          const nextValue = updateFromPositionRef.current(
+            event.nativeEvent.locationX,
+          );
+          onSlidingCompleteRef.current?.(nextValue);
+        }
+        viewProps.onTouchEnd?.(event);
+      }}
       testID={testID}
       accessible
       accessibilityRole="adjustable"

@@ -242,7 +242,7 @@ describe('core.js flushPendingProgressSave guards', () => {
       saveProgress: jest.fn(),
       flushPendingProgressSave(this: any) {
         if ((global as any).window?.tts?.reading) return;
-        if (!this.hasPerformedInitialScroll && this.suppressSaveOnScroll) {
+        if (!this.hasPerformedInitialScroll || this.suppressSaveOnScroll) {
           return;
         }
         if (this.scrollDebounceTimer) {
@@ -280,12 +280,15 @@ describe('core.js flushPendingProgressSave guards', () => {
     expect(r.saveProgress).not.toHaveBeenCalled();
   });
 
-  it('skips stale 0% during initial suppressSaveOnScroll', () => {
-    const r: any = makeReader({
-      hasPerformedInitialScroll: false,
-      suppressSaveOnScroll: true,
-    });
-    r.flushPendingProgressSave();
-    expect(r.saveProgress).not.toHaveBeenCalled();
-  });
+  it.each([
+    { hasPerformedInitialScroll: false, suppressSaveOnScroll: true },
+    { hasPerformedInitialScroll: false, suppressSaveOnScroll: false },
+  ])(
+    'skips stale 0% before initial scroll ($hasPerformedInitialScroll/$suppressSaveOnScroll)',
+    overrides => {
+      const r: any = makeReader(overrides);
+      r.flushPendingProgressSave();
+      expect(r.saveProgress).not.toHaveBeenCalled();
+    },
+  );
 });

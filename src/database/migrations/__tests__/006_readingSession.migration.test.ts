@@ -66,7 +66,7 @@ const insertChapter = (adapter: ExpoLikeDb, id: number, novelId: number) => {
 };
 
 describe('Migration 006 — ReadingSession', () => {
-  it('fresh install (v2) → runner creates ReadingSession with FK + indexes → version 6', () => {
+  it('fresh install (v2) → runner creates ReadingSession with FK + indexes → version 7', () => {
     const { adapter } = createExpoLikeDb();
     seedCurrentSchema(adapter);
     adapter.execSync('PRAGMA user_version = 2');
@@ -74,7 +74,7 @@ describe('Migration 006 — ReadingSession', () => {
     runRunner(adapter);
 
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
 
     const tables = adapter.getAllSync<{ name: string }>(
@@ -149,7 +149,7 @@ describe('Migration 006 — ReadingSession', () => {
     expect(() => runRunner(adapter)).not.toThrow();
 
     expect(adapter.getFirstSync('PRAGMA user_version')).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
     expect(adapter.getAllSync('SELECT * FROM ReadingSession')).toHaveLength(1);
   });

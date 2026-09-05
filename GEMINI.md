@@ -27,11 +27,13 @@ pnpm run test:tts-wake-cycle
 ```
 
 ## Current Task
-Upstream Feature Integration Roadmap (2026-08-19) - ✅ COMPLETED
-- **Phase 1**: In-Chapter Search (#1877) + RTL Language Support (#1717)
-- **Phase 2**: Reading Time Tracking & Inactivity Detection (#1899) + Stats Overhaul & Donut Charts (#1919)
-- **Phase 3**: Scheduled Background Library Updates
-- **Tests**: 1628 passing across 109 test suites (zero regressions)
+Upstream Feature Integration Roadmap & Post-Merge Hardening (2026-09-05) - ✅ COMPLETED
+- **Phase 1**: In-Chapter Search (#1877) + RTL Language Support (#1717) + Return Anchor Banner & Virtualization
+- **Phase 2**: Reading Time Tracking & Inactivity Detection (#1899) + Stats Overhaul, Migration 007 & Doze Drift Capping (#1919)
+- **Phase 3**: Scheduled Background Updates + Gesture Arbitration & Android Metro CJS Packaging
+- **Branch Health**: All 14 ahead commits clean, well-tested, free of leftover debug logs/code, and compile without errors. Branch is in a stable, merge-ready state.
+- **Translation Key Sync**: English strings (`strings/languages/en/strings.json`) updated with keys for seconds formatting, search return behavior, and RTL restart notes; secondary locales queued for downstream sync.
+- **Tests**: 1684 passing across 118 test suites (zero regressions, +56 new tests)
 - **Docs**: PRD.md in root
 
 ## TTS Architecture (3-Layer Hybrid)
@@ -67,6 +69,14 @@ Upstream Feature Integration Roadmap (2026-08-19) - ✅ COMPLETED
 7. `src/plugins/pluginManager.ts` - Dynamic plugin loading
 
 ## Recent Fixes
+
+### Upstream Integration Hardening & Post-Merge Polish (2026-09-05) - ✅ COMPLETED
+- **Search UX & Virtualization**: Bounded DOM walk, 200-match virtualization, return anchor banner with hardware back dismissal (`74404ed43`, `fbf73b4e3`, `dd53eeb3e`, `a11e42bf1`).
+- **RTL Support & Gestures**: Navigation icon mirroring (`I18nManager.isRTL`), CSS layout flipping, inverted pageReader swipes & seekbars (`111fa901a`, `a8895e63c`, `cf76883ae`).
+- **Reading Time & Analytics**: Heartbeat-based background tracking (700ms polling, 2s grace) for lockscreen/headset TTS; Doze drift capping; 60s checkpoints; Migration 007 (`idx_novel_inLibrary`); seconds resolution and auto-refresh on focus (`09a966a35`, `cf76883ae`, `317e6e1ce`, `b30abcc12`).
+- **Gesture Arbitration & Persistence**: `sliderDragState` event bus preventing TabView swipe conflict; 400ms fallback drag release; `flushPendingProgressSave` 0% overwrite guard (`d16880e17`, `05c5e24f4`, `31e0f1d54`).
+- **Build Packaging**: Configured Metro bundle config for CommonJS in Gradle (`9e737c9f4`).
+- **Tests**: 1684 passing across 118 test suites (+56 tests, zero regressions).
 
 ### MainActivity Startup Crash (2025-12-27)
 - **Cause**: `window.insetsController` accessed before `super.onCreate()` → NPE when DecorView null

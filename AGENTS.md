@@ -44,17 +44,21 @@ All commits MUST use a Conventional Commits message. Follow these structural rul
 
 ## Current Task
 
-Upstream Feature Integration Roadmap (2026-08-19) - ✅ COMPLETED
+Upstream Feature Integration Roadmap & Post-Merge Hardening (2026-09-05) - ✅ COMPLETED
 
 - **Phase 1: In-Chapter Search & RTL Support** - ✅ COMPLETED
-  - **In-Chapter Search (#1877)**: Non-destructive WebView search engine (`window.readerSearch`), match counters, steppers, MD3 scaled `ReaderSearchbar.tsx`, hardware back dismissal (`932638119`)
-  - **RTL Language Support (#1717)**: Native and WebView layout direction for RTL locales (ar, he, fa, ur), reader CSS alignment (`6ddfe3d2e`)
+  - **In-Chapter Search (#1877)**: Non-destructive WebView search engine (`window.readerSearch`), match counters, steppers, MD3 scaled `ReaderSearchbar.tsx`, hardware back dismissal (`932638119`), bounded tree walk DOM preservation & virtualization (`a11e42bf1`), animated return anchor banner (`74404ed43`, `fbf73b4e3`, `dd53eeb3e`)
+  - **RTL Language Support (#1717)**: Native and WebView layout direction for RTL locales (ar, he, fa, ur), reader CSS alignment (`6ddfe3d2e`), RTL paging/gestures and navigation mirroring (`111fa901a`, `a8895e63c`)
 - **Phase 2: Analytics & Statistics** - ✅ COMPLETED
-  - **Reading Time Tracking (#1899)**: Migration 006 `ReadingSession` table with cascading deletes, `useTimeTracking.ts` foreground activity listener with inactivity pause & TTS synergy (`cde0aa1ff`)
-  - **Statistics Overhaul & Charts (#1919)**: Raw-SQL aggregate queries in `StatsQueries.ts`, Overview/Time/Plugins tabs, `react-native-svg` donut distribution charts, genre taxonomy exploration (`caa1645cd`)
-- **Phase 3: Background Updates** - ✅ COMPLETED
-  - **Scheduled Library Updates**: Persisted interval settings, `ServiceManager` opportunistic foreground checks and task deduplication (`8fecb06a9`)
-- **Tests**: 1628 passing across 109 test suites (zero regressions)
+  - **Reading Time Tracking (#1899)**: Migration 006 `ReadingSession` table with cascading deletes, `useTimeTracking.ts` foreground activity listener with inactivity pause & TTS synergy (`cde0aa1ff`), periodic checkpoints and Doze drift capping (`09a966a35`, `b30abcc12`)
+  - **Statistics Overhaul & Charts (#1919)**: Raw-SQL aggregate queries in `StatsQueries.ts`, Migration 007 (`idx_novel_inLibrary`), Overview/Time/Plugins tabs, `react-native-svg` donut distribution charts, reading velocity using active chapters, sub-minute seconds resolution (`caa1645cd`, `cf76883ae`, `317e6e1ce`)
+- **Phase 3: Background Updates & Gesture Hardening** - ✅ COMPLETED
+  - **Scheduled Library Updates**: Persisted interval settings, `ServiceManager` opportunistic foreground checks and task deduplication (`8fecb06a9`), category-only update time isolation (`a8895e63c`)
+  - **Gesture Arbitration**: Slider responder deferral and `sliderDragState` event bus to eliminate TabView swipe conflicts (`d16880e17`, `31e0f1d54`)
+  - **Packaging**: CommonJS Metro bundle configuration in Gradle (`9e737c9f4`)
+- **Branch Health**: All 14 ahead commits clean, well-tested, free of leftover debug logs/code, and compile without errors. Branch is in a stable, merge-ready state.
+- **Translation Key Sync**: English strings (`strings/languages/en/strings.json`) received new keys for seconds formatting, search return behavior, and RTL restart notes; secondary locales queued for downstream translation string synchronization in a subsequent localization pass.
+- **Tests**: 1684 passing across 118 test suites (zero regressions, +56 new tests)
 - **Docs**: PRD at PRD.md
 
 ### Previous Completed Tasks
@@ -139,6 +143,24 @@ Upstream Feature Integration Roadmap (2026-08-19) - ✅ COMPLETED
 7. `src/plugins/pluginManager.ts` - Dynamic plugin loading
 
 ## Recent Fixes
+
+### Background TTS Reading Time Reconciliation (2026-09-05) - ✅ COMPLETED
+
+- **Bug**: Background TTS listening recorded ~zero time in Statistics → Time.
+  - **Root Cause**: `useTimeTracking` checkpoints/flushes run on the JS thread, which freezes under Android Doze while `TTSForegroundService` keeps speaking. When TTS stopped mid-background (notification stop, queue drain, audio-focus loss), the first poll after revive capped the flush to `lastHeartbeat + 700ms` (`tts-inactive-poll` Doze guard) — wiping hours of listening.
+  - **Fix**: Native monotonic speaking clock in `TTSForegroundService` (segment opens on utterance `onStart`, closes on queue drain/stop/pause; `speak`/`speakBatch` flush boundaries close stale segments), exposed via `TTSHighlightModule.getTtsPlaybackClock()` as `{spokenMs, speaking}`. Hook snapshots the clock on app-background entry and inserts the delta-minus-JS-recorded top-up on foreground/unmount (wall-clock capped, 12h sanitized, `<1s` dropped). Background flushes are native-capped to the same attestation; session restart after foreground requires native `speaking` (no phantom sessions); repeat background events settle instead of resetting.
+  - **Fail-open**: Null/unbound clock or service restart disables caps and top-ups — behavior identical to before.
+  - **Files**: `TTSForegroundService.kt` (+clock), `TTSHighlightModule.kt` (+bridge), `useTimeTracking.ts` (+reconcile protocol), `WebViewReader.tsx` (comment)
+  - **Tests**: 1688 passing across 119 suites (+4 reconcile tests: no double-count, frozen-JS recovery, no phantom session, fail-open); native `TTSSpeakingClockTest` 4/4 via Robolectric
+
+### Upstream Integration Hardening & Post-Merge Polish (2026-09-05) - ✅ COMPLETED
+
+- **In-Chapter Search UX & Virtualization**: Bounded DOM tree walk replacing `cloneContents`, 200-match virtualization window, wrap-around stepper, and animated return-to-position banner with hardware back button dismissal (`74404ed43`, `fbf73b4e3`, `dd53eeb3e`, `a11e42bf1`).
+- **RTL Support & Inverted Controls**: Native navigation icon mirroring (`I18nManager.isRTL`), CSS layout flipping, tap zone and swipe direction inversion, seekbar direction flip (`111fa901a`, `a8895e63c`, `cf76883ae`).
+- **Reading Time & Analytics Hardening**: Heartbeat-based background tracking (700ms polling, 2s grace) preserving background TTS playback duration; Doze sleep drift capping; 60s periodic checkpoints; Migration 007 (`idx_novel_inLibrary`); seconds resolution and auto-refresh on screen focus (`09a966a35`, `cf76883ae`, `317e6e1ce`, `b30abcc12`).
+- **Gesture Arbitration & Persistence Protection**: `sliderDragState` event bus preventing bottom sheet TabView horizontal swipe conflict; 400ms fallback drag release; `flushPendingProgressSave` guard preventing 0% overwrite on chapter load (`d16880e17`, `05c5e24f4`, `31e0f1d54`).
+- **Build Packaging**: Configured CommonJS Metro bundle resolution in Gradle for release packaging (`9e737c9f4`).
+- **Tests**: 1684 passing across 118 test suites (+56 tests, zero regressions).
 
 ### TTS Text Cleanup Pipeline (2026-08-02) - ✅ COMPLETED
 

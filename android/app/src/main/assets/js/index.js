@@ -93,13 +93,19 @@ const Scrollbar = () => {
                 const sliderOffsetY = horizontal.val
                   ? slider.getBoundingClientRect().left
                   : slider.getBoundingClientRect().top;
-                const ratio =
+                let ratio =
                   ((horizontal.val
                     ? e.changedTouches[0].clientX
                     : e.changedTouches[0].clientY) -
                     sliderOffsetY) /
                   sliderHeight;
-                update(ratio < 0 ? 0 : ratio);
+                const isRTL =
+                  document.documentElement.dir === 'rtl' ||
+                  document.body.dir === 'rtl';
+                if (horizontal.val && isRTL) {
+                  ratio = 1 - ratio;
+                }
+                update(ratio < 0 ? 0 : ratio > 1 ? 1 : ratio);
               },
             },
             div({ id: 'scrollbar-thumb' }),
