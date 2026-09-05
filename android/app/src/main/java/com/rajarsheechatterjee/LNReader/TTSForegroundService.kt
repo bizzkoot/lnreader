@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import android.content.ComponentName
 import androidx.annotation.VisibleForTesting
 import android.speech.tts.TextToSpeech
@@ -61,6 +62,16 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     // Queue management for batch feeding
     private var currentBatchIndex = 0
     private val queuedUtteranceIds = mutableListOf<String>()
+
+    // Monotonic speaking-time clock for background reading-time reconciliation.
+    // JS timers (60s checkpoint, 700ms heartbeat) freeze under Android Doze while
+    // this service keeps speaking, so the RN layer tops up ReadingSession rows from
+    // this clock on foreground/stop instead of trusting the stale JS heartbeat.
+    // Only actual utterance-active time counts: a segment opens on onStart and
+    // closes when the queue drains or playback is stopped/paused.
+    private val spokenClockLock = Any()
+    private var spokenAccumulatedMs: Long = 0L
+    private var speakingSegmentStartMs: Long? = null
 
     // Batch support detection - some TTS engines (non-Google) don't properly support QUEUE_ADD
     private var batchCapable: Boolean = true
@@ -315,6 +326,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                     // CRITICAL: Ensure wake lock is still held during playback
                     // This prevents Android from releasing it during extended background sessions
                     ensureWakeLockHeld()
+                    openSpeakingSegment()
                     ttsListener?.onSpeechStart(utteranceId)
                 }
 
@@ -326,6 +338,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                         queuedUtteranceIds.remove(utteranceId)
                         // Notify when queue becomes empty (chapter finished)
                         if (queuedUtteranceIds.isEmpty()) {
+                            closeSpeakingSegment()
                             ttsListener?.onQueueEmpty()
                         }
                     }
@@ -335,6 +348,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
                     ttsListener?.onSpeechError(utteranceId)
                     synchronized(queuedUtteranceIds) {
                         queuedUtteranceIds.remove(utteranceId)
+                        if (queuedUtteranceIds.isEmpty()) {
+                            closeSpeakingSegment()
+                        }
                     }
                 }
 
@@ -464,6 +480,9 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
 
     fun speak(text: String, utteranceId: String, rate: Float, pitch: Float, voiceId: String?): Boolean {
         if (!isTtsInitialized) return false
+        // QUEUE_FLUSH boundary: previous speech is interrupted without utterance
+        // callbacks, so close any stale segment (onStart reopens on real audio).
+        closeSpeakingSegment()
 
         tts?.let { ttsInstance ->
             ttsInstance.setSpeechRate(rate)
@@ -499,6 +518,8 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
     ): Boolean {
         if (!isTtsInitialized) return false
         if (texts.isEmpty()) return false
+        // QUEUE_FLUSH boundary: same as speak() — close stale segment first.
+        closeSpeakingSegment()
 
         tts?.let { ttsInstance ->
             ttsInstance.setSpeechRate(rate)
@@ -625,7 +646,50 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
+    /** Opens a speaking segment (idempotent). Called on utterance start. */
+    private fun openSpeakingSegment() {
+        synchronized(spokenClockLock) {
+            if (speakingSegmentStartMs == null) {
+                speakingSegmentStartMs = SystemClock.elapsedRealtime()
+            }
+        }
+    }
+
+    /** Closes the speaking segment, folding it into the accumulator (idempotent). */
+    private fun closeSpeakingSegment() {
+        synchronized(spokenClockLock) {
+            val start = speakingSegmentStartMs
+            if (start != null) {
+                spokenAccumulatedMs += SystemClock.elapsedRealtime() - start
+                speakingSegmentStartMs = null
+            }
+        }
+    }
+
+    /**
+     * Total utterance-active time in ms (accumulated + open segment).
+     * Monotonic within a process lifetime; resets on service restart.
+     * Read by the RN layer to reconcile background reading time.
+     */
+    fun getSpokenPlaybackMs(): Long {
+        synchronized(spokenClockLock) {
+            val start = speakingSegmentStartMs
+            return spokenAccumulatedMs + (start?.let { SystemClock.elapsedRealtime() - it } ?: 0L)
+        }
+    }
+
+    /** True while audio is flowing (or a batch is queued behind an open segment). */
+    fun isSpeakingActive(): Boolean {
+        synchronized(spokenClockLock) {
+            if (speakingSegmentStartMs != null) return true
+        }
+        synchronized(queuedUtteranceIds) {
+            return queuedUtteranceIds.isNotEmpty()
+        }
+    }
+
     fun stopTTS() {
+        closeSpeakingSegment()
         tts?.stop()
         synchronized(queuedUtteranceIds) {
             queuedUtteranceIds.clear()
@@ -639,6 +703,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
 
     fun stopAudioKeepService() {
         android.util.Log.d("TTS_DEBUG", "TTSForegroundService.stopAudioKeepService called. tts=$tts")
+        closeSpeakingSegment()
         val stopResult = tts?.stop() ?: -999
         android.util.Log.d("TTS_DEBUG", "tts.stop() result=$stopResult (0=SUCCESS, -1=ERROR, -999=NULL)")
         synchronized(queuedUtteranceIds) {
@@ -671,6 +736,7 @@ class TTSForegroundService : Service(), TextToSpeech.OnInitListener {
      */
     fun pauseTTSKeepService() {
         android.util.Log.d("TTS_DEBUG", "TTSForegroundService.pauseTTSKeepService called")
+        closeSpeakingSegment()
         
         // Stop TTS audio playback
         tts?.stop()

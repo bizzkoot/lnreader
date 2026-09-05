@@ -433,7 +433,9 @@ const WebViewReaderRefactored: React.FC<WebViewReaderProps> = ({
   });
 
   // ============================================================================
-  // Reading time tracking (PRD 3.2) — manual reading only, pauses during TTS PLAYING
+  // Reading time tracking (PRD 3.2) — dual-mode: manual pauses during TTS
+  // PLAYING; TTS stretches are reconciled against the native speaking clock
+  // so background listening survives Doze (see useTimeTracking).
   // ============================================================================
   const { readingTimeTrackingEnabled, readingTimeInactivityTimeoutMs } =
     useAppSettings();

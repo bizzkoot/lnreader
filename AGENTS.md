@@ -144,6 +144,15 @@ Upstream Feature Integration Roadmap & Post-Merge Hardening (2026-09-05) - ✅ C
 
 ## Recent Fixes
 
+### Background TTS Reading Time Reconciliation (2026-09-05) - ✅ COMPLETED
+
+- **Bug**: Background TTS listening recorded ~zero time in Statistics → Time.
+  - **Root Cause**: `useTimeTracking` checkpoints/flushes run on the JS thread, which freezes under Android Doze while `TTSForegroundService` keeps speaking. When TTS stopped mid-background (notification stop, queue drain, audio-focus loss), the first poll after revive capped the flush to `lastHeartbeat + 700ms` (`tts-inactive-poll` Doze guard) — wiping hours of listening.
+  - **Fix**: Native monotonic speaking clock in `TTSForegroundService` (segment opens on utterance `onStart`, closes on queue drain/stop/pause; `speak`/`speakBatch` flush boundaries close stale segments), exposed via `TTSHighlightModule.getTtsPlaybackClock()` as `{spokenMs, speaking}`. Hook snapshots the clock on app-background entry and inserts the delta-minus-JS-recorded top-up on foreground/unmount (wall-clock capped, 12h sanitized, `<1s` dropped). Background flushes are native-capped to the same attestation; session restart after foreground requires native `speaking` (no phantom sessions); repeat background events settle instead of resetting.
+  - **Fail-open**: Null/unbound clock or service restart disables caps and top-ups — behavior identical to before.
+  - **Files**: `TTSForegroundService.kt` (+clock), `TTSHighlightModule.kt` (+bridge), `useTimeTracking.ts` (+reconcile protocol), `WebViewReader.tsx` (comment)
+  - **Tests**: 1688 passing across 119 suites (+4 reconcile tests: no double-count, frozen-JS recovery, no phantom session, fail-open); native `TTSSpeakingClockTest` 4/4 via Robolectric
+
 ### Upstream Integration Hardening & Post-Merge Polish (2026-09-05) - ✅ COMPLETED
 
 - **In-Chapter Search UX & Virtualization**: Bounded DOM tree walk replacing `cloneContents`, 200-match virtualization window, wrap-around stepper, and animated return-to-position banner with hardware back button dismissal (`74404ed43`, `fbf73b4e3`, `dd53eeb3e`, `a11e42bf1`).
